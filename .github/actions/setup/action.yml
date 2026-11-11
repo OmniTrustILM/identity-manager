@@ -27,4 +27,4 @@ runs:
     - name: Install app dependencies
       shell: bash
       working-directory: app
-      run: npm ci
+      run: npm ci --ignore-scripts
