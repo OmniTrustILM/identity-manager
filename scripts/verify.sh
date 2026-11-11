@@ -24,7 +24,7 @@ lint() {
 
 check_generated_types() {
     local dir=app/src/bridge/generated
-    if ! git diff --quiet -- "$dir" || [ -n "$(git ls-files --others --exclude-standard -- "$dir")" ]; then
+    if ! git diff --quiet -- "$dir" || [[ -n "$(git ls-files --others --exclude-standard -- "$dir")" ]]; then
         echo "$dir differs from the Rust types; regenerate with cargo test and commit the result" >&2
         exit 1
     fi
@@ -38,7 +38,7 @@ run_tests() {
 }
 
 with_display() {
-    if [ "$(uname -s)" = Linux ]; then
+    if [[ "$(uname -s)" == Linux ]]; then
         xvfb-run -a dbus-run-session -- "$@"
     else
         "$@"
@@ -92,7 +92,7 @@ self_check() {
             ;;
         *) echo "no self-check for $(uname -s)" >&2; exit 1 ;;
     esac
-    [ -n "$binary" ] || { echo "no app binary found in the bundle" >&2; exit 1; }
+    [[ -n "$binary" ]] || { echo "no app binary found in the bundle" >&2; exit 1; }
     with_display "$binary" --self-check
 }
 
