@@ -168,7 +168,7 @@ jobs:
       # Checkout the VERIFIED immutable commit, not a movable branch ref.
       # persist-credentials is off because the working tree that follows is
       # PR-controlled: the job's token must not be left in .git/config there.
-      # The base fetch below reaches a public repository and needs no credential.
+      # The base fetch below passes the token for that one command only.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.HEAD_REPO }}
@@ -221,9 +221,14 @@ jobs:
           echo "${RUNNER_TEMP}/blocked-bin" >> "$GITHUB_PATH"
 
       - name: Fetch base branch
+        env:
+          FETCH_TOKEN: ${{ github.token }}
         run: |
+          auth=$(printf 'x-access-token:%s' "$FETCH_TOKEN" | base64 -w0)
+          echo "::add-mask::${auth}"
           git remote add upstream "${{ github.event.repository.clone_url }}"
-          git fetch upstream "refs/heads/${BASE_BRANCH}:refs/remotes/upstream/${BASE_BRANCH}"
+          git -c http.extraheader="AUTHORIZATION: basic ${auth}" \
+            fetch upstream "refs/heads/${BASE_BRANCH}:refs/remotes/upstream/${BASE_BRANCH}"
 
       # The scanner reads the coverage and lint reports staged above; nothing
       # from the pull request is built or executed here.
