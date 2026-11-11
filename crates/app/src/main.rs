@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-fn main() {
-    identity_manager::run();
+fn main() -> std::process::ExitCode {
+    identity_manager::run()
 }

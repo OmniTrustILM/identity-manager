@@ -5,6 +5,8 @@ mod tray;
 
 use im_core::AppInfo;
 use log::LevelFilter;
+use std::process::ExitCode;
+
 use tauri::{AppHandle, Manager, Runtime, WindowEvent};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
@@ -79,12 +81,13 @@ fn context<R: Runtime>() -> tauri::Context<R> {
     tauri::generate_context!()
 }
 
-pub fn run() {
+/// Runs the app and returns its exit code; returning from `main` lets coverage data reach the disk on Windows.
+pub fn run() -> ExitCode {
     let mode = Mode::from_args(std::env::args().skip(1));
-    builder::<tauri::Wry>(mode)
+    let code = builder::<tauri::Wry>(mode)
         .build(context())
         .expect("the application failed to start")
-        .run(|app, event| {
+        .run_return(|app, event| {
             // Opening the running app again on macOS, from the Dock or Finder, reopens it instead of starting a copy.
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
@@ -93,6 +96,7 @@ pub fn run() {
             #[cfg(not(target_os = "macos"))]
             let _ = (app, event);
         });
+    ExitCode::from(u8::try_from(code).unwrap_or(1))
 }
 
 #[cfg(test)]
