@@ -1,5 +1,5 @@
 name: Setup
-description: Install Node.js, the Rust toolchain from rust-toolchain.toml, cargo tools and app dependencies
+description: Install Node.js, the Linux system packages for Tauri, the Rust toolchain from rust-toolchain.toml, cargo tools and app dependencies
 
 runs:
   using: composite
@@ -10,6 +10,14 @@ runs:
         node-version: 24.x
         cache: npm
         cache-dependency-path: app/package-lock.json
+
+    - name: Install Linux system packages
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf xvfb dbus-x11
 
     - name: Install Rust toolchain
       shell: bash
