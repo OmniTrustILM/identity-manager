@@ -1,0 +1,13 @@
+target/
+node_modules/
+dist/
+reports/
+app/coverage-vitest/
+.DS_Store
+.idea/
+.vscode/
+.claude/settings.local.json
+
+# Local planning documents
+docs/superpowers/
+.superpowers/

@@ -1,0 +1,93 @@
+name: "Check PR"
+on:
+  pull_request:
+    branches: [main*]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref }}-build-pr
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0 # full history for better Sonar analysis relevancy
+          persist-credentials: false
+
+      - name: Set up toolchains
+        uses: ./.github/actions/setup
+
+      - name: Verify
+        shell: bash
+        run: bash scripts/verify.sh all
+
+      # Package up PR context for downstream workflow_run (Sonar handoff).
+      # Values go through env (not inline ${{ }} in the script) and jq --arg, so
+      # an unusual branch/repo name can neither inject shell nor break the JSON.
+      - name: Prepare PR context artifact
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          jq -n \
+            --arg pr_number "$PR_NUMBER" \
+            --arg head_sha "$HEAD_SHA" \
+            --arg head_repo "$HEAD_REPO" \
+            --arg head_branch "$HEAD_BRANCH" \
+            --arg base_ref "$BASE_REF" \
+            --arg run_id "$RUN_ID" \
+            '{pr_number: $pr_number, head_sha: $head_sha, head_repo: $head_repo, head_branch: $head_branch, base_ref: $base_ref, run_id: $run_id}' \
+            > pr-context.json
+          cat pr-context.json
+
+      - name: Upload PR context
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pr-context
+          path: pr-context.json
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload analysis reports
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: analysis-reports
+          path: |
+            reports/rust.lcov
+            reports/ui.lcov
+            reports/clippy.json
+          retention-days: 1
+          if-no-files-found: error
+
+  build:
+    name: Build
+    needs: verify
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a successful verification
+        env:
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          if [ "$VERIFY_RESULT" != "success" ]; then
+            echo "::error::verify finished with $VERIFY_RESULT"
+            exit 1
+          fi
