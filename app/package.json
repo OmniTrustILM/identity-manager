@@ -8,6 +8,7 @@
     },
     "scripts": {
         "dev": "vite",
+        "tauri": "tauri",
         "build": "tsc --noEmit && vite build",
         "lint": "biome check .",
         "format": "biome format --write .",
@@ -17,12 +18,14 @@
         "test:cov": "vitest run --coverage"
     },
     "dependencies": {
+        "@tauri-apps/api": "^2.12.4",
         "react": "^19.2.4",
         "react-dom": "^19.2.4"
     },
     "devDependencies": {
         "@biomejs/biome": "2.6.6",
         "@tailwindcss/vite": "~4.2.4",
+        "@tauri-apps/cli": "^2.12.4",
         "@types/node": "^25.5.2",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",

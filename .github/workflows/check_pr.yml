@@ -77,17 +77,57 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  bundle:
+    name: Bundle (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up toolchains
+        uses: ./.github/actions/setup
+
+      - name: Bundle
+        shell: bash
+        run: bash scripts/verify.sh bundle
+
+      - name: Self-check the bundled build
+        shell: bash
+        run: bash scripts/verify.sh self-check
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bundle-${{ matrix.os }}
+          path: |
+            target/release/bundle/dmg/*.dmg
+            target/release/bundle/msi/*.msi
+            target/release/bundle/deb/*.deb
+          retention-days: 3
+          if-no-files-found: error
+
   build:
     name: Build
-    needs: verify
+    needs: [verify, bundle]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require a successful verification
         env:
           VERIFY_RESULT: ${{ needs.verify.result }}
+          BUNDLE_RESULT: ${{ needs.bundle.result }}
         run: |
           if [ "$VERIFY_RESULT" != "success" ]; then
             echo "::error::verify finished with $VERIFY_RESULT"
+            exit 1
+          fi
+          if [ "$BUNDLE_RESULT" != "success" ]; then
+            echo "::error::bundle finished with $BUNDLE_RESULT"
             exit 1
           fi

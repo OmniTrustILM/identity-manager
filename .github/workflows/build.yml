@@ -30,6 +30,25 @@ jobs:
         shell: bash
         run: bash scripts/verify.sh all
 
+      - name: Bundle
+        shell: bash
+        run: bash scripts/verify.sh bundle
+
+      - name: Self-check the bundled build
+        shell: bash
+        run: bash scripts/verify.sh self-check
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bundle-${{ matrix.os }}
+          path: |
+            target/release/bundle/dmg/*.dmg
+            target/release/bundle/msi/*.msi
+            target/release/bundle/deb/*.deb
+          retention-days: 3
+          if-no-files-found: error
+
       - name: SonarQube Scan
         if: matrix.os == 'ubuntu-latest' && github.ref_type == 'branch'
         uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
@@ -48,7 +67,7 @@ jobs:
             -Dsonar.tests=crates,app/src
             -Dsonar.test.inclusions=crates/**/tests/**,app/src/**/*.spec.ts,app/src/**/*.spec.tsx
             -Dsonar.exclusions=**/target/**,**/node_modules/**,**/dist/**,reports/**,app/coverage-vitest/**,crates/**/tests/**,app/src/**/*.spec.ts,app/src/**/*.spec.tsx
-            -Dsonar.coverage.exclusions=app/src/main.tsx,app/*.config.ts,scripts/**
+            -Dsonar.coverage.exclusions=app/src/main.tsx,app/*.config.ts,scripts/**,crates/app/src/main.rs,crates/app/build.rs
             -Dsonar.rust.lcov.reportPaths=reports/rust.lcov
             -Dsonar.rust.clippyReport.reportPaths=reports/clippy.json
             -Dsonar.javascript.lcov.reportPaths=reports/ui.lcov

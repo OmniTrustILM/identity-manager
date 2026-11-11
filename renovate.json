@@ -4,6 +4,11 @@
     "labels": ["dependencies"],
     "packageRules": [
         {
+            "matchManagers": ["cargo", "npm"],
+            "matchPackageNames": ["tauri", "tauri-*", "@tauri-apps/*"],
+            "groupName": "tauri"
+        },
+        {
             "matchUpdateTypes": ["minor", "patch"],
             "groupName": "non-major dependencies"
         }

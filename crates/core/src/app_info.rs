@@ -1,5 +1,6 @@
 /// Product name and version of this build.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct AppInfo {
     pub name: &'static str,
     pub version: &'static str,
