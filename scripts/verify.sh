@@ -84,15 +84,15 @@ self_check() {
             rm -rf "$extracted"
             MSYS2_ARG_CONV_EXCL='*' msiexec /a "$(cygpath -w "$msi")" /qn "TARGETDIR=$(cygpath -wa "$extracted")"
             binary=$(find "$extracted" -name identity-manager.exe | head -n 1)
-            [ -n "$binary" ] || { echo "identity-manager.exe not found in $msi" >&2; exit 1; }
             ;;
         Linux)
             deb=$(ls target/release/bundle/deb/*.deb)
             sudo apt-get install -y "./$deb"
-            binary=$(dpkg-deb -c "$deb" | awk '$NF ~ /^\.\/usr\/bin\/[^\/]+$/ { print substr($NF, 2); exit }')
+            binary=$(dpkg -L "$(dpkg-deb -f "$deb" Package)" | grep '^/usr/bin/')
             ;;
         *) echo "no self-check for $(uname -s)" >&2; exit 1 ;;
     esac
+    [ -n "$binary" ] || { echo "no app binary found in the bundle" >&2; exit 1; }
     with_display "$binary" --self-check
 }
 
