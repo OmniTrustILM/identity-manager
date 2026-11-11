@@ -82,8 +82,17 @@ fn context<R: Runtime>() -> tauri::Context<R> {
 pub fn run() {
     let mode = Mode::from_args(std::env::args().skip(1));
     builder::<tauri::Wry>(mode)
-        .run(context())
-        .expect("the application failed to start");
+        .build(context())
+        .expect("the application failed to start")
+        .run(|app, event| {
+            // Opening the running app again on macOS, from the Dock or Finder, reopens it instead of starting a copy.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                show_main_window(app);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }
 
 #[cfg(test)]
