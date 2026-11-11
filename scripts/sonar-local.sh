@@ -163,7 +163,7 @@ CHANGED_ISSUES=$(issue_pages | MERGE_BASE="${MERGE_BASE}" python3 -c "
 import json, os, re, subprocess, sys
 
 merge_base = os.environ['MERGE_BASE']
-diff = subprocess.run(['git', 'diff', '-U0', merge_base], capture_output=True, text=True, check=True) if merge_base else None
+diff = subprocess.run(['git', '-c', 'core.quotePath=false', 'diff', '-U0', merge_base], capture_output=True, text=True, check=True) if merge_base else None
 changed, current = {}, None
 for line in (diff.stdout.splitlines() if diff else []):
     if line.startswith('+++ '):
