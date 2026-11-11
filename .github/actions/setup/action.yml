@@ -1,0 +1,30 @@
+name: Setup
+description: Install Node.js, the Rust toolchain from rust-toolchain.toml, cargo tools and app dependencies
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 24.x
+        cache: npm
+        cache-dependency-path: app/package-lock.json
+
+    - name: Install Rust toolchain
+      shell: bash
+      # rustup reads rust-toolchain.toml; no version is named here.
+      run: rustup toolchain install
+
+    - name: Cache cargo
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+    - name: Install cargo tools
+      uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      with:
+        tool: cargo-llvm-cov@0.9.1,cargo-deny@0.20.2
+
+    - name: Install app dependencies
+      shell: bash
+      working-directory: app
+      run: npm ci
