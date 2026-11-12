@@ -45,6 +45,11 @@ export function onOpenSection(handler: (section: string) => void): Promise<() =>
     return listen<string>('open-section', (event) => handler(event.payload));
 }
 
+/** Takes the section the shell was asked to open, if any; it is handed out once. */
+export function pendingSection(): Promise<string | null> {
+    return invoke<string | null>('pending_section');
+}
+
 export function windowLabel(): string {
     return getCurrentWindow().label;
 }

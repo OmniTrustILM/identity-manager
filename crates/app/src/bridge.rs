@@ -332,6 +332,25 @@ mod tests {
     }
 
     #[test]
+    fn only_main_and_not_on_macos_may_take_the_pending_section() {
+        let summary = summary("pending_section");
+        assert!(refused_by_capabilities(&summary), "{summary:?}");
+        for label in ["main", "settings"] {
+            let answer = call_in(
+                label,
+                LOCAL_ORIGIN,
+                "pending_section",
+                serde_json::json!({}),
+            );
+            assert_eq!(
+                refused_by_capabilities(&answer),
+                cfg!(target_os = "macos") || label == "settings",
+                "{label}: {answer:?}"
+            );
+        }
+    }
+
+    #[test]
     fn the_settings_window_capability_is_for_macos_and_grants_only_the_settings() {
         let file = include_str!("../capabilities/settings-window.json");
         let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
@@ -355,6 +374,7 @@ mod tests {
             serde_json::json!([
                 "allow-settings",
                 "allow-set-setting",
+                "allow-pending-section",
                 "core:event:allow-listen",
                 "core:event:allow-unlisten"
             ])

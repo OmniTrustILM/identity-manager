@@ -8,6 +8,7 @@ import {
     hideSummary,
     onOpenSection,
     openMainWindow,
+    pendingSection,
     reportReady,
     setSetting,
     windowLabel,
@@ -102,6 +103,17 @@ describe('bridge', () => {
         await emit('open-section', 'other');
 
         expect(sections).toEqual(['settings']);
+    });
+
+    it('pendingSection calls pending_section and returns its answer', async () => {
+        const calls: string[] = [];
+        mockIPC((command) => {
+            calls.push(command);
+            return 'settings';
+        });
+
+        await expect(pendingSection()).resolves.toBe('settings');
+        expect(calls).toEqual(['pending_section']);
     });
 
     it('windowLabel returns the label of the current window', () => {

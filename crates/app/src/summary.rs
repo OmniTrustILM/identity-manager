@@ -19,11 +19,11 @@ const CORNER_MARGIN: i32 = 12;
 
 /// A rectangle in placement units.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Area {
-    x: i32,
-    y: i32,
-    width: u32,
-    height: u32,
+pub(crate) struct Area {
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
 }
 
 impl Area {
@@ -39,17 +39,17 @@ impl Area {
 }
 
 /// How many placement units one logical point is on a monitor of scale factor `scale`.
-fn units_per_logical(scale: f64) -> f64 {
+pub(crate) fn units_per_logical(scale: f64) -> f64 {
     if cfg!(windows) { scale } else { 1.0 }
 }
 
 /// How many physical pixels one placement unit is on a monitor of scale factor `scale`.
-fn pixels_per_unit(scale: f64) -> f64 {
+pub(crate) fn pixels_per_unit(scale: f64) -> f64 {
     scale / units_per_logical(scale)
 }
 
 /// A physical rectangle in placement units, given the pixels per unit of the monitor that reported it.
-fn in_units(rect: PhysicalRect<i32, u32>, pixels_per_unit: f64) -> Area {
+pub(crate) fn in_units(rect: PhysicalRect<i32, u32>, pixels_per_unit: f64) -> Area {
     Area {
         x: (f64::from(rect.position.x) / pixels_per_unit).round() as i32,
         y: (f64::from(rect.position.y) / pixels_per_unit).round() as i32,
@@ -60,10 +60,10 @@ fn in_units(rect: PhysicalRect<i32, u32>, pixels_per_unit: f64) -> Area {
 
 /// A monitor's rectangles in placement units and its scale factor.
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct Screen {
+pub(crate) struct Screen {
     full: Area,
-    work: Area,
-    scale: f64,
+    pub(crate) work: Area,
+    pub(crate) scale: f64,
 }
 
 impl Screen {
@@ -77,7 +77,7 @@ impl Screen {
         }
     }
 
-    fn of(monitor: &Monitor) -> Self {
+    pub(crate) fn of(monitor: &Monitor) -> Self {
         Self::new(
             PhysicalRect {
                 position: *monitor.position(),
@@ -184,7 +184,7 @@ pub fn opens_on_release(visible_at_press: Option<bool>, visible_now: bool) -> bo
 }
 
 /// Keeps `value` within `min..=max`, preferring `min` when the range is empty.
-fn clamp(value: i64, min: i64, max: i64) -> i64 {
+pub(crate) fn clamp(value: i64, min: i64, max: i64) -> i64 {
     value.min(max).max(min)
 }
 
@@ -251,13 +251,13 @@ fn show_at<R: Runtime>(window: &WebviewWindow<R>, icon: Option<PhysicalRect<i32,
 }
 
 #[cfg(windows)]
-fn place<R: Runtime>(window: &WebviewWindow<R>, (x, y): (i32, i32)) {
+pub(crate) fn place<R: Runtime>(window: &WebviewWindow<R>, (x, y): (i32, i32)) {
     let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
 }
 
 // tao converts a physical position with the window's current scale factor, which is not the destination's.
 #[cfg(not(windows))]
-fn place<R: Runtime>(window: &WebviewWindow<R>, (x, y): (i32, i32)) {
+pub(crate) fn place<R: Runtime>(window: &WebviewWindow<R>, (x, y): (i32, i32)) {
     let _ = window.set_position(tauri::LogicalPosition::new(x, y));
 }
 
