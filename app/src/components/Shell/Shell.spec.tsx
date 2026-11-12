@@ -117,18 +117,40 @@ test('macOS has no Settings entry in the sidebar', () => {
     expect(settingsSection('macos')).toBeUndefined();
 });
 
-test('the request to open Settings selects the entry; other sections are not opened that way', async () => {
-    mockIPC(() => ({ startAtLogin: { value: true, locked: false }, logLevel: { value: 'info', locked: false } }), {
+const settingsView = { startAtLogin: { value: true, locked: false }, logLevel: { value: 'info', locked: false } };
+
+/** Answers `pending_section` from a queue, one answer per call, `null` once it is empty. */
+function mockRequests(...answers: (string | null)[]) {
+    const queue = [...answers];
+    mockIPC((command) => (command === 'pending_section' ? (queue.shift() ?? null) : settingsView), {
         shouldMockEvents: true,
     });
+}
+
+test('the request to open Settings selects the entry; other sections are not opened that way', async () => {
+    mockRequests(null, 'other', 'settings');
     await render([...sections, other], 'windows', settingsSection('windows'));
 
-    await act(async () => emit('open-section', 'other'));
+    await act(async () => emit('open-section', 'settings'));
     expect(container.querySelector('main')?.textContent).not.toContain('Other content');
+    expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
 
     await act(async () => emit('open-section', 'settings'));
     expect(settingsEntry()?.getAttribute('aria-current')).toBe('page');
     expect(container.querySelector('main h1')?.textContent).toBe('Settings');
+});
+
+test('a request made before the listener existed opens Settings at mount and is not reopened later', async () => {
+    mockRequests('settings');
+    await render(sections, 'windows', settingsSection('windows'));
+    expect(settingsEntry()?.getAttribute('aria-current')).toBe('page');
+
+    await act(async () => (entries()[0] as HTMLElement).click());
+    await act(async () => root.render(null));
+    await render(sections, 'windows', settingsSection('windows'));
+
+    expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
+    expect(entries()[0]?.getAttribute('aria-current')).toBe('page');
 });
 
 test('listens for the request only where there is a Settings entry, and stops on unmount', async () => {
@@ -151,6 +173,20 @@ test('listens for the request only where there is a Settings entry, and stops on
 
 test('works when the event bridge is not available', async () => {
     await render(sections, 'windows', { ...other, id: 'settings' });
+
+    expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
+});
+
+test('stays where it is when the pending request cannot be read', async () => {
+    mockIPC(
+        (command) => {
+            if (command === 'pending_section') {
+                throw new Error('refused');
+            }
+        },
+        { shouldMockEvents: true },
+    );
+    await render(sections, 'windows', settingsSection('windows'));
 
     expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
 });

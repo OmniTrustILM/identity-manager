@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppInfo } from '../../app-info';
-import { onOpenSection } from '../../bridge';
+import { onOpenSection, pendingSection } from '../../bridge';
 import type { Section } from '../../sections';
 import { Sidebar } from '../Sidebar/Sidebar';
 
@@ -19,8 +19,18 @@ export function Shell({ sections, bottom }: Readonly<ShellProps>) {
         if (!bottom) {
             return;
         }
-        // The tray menu asks for the page this way; it is the only section it opens.
-        const listening = onOpenSection((id) => id === bottom.id && setCurrent(id)).catch(() => () => undefined);
+        // The tray menu asks for the page this way; it is the only section it opens. The request is kept until taken,
+        // so a click made before this listener exists still opens it.
+        const take = () =>
+            pendingSection()
+                .then((id) => id === bottom.id && setCurrent(id))
+                .catch(() => undefined);
+        const listening = onOpenSection(take)
+            .then((stop) => {
+                void take();
+                return stop;
+            })
+            .catch(() => () => undefined);
         return () => {
             void listening.then((stop) => stop());
         };

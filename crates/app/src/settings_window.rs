@@ -1,12 +1,37 @@
 //! Opening Settings: a window of its own on macOS, a page of the main window elsewhere.
 
-use tauri::{AppHandle, Runtime};
+use std::sync::{Mutex, PoisonError};
+
+use tauri::{AppHandle, Runtime, State};
+
+/// The section the main window was asked to open and has not taken yet.
+#[derive(Default)]
+pub struct PendingSection(Mutex<Option<String>>);
+
+impl PendingSection {
+    #[cfg(any(not(target_os = "macos"), test))]
+    fn set(&self, section: &str) {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(section.to_owned());
+    }
+
+    fn take(&self) -> Option<String> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).take()
+    }
+}
+
+/// Hands the main window the section it was asked to open, once. The event alone can be lost while its
+/// interface is still starting.
+#[tauri::command]
+pub fn pending_section(pending: State<'_, PendingSection>) -> Option<String> {
+    pending.take()
+}
 
 /// Shows the main window and asks its interface to open the Settings page.
 #[cfg(any(not(target_os = "macos"), test))]
 fn open_in_main<R: Runtime>(app: &AppHandle<R>) {
-    use tauri::Emitter;
+    use tauri::{Emitter, Manager};
 
+    app.state::<PendingSection>().set("settings");
     crate::show_main_window(app);
     if let Err(error) = app.emit_to("main", "open-section", "settings") {
         log::warn!("asking the main window to open Settings failed: {error}");
@@ -115,6 +140,7 @@ mod tests {
     #[test]
     fn opening_in_the_main_window_shows_it_and_asks_for_the_settings_page() {
         let app = mock_builder()
+            .manage(PendingSection::default())
             .build(mock_context(noop_assets()))
             .expect("the mock app builds");
         let window =
@@ -135,5 +161,19 @@ mod tests {
                 .unwrap()
         );
         assert_eq!(*received.lock().unwrap(), ["\"settings\""]);
+    }
+
+    #[test]
+    fn the_requested_section_is_stored_and_taken_once() {
+        let app = mock_builder()
+            .manage(PendingSection::default())
+            .build(mock_context(noop_assets()))
+            .expect("the mock app builds");
+        assert_eq!(pending_section(app.state()), None);
+
+        open_in_main(app.handle());
+
+        assert_eq!(pending_section(app.state()), Some("settings".to_owned()));
+        assert_eq!(pending_section(app.state()), None);
     }
 }

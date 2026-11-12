@@ -1,6 +1,8 @@
 mod bridge;
 mod color_scheme;
 mod dock;
+#[cfg(any(windows, test))]
+mod main_window;
 mod mode;
 mod self_check;
 mod settings;
@@ -13,7 +15,6 @@ use log::LevelFilter;
 use std::process::ExitCode;
 
 use tauri::{AppHandle, Manager, Runtime, WindowEvent};
-use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 pub use mode::Mode;
@@ -64,15 +65,12 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             .on_menu_event(settings_window::on_menu_event);
     }
     builder
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            None::<Vec<&'static str>>,
-        ))
         .manage(mode)
         .manage(color_scheme::Current::default())
         .manage(summary::VisibleAtPress::default())
         .manage(summary::HiddenOnFocusLoss::default())
         .manage(self_check::Reports::default())
+        .manage(settings_window::PendingSection::default())
         .invoke_handler(tauri::generate_handler![
             bridge::app_info,
             bridge::report_ready,
@@ -80,7 +78,8 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             bridge::hide_summary,
             color_scheme::color_scheme,
             settings::settings,
-            settings::set_setting
+            settings::set_setting,
+            settings_window::pending_section
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)
@@ -100,7 +99,7 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             let person_file = app.path().app_config_dir()?.join("settings.json");
             let autostart =
                 settings::autostart_applies(mode == Mode::SelfCheck, cfg!(debug_assertions));
-            let effects = settings::SystemEffects(app.handle().clone());
+            let effects = settings::SystemEffects::new(app.handle(), autostart);
             let settings =
                 settings::Settings::new(person_file, im_core::policy::read, effects, autostart);
             settings.start();
@@ -119,6 +118,8 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             if !cfg!(test) {
                 tray::create(app.handle())?;
                 log::info!("tray icon created");
+                #[cfg(windows)]
+                main_window::fit_to_work_area(app.handle());
             }
             Ok(())
         })

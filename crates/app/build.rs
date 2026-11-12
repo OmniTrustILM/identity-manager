@@ -24,6 +24,7 @@ fn main() {
                 "color_scheme",
                 "settings",
                 "set_setting",
+                "pending_section",
             ])),
     )
     .expect("the Tauri build failed");

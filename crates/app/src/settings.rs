@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 use std::sync::{Mutex, PoisonError};
 
+use auto_launch::{AutoLaunch, AutoLaunchBuilder, WindowsEnableMode};
 use im_core::settings::{self, Change, Layer, LogLevel, SettingsView, store};
 use log::LevelFilter;
+#[cfg(target_os = "linux")]
+use tauri::Manager;
 use tauri::{AppHandle, Runtime, State};
-use tauri_plugin_autostart::ManagerExt;
 
 /// What the effective settings do to the system.
 pub trait Effects: Send + Sync {
@@ -12,12 +14,42 @@ pub trait Effects: Send + Sync {
     fn set_log_level(&self, level: LevelFilter);
 }
 
-/// The effects on the running system: the login item and the log filter.
-pub struct SystemEffects<R: Runtime>(pub AppHandle<R>);
+/// The effects on the running system: the login item and the log filter. The login item is absent when it
+/// is not applied in this run or could not be built.
+pub struct SystemEffects(Option<AutoLaunch>);
 
-impl<R: Runtime> Effects for SystemEffects<R> {
+impl SystemEffects {
+    pub fn new<R: Runtime>(app: &AppHandle<R>, autostart: bool) -> Self {
+        if !autostart {
+            return Self(None);
+        }
+        let launcher = launcher(app)
+            .inspect_err(|error| log::warn!("start at login is unavailable: {error}"))
+            .ok();
+        Self(launcher)
+    }
+}
+
+/// Builds the login item. Its name and path must not change, or login items made by earlier versions stop
+/// working. On Windows it is for the current user only: the default mode writes for every user when the
+/// process may.
+fn launcher<R: Runtime>(app: &AppHandle<R>) -> Result<AutoLaunch, String> {
+    let exe = std::env::current_exe().map_err(|error| error.to_string())?;
+    #[cfg(target_os = "macos")]
+    let exe = exe.canonicalize().map_err(|error| error.to_string())?;
+    #[cfg(target_os = "linux")]
+    let exe = app.env().appimage.map_or(exe, PathBuf::from);
+    AutoLaunchBuilder::new()
+        .set_app_name(&app.package_info().name)
+        .set_app_path(&exe.to_string_lossy())
+        .set_windows_enable_mode(WindowsEnableMode::CurrentUser)
+        .build()
+        .map_err(|error| error.to_string())
+}
+
+impl Effects for SystemEffects {
     fn set_autostart(&self, on: bool) -> Result<(), String> {
-        let launcher = self.0.autolaunch();
+        let launcher = self.0.as_ref().ok_or("no login item is available")?;
         if launcher.is_enabled().map_err(|error| error.to_string())? == on {
             return Ok(());
         }
