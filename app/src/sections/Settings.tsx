@@ -18,10 +18,10 @@ interface RowProps {
     label: string;
     locked: boolean;
     error?: string;
-    control: (props: ControlProps) => ReactNode;
+    renderControl: (props: ControlProps) => ReactNode;
 }
 
-function Row({ label, locked, error, control }: Readonly<RowProps>) {
+function Row({ label, locked, error, renderControl }: Readonly<RowProps>) {
     const id = useId();
     const lockId = `${id}-lock`;
     const errorId = `${id}-error`;
@@ -36,7 +36,7 @@ function Row({ label, locked, error, control }: Readonly<RowProps>) {
                     </label>
                     {locked && <LockNote id={lockId} />}
                 </div>
-                {control({ id, disabled: locked, 'aria-describedby': describedBy || undefined })}
+                {renderControl({ id, disabled: locked, 'aria-describedby': describedBy || undefined })}
             </div>
             {error && (
                 <p id={errorId} role="alert" className="pt-s2 text-caption text-bad">
@@ -124,7 +124,7 @@ export function Settings() {
                         label={strings.startAtLogin}
                         locked={view.startAtLogin.locked}
                         error={errors.startAtLogin}
-                        control={(props) => (
+                        renderControl={(props) => (
                             <Switch
                                 {...props}
                                 checked={view.startAtLogin.value}
@@ -136,7 +136,7 @@ export function Settings() {
                         label={strings.logLevel}
                         locked={view.logLevel.locked}
                         error={errors.logLevel}
-                        control={(props) => (
+                        renderControl={(props) => (
                             <Select
                                 {...props}
                                 value={view.logLevel.value}
