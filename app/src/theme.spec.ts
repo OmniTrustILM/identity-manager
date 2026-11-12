@@ -60,6 +60,23 @@ it('keeps an event that arrives while the first answer is on its way', async () 
     expect(theme()).toBe('dark');
 });
 
+it('keeps following the event when the first read fails', async () => {
+    mockIPC(
+        (command) => {
+            if (command === 'color_scheme') {
+                throw new Error('no portal');
+            }
+        },
+        { shouldMockEvents: true },
+    );
+
+    await followSystemScheme();
+    expect(theme()).toBeUndefined();
+
+    await emit('color-scheme', 'dark');
+    expect(theme()).toBe('dark');
+});
+
 it('stops following once the returned function is called', async () => {
     mockScheme('light');
     const stop = await followSystemScheme();

@@ -11,7 +11,7 @@ function applyScheme(scheme: Scheme | null) {
 
 /**
  * Sets `data-theme` to the colour scheme the desktop asks for and keeps it current; returns the function that stops it.
- * Without a scheme the attribute is absent and `prefers-color-scheme` decides.
+ * Without a scheme, or when the first read fails, the attribute is absent and `prefers-color-scheme` decides.
  */
 export async function followSystemScheme(): Promise<() => void> {
     let changed = false;
@@ -20,7 +20,7 @@ export async function followSystemScheme(): Promise<() => void> {
         applyScheme(event.payload);
     });
     // An event is newer than the answer to a read that was still on its way when it arrived.
-    const initial = await colorScheme();
+    const initial = await colorScheme().catch(() => null);
     if (!changed) {
         applyScheme(initial);
     }
