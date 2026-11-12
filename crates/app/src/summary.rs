@@ -219,11 +219,12 @@ pub fn press<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// On the tray button's release, hides the summary if it was visible at the press; otherwise places it by the tray
-/// icon, shows and focuses it.
+/// icon, shows and focuses it. A focus loss during the click belongs to this click, so it is cleared here.
 pub fn release<R: Runtime>(app: &AppHandle<R>, icon: Option<PhysicalRect<i32, u32>>) {
     let Some(window) = app.get_webview_window(LABEL) else {
         return;
     };
+    app.state::<HiddenOnFocusLoss>().take();
     let at_press = app.state::<VisibleAtPress>().take();
     if opens_on_release(at_press, is_visible(&window)) {
         show_at(&window, icon);
@@ -723,6 +724,16 @@ mod tests {
         hide_on_focus_loss(&window.as_ref().window(), &WindowEvent::Focused(false));
         press(app.handle());
         assert_eq!(app.state::<VisibleAtPress>().take(), Some(true));
+        assert_eq!(app.state::<HiddenOnFocusLoss>().take(), None);
+    }
+
+    #[test]
+    fn a_focus_loss_during_a_click_does_not_carry_into_the_next_click() {
+        let app = app_with_summary();
+        let window = app.get_webview_window(LABEL).unwrap();
+        press(app.handle());
+        hide_on_focus_loss(&window.as_ref().window(), &WindowEvent::Focused(false));
+        release(app.handle(), None);
         assert_eq!(app.state::<HiddenOnFocusLoss>().take(), None);
     }
 
