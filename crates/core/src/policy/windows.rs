@@ -1,6 +1,6 @@
 //! The Windows source: the values of a registry key.
 
-use super::{PolicyValue, RawMap};
+use super::{LOG_LEVEL, PolicyValue, RawMap, START_AT_LOGIN};
 #[cfg(windows)]
 use crate::settings::Layer;
 
@@ -60,7 +60,8 @@ pub enum RegValue {
     Other,
 }
 
-/// `REG_DWORD` 0 and 1 are booleans, other numbers stay integers, `REG_SZ` is text.
+/// `REG_DWORD` 0 and 1 are booleans, other numbers stay integers, `REG_SZ` is text. Value names ignore case, as
+/// they do in the registry.
 pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> RawMap {
     values
         .into_iter()
@@ -72,9 +73,16 @@ pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> R
                 RegValue::Sz(text) => PolicyValue::Text(text),
                 RegValue::Other => PolicyValue::Other,
             };
-            (name, value)
+            (known_name(name), value)
         })
         .collect()
+}
+
+fn known_name(name: String) -> String {
+    [START_AT_LOGIN, LOG_LEVEL]
+        .into_iter()
+        .find(|known| known.eq_ignore_ascii_case(&name))
+        .map_or(name, str::to_string)
 }
 
 #[cfg(test)]
@@ -105,6 +113,19 @@ mod tests {
                 ("Binary".into(), PolicyValue::Other),
             ])
         );
+    }
+
+    #[test]
+    fn value_names_match_in_any_case() {
+        let layer = to_layer(
+            &parse(vec![
+                ("startatlogin", RegValue::Dword(0)),
+                ("LOGLEVEL", RegValue::Sz("debug".into())),
+            ]),
+            "test",
+        );
+        assert_eq!(layer.start_at_login, Some(false));
+        assert_eq!(layer.log_level, Some(crate::settings::LogLevel::Debug));
     }
 
     #[test]

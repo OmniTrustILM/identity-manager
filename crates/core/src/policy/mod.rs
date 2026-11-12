@@ -24,8 +24,8 @@ pub enum PolicyValue {
 /// The values of one source by name.
 pub type RawMap = BTreeMap<String, PolicyValue>;
 
-const START_AT_LOGIN: &str = "StartAtLogin";
-const LOG_LEVEL: &str = "LogLevel";
+pub(crate) const START_AT_LOGIN: &str = "StartAtLogin";
+pub(crate) const LOG_LEVEL: &str = "LogLevel";
 
 /// Maps the known names with the expected types to a layer; anything else is ignored with a warning.
 pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
