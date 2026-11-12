@@ -1,7 +1,7 @@
-//! The macOS Dock icon and application menu exist only while the main window is visible.
+//! The macOS Dock icon and application menu exist only while the main or Settings window is visible.
 
 #[cfg(target_os = "macos")]
-use tauri::{ActivationPolicy, AppHandle, Runtime};
+use tauri::{ActivationPolicy, AppHandle, Manager, Runtime};
 
 #[cfg(any(target_os = "macos", test))]
 #[derive(Debug, PartialEq, Eq)]
@@ -10,20 +10,19 @@ pub enum Policy {
     Accessory,
 }
 
-/// The policy that goes with the main window being visible or hidden.
+/// The policy that goes with the main and Settings windows being visible or hidden.
 #[cfg(any(target_os = "macos", test))]
-pub fn policy(main_visible: bool) -> Policy {
-    if main_visible {
+pub fn policy(main_visible: bool, settings_visible: bool) -> Policy {
+    if main_visible || settings_visible {
         Policy::Regular
     } else {
         Policy::Accessory
     }
 }
 
-/// Sets the activation policy for the main window being visible or hidden.
 #[cfg(target_os = "macos")]
-pub fn apply<R: Runtime>(app: &AppHandle<R>, main_visible: bool) {
-    let policy = match policy(main_visible) {
+fn set<R: Runtime>(app: &AppHandle<R>, policy: Policy) {
+    let policy = match policy {
         Policy::Regular => ActivationPolicy::Regular,
         Policy::Accessory => ActivationPolicy::Accessory,
     };
@@ -32,17 +31,35 @@ pub fn apply<R: Runtime>(app: &AppHandle<R>, main_visible: bool) {
     }
 }
 
+/// Gives the app its Dock icon and menu, before a window is shown.
+#[cfg(target_os = "macos")]
+pub fn activate<R: Runtime>(app: &AppHandle<R>) {
+    set(app, Policy::Regular);
+}
+
+/// Applies the policy that goes with the windows as they are now.
+#[cfg(target_os = "macos")]
+pub fn refresh<R: Runtime>(app: &AppHandle<R>) {
+    let visible = |label: &str| {
+        app.get_webview_window(label)
+            .is_some_and(|window| window.is_visible().unwrap_or(false))
+    };
+    set(app, policy(visible("main"), visible("settings")));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn a_visible_main_window_gets_the_regular_policy() {
-        assert_eq!(policy(true), Policy::Regular);
+    fn a_visible_window_gets_the_regular_policy() {
+        assert_eq!(policy(true, false), Policy::Regular);
+        assert_eq!(policy(false, true), Policy::Regular);
+        assert_eq!(policy(true, true), Policy::Regular);
     }
 
     #[test]
-    fn a_hidden_main_window_gets_the_accessory_policy() {
-        assert_eq!(policy(false), Policy::Accessory);
+    fn both_windows_hidden_gets_the_accessory_policy() {
+        assert_eq!(policy(false, false), Policy::Accessory);
     }
 }

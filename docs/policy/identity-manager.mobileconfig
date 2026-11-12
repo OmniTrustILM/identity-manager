@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.omnitrust.identity-manager</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadIdentifier</key>
+			<string>com.omnitrust.identity-manager.policy.settings</string>
+			<key>PayloadUUID</key>
+			<string>257F57EC-2F51-452A-ABFE-1648B83206B1</string>
+			<key>PayloadDisplayName</key>
+			<string>Identity Manager settings</string>
+			<key>StartAtLogin</key>
+			<false/>
+			<key>LogLevel</key>
+			<string>debug</string>
+		</dict>
+	</array>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+	<key>PayloadScope</key>
+	<string>System</string>
+	<key>PayloadIdentifier</key>
+	<string>com.omnitrust.identity-manager.policy</string>
+	<key>PayloadUUID</key>
+	<string>6CAD6958-F573-41BC-8706-0637CD988EED</string>
+	<key>PayloadDisplayName</key>
+	<string>Identity Manager policy (example)</string>
+	<key>PayloadDescription</key>
+	<string>Example policy for Identity Manager: start at login off, log level debug.</string>
+	<key>PayloadOrganization</key>
+	<string>OmniTrust</string>
+</dict>
+</plist>

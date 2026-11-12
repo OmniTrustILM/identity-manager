@@ -22,6 +22,8 @@ fn main() {
                 "open_main_window",
                 "hide_summary",
                 "color_scheme",
+                "settings",
+                "set_setting",
             ])),
     )
     .expect("the Tauri build failed");

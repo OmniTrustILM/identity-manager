@@ -20,3 +20,5 @@
 - A plain `cargo run` loads Vite's `devUrl`; the bundle, or `--features tauri/custom-protocol`, loads `app/dist`.
 - The `.pen` files are edited only through the Pencil tools (desktop app `/Applications/Pen.app`). If Save does not
   write, the autosave backup in `~/.pencil/backup/` is the fallback.
+- `scripts/verify.sh policy-system` writes real system policy (sudo, `/Library/Managed Preferences`, `/etc`, the
+  registry) and runs only in CI; do not run it locally.

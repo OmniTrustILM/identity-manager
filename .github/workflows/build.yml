@@ -30,6 +30,10 @@ jobs:
         shell: bash
         run: bash scripts/verify.sh all
 
+      - name: Policy readers
+        shell: bash
+        run: bash scripts/verify.sh policy-system
+
       - name: Bundle
         shell: bash
         run: bash scripts/verify.sh bundle

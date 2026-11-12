@@ -21,6 +21,12 @@
     --color-attention: var(--im-color-status-attention);
     --color-wait: var(--im-color-status-wait);
     --color-bad: var(--im-color-status-bad);
+    --color-card: var(--im-color-card);
+    --color-field: var(--im-color-field);
+    --color-field-edge: var(--im-color-field-edge);
+    --color-switch-off: var(--im-color-switch-off-track);
+    --color-switch-thumb-off: var(--im-color-switch-off-thumb);
+    --color-switch-edge: var(--im-color-switch-off-edge);
 
     --text-body: var(--im-font-size-body);
     --text-caption: var(--im-font-size-caption);
@@ -40,6 +46,14 @@
     --spacing-tray: var(--im-tray-width);
     --spacing-icon: var(--im-icon-size);
     --spacing-titlebar: var(--im-titlebar-inset);
+    --spacing-select: var(--im-select-width);
+    --spacing-switch-width: var(--im-switch-width);
+    --spacing-switch-height: var(--im-switch-height);
+    --spacing-switch-thumb: var(--im-switch-thumb);
+    --spacing-switch-pad: var(--im-switch-pad);
+    --spacing-switch-travel: var(--im-switch-travel);
+
+    --opacity-disabled: var(--im-opacity-disabled);
 }
 
 @layer base {

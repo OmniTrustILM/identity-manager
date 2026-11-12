@@ -3,6 +3,8 @@ mod color_scheme;
 mod dock;
 mod mode;
 mod self_check;
+mod settings;
+mod settings_window;
 mod summary;
 mod tray;
 
@@ -11,6 +13,7 @@ use log::LevelFilter;
 use std::process::ExitCode;
 
 use tauri::{AppHandle, Manager, Runtime, WindowEvent};
+use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 pub use mode::Mode;
@@ -18,7 +21,7 @@ pub use mode::Mode;
 fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     // The Dock icon must exist before the window is shown and focused, or the window cannot take focus.
     #[cfg(target_os = "macos")]
-    dock::apply(app, true);
+    dock::activate(app);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
@@ -31,7 +34,7 @@ const LOG_FILES_KEPT: usize = 3;
 
 fn logging<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri_plugin_log::Builder::new()
-        .level(LevelFilter::Info)
+        .level(LevelFilter::Debug)
         .targets([
             Target::new(TargetKind::Stdout),
             Target::new(TargetKind::LogDir { file_name: None }),
@@ -54,7 +57,17 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
     if !cfg!(test) {
         builder = builder.plugin(logging());
     }
+    #[cfg(target_os = "macos")]
+    if !cfg!(test) {
+        builder = builder
+            .menu(settings_window::app_menu)
+            .on_menu_event(settings_window::on_menu_event);
+    }
     builder
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None::<Vec<&'static str>>,
+        ))
         .manage(mode)
         .manage(color_scheme::Current::default())
         .manage(summary::VisibleAtPress::default())
@@ -65,23 +78,33 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             bridge::report_ready,
             bridge::open_main_window,
             bridge::hide_summary,
-            color_scheme::color_scheme
+            color_scheme::color_scheme,
+            settings::settings,
+            settings::set_setting
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
-        .enable_macos_default_menu(!cfg!(test))
+        .enable_macos_default_menu(false)
         .on_window_event(|window, event| {
             summary::hide_on_focus_loss(window, event);
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();
                 #[cfg(target_os = "macos")]
-                if window.label() == "main" {
-                    dock::apply(window.app_handle(), false);
+                if matches!(window.label(), "main" | "settings") {
+                    dock::refresh(window.app_handle());
                 }
             }
         })
         .setup(move |app| {
             let info = AppInfo::current();
+            let person_file = app.path().app_config_dir()?.join("settings.json");
+            let autostart =
+                settings::autostart_applies(mode == Mode::SelfCheck, cfg!(debug_assertions));
+            let effects = settings::SystemEffects(app.handle().clone());
+            let settings =
+                settings::Settings::new(person_file, im_core::policy::read, effects, autostart);
+            settings.start();
+            app.manage(settings);
             log::info!("starting {} {} in {mode:?} mode", info.name, info.version);
             if mode == Mode::SelfCheck {
                 self_check::start_timer(app.handle().clone());

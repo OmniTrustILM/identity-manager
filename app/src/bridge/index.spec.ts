@@ -1,6 +1,17 @@
+import { emit } from '@tauri-apps/api/event';
 import { clearMocks, mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
-import { colorScheme, getAppInfo, hideSummary, openMainWindow, reportReady, windowLabel } from './index';
+import {
+    colorScheme,
+    getAppInfo,
+    getSettings,
+    hideSummary,
+    onOpenSection,
+    openMainWindow,
+    reportReady,
+    setSetting,
+    windowLabel,
+} from './index';
 
 afterEach(() => clearMocks());
 
@@ -51,6 +62,46 @@ describe('bridge', () => {
 
         await expect(colorScheme()).resolves.toBe(scheme);
         expect(calls).toEqual(['color_scheme']);
+    });
+
+    const view = {
+        startAtLogin: { value: true, locked: false },
+        logLevel: { value: 'info' as const, locked: true },
+    };
+
+    it('getSettings calls settings and returns the view', async () => {
+        const calls: string[] = [];
+        mockIPC((command) => {
+            calls.push(command);
+            return view;
+        });
+
+        await expect(getSettings()).resolves.toEqual(view);
+        expect(calls).toEqual(['settings']);
+    });
+
+    it('setSetting calls set_setting with the change and returns the view', async () => {
+        const calls: { command: string; args: unknown }[] = [];
+        mockIPC((command, args) => {
+            calls.push({ command, args });
+            return view;
+        });
+        const change = { key: 'startAtLogin' as const, value: false };
+
+        await expect(setSetting(change)).resolves.toEqual(view);
+        expect(calls).toEqual([{ command: 'set_setting', args: { change } }]);
+    });
+
+    it('onOpenSection passes the section of each open-section event until it is unlistened', async () => {
+        mockIPC(() => undefined, { shouldMockEvents: true });
+        const sections: string[] = [];
+
+        const unlisten = await onOpenSection((section) => sections.push(section));
+        await emit('open-section', 'settings');
+        unlisten();
+        await emit('open-section', 'other');
+
+        expect(sections).toEqual(['settings']);
     });
 
     it('windowLabel returns the label of the current window', () => {
