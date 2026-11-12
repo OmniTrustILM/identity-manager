@@ -1,17 +1,36 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppInfo } from '../../app-info';
+import { onOpenSection } from '../../bridge';
 import type { Section } from '../../sections';
 import { Sidebar } from '../Sidebar/Sidebar';
 
-export function Shell({ sections }: Readonly<{ sections: Section[] }>) {
+interface ShellProps {
+    sections: Section[];
+    /** The entry apart from the sections, at the bottom of the sidebar; the shell can be asked to open it. */
+    bottom?: Section;
+}
+
+export function Shell({ sections, bottom }: Readonly<ShellProps>) {
     const info = useAppInfo();
     const [current, setCurrent] = useState(sections[0]?.id);
-    const open = sections.find((section) => section.id === current);
+    const open = [...sections, ...(bottom ? [bottom] : [])].find((section) => section.id === current);
+
+    useEffect(() => {
+        if (!bottom) {
+            return;
+        }
+        // The tray menu asks for the page this way; it is the only section it opens.
+        const listening = onOpenSection((id) => id === bottom.id && setCurrent(id)).catch(() => () => undefined);
+        return () => {
+            void listening.then((stop) => stop());
+        };
+    }, [bottom]);
 
     return (
         <div className="flex h-screen">
             <Sidebar
                 sections={sections}
+                bottom={bottom}
                 current={current ?? ''}
                 onSelect={setCurrent}
                 title={info.platform === 'linux' ? info.name : undefined}

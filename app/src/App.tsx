@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react';
 import { AppInfoContext } from './app-info';
-import { type AppInfo, getAppInfo, reportReady, windowLabel } from './bridge';
+import { type AppInfo, getAppInfo, type Platform, reportReady, windowLabel } from './bridge';
 import { Shell } from './components/Shell/Shell';
 import { TraySummary } from './components/TraySummary/TraySummary';
-import { sections } from './sections';
+import { sections, settingsSection } from './sections';
+import { Settings } from './sections/Settings';
 import { strings } from './strings';
 import { followSystemScheme } from './theme';
+
+function Content({ label, platform }: Readonly<{ label: string; platform: Platform }>) {
+    switch (label) {
+        case 'summary':
+            return <TraySummary />;
+        case 'settings':
+            return <Settings />;
+        default:
+            return <Shell sections={sections} bottom={settingsSection(platform)} />;
+    }
+}
 
 export function App() {
     const [info, setInfo] = useState<AppInfo | null>(null);
@@ -28,8 +40,8 @@ export function App() {
     }, []);
 
     useEffect(() => {
-        // The summary reports itself, together with the height of its content.
-        if (info && windowLabel() !== 'summary') {
+        // The summary reports itself, together with the height of its content; Settings is not part of the check.
+        if (info && windowLabel() === 'main') {
             reportReady(info).catch(() => undefined);
         }
     }, [info]);
@@ -51,7 +63,7 @@ export function App() {
             {failed && <p role="alert">{strings.loadError}</p>}
             {info && (
                 <AppInfoContext.Provider value={info}>
-                    {windowLabel() === 'summary' ? <TraySummary /> : <Shell sections={sections} />}
+                    <Content label={windowLabel()} platform={info.platform} />
                 </AppInfoContext.Provider>
             )}
         </>

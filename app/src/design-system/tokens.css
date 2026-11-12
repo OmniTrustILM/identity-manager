@@ -8,6 +8,8 @@
     --im-tray-width: 340px;
     --im-icon-size: 16px;
     --im-titlebar-inset: 28px;
+    --im-select-width: 128px;
+    --im-opacity-disabled: 0.4;
 }
 
 /* Colours are written light first; each has a "-dark" twin that the scheme rules below swap in. */
@@ -22,6 +24,11 @@
     --im-control-height: 28px;
     --im-focus-width: 3px;
     --im-focus-offset: 1px;
+    --im-switch-width: 38px;
+    --im-switch-height: 22px;
+    --im-switch-thumb: 18px;
+    --im-switch-pad: 1px;
+    --im-switch-travel: 16px;
 
     --im-color-surface: #ffffff;
     --im-color-sidebar: #ececec;
@@ -40,6 +47,12 @@
     --im-color-status-attention: #ff9500;
     --im-color-status-wait: #8e8e93;
     --im-color-status-bad: #ff3b30;
+    --im-color-card: #ffffff;
+    --im-color-field: #ffffff;
+    --im-color-field-edge: #0000001a;
+    --im-color-switch-off-track: #e5e5e5;
+    --im-color-switch-off-thumb: #ffffff;
+    --im-color-switch-off-edge: #00000000;
 
     --im-color-surface-dark: #1e1e1e;
     --im-color-sidebar-dark: #2a2a2a;
@@ -58,6 +71,12 @@
     --im-color-status-attention-dark: #ff9f0a;
     --im-color-status-wait-dark: #98989d;
     --im-color-status-bad-dark: #ff453a;
+    --im-color-card-dark: #1e1e1e;
+    --im-color-field-dark: #ffffff1a;
+    --im-color-field-edge-dark: #ffffff1a;
+    --im-color-switch-off-track-dark: #393939;
+    --im-color-switch-off-thumb-dark: #ffffff;
+    --im-color-switch-off-edge-dark: #00000000;
 }
 
 [data-os="windows"] {
@@ -71,6 +90,11 @@
     --im-control-height: 32px;
     --im-focus-width: 2px;
     --im-focus-offset: 2px;
+    --im-switch-width: 40px;
+    --im-switch-height: 20px;
+    --im-switch-thumb: 12px;
+    --im-switch-pad: 3px;
+    --im-switch-travel: 20px;
 
     --im-color-surface: #fbfbfb;
     --im-color-sidebar: #f3f3f3;
@@ -89,6 +113,12 @@
     --im-color-status-attention: #9d5d00;
     --im-color-status-wait: #5f5f5f;
     --im-color-status-bad: #c42b1c;
+    --im-color-card: #f1f1f1;
+    --im-color-field: #f1f1f1;
+    --im-color-field-edge: #e0e0e0;
+    --im-color-switch-off-track: #00000000;
+    --im-color-switch-off-thumb: #5f5f5f;
+    --im-color-switch-off-edge: #5f5f5f;
 
     --im-color-surface-dark: #272727;
     --im-color-sidebar-dark: #202020;
@@ -107,6 +137,12 @@
     --im-color-status-attention-dark: #fce100;
     --im-color-status-wait-dark: #9d9d9d;
     --im-color-status-bad-dark: #ff99a4;
+    --im-color-card-dark: #343434;
+    --im-color-field-dark: #3a3a3a;
+    --im-color-field-edge-dark: #454545;
+    --im-color-switch-off-track-dark: #00000000;
+    --im-color-switch-off-thumb-dark: #cfcfcf;
+    --im-color-switch-off-edge-dark: #cfcfcf;
 }
 
 [data-os="linux"] {
@@ -120,6 +156,11 @@
     --im-control-height: 34px;
     --im-focus-width: 2px;
     --im-focus-offset: 2px;
+    --im-switch-width: 46px;
+    --im-switch-height: 26px;
+    --im-switch-thumb: 20px;
+    --im-switch-pad: 2px;
+    --im-switch-travel: 20px;
 
     --im-color-surface: #fafafb;
     --im-color-sidebar: #ebebed;
@@ -138,6 +179,12 @@
     --im-color-status-attention: #e5a50a;
     --im-color-status-wait: #77767b;
     --im-color-status-bad: #c01c28;
+    --im-color-card: #ebebed;
+    --im-color-field: #dcdcdc;
+    --im-color-field-edge: #00000000;
+    --im-color-switch-off-track: #dcdcdc;
+    --im-color-switch-off-thumb: #ffffff;
+    --im-color-switch-off-edge: #00000000;
 
     --im-color-surface-dark: #222226;
     --im-color-sidebar-dark: #2e2e32;
@@ -156,6 +203,12 @@
     --im-color-status-attention-dark: #f8e45c;
     --im-color-status-wait-dark: #9a9996;
     --im-color-status-bad-dark: #ff7b63;
+    --im-color-card-dark: #2e2e32;
+    --im-color-field-dark: #3d3d40;
+    --im-color-field-edge-dark: #00000000;
+    --im-color-switch-off-track-dark: #3d3d40;
+    --im-color-switch-off-thumb-dark: #ffffff;
+    --im-color-switch-off-edge-dark: #00000000;
 }
 
 /* data-theme, when present, wins over the system setting; without it the media query decides. */
@@ -178,6 +231,12 @@
         --im-color-status-attention: var(--im-color-status-attention-dark);
         --im-color-status-wait: var(--im-color-status-wait-dark);
         --im-color-status-bad: var(--im-color-status-bad-dark);
+        --im-color-card: var(--im-color-card-dark);
+        --im-color-field: var(--im-color-field-dark);
+        --im-color-field-edge: var(--im-color-field-edge-dark);
+        --im-color-switch-off-track: var(--im-color-switch-off-track-dark);
+        --im-color-switch-off-thumb: var(--im-color-switch-off-thumb-dark);
+        --im-color-switch-off-edge: var(--im-color-switch-off-edge-dark);
     }
 }
 
@@ -199,4 +258,10 @@
     --im-color-status-attention: var(--im-color-status-attention-dark);
     --im-color-status-wait: var(--im-color-status-wait-dark);
     --im-color-status-bad: var(--im-color-status-bad-dark);
+    --im-color-card: var(--im-color-card-dark);
+    --im-color-field: var(--im-color-field-dark);
+    --im-color-field-edge: var(--im-color-field-edge-dark);
+    --im-color-switch-off-track: var(--im-color-switch-off-track-dark);
+    --im-color-switch-off-thumb: var(--im-color-switch-off-thumb-dark);
+    --im-color-switch-off-edge: var(--im-color-switch-off-edge-dark);
 }

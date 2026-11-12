@@ -1,0 +1,5630 @@
+{
+  "version": "2.14",
+  "children": [
+    {
+      "type": "frame",
+      "id": "Uaqjv",
+      "x": 0,
+      "y": 0,
+      "name": "Switch and Select/macOS light",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 660,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "uoJdH",
+          "name": "macOS light",
+          "fill": "$color.text-primary",
+          "content": "macOS light",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.title",
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "Dv6TN",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "children": [
+            {
+              "type": "frame",
+              "id": "nyJZS",
+              "name": "Label cell",
+              "width": 120,
+              "height": 1
+            },
+            {
+              "type": "frame",
+              "id": "m9x4D",
+              "name": "Cell Rest",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "R5mah0",
+                  "name": "Rest",
+                  "fill": "$color.text-tertiary",
+                  "content": "Rest",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "g2sSl",
+              "name": "Cell Focus",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "g3Rxse",
+                  "name": "Focus",
+                  "fill": "$color.text-tertiary",
+                  "content": "Focus",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VGFiy",
+              "name": "Cell Disabled",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "z3QEGo",
+                  "name": "Disabled",
+                  "fill": "$color.text-tertiary",
+                  "content": "Disabled",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qJb7I",
+          "name": "Row Switch off",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "iz4Jj",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "f0P9lX",
+                  "name": "Switch off",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch off",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ySzVl",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "yH9u5",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "pPEmj",
+                      "name": "Switch track",
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "NxNMN",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "zKygB",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BdJ1n",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "gouY4",
+                      "name": "Switch track",
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "Z5bKp",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Z9FCF1",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "kKcXA",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "uBRUE",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "NKlhT",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "vdbKp",
+          "name": "Row Switch on",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "hZeEK",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Tqqcg",
+                  "name": "Switch on",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch on",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "v3FxBH",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "F8L58r",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "J8YoN",
+                      "name": "Switch track",
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.accent",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "ToHvb",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "rolkf",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "LbLXR",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "FHhnt",
+                      "name": "Switch track",
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.accent",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "zEVa4",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "A52pTE",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "wT5Et",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "qXxEW",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.accent",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "t6ztgF",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "WxYPx",
+          "name": "Row Select",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "yP0Xs",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "KhndP",
+                  "name": "Select",
+                  "fill": "$color.text-secondary",
+                  "content": "Select",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fLToY",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "c05Q4p",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "pVWr6",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "cY96X",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "oVlqQ",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "b2sW2j",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Bp9R7",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "f3pOm",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "IhjIG",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "L1CvN",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Z48di",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "FnOtd",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "SDxic",
+                      "name": "Select",
+                      "opacity": 0.4,
+                      "width": 130,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "J4DwQ",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "n3GfvF",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "y3m1Zb",
+          "name": "Row Locked",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "jbZBt",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "X1nPzd",
+                  "name": "Locked",
+                  "fill": "$color.text-secondary",
+                  "content": "Locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "gYyU9",
+              "name": "Cell switch",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "y1sRR",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "olROm",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.accent",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "ZTvR8",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "IulGH",
+              "name": "Cell note",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "W4d3m",
+                  "name": "Lock note",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "FLGad",
+                      "name": "Icon lock",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "lock",
+                      "library": "lucide",
+                      "fill": "$color.text-secondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "eYjcr",
+                      "name": "Managed by your organization",
+                      "fill": "$color.text-secondary",
+                      "content": "Managed by your organization",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "AMPnA",
+      "x": 700,
+      "y": 0,
+      "name": "Switch and Select/Windows light",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 660,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "EqFE6",
+          "name": "Windows light",
+          "fill": "$color.text-primary",
+          "content": "Windows light",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.title",
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "tF1Jv",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "children": [
+            {
+              "type": "frame",
+              "id": "o1dZaV",
+              "name": "Label cell",
+              "width": 120,
+              "height": 1
+            },
+            {
+              "type": "frame",
+              "id": "dLpUI",
+              "name": "Cell Rest",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dKL9c",
+                  "name": "Rest",
+                  "fill": "$color.text-tertiary",
+                  "content": "Rest",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "seUvc",
+              "name": "Cell Focus",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hBqUm",
+                  "name": "Focus",
+                  "fill": "$color.text-tertiary",
+                  "content": "Focus",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GIr0w",
+              "name": "Cell Disabled",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "PSQUG",
+                  "name": "Disabled",
+                  "fill": "$color.text-tertiary",
+                  "content": "Disabled",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "JpTzm",
+          "name": "Row Switch off",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "m0kR14",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "lcKnt",
+                  "name": "Switch off",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch off",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "HkAk8",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "qfR7p",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "T4qic5",
+                      "name": "Switch track",
+                      "width": 40,
+                      "height": 20,
+                      "fill": "#00000000",
+                      "cornerRadius": 10,
+                      "stroke": "$color.text-secondary",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "l7z0R",
+                          "name": "Knob",
+                          "fill": "$color.text-secondary",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XhCbP",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "PcRvq",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ZFnqd",
+                      "name": "Switch track",
+                      "width": 40,
+                      "height": 20,
+                      "fill": "#00000000",
+                      "cornerRadius": 10,
+                      "stroke": "$color.text-secondary",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "HL2PZ",
+                          "name": "Knob",
+                          "fill": "$color.text-secondary",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "F58Uf",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "uPltS",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Gkbrh",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 40,
+                      "height": 20,
+                      "fill": "#00000000",
+                      "cornerRadius": 10,
+                      "stroke": "$color.text-secondary",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "aZvhc",
+                          "name": "Knob",
+                          "fill": "$color.text-secondary",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Fxu0m",
+          "name": "Row Switch on",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "F0QFn1",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "NEuNt",
+                  "name": "Switch on",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch on",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "X9Rgfr",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "C2zuyE",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hABTN",
+                      "name": "Switch track",
+                      "width": 40,
+                      "height": 20,
+                      "fill": "$color.accent",
+                      "cornerRadius": 10,
+                      "padding": 4,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "aeHhX",
+                          "name": "Knob",
+                          "fill": "$color.accent-text",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wbOpp",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "JjCu0",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "z26kOY",
+                      "name": "Switch track",
+                      "width": 40,
+                      "height": 20,
+                      "fill": "$color.accent",
+                      "cornerRadius": 10,
+                      "padding": 4,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "He9Yw",
+                          "name": "Knob",
+                          "fill": "$color.accent-text",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "cI6L1",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "IVatK",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hYT8e",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 40,
+                      "height": 20,
+                      "fill": "$color.accent",
+                      "cornerRadius": 10,
+                      "padding": 4,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "Z7v1r",
+                          "name": "Knob",
+                          "fill": "$color.accent-text",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "G1lbL",
+          "name": "Row Select",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "SQQ9F",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tlR3X",
+                  "name": "Select",
+                  "fill": "$color.text-secondary",
+                  "content": "Select",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wIvzK",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "vUEvZ",
+                  "name": "Focus ring",
+                  "cornerRadius": 6,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "JRlOK",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "m1r6qk",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "eifa4",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "R6Tib2",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "EprEn",
+                  "name": "Focus ring",
+                  "cornerRadius": 6,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "AVAgW",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "T1aXXU",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "PpI1c",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GwTag",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "b4u89",
+                  "name": "Focus ring",
+                  "cornerRadius": 6,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "llkbX",
+                      "name": "Select",
+                      "opacity": 0.4,
+                      "width": 130,
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "QFP5r",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "FXCqA",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "nufqV",
+          "name": "Row Locked",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Xzeqg",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "pC4IQ",
+                  "name": "Locked",
+                  "fill": "$color.text-secondary",
+                  "content": "Locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "P0R04G",
+              "name": "Cell switch",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "CbrUR",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "smrl2",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 40,
+                      "height": 20,
+                      "fill": "$color.accent",
+                      "cornerRadius": 10,
+                      "padding": 4,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "LoHLJ",
+                          "name": "Knob",
+                          "fill": "$color.accent-text",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "V1fDz0",
+              "name": "Cell note",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "NI4uZ",
+                  "name": "Lock note",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "OhHI8",
+                      "name": "Icon lock",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "lock",
+                      "library": "lucide",
+                      "fill": "$color.text-secondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "YYe9V",
+                      "name": "Managed by your organization",
+                      "fill": "$color.text-secondary",
+                      "content": "Managed by your organization",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "hKWqd",
+      "x": 1400,
+      "y": 0,
+      "name": "Switch and Select/Linux light",
+      "theme": {
+        "os": "linux",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 660,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "gKQtf",
+          "name": "Linux light",
+          "fill": "$color.text-primary",
+          "content": "Linux light",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.title",
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "Z6wZ9",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "children": [
+            {
+              "type": "frame",
+              "id": "ThLNP",
+              "name": "Label cell",
+              "width": 120,
+              "height": 1
+            },
+            {
+              "type": "frame",
+              "id": "UCWnJ",
+              "name": "Cell Rest",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "i6kRr",
+                  "name": "Rest",
+                  "fill": "$color.text-tertiary",
+                  "content": "Rest",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "U0LwH",
+              "name": "Cell Focus",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Qhvko",
+                  "name": "Focus",
+                  "fill": "$color.text-tertiary",
+                  "content": "Focus",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "z2pHq",
+              "name": "Cell Disabled",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "UfHt8",
+                  "name": "Disabled",
+                  "fill": "$color.text-tertiary",
+                  "content": "Disabled",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jQl02",
+          "name": "Row Switch off",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "H8I1Zc",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "y37gZ",
+                  "name": "Switch off",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch off",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "pbC2g",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "dUjbL",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "P0hdhs",
+                      "name": "Switch track",
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "SDzVU",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "P5nsBN",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "M1peO",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "H9aDDB",
+                      "name": "Switch track",
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "YUt84",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mTB9T",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "K2aRGj",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "a6B9g",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "Dt5mP",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "hMwG9",
+          "name": "Row Switch on",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Ck8l1",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "BkXPt",
+                  "name": "Switch on",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch on",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "uI7Pa",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "lTYyP",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "kBk5J",
+                      "name": "Switch track",
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.accent",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "P1vle",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "I9FOA",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "DOgja",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "JPUiw",
+                      "name": "Switch track",
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.accent",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "apMsh",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GjlsE",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "rY1ap",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Ke651",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.accent",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "sJxny",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ahAdE",
+          "name": "Row Select",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "kZAsy",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "H7aHT",
+                  "name": "Select",
+                  "fill": "$color.text-secondary",
+                  "content": "Select",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "NmIkq",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ItP9c",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "svG1m",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "l8dei",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "gARxA",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "tiCJv",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "jbljq",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "bln5D",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "r0VCZu",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "UxkUL",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Hpenq",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "U3sTLx",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "jiWbH",
+                      "name": "Select",
+                      "opacity": 0.4,
+                      "width": 130,
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "N4UQxR",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "cCjun",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "JWuK2",
+          "name": "Row Locked",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "WDuAN",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dLuje",
+                  "name": "Locked",
+                  "fill": "$color.text-secondary",
+                  "content": "Locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "L6wbDX",
+              "name": "Cell switch",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "x10hR1",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "oLCH5",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.accent",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "l0N3j",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ofODS",
+              "name": "Cell note",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "YcGqx",
+                  "name": "Lock note",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Yk8Ga",
+                      "name": "Icon lock",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "lock",
+                      "library": "lucide",
+                      "fill": "$color.text-secondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "K36mbv",
+                      "name": "Managed by your organization",
+                      "fill": "$color.text-secondary",
+                      "content": "Managed by your organization",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "EgqC0",
+      "x": 0,
+      "y": 620,
+      "name": "Switch and Select/macOS dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 660,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "HILLe",
+          "name": "macOS dark",
+          "fill": "$color.text-primary",
+          "content": "macOS dark",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.title",
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "G9FUr",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "children": [
+            {
+              "type": "frame",
+              "id": "I5KYj",
+              "name": "Label cell",
+              "width": 120,
+              "height": 1
+            },
+            {
+              "type": "frame",
+              "id": "CX5DD",
+              "name": "Cell Rest",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "gZKdq",
+                  "name": "Rest",
+                  "fill": "$color.text-tertiary",
+                  "content": "Rest",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "m6wOpC",
+              "name": "Cell Focus",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "QJr7v",
+                  "name": "Focus",
+                  "fill": "$color.text-tertiary",
+                  "content": "Focus",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "i96j0E",
+              "name": "Cell Disabled",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "UqIjh",
+                  "name": "Disabled",
+                  "fill": "$color.text-tertiary",
+                  "content": "Disabled",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Z7X05",
+          "name": "Row Switch off",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "S68wyr",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "KAowT",
+                  "name": "Switch off",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch off",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "q2y55",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Qu9la",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "AVkXh",
+                      "name": "Switch track",
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "P1bBqA",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "PPVa6",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "CDJOf",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "PL7d5",
+                      "name": "Switch track",
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "z3vLu",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "t50I9",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "J2FQLS",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "dc3NZ",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "hpjsd",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Y6wLPq",
+          "name": "Row Switch on",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "GdLV7",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "b3Y9Wp",
+                  "name": "Switch on",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch on",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "nNj1e",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "w6fjcw",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "z2H26",
+                      "name": "Switch track",
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.accent",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "zzOkE",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "JYfi5",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "RU6Ef",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Mq4mF",
+                      "name": "Switch track",
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.accent",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "mf0Ga",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Z2yTZF",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "vlO9c",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "D7Or1",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.accent",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "P4eFtc",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "WJuqr",
+          "name": "Row Select",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "R37NCS",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hQXQc",
+                  "name": "Select",
+                  "fill": "$color.text-secondary",
+                  "content": "Select",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qdZaK",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "knjon",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "iIHl0",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Ypa9V",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "ZVOJT",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GrqNM",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "AkYwA",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "xaIfq",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "xSDCY",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "EavMv",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "p3Tqa",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "J4hFt",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "f5hdC",
+                      "name": "Select",
+                      "opacity": 0.4,
+                      "width": 130,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s4aXy",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "mgqpR",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "rzgUo",
+          "name": "Row Locked",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "I5xlSg",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "MWGXq",
+                  "name": "Locked",
+                  "fill": "$color.text-secondary",
+                  "content": "Locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ptzl9",
+              "name": "Cell switch",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "YPSZi",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "dNQXK",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 38,
+                      "height": 22,
+                      "fill": "$color.accent",
+                      "cornerRadius": 11,
+                      "padding": 2,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "g4iuY2",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 18,
+                          "height": 18,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000040",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 2
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VMjSY",
+              "name": "Cell note",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "QPsOY",
+                  "name": "Lock note",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "aZlCr",
+                      "name": "Icon lock",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "lock",
+                      "library": "lucide",
+                      "fill": "$color.text-secondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "nY4Ra",
+                      "name": "Managed by your organization",
+                      "fill": "$color.text-secondary",
+                      "content": "Managed by your organization",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "KeHwP",
+      "x": 700,
+      "y": 620,
+      "name": "Switch and Select/Windows dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 660,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "elLXg",
+          "name": "Windows dark",
+          "fill": "$color.text-primary",
+          "content": "Windows dark",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.title",
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "t1f0bT",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "children": [
+            {
+              "type": "frame",
+              "id": "ELUNf",
+              "name": "Label cell",
+              "width": 120,
+              "height": 1
+            },
+            {
+              "type": "frame",
+              "id": "oIyWF",
+              "name": "Cell Rest",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "weHM7",
+                  "name": "Rest",
+                  "fill": "$color.text-tertiary",
+                  "content": "Rest",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "v5Nto",
+              "name": "Cell Focus",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Pq7r3",
+                  "name": "Focus",
+                  "fill": "$color.text-tertiary",
+                  "content": "Focus",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hZfEd",
+              "name": "Cell Disabled",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "PDqGN",
+                  "name": "Disabled",
+                  "fill": "$color.text-tertiary",
+                  "content": "Disabled",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "cjBpT",
+          "name": "Row Switch off",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "m8k16N",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "fVAE4",
+                  "name": "Switch off",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch off",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "N0YiW",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "SIGbA",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "s2nypc",
+                      "name": "Switch track",
+                      "width": 40,
+                      "height": 20,
+                      "fill": "#00000000",
+                      "cornerRadius": 10,
+                      "stroke": "$color.text-secondary",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "i4mr6y",
+                          "name": "Knob",
+                          "fill": "$color.text-secondary",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "N449M",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "R6ZDDX",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "vNd77",
+                      "name": "Switch track",
+                      "width": 40,
+                      "height": 20,
+                      "fill": "#00000000",
+                      "cornerRadius": 10,
+                      "stroke": "$color.text-secondary",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "xWJO7",
+                          "name": "Knob",
+                          "fill": "$color.text-secondary",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZTvTc",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "qIRmE",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "NnPEE",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 40,
+                      "height": 20,
+                      "fill": "#00000000",
+                      "cornerRadius": 10,
+                      "stroke": "$color.text-secondary",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "ClnT8",
+                          "name": "Knob",
+                          "fill": "$color.text-secondary",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "KtoYH",
+          "name": "Row Switch on",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "rnmbY",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "VeO9q",
+                  "name": "Switch on",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch on",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "kbusN",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "IF37J",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "FEEiO",
+                      "name": "Switch track",
+                      "width": 40,
+                      "height": 20,
+                      "fill": "$color.accent",
+                      "cornerRadius": 10,
+                      "padding": 4,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "eAtNT",
+                          "name": "Knob",
+                          "fill": "$color.accent-text",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "yxPTT",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "H1Q9u",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "h5PPr",
+                      "name": "Switch track",
+                      "width": 40,
+                      "height": 20,
+                      "fill": "$color.accent",
+                      "cornerRadius": 10,
+                      "padding": 4,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "ZA2vI",
+                          "name": "Knob",
+                          "fill": "$color.accent-text",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "NVCAZ",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "cMtSr",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "yLHcM",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 40,
+                      "height": 20,
+                      "fill": "$color.accent",
+                      "cornerRadius": 10,
+                      "padding": 4,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "j2xGc",
+                          "name": "Knob",
+                          "fill": "$color.accent-text",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "XKhXN",
+          "name": "Row Select",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "m27pq",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vR1SW",
+                  "name": "Select",
+                  "fill": "$color.text-secondary",
+                  "content": "Select",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "r8y9Bk",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "enmn3",
+                  "name": "Focus ring",
+                  "cornerRadius": 6,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "DxC53",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "k0Zkvm",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "T3pX0g",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Wq0zd",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "knxYQ",
+                  "name": "Focus ring",
+                  "cornerRadius": 6,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "CEmlk",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "uYUMo",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "K0IQh",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "YjXxs",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "EmBC1",
+                  "name": "Focus ring",
+                  "cornerRadius": 6,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "usaZx",
+                      "name": "Select",
+                      "opacity": 0.4,
+                      "width": 130,
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "fdUBp",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "LG3pS",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "O6AxG",
+          "name": "Row Locked",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "S7pAm",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "MzPtl",
+                  "name": "Locked",
+                  "fill": "$color.text-secondary",
+                  "content": "Locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "nOu8l",
+              "name": "Cell switch",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "XzLoG",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "eQ5Lf",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 40,
+                      "height": 20,
+                      "fill": "$color.accent",
+                      "cornerRadius": 10,
+                      "padding": 4,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "flAA6",
+                          "name": "Knob",
+                          "fill": "$color.accent-text",
+                          "width": 12,
+                          "height": 12
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Ie0BC",
+              "name": "Cell note",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "mRiAA",
+                  "name": "Lock note",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "sbEAS",
+                      "name": "Icon lock",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "lock",
+                      "library": "lucide",
+                      "fill": "$color.text-secondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "haewQ",
+                      "name": "Managed by your organization",
+                      "fill": "$color.text-secondary",
+                      "content": "Managed by your organization",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "F32Eir",
+      "x": 1400,
+      "y": 620,
+      "name": "Switch and Select/Linux dark",
+      "theme": {
+        "os": "linux",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 660,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "cJSVD",
+          "name": "Linux dark",
+          "fill": "$color.text-primary",
+          "content": "Linux dark",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.title",
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "jeuxU",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "children": [
+            {
+              "type": "frame",
+              "id": "m3WBI",
+              "name": "Label cell",
+              "width": 120,
+              "height": 1
+            },
+            {
+              "type": "frame",
+              "id": "GVCk7",
+              "name": "Cell Rest",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "K82Kg1",
+                  "name": "Rest",
+                  "fill": "$color.text-tertiary",
+                  "content": "Rest",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ufFsn",
+              "name": "Cell Focus",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "D82m6B",
+                  "name": "Focus",
+                  "fill": "$color.text-tertiary",
+                  "content": "Focus",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "cKsem",
+              "name": "Cell Disabled",
+              "width": 150,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "StHHy",
+                  "name": "Disabled",
+                  "fill": "$color.text-tertiary",
+                  "content": "Disabled",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "PLhNU",
+          "name": "Row Switch off",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "EAuss",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "JFJyp",
+                  "name": "Switch off",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch off",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "FWqZ7",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "VUAp7",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "vYcJH",
+                      "name": "Switch track",
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "yJPtG",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "dTJtS",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "RLjp0",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "a0vQDd",
+                      "name": "Switch track",
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "BLOEz",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "NAxnJ",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "FW3xT",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "c4B4u",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.row-current",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "TM6Pf",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Sx1Ku",
+          "name": "Row Switch on",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "f53my",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "G7hkmi",
+                  "name": "Switch on",
+                  "fill": "$color.text-secondary",
+                  "content": "Switch on",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VGF6m",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "k8Kog9",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Z4uAV",
+                      "name": "Switch track",
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.accent",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "aDUCj",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f7csCI",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BmldN",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "O7oPC",
+                      "name": "Switch track",
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.accent",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "JYAHa",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jV72F",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "zbDZO",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "w7nuW",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.accent",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "XkEJ5",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Y9mZ5i",
+          "name": "Row Select",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Nybsb",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Cqd9E",
+                  "name": "Select",
+                  "fill": "$color.text-secondary",
+                  "content": "Select",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "a3oRk",
+              "name": "Cell rest",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "t2x5C",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Tnb8J",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Hk8xW",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "JueQ4",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "a55Yt",
+              "name": "Cell focus",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "PDqaL",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "stroke": "$color.focus-ring",
+                  "strokeWidth": "$focus.width",
+                  "strokeAlignment": "outer",
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YhRkQ",
+                      "name": "Select",
+                      "width": 130,
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "b9d6MZ",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "VC8hs",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KL1AF",
+              "name": "Cell disabled",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "w9Tcs",
+                  "name": "Focus ring",
+                  "cornerRadius": 8,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "f4lzx",
+                      "name": "Select",
+                      "opacity": 0.4,
+                      "width": 130,
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "mQIeM",
+                          "name": "info",
+                          "fill": "$color.text-primary",
+                          "content": "info",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "YO8bn",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevrons-up-down",
+                          "library": "lucide",
+                          "fill": "$color.text-secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "pkAES",
+          "name": "Row Locked",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "qSBUT",
+              "name": "Label cell",
+              "width": 120,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "z8zSP",
+                  "name": "Locked",
+                  "fill": "$color.text-secondary",
+                  "content": "Locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "z6TjN",
+              "name": "Cell switch",
+              "width": 150,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "d8WQX",
+                  "name": "Focus ring",
+                  "cornerRadius": 999,
+                  "padding": "$focus.offset",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "S1OeUz",
+                      "name": "Switch track",
+                      "opacity": 0.4,
+                      "width": 46,
+                      "height": 26,
+                      "fill": "$color.accent",
+                      "cornerRadius": 13,
+                      "padding": 3,
+                      "justifyContent": "end",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "XssNo",
+                          "name": "Knob",
+                          "fill": "#FFFFFF",
+                          "width": 20,
+                          "height": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "S4PXau",
+              "name": "Cell note",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "m0hgu",
+                  "name": "Lock note",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "SzNji",
+                      "name": "Icon lock",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "lock",
+                      "library": "lucide",
+                      "fill": "$color.text-secondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y5WrE",
+                      "name": "Managed by your organization",
+                      "fill": "$color.text-secondary",
+                      "content": "Managed by your organization",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "themes": {
+    "os": [
+      "macos",
+      "windows",
+      "linux"
+    ],
+    "mode": [
+      "light",
+      "dark"
+    ]
+  },
+  "variables": {
+    "color.surface": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#1E1E1E",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FBFBFB",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#272727",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FAFAFB",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#222226",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.sidebar": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#ECECEC",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2A2A2A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#F3F3F3",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#202020",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#EBEBED",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2E2E32",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.sidebar-tint": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E8E8E8B3",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2A2A2CB3",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#F3F3F3CC",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#202020CC",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#EBEBED",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2E2E32",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.titlebar": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E8E8E8B3",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2A2A2CB3",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#F3F3F3CC",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#202020CC",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#EBEBED",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#303034",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.text-primary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#000000D9",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFFD9",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#1A1A1A",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#323232",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.text-secondary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#00000080",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF8C",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#5F5F5F",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#CFCFCF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#5E5E62",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#C0BFBC",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.text-tertiary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#00000059",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF59",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#767676",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#9D9D9D",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#77767B",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#8D8D91",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.separator": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#0000001A",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF1A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#E0E0E0",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3A3A3A",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#D9D9DC",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3F3F44",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.accent": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#007AFF",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#0A84FF",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#005FB8",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#60CDFF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.accent-text": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#000000",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.row-hover": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#0000000D",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF14",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0000000A",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF0F",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0000000F",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF0F",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.row-current": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#0000001A",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF1F",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#00000014",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF17",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0000001F",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF1F",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.focus-ring": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#007AFF80",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#0A84FF80",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#1A1A1A",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-bad": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FF3B30",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF453A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#C42B1C",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF99A4",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#C01C28",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF7B63",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.family": {
+      "type": "string",
+      "value": [
+        {
+          "value": "-apple-system",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "-apple-system",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Segoe UI Variable",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Segoe UI Variable",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.family-preview": {
+      "type": "string",
+      "value": [
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.body": {
+      "type": "number",
+      "value": [
+        {
+          "value": 13,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 13,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 14,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 14,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 15,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 15,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.caption": {
+      "type": "number",
+      "value": [
+        {
+          "value": 11,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 11,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.title": {
+      "type": "number",
+      "value": [
+        {
+          "value": 15,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 15,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.large-title": {
+      "type": "number",
+      "value": [
+        {
+          "value": 22,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 22,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 28,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 28,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 24,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 24,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "radius.control": {
+      "type": "number",
+      "value": [
+        {
+          "value": 6,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 6,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 4,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 4,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 6,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 6,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "radius.window": {
+      "type": "number",
+      "value": [
+        {
+          "value": 10,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 10,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 8,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 8,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "control.height": {
+      "type": "number",
+      "value": [
+        {
+          "value": 28,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 28,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 32,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 32,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 34,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 34,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "focus.width": {
+      "type": "number",
+      "value": [
+        {
+          "value": 3,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 3,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "focus.offset": {
+      "type": "number",
+      "value": [
+        {
+          "value": 1,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 1,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "space.1": {
+      "type": "number",
+      "value": 4
+    },
+    "space.2": {
+      "type": "number",
+      "value": 8
+    },
+    "space.3": {
+      "type": "number",
+      "value": 12
+    },
+    "space.4": {
+      "type": "number",
+      "value": 16
+    },
+    "space.5": {
+      "type": "number",
+      "value": 24
+    },
+    "sidebar.width": {
+      "type": "number",
+      "value": 220
+    }
+  },
+  "fileToken": "09f3eadb-aa93-4f85-83e5-a8808278492e"
+}

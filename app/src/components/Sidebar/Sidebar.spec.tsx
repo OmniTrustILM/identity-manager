@@ -26,8 +26,20 @@ afterEach(async () => {
     container.remove();
 });
 
-async function render(title?: string) {
-    await act(async () => root.render(<Sidebar sections={sections} current="two" onSelect={(id) => selected.push(id)} title={title} />));
+const bottom: Section = { id: 'settings', label: 'Settings', icon: OverviewIcon, Component: Empty };
+
+async function render(title?: string, withBottom = false) {
+    await act(async () =>
+        root.render(
+            <Sidebar
+                sections={sections}
+                bottom={withBottom ? bottom : undefined}
+                current="two"
+                onSelect={(id) => selected.push(id)}
+                title={title}
+            />,
+        ),
+    );
 }
 
 const buttons = () => [...container.querySelectorAll('button')];
@@ -92,4 +104,36 @@ test('shows the title only when given one', async () => {
 
     await render();
     expect(container.querySelector('nav')?.textContent).not.toContain('Identity Manager');
+});
+
+test('the bottom entry sits apart from the sections and is selected like them', async () => {
+    await render(undefined, true);
+
+    const apart = container.querySelector('nav > div');
+    expect(apart?.querySelectorAll('button')).toHaveLength(1);
+    expect(apart?.textContent).toBe('Settings');
+    expect([...container.querySelectorAll('nav > button')].map((button) => button.textContent)).toEqual(['one', 'two', 'three']);
+
+    await act(async () => (container.querySelector('nav > div button') as HTMLElement).click());
+
+    expect(selected).toEqual(['settings']);
+});
+
+test('the arrow keys reach the bottom entry and End and Home span all entries', async () => {
+    await render(undefined, true);
+    await act(async () => buttons()[2]?.focus());
+
+    await press('ArrowDown');
+    expect(document.activeElement).toBe(buttons()[3]);
+    await press('Home');
+    expect(document.activeElement).toBe(buttons()[0]);
+    await press('End');
+    expect(document.activeElement).toBe(buttons()[3]);
+    expect(buttons().map((button) => button.tabIndex)).toEqual([-1, -1, -1, 0]);
+});
+
+test('without a bottom entry nothing is set apart', async () => {
+    await render();
+
+    expect(container.querySelector('nav > div')).toBeNull();
 });

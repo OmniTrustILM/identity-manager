@@ -42,11 +42,16 @@ function mockBridge(appInfo: () => unknown, scheme: string | null = null, label 
             if (command === 'app_info') {
                 return appInfo();
             }
+            if (command === 'settings') {
+                return { startAtLogin: { value: true, locked: false }, logLevel: { value: 'info', locked: true } };
+            }
             if (command === 'color_scheme') {
                 schemeRequests += 1;
                 return scheme;
             }
-            reports.push((args as { report: unknown }).report);
+            if (command === 'report_ready') {
+                reports.push((args as { report: unknown }).report);
+            }
         },
         { shouldMockEvents: true },
     );
@@ -166,4 +171,34 @@ test('both windows report what they show, the summary with the height of its con
         clearMocks();
     }
     vi.restoreAllMocks();
+});
+
+test('the settings window shows Settings as its root, without the shell, and reports nothing', async () => {
+    mockBridge(() => info, null, 'settings');
+
+    await render(<App />);
+
+    expect(container.querySelector('nav')).toBeNull();
+    expect(container.querySelector('h2')?.textContent).toBe(strings.general);
+    expect(container.querySelector('select')?.disabled).toBe(true);
+    expect(reports).toEqual([]);
+});
+
+test.each([
+    ['windows', 'Settings'],
+    ['linux', 'Preferences'],
+] as const)('on %s the main window has the %s entry at the bottom of the sidebar', async (platform, word) => {
+    mockBridge(() => ({ ...info, platform }));
+
+    await render(<App />);
+
+    expect(container.querySelector('nav > div button')?.textContent).toBe(word);
+});
+
+test('on macOS the main window has no Settings entry', async () => {
+    mockBridge(() => info);
+
+    await render(<App />);
+
+    expect(container.querySelector('nav > div')).toBeNull();
 });

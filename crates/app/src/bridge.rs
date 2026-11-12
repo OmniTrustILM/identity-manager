@@ -284,4 +284,80 @@ mod tests {
             ])
         );
     }
+
+    /// Whether the call was refused by the capabilities rather than failing in the command.
+    fn refused_by_capabilities(answer: &Result<serde_json::Value, serde_json::Value>) -> bool {
+        matches!(answer, Err(error) if error.to_string().contains("not allowed"))
+    }
+
+    const SETTINGS_COMMANDS: [&str; 2] = ["settings", "set_setting"];
+
+    #[test]
+    fn the_summary_is_refused_the_settings_commands() {
+        for command in SETTINGS_COMMANDS {
+            assert!(refused_by_capabilities(&summary(command)), "{command}");
+        }
+    }
+
+    #[test]
+    fn only_the_settings_window_on_macos_and_only_main_elsewhere_may_call_the_settings_commands() {
+        for command in SETTINGS_COMMANDS {
+            // An empty body is no valid change, so an allowed `set_setting` fails inside the command.
+            let main = call_in("main", LOCAL_ORIGIN, command, serde_json::json!({}));
+            let settings = call_in("settings", LOCAL_ORIGIN, command, serde_json::json!({}));
+            assert_eq!(
+                refused_by_capabilities(&main),
+                cfg!(target_os = "macos"),
+                "{command} from main: {main:?}"
+            );
+            assert_eq!(
+                refused_by_capabilities(&settings),
+                !cfg!(target_os = "macos"),
+                "{command} from settings: {settings:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_remote_page_is_refused_the_settings_commands() {
+        for label in ["main", "settings"] {
+            let answer = call_in(
+                label,
+                "https://example.com",
+                "settings",
+                serde_json::json!({}),
+            );
+            assert!(refused_by_capabilities(&answer), "{label}: {answer:?}");
+        }
+    }
+
+    #[test]
+    fn the_settings_window_capability_is_for_macos_and_grants_only_the_settings() {
+        let file = include_str!("../capabilities/settings-window.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["platforms"], serde_json::json!(["macOS"]));
+        assert_eq!(parsed["windows"], serde_json::json!(["settings"]));
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!(["allow-app-info", "allow-settings", "allow-set-setting"])
+        );
+    }
+
+    #[test]
+    fn the_settings_page_capability_is_for_windows_and_linux_and_grants_only_the_settings_and_event_listening()
+     {
+        let file = include_str!("../capabilities/settings-page.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["platforms"], serde_json::json!(["windows", "linux"]));
+        assert_eq!(parsed["windows"], serde_json::json!(["main"]));
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!([
+                "allow-settings",
+                "allow-set-setting",
+                "core:event:allow-listen",
+                "core:event:allow-unlisten"
+            ])
+        );
+    }
 }

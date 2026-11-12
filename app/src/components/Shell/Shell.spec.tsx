@@ -1,10 +1,12 @@
+import { emit } from '@tauri-apps/api/event';
+import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { AppInfoContext, useAppInfo } from '../../app-info';
 import type { AppInfo } from '../../bridge';
 import { OverviewIcon } from '../../design-system/icons';
-import { type Section, sections } from '../../sections';
+import { type Section, sections, settingsSection } from '../../sections';
 import { strings } from '../../strings';
 import { Shell } from './Shell';
 
@@ -26,13 +28,14 @@ beforeEach(() => {
 afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    clearMocks();
 });
 
-async function render(list: Section[], platform: AppInfo['platform'] = 'macos') {
+async function render(list: Section[], platform: AppInfo['platform'] = 'macos', bottom?: Section) {
     await act(async () =>
         root.render(
             <AppInfoContext.Provider value={{ ...info, platform }}>
-                <Shell sections={list} />
+                <Shell sections={list} bottom={bottom} />
             </AppInfoContext.Provider>,
         ),
     );
@@ -92,4 +95,62 @@ test('the app information is required where it is read', async () => {
 
     console.error = log;
     window.removeEventListener('error', quiet);
+});
+
+const settingsEntry = () => container.querySelector('nav > div button') as HTMLElement | null;
+
+test.each([
+    ['windows', 'Settings'],
+    ['linux', 'Preferences'],
+] as const)('on %s the sidebar ends with a %s entry that opens the page', async (platform, word) => {
+    mockIPC(() => ({ startAtLogin: { value: true, locked: false }, logLevel: { value: 'info', locked: false } }));
+
+    await render(sections, platform, settingsSection(platform));
+
+    expect(settingsEntry()?.textContent).toBe(word);
+    await act(async () => settingsEntry()?.click());
+    expect(settingsEntry()?.getAttribute('aria-current')).toBe('page');
+    expect(container.querySelector('main h1')?.textContent).toBe(word);
+});
+
+test('macOS has no Settings entry in the sidebar', () => {
+    expect(settingsSection('macos')).toBeUndefined();
+});
+
+test('the request to open Settings selects the entry; other sections are not opened that way', async () => {
+    mockIPC(() => ({ startAtLogin: { value: true, locked: false }, logLevel: { value: 'info', locked: false } }), {
+        shouldMockEvents: true,
+    });
+    await render([...sections, other], 'windows', settingsSection('windows'));
+
+    await act(async () => emit('open-section', 'other'));
+    expect(container.querySelector('main')?.textContent).not.toContain('Other content');
+
+    await act(async () => emit('open-section', 'settings'));
+    expect(settingsEntry()?.getAttribute('aria-current')).toBe('page');
+    expect(container.querySelector('main h1')?.textContent).toBe('Settings');
+});
+
+test('listens for the request only where there is a Settings entry, and stops on unmount', async () => {
+    const listens: string[] = [];
+    mockIPC((command, args) => {
+        if (command === 'plugin:event|listen' || command === 'plugin:event|unlisten') {
+            listens.push(command);
+        }
+        return (args as { handler?: number })?.handler;
+    });
+    await render(sections, 'macos');
+    expect(listens).toEqual([]);
+
+    await render(sections, 'windows', { ...other, id: 'settings' });
+    expect(listens).toEqual(['plugin:event|listen']);
+
+    await act(async () => root.render(null));
+    expect(listens).toEqual(['plugin:event|listen', 'plugin:event|unlisten']);
+});
+
+test('works when the event bridge is not available', async () => {
+    await render(sections, 'windows', { ...other, id: 'settings' });
+
+    expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
 });

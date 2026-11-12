@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 usage() {
-    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check>" >&2
+    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check|policy-system>" >&2
     exit 2
 }
 
@@ -105,6 +105,60 @@ self_check() {
     with_display "$binary" --self-check
 }
 
+refuse_existing() {
+    echo "policy-system will not replace the existing policy $1" >&2
+    exit 1
+}
+
+as_root() {
+    if [[ "$(id -u)" == 0 ]]; then "$@"; else sudo "$@"; fi
+}
+
+# Installs a policy on the runner, reads it back through the real readers and removes it. The sources
+# are system files and keys, so this runs on CI runners only. Besides the policy the unix systems get a
+# root-owned file that group members may write; it must not be trusted.
+policy_system() {
+    [[ -n "${CI:-}" ]] || { echo "policy-system changes system policy and runs on CI runners only (CI is not set)" >&2; exit 1; }
+    local policy_xml='<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict><key>StartAtLogin</key><false/><key>LogLevel</key><string>debug</string></dict></plist>'
+    local policy_json='{"StartAtLogin": false, "LogLevel": "debug"}'
+    scratch=$(mktemp -d)
+    case "$(uname -s)" in
+        Darwin)
+            folder="/Library/Managed Preferences"
+            device="$folder/com.omnitrust.identity-manager.plist"
+            export IM_POLICY_UNTRUSTED="$folder/untrusted-test.plist"
+            for target in "$device" "$IM_POLICY_UNTRUSTED"; do
+                [[ ! -e "$target" && ! -L "$target" ]] || refuse_existing "$target"
+            done
+            printf '%s\n' "$policy_xml" > "$scratch/policy"
+            trap 'as_root rm -f "$device" "$IM_POLICY_UNTRUSTED"; rm -rf "$scratch"' EXIT
+            as_root mkdir -p "$folder"
+            as_root install -o root -g wheel -m 0644 "$scratch/policy" "$device"
+            as_root install -o root -g wheel -m 0664 "$scratch/policy" "$IM_POLICY_UNTRUSTED"
+            ;;
+        Linux)
+            folder=/etc/identity-manager
+            export IM_POLICY_UNTRUSTED="$folder/untrusted.json"
+            [[ ! -e "$folder" && ! -L "$folder" ]] || refuse_existing "$folder"
+            printf '%s\n' "$policy_json" > "$scratch/policy"
+            trap 'as_root rm -rf "$folder"; rm -rf "$scratch"' EXIT
+            as_root install -d -o root -g root -m 0755 "$folder"
+            as_root install -o root -g root -m 0644 "$scratch/policy" "$folder/policy.json"
+            as_root install -o root -g root -m 0664 "$scratch/policy" "$IM_POLICY_UNTRUSTED"
+            ;;
+        MINGW* | MSYS* | CYGWIN*)
+            key='HKLM\SOFTWARE\Policies\OmniTrustILM\IdentityManager'
+            if MSYS2_ARG_CONV_EXCL='*' reg query "$key" > /dev/null 2>&1; then refuse_existing "$key"; fi
+            trap 'MSYS2_ARG_CONV_EXCL="*" reg delete "$key" /f || true; rm -rf "$scratch"' EXIT
+            MSYS2_ARG_CONV_EXCL='*' reg add "$key" /v StartAtLogin /t REG_DWORD /d 0 /f
+            MSYS2_ARG_CONV_EXCL='*' reg add "$key" /v LogLevel /t REG_SZ /d debug /f
+            ;;
+        *) echo "no policy sources for $(uname -s)" >&2; exit 1 ;;
+    esac
+    cargo test -p im-core --locked --test policy_system -- --ignored
+}
+
 case "${1:-}" in
     lint) lint ;;
     test) run_tests ;;
@@ -117,5 +171,6 @@ case "${1:-}" in
         ;;
     bundle) bundle ;;
     self-check) self_check ;;
+    policy-system) policy_system ;;
     *) usage ;;
 esac

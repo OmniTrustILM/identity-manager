@@ -32,6 +32,10 @@ jobs:
         shell: bash
         run: bash scripts/verify.sh all
 
+      - name: Policy readers
+        shell: bash
+        run: bash scripts/verify.sh policy-system
+
       # Package up PR context for downstream workflow_run (Sonar handoff).
       # Values go through env (not inline ${{ }} in the script) and jq --arg, so
       # an unusual branch/repo name can neither inject shell nor break the JSON.

@@ -161,6 +161,11 @@ The native material is set in `crates/app/tauri.conf.json` and the platform file
 `tauri.macos.conf.json` and `tauri.windows.conf.json` replace the whole `windows` array of `tauri.conf.json`, they do
 not merge into it.
 
+## Settings and policy
+
+An organization can fix settings from the system, and the person's own choices are stored in `settings.json`; see
+[docs/policy.md](docs/policy.md).
+
 ## License
 
 Apache License 2.0, see [LICENSE.md](LICENSE.md).

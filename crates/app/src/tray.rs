@@ -4,16 +4,25 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Runtime};
 
-use crate::{show_main_window, summary};
+use crate::{settings_window, show_main_window, summary};
 
 /// The tray menu entries (id, label) of a system.
 pub fn menu_for(platform: Platform) -> Vec<(&'static str, &'static str)> {
     let open = ("open", "Open Identity Manager");
     match platform {
         // Linux's tray reports no clicks, so the menu is the only way to the summary.
-        Platform::Linux => vec![("summary", "Show summary"), open, ("quit", "Quit")],
-        Platform::Macos => vec![open, ("quit", "Quit Identity Manager")],
-        Platform::Windows => vec![open, ("quit", "Exit")],
+        Platform::Linux => vec![
+            ("summary", "Show summary"),
+            open,
+            ("settings", "Preferences"),
+            ("quit", "Quit"),
+        ],
+        Platform::Macos => vec![
+            open,
+            ("settings", "Settings\u{2026}"),
+            ("quit", "Quit Identity Manager"),
+        ],
+        Platform::Windows => vec![open, ("settings", "Settings"), ("quit", "Exit")],
     }
 }
 
@@ -21,6 +30,7 @@ pub fn menu_for(platform: Platform) -> Vec<(&'static str, &'static str)> {
 pub enum Action {
     Summary,
     Open,
+    Settings,
     Quit,
 }
 
@@ -28,6 +38,7 @@ pub fn action_for(id: &str) -> Option<Action> {
     match id {
         "summary" => Some(Action::Summary),
         "open" => Some(Action::Open),
+        "settings" => Some(Action::Settings),
         "quit" => Some(Action::Quit),
         _ => None,
     }
@@ -37,6 +48,7 @@ fn run_action<R: Runtime>(app: &AppHandle<R>, action: Action) {
     match action {
         Action::Summary => summary::show_in_corner(app),
         Action::Open => show_main_window(app),
+        Action::Settings => settings_window::open(app),
         Action::Quit => app.exit(0),
     }
 }
@@ -100,33 +112,39 @@ mod tests {
     }
 
     #[test]
-    fn linux_lists_show_summary_open_then_quit() {
+    fn linux_lists_show_summary_open_preferences_then_quit() {
         assert_eq!(
             menu_for(Platform::Linux),
             [
                 ("summary", "Show summary"),
                 ("open", "Open Identity Manager"),
+                ("settings", "Preferences"),
                 ("quit", "Quit")
             ]
         );
     }
 
     #[test]
-    fn macos_lists_open_then_quit_identity_manager() {
+    fn macos_lists_open_settings_then_quit_identity_manager() {
         assert_eq!(
             menu_for(Platform::Macos),
             [
                 ("open", "Open Identity Manager"),
+                ("settings", "Settings\u{2026}"),
                 ("quit", "Quit Identity Manager")
             ]
         );
     }
 
     #[test]
-    fn windows_lists_open_then_exit() {
+    fn windows_lists_open_settings_then_exit() {
         assert_eq!(
             menu_for(Platform::Windows),
-            [("open", "Open Identity Manager"), ("quit", "Exit")]
+            [
+                ("open", "Open Identity Manager"),
+                ("settings", "Settings"),
+                ("quit", "Exit")
+            ]
         );
     }
 
@@ -146,6 +164,7 @@ mod tests {
         }
         assert_eq!(action_for("summary"), Some(Action::Summary));
         assert_eq!(action_for("open"), Some(Action::Open));
+        assert_eq!(action_for("settings"), Some(Action::Settings));
         assert_eq!(action_for("quit"), Some(Action::Quit));
     }
 

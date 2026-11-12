@@ -1,13 +1,20 @@
-import { useMemo } from 'react';
+import { mockIPC } from '@tauri-apps/api/mocks';
+import { useMemo, useState } from 'react';
 import { AppInfoContext } from '../src/app-info';
-import type { Platform } from '../src/bridge';
+import type { Change, LogLevel, Platform, SettingsView } from '../src/bridge';
+import { LockNote } from '../src/components/Switch/LockNote';
+import { Select } from '../src/components/Switch/Select';
 import { Shell } from '../src/components/Shell/Shell';
+import { Switch } from '../src/components/Switch/Switch';
 import { TraySummary } from '../src/components/TraySummary/TraySummary';
-import { OverviewIcon } from '../src/design-system/icons';
+import { OverviewIcon, SettingsIcon } from '../src/design-system/icons';
 import type { Section } from '../src/sections';
+import { sections as realSections, settingsSection } from '../src/sections';
+import { Settings } from '../src/sections/Settings';
 
 const First = () => <p>First content</p>;
 const Second = () => <p>Second content</p>;
+const SettingsStub = () => <p>Settings content</p>;
 
 const sections: Section[] = [
     { id: 'first', label: 'First', icon: OverviewIcon, Component: First },
@@ -19,9 +26,16 @@ type StoryProps = Readonly<{ platform: Platform }>;
 const useInfo = (platform: Platform) => useMemo(() => ({ name: 'Identity Manager', version: '0.1.0', platform }), [platform]);
 
 export function ShellStory({ platform }: StoryProps) {
+    const bottom = useMemo<Section | undefined>(
+        () =>
+            platform === 'macos'
+                ? undefined
+                : { id: 'settings', label: platform === 'linux' ? 'Preferences' : 'Settings', icon: SettingsIcon, Component: SettingsStub },
+        [platform],
+    );
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
-            <Shell sections={sections} />
+            <Shell sections={sections} bottom={bottom} />
         </AppInfoContext.Provider>
     );
 }
@@ -30,6 +44,63 @@ export function TraySummaryStory({ platform }: StoryProps) {
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <TraySummary />
+        </AppInfoContext.Provider>
+    );
+}
+
+type ControlsProps = StoryProps & Readonly<{ locked?: boolean }>;
+
+export function ControlsStory({ platform, locked = false }: ControlsProps) {
+    const [on, setOn] = useState(true);
+    const [level, setLevel] = useState<LogLevel>('info');
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            <div className="flex flex-col items-start gap-s3 bg-surface p-s5">
+                <div className="flex items-center gap-s3">
+                    <label htmlFor="login">Start at login</label>
+                    <Switch id="login" checked={on} onChange={setOn} />
+                </div>
+                <div className="flex items-center gap-s3">
+                    <label htmlFor="disabled">Disabled switch</label>
+                    <Switch id="disabled" checked={on} onChange={setOn} disabled />
+                </div>
+                <div className="flex items-center gap-s3">
+                    <label htmlFor="level">Log level</label>
+                    <Select
+                        id="level"
+                        value={level}
+                        options={['error', 'warn', 'info', 'debug'] as const}
+                        onChange={setLevel}
+                        aria-describedby={locked ? 'note' : undefined}
+                        disabled={locked}
+                    />
+                </div>
+                {locked && <LockNote id="note" />}
+            </div>
+        </AppInfoContext.Provider>
+    );
+}
+
+type SettingsProps = StoryProps & Readonly<{ view: SettingsView; refuse?: string }>;
+
+/** Settings against a stand-in for the commands: a change is applied to the view unless `refuse` is given. */
+export function SettingsStory({ platform, view, refuse }: SettingsProps) {
+    useMemo(() => {
+        let current = view;
+        mockIPC((command, args) => {
+            if (command === 'set_setting') {
+                if (refuse) {
+                    return Promise.reject(refuse);
+                }
+                const { key, value } = (args as { change: Change }).change;
+                current = { ...current, [key]: { value, locked: false } } as SettingsView;
+            }
+            return current;
+        });
+    }, [view, refuse]);
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            {platform === 'macos' ? <Settings /> : <Shell sections={realSections} bottom={settingsSection(platform)} />}
         </AppInfoContext.Provider>
     );
 }

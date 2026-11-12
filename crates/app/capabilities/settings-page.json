@@ -1,0 +1,13 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "settings-page",
+    "description": "On Windows and Linux the main window may read and change the settings and listen for the request to open a section.",
+    "windows": ["main"],
+    "platforms": ["windows", "linux"],
+    "permissions": [
+        "allow-settings",
+        "allow-set-setting",
+        "core:event:allow-listen",
+        "core:event:allow-unlisten"
+    ]
+}
