@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useId, useState } from 'react';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { useAppInfo } from '../app-info';
 import { type Change, getSettings, type LogLevel, setSetting, type SettingsView } from '../bridge';
 import { LockNote } from '../components/Switch/LockNote';
@@ -54,34 +54,28 @@ export function Settings() {
     const [loadFailed, setLoadFailed] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<Change['key'], string>>>({});
 
+    // Only the reply to the latest request is shown; an older reply would bring back a stale view.
+    const latest = useRef(0);
+
     useEffect(() => {
-        let current = true;
-        const load = () =>
+        const load = () => {
+            const request = ++latest.current;
             getSettings().then(
                 (loaded) => {
-                    if (current) {
+                    if (request === latest.current) {
                         setView(loaded);
                         setLoadFailed(false);
                     }
                 },
-                () => current && setLoadFailed(true),
+                () => request === latest.current && setLoadFailed(true),
             );
-        void load();
+        };
+        load();
         window.addEventListener('focus', load);
         return () => {
-            current = false;
+            latest.current++;
             window.removeEventListener('focus', load);
         };
-    }, []);
-
-    const change = useCallback(async (next: Change) => {
-        try {
-            setView(await setSetting(next));
-            setErrors((previous) => ({ ...previous, [next.key]: undefined }));
-        } catch (error) {
-            setErrors((previous) => ({ ...previous, [next.key]: String(error) || strings.settingFailed }));
-            getSettings().then(setView, () => undefined);
-        }
     }, []);
 
     if (loadFailed) {
@@ -90,6 +84,29 @@ export function Settings() {
     if (!view) {
         return null;
     }
+
+    const change = async (next: Change) => {
+        const shown = view;
+        setView({ ...shown, [next.key]: { ...shown[next.key], value: next.value } });
+        const request = ++latest.current;
+        try {
+            const saved = await setSetting(next);
+            if (request === latest.current) {
+                setView(saved);
+            }
+            setErrors((previous) => ({ ...previous, [next.key]: undefined }));
+        } catch (error) {
+            setErrors((previous) => ({ ...previous, [next.key]: String(error) || strings.settingFailed }));
+            if (request === latest.current) {
+                setView(shown);
+            }
+            const reload = ++latest.current;
+            getSettings().then(
+                (loaded) => reload === latest.current && setView(loaded),
+                () => undefined,
+            );
+        }
+    };
 
     return (
         <div className="flex flex-col gap-s3 in-data-[os=macos]:min-h-screen in-data-[os=macos]:bg-sidebar in-data-[os=macos]:p-s4">

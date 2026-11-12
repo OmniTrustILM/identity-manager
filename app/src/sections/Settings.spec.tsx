@@ -180,6 +180,46 @@ test('keeps the view when the reload after a refusal fails too', async () => {
     expect(toggle().checked).toBe(true);
 });
 
+test('a reload on focus that answers after a change does not bring back the old value', async () => {
+    let answerReload: (view: SettingsView) => void = () => undefined;
+    let reads = 0;
+    bridge((command) => {
+        if (command === 'set_setting') {
+            return { ...open, startAtLogin: { value: false, locked: false } };
+        }
+        reads += 1;
+        return reads === 1 ? open : new Promise((resolve) => (answerReload = resolve));
+    });
+    await render();
+
+    await act(async () => {
+        window.dispatchEvent(new Event('focus'));
+    });
+    await act(async () => toggle().click());
+    await act(async () => answerReload(open));
+
+    expect(toggle().checked).toBe(false);
+});
+
+test('a second click before the first change is answered switches back', async () => {
+    const answers: ((view: SettingsView) => void)[] = [];
+    bridge((command) => (command === 'set_setting' ? new Promise((resolve) => answers.push(resolve)) : open));
+    await render();
+
+    await act(async () => toggle().click());
+    expect(toggle().checked).toBe(false);
+    await act(async () => toggle().click());
+
+    expect(calls.filter((call) => call.command === 'set_setting').map((call) => call.args)).toEqual([
+        { change: { key: 'startAtLogin', value: false } },
+        { change: { key: 'startAtLogin', value: true } },
+    ]);
+    await act(async () => answers[0]?.({ ...open, startAtLogin: { value: false, locked: false } }));
+    expect(toggle().checked).toBe(true);
+    await act(async () => answers[1]?.(open));
+    expect(toggle().checked).toBe(true);
+});
+
 test('shows the load error when the settings are unavailable', async () => {
     bridge(() => Promise.reject('no bridge'));
 
