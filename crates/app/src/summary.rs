@@ -5,7 +5,7 @@
 //! factor, so mixed-DPI monitors only line up in logical points. A monitor to the left of or above the primary
 //! one has a negative origin.
 
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use tauri::{
@@ -162,18 +162,12 @@ pub type HiddenOnFocusLoss = Slot<Instant>;
 
 impl<T> Slot<T> {
     fn set(&self, value: T) {
-        *self
-            .0
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(value);
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(value);
     }
 
     /// Returns the recorded value and clears it, so each value answers only one later event.
     fn take(&self) -> Option<T> {
-        self.0
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .take()
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).take()
     }
 }
 

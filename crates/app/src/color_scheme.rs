@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 
 use serde::Serialize;
 use tauri::State;
@@ -34,10 +34,7 @@ pub struct Current(Mutex<Option<Scheme>>);
 
 #[tauri::command]
 pub fn color_scheme(current: State<'_, Current>) -> Option<Scheme> {
-    *current
-        .0
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    *current.0.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -45,10 +42,7 @@ fn publish<R: tauri::Runtime>(app: &tauri::AppHandle<R>, scheme: Option<Scheme>)
     use tauri::{Emitter, Manager};
 
     let current = app.state::<Current>();
-    *current
-        .0
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner()) = scheme;
+    *current.0.lock().unwrap_or_else(PoisonError::into_inner) = scheme;
     if let Err(error) = app.emit(EVENT, scheme) {
         log::warn!("the colour scheme could not be sent to the windows: {error}");
     }

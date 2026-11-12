@@ -3,7 +3,7 @@ import { useAppInfo } from '../../app-info';
 import type { Section } from '../../sections';
 import { Sidebar } from '../Sidebar/Sidebar';
 
-export function Shell({ sections }: { sections: Section[] }) {
+export function Shell({ sections }: Readonly<{ sections: Section[] }>) {
     const info = useAppInfo();
     const [current, setCurrent] = useState(sections[0]?.id);
     const open = sections.find((section) => section.id === current);

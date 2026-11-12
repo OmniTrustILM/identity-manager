@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { AppInfoContext } from '../src/app-info';
 import type { Platform } from '../src/bridge';
 import { Shell } from '../src/components/Shell/Shell';
@@ -13,17 +14,21 @@ const sections: Section[] = [
     { id: 'second', label: 'Second', icon: OverviewIcon, Component: Second },
 ];
 
-export function ShellStory({ platform }: { platform: Platform }) {
+type StoryProps = Readonly<{ platform: Platform }>;
+
+const useInfo = (platform: Platform) => useMemo(() => ({ name: 'Identity Manager', version: '0.1.0', platform }), [platform]);
+
+export function ShellStory({ platform }: StoryProps) {
     return (
-        <AppInfoContext.Provider value={{ name: 'Identity Manager', version: '0.1.0', platform }}>
+        <AppInfoContext.Provider value={useInfo(platform)}>
             <Shell sections={sections} />
         </AppInfoContext.Provider>
     );
 }
 
-export function TraySummaryStory({ platform }: { platform: Platform }) {
+export function TraySummaryStory({ platform }: StoryProps) {
     return (
-        <AppInfoContext.Provider value={{ name: 'Identity Manager', version: '0.1.0', platform }}>
+        <AppInfoContext.Provider value={useInfo(platform)}>
             <TraySummary />
         </AppInfoContext.Provider>
     );

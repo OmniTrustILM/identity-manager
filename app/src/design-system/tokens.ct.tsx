@@ -64,7 +64,7 @@ const schemes: Scheme[] = ['light', 'dark'];
 
 // A colour as [r, g, b, alpha to two places]: engines serialise alpha differently.
 function channels(colour: string): number[] {
-    const hex = colour.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
+    const hex = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(colour);
     if (hex?.[1]) {
         const value = Number.parseInt(hex[1], 16);
         const alpha = hex[2] ? Number.parseInt(hex[2], 16) / 255 : 1;
@@ -78,7 +78,9 @@ function channels(colour: string): number[] {
 const plain = (family: string) =>
     family
         .replace(/["']/g, '')
-        .replace(/\s*,\s*/g, ',')
+        .split(',')
+        .map((name) => name.trim())
+        .join(',')
         .replace('BlinkMacSystemFont', 'system-ui');
 
 const cases: { os: Os; media: Scheme; theme: Scheme | null; shown: Scheme }[] = systems.flatMap((os) => [
@@ -89,7 +91,8 @@ const cases: { os: Os; media: Scheme; theme: Scheme | null; shown: Scheme }[] = 
 ]);
 
 for (const { os, media, theme, shown } of cases) {
-    test(`${os} shows ${shown} tokens for a ${media} system${theme ? ` with data-theme=${theme}` : ''}`, async ({ mount, page }) => {
+    const forced = theme ? ` with data-theme=${theme}` : '';
+    test(`${os} shows ${shown} tokens for a ${media} system${forced}`, async ({ mount, page }) => {
         await page.emulateMedia({ colorScheme: media });
         await page.evaluate(
             ({ system, override }) => {
