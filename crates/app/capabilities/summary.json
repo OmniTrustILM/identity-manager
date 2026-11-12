@@ -1,0 +1,12 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "summary",
+    "description": "The tray summary may call the application commands and the two window commands, and nothing else.",
+    "windows": ["summary"],
+    "permissions": [
+        "allow-app-info",
+        "allow-report-ready",
+        "allow-open-main-window",
+        "allow-hide-summary"
+    ]
+}

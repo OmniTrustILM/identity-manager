@@ -1,1 +1,78 @@
-@import "tailwindcss";
+@import "tailwindcss" source(".");
+@import "./design-system/tokens.css";
+
+@theme inline {
+    --font-sans: var(--im-font-family);
+
+    --color-surface: var(--im-color-surface);
+    --color-sidebar: var(--im-color-sidebar);
+    --color-sidebar-tint: var(--im-color-sidebar-tint);
+    --color-titlebar: var(--im-color-titlebar);
+    --color-primary: var(--im-color-text-primary);
+    --color-secondary: var(--im-color-text-secondary);
+    --color-tertiary: var(--im-color-text-tertiary);
+    --color-separator: var(--im-color-separator);
+    --color-accent: var(--im-color-accent);
+    --color-on-accent: var(--im-color-accent-text);
+    --color-row-hover: var(--im-color-row-hover);
+    --color-row-current: var(--im-color-row-current);
+    --color-focus-ring: var(--im-color-focus-ring);
+    --color-fine: var(--im-color-status-fine);
+    --color-attention: var(--im-color-status-attention);
+    --color-wait: var(--im-color-status-wait);
+    --color-bad: var(--im-color-status-bad);
+
+    --text-body: var(--im-font-size-body);
+    --text-caption: var(--im-font-size-caption);
+    --text-title: var(--im-font-size-title);
+    --text-large-title: var(--im-font-size-large-title);
+
+    --radius-control: var(--im-radius-control);
+    --radius-window: var(--im-radius-window);
+
+    --spacing-s1: var(--im-space-1);
+    --spacing-s2: var(--im-space-2);
+    --spacing-s3: var(--im-space-3);
+    --spacing-s4: var(--im-space-4);
+    --spacing-s5: var(--im-space-5);
+    --spacing-control: var(--im-control-height);
+    --spacing-sidebar: var(--im-sidebar-width);
+    --spacing-tray: var(--im-tray-width);
+    --spacing-icon: var(--im-icon-size);
+    --spacing-titlebar: var(--im-titlebar-inset);
+}
+
+@layer base {
+    html {
+        color-scheme: light dark;
+    }
+
+    html[data-theme="light"] {
+        color-scheme: light;
+    }
+
+    html[data-theme="dark"] {
+        color-scheme: dark;
+    }
+
+    html,
+    body {
+        background: var(--im-color-surface);
+        color: var(--im-color-text-primary);
+        font-family: var(--im-font-family);
+        font-size: var(--im-font-size-body);
+    }
+
+    /* The window is transparent on these systems, so the material shows behind the sidebar; the content paints its own surface. */
+    html[data-os="macos"],
+    html[data-os="windows"],
+    html[data-os="macos"] body,
+    html[data-os="windows"] body {
+        background: transparent;
+    }
+
+    :focus-visible {
+        outline: var(--im-focus-width) solid var(--im-color-focus-ring);
+        outline-offset: var(--im-focus-offset);
+    }
+}

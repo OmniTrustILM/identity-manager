@@ -16,7 +16,13 @@ fn main() {
     tauri_build::try_build(
         Attributes::new()
             .windows_attributes(WindowsAttributes::new_without_app_manifest())
-            .app_manifest(AppManifest::new().commands(&["app_info", "report_ready"])),
+            .app_manifest(AppManifest::new().commands(&[
+                "app_info",
+                "report_ready",
+                "open_main_window",
+                "hide_summary",
+                "color_scheme",
+            ])),
     )
     .expect("the Tauri build failed");
 }

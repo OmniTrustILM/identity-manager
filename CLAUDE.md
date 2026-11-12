@@ -18,3 +18,5 @@
 - `sonar.yml` runs from the default branch, so changes to it take effect only after merge.
 - The `tauri` crate and `@tauri-apps/api` move together (same major.minor).
 - A plain `cargo run` loads Vite's `devUrl`; the bundle, or `--features tauri/custom-protocol`, loads `app/dist`.
+- The `.pen` files are edited only through the Pencil tools (desktop app `/Applications/Pen.app`). If Save does not
+  write, the autosave backup in `~/.pencil/backup/` is the fallback.

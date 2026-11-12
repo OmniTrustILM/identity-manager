@@ -1,6 +1,9 @@
 mod bridge;
+mod color_scheme;
+mod dock;
 mod mode;
 mod self_check;
+mod summary;
 mod tray;
 
 use im_core::AppInfo;
@@ -13,6 +16,9 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 pub use mode::Mode;
 
 fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
+    // The Dock icon must exist before the window is shown and focused, or the window cannot take focus.
+    #[cfg(target_os = "macos")]
+    dock::apply(app, true);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
@@ -50,16 +56,28 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
     }
     builder
         .manage(mode)
+        .manage(color_scheme::Current::default())
+        .manage(summary::VisibleAtPress::default())
+        .manage(summary::HiddenOnFocusLoss::default())
+        .manage(self_check::Reports::default())
         .invoke_handler(tauri::generate_handler![
             bridge::app_info,
-            bridge::report_ready
+            bridge::report_ready,
+            bridge::open_main_window,
+            bridge::hide_summary,
+            color_scheme::color_scheme
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(!cfg!(test))
         .on_window_event(|window, event| {
+            summary::hide_on_focus_loss(window, event);
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();
+                #[cfg(target_os = "macos")]
+                if window.label() == "main" {
+                    dock::apply(window.app_handle(), false);
+                }
             }
         })
         .setup(move |app| {
@@ -67,6 +85,12 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             log::info!("starting {} {} in {mode:?} mode", info.name, info.version);
             if mode == Mode::SelfCheck {
                 self_check::start_timer(app.handle().clone());
+                // A hidden web view may never load its page, so the summary is shown to let it report.
+                summary::show_in_corner(app.handle());
+            }
+            #[cfg(target_os = "linux")]
+            if !cfg!(test) {
+                color_scheme::watch(app.handle().clone());
             }
             // Same main-thread limit as the default menu above.
             if !cfg!(test) {

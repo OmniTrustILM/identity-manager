@@ -1,0 +1,1771 @@
+{
+  "version": "2.14",
+  "children": [
+    {
+      "type": "frame",
+      "id": "HB5Pz",
+      "x": 0,
+      "y": 0,
+      "name": "Sidebar entry/Rest",
+      "reusable": true,
+      "width": 204,
+      "fill": "#00000000",
+      "cornerRadius": "$radius.control",
+      "gap": 8,
+      "padding": [
+        0,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon",
+          "id": "V32A0F",
+          "name": "Icon",
+          "width": 16,
+          "height": 16,
+          "icon": "layout-grid",
+          "library": "lucide",
+          "fill": "$color.text-primary"
+        },
+        {
+          "type": "text",
+          "id": "Q7Frs",
+          "name": "Label",
+          "fill": "$color.text-primary",
+          "content": "Overview",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.body"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "XwPc4",
+      "x": 240,
+      "y": 0,
+      "name": "Sidebar entry/Hover",
+      "reusable": true,
+      "width": 204,
+      "fill": "$color.row-hover",
+      "cornerRadius": "$radius.control",
+      "gap": 8,
+      "padding": [
+        0,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon",
+          "id": "GPC6Z",
+          "name": "Icon",
+          "width": 16,
+          "height": 16,
+          "icon": "layout-grid",
+          "library": "lucide",
+          "fill": "$color.text-primary"
+        },
+        {
+          "type": "text",
+          "id": "HOIji",
+          "name": "Label",
+          "fill": "$color.text-primary",
+          "content": "Overview",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.body"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "mLIXr",
+      "x": 480,
+      "y": 0,
+      "name": "Sidebar entry/Current",
+      "reusable": true,
+      "width": 204,
+      "fill": "$color.row-current",
+      "cornerRadius": "$radius.control",
+      "gap": 8,
+      "padding": [
+        0,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon",
+          "id": "oTWxp",
+          "name": "Icon",
+          "width": 16,
+          "height": 16,
+          "icon": "layout-grid",
+          "library": "lucide",
+          "fill": "$color.text-primary"
+        },
+        {
+          "type": "text",
+          "id": "HKMxZ",
+          "name": "Label",
+          "fill": "$color.text-primary",
+          "content": "Overview",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.body",
+          "fontWeight": "600"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "WSZVA",
+      "x": 720,
+      "y": 0,
+      "name": "Sidebar entry/Focus",
+      "reusable": true,
+      "width": 204,
+      "fill": "$color.row-current",
+      "cornerRadius": "$radius.control",
+      "stroke": "$color.focus-ring",
+      "strokeWidth": "$focus.width",
+      "strokeAlignment": "inner",
+      "gap": 8,
+      "padding": [
+        0,
+        12
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon",
+          "id": "hhJAZ",
+          "name": "Icon",
+          "width": 16,
+          "height": 16,
+          "icon": "layout-grid",
+          "library": "lucide",
+          "fill": "$color.text-primary"
+        },
+        {
+          "type": "text",
+          "id": "aAz56",
+          "name": "Label",
+          "fill": "$color.text-primary",
+          "content": "Overview",
+          "fontFamily": "$font.family-preview",
+          "fontSize": "$font.body"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "tOYkl",
+      "x": 0,
+      "y": 120,
+      "name": "Sidebar states macos light",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "width": 240,
+      "fill": "$color.sidebar-tint",
+      "layout": "vertical",
+      "gap": 8,
+      "padding": 8,
+      "children": [
+        {
+          "id": "yjHTR",
+          "type": "ref",
+          "ref": "HB5Pz",
+          "name": "Entry Rest"
+        },
+        {
+          "id": "eRNGc",
+          "type": "ref",
+          "ref": "XwPc4",
+          "name": "Entry Hover"
+        },
+        {
+          "id": "v5U77",
+          "type": "ref",
+          "ref": "mLIXr",
+          "name": "Entry Current"
+        },
+        {
+          "id": "QsQe0",
+          "type": "ref",
+          "ref": "WSZVA",
+          "name": "Entry Focus"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "e8LM0Y",
+      "x": 260,
+      "y": 120,
+      "name": "Sidebar states macos dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "width": 240,
+      "fill": "$color.sidebar-tint",
+      "layout": "vertical",
+      "gap": 8,
+      "padding": 8,
+      "children": [
+        {
+          "id": "P8GP0",
+          "type": "ref",
+          "ref": "HB5Pz",
+          "name": "Entry Rest"
+        },
+        {
+          "id": "orchB",
+          "type": "ref",
+          "ref": "XwPc4",
+          "name": "Entry Hover"
+        },
+        {
+          "id": "c28lYz",
+          "type": "ref",
+          "ref": "mLIXr",
+          "name": "Entry Current"
+        },
+        {
+          "id": "MOwid",
+          "type": "ref",
+          "ref": "WSZVA",
+          "name": "Entry Focus"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "C79vCu",
+      "x": 520,
+      "y": 120,
+      "name": "Sidebar states windows light",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "width": 240,
+      "fill": "$color.sidebar-tint",
+      "layout": "vertical",
+      "gap": 8,
+      "padding": 8,
+      "children": [
+        {
+          "id": "i56shD",
+          "type": "ref",
+          "ref": "HB5Pz",
+          "name": "Entry Rest"
+        },
+        {
+          "id": "XDAq9",
+          "type": "ref",
+          "ref": "XwPc4",
+          "name": "Entry Hover"
+        },
+        {
+          "id": "RD3sj",
+          "type": "ref",
+          "ref": "mLIXr",
+          "name": "Entry Current"
+        },
+        {
+          "id": "T9ZRti",
+          "type": "ref",
+          "ref": "WSZVA",
+          "name": "Entry Focus"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "D7xpM",
+      "x": 0,
+      "y": 320,
+      "name": "Sidebar states windows dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "width": 240,
+      "fill": "$color.sidebar-tint",
+      "layout": "vertical",
+      "gap": 8,
+      "padding": 8,
+      "children": [
+        {
+          "id": "J8fZO",
+          "type": "ref",
+          "ref": "HB5Pz",
+          "name": "Entry Rest"
+        },
+        {
+          "id": "bRvGv",
+          "type": "ref",
+          "ref": "XwPc4",
+          "name": "Entry Hover"
+        },
+        {
+          "id": "XbFdC",
+          "type": "ref",
+          "ref": "mLIXr",
+          "name": "Entry Current"
+        },
+        {
+          "id": "JPZb6",
+          "type": "ref",
+          "ref": "WSZVA",
+          "name": "Entry Focus"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "I4HMD7",
+      "x": 260,
+      "y": 320,
+      "name": "Sidebar states linux light",
+      "theme": {
+        "os": "linux",
+        "mode": "light"
+      },
+      "width": 240,
+      "fill": "$color.sidebar-tint",
+      "layout": "vertical",
+      "gap": 8,
+      "padding": 8,
+      "children": [
+        {
+          "id": "v3R97S",
+          "type": "ref",
+          "ref": "HB5Pz",
+          "name": "Entry Rest"
+        },
+        {
+          "id": "Auv71",
+          "type": "ref",
+          "ref": "XwPc4",
+          "name": "Entry Hover"
+        },
+        {
+          "id": "S5qpY",
+          "type": "ref",
+          "ref": "mLIXr",
+          "name": "Entry Current"
+        },
+        {
+          "id": "FiO2l",
+          "type": "ref",
+          "ref": "WSZVA",
+          "name": "Entry Focus"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "ZJ9FA",
+      "x": 520,
+      "y": 320,
+      "name": "Sidebar states linux dark",
+      "theme": {
+        "os": "linux",
+        "mode": "dark"
+      },
+      "width": 240,
+      "fill": "$color.sidebar-tint",
+      "layout": "vertical",
+      "gap": 8,
+      "padding": 8,
+      "children": [
+        {
+          "id": "kqtVE",
+          "type": "ref",
+          "ref": "HB5Pz",
+          "name": "Entry Rest"
+        },
+        {
+          "id": "V4XqbX",
+          "type": "ref",
+          "ref": "XwPc4",
+          "name": "Entry Hover"
+        },
+        {
+          "id": "YDWeX",
+          "type": "ref",
+          "ref": "mLIXr",
+          "name": "Entry Current"
+        },
+        {
+          "id": "l5joD",
+          "type": "ref",
+          "ref": "WSZVA",
+          "name": "Entry Focus"
+        }
+      ]
+    }
+  ],
+  "themes": {
+    "os": [
+      "macos",
+      "windows",
+      "linux"
+    ],
+    "mode": [
+      "light",
+      "dark"
+    ]
+  },
+  "variables": {
+    "color.surface": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#1E1E1E",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FBFBFB",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#272727",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FAFAFB",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#222226",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.sidebar": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#ECECEC",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2A2A2A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#F3F3F3",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#202020",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#EBEBED",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2E2E32",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.sidebar-tint": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E8E8E8B3",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2A2A2CB3",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#F3F3F3CC",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#202020CC",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#EBEBED",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2E2E32",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.titlebar": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E8E8E8B3",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2A2A2CB3",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#F3F3F3CC",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#202020CC",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#EBEBED",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#303034",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.text-primary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#000000D9",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFFD9",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#1A1A1A",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#323232",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.text-secondary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#00000080",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF8C",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#5F5F5F",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#CFCFCF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#5E5E62",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#C0BFBC",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.text-tertiary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#00000059",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF59",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#767676",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#9D9D9D",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#77767B",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#8D8D91",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.separator": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#0000001A",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF1A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#E0E0E0",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3A3A3A",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#D9D9DC",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3F3F44",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.accent": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#007AFF",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#0A84FF",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#005FB8",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#60CDFF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.accent-text": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#000000",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.row-hover": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#0000000D",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF14",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0000000A",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF0F",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0000000F",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF0F",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.row-current": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#0000001A",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF1F",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#00000014",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF17",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0000001F",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF1F",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.focus-ring": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#007AFF80",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#0A84FF80",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#1A1A1A",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-fine": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#34C759",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#30D158",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0F7B0F",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#6CCB5F",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#26A269",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#57E389",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-attention": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FF9500",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF9F0A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#9D5D00",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FCE100",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#E5A50A",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#F8E45C",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-wait": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#8E8E93",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#98989D",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#5F5F5F",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#9D9D9D",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#77767B",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#9A9996",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-bad": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FF3B30",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF453A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#C42B1C",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF99A4",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#C01C28",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF7B63",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.family": {
+      "type": "string",
+      "value": [
+        {
+          "value": "-apple-system",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "-apple-system",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Segoe UI Variable",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Segoe UI Variable",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.family-preview": {
+      "type": "string",
+      "value": [
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.body": {
+      "type": "number",
+      "value": [
+        {
+          "value": 13,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 13,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 14,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 14,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 15,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 15,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.caption": {
+      "type": "number",
+      "value": [
+        {
+          "value": 11,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 11,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.title": {
+      "type": "number",
+      "value": [
+        {
+          "value": 15,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 15,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.large-title": {
+      "type": "number",
+      "value": [
+        {
+          "value": 22,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 22,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 28,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 28,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 24,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 24,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "radius.control": {
+      "type": "number",
+      "value": [
+        {
+          "value": 6,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 6,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 4,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 4,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 6,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 6,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "radius.window": {
+      "type": "number",
+      "value": [
+        {
+          "value": 10,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 10,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 8,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 8,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "control.height": {
+      "type": "number",
+      "value": [
+        {
+          "value": 28,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 28,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 32,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 32,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 34,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 34,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "focus.width": {
+      "type": "number",
+      "value": [
+        {
+          "value": 3,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 3,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "focus.offset": {
+      "type": "number",
+      "value": [
+        {
+          "value": 1,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 1,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 2,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "space.1": {
+      "type": "number",
+      "value": 4
+    },
+    "space.2": {
+      "type": "number",
+      "value": 8
+    },
+    "space.3": {
+      "type": "number",
+      "value": 12
+    },
+    "space.4": {
+      "type": "number",
+      "value": 16
+    },
+    "space.5": {
+      "type": "number",
+      "value": 24
+    },
+    "sidebar.width": {
+      "type": "number",
+      "value": 220
+    },
+    "tray.width": {
+      "type": "number",
+      "value": 340
+    }
+  },
+  "fileToken": "428105af-379a-440c-94d8-d82d6da550c2"
+}

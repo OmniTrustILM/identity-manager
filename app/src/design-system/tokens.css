@@ -1,0 +1,202 @@
+:root {
+    --im-space-1: 4px;
+    --im-space-2: 8px;
+    --im-space-3: 12px;
+    --im-space-4: 16px;
+    --im-space-5: 24px;
+    --im-sidebar-width: 220px;
+    --im-tray-width: 340px;
+    --im-icon-size: 16px;
+    --im-titlebar-inset: 28px;
+}
+
+/* Colours are written light first; each has a "-dark" twin that the scheme rules below swap in. */
+[data-os="macos"] {
+    --im-font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --im-font-size-body: 13px;
+    --im-font-size-caption: 11px;
+    --im-font-size-title: 15px;
+    --im-font-size-large-title: 22px;
+    --im-radius-control: 6px;
+    --im-radius-window: 10px;
+    --im-control-height: 28px;
+    --im-focus-width: 3px;
+    --im-focus-offset: 1px;
+
+    --im-color-surface: #ffffff;
+    --im-color-sidebar: #ececec;
+    --im-color-sidebar-tint: #e8e8e8b3;
+    --im-color-titlebar: #e8e8e8b3;
+    --im-color-text-primary: #000000d9;
+    --im-color-text-secondary: #00000080;
+    --im-color-text-tertiary: #00000059;
+    --im-color-separator: #0000001a;
+    --im-color-accent: #007aff;
+    --im-color-accent-text: #ffffff;
+    --im-color-row-hover: #0000000d;
+    --im-color-row-current: #0000001a;
+    --im-color-focus-ring: #007aff80;
+    --im-color-status-fine: #34c759;
+    --im-color-status-attention: #ff9500;
+    --im-color-status-wait: #8e8e93;
+    --im-color-status-bad: #ff3b30;
+
+    --im-color-surface-dark: #1e1e1e;
+    --im-color-sidebar-dark: #2a2a2a;
+    --im-color-sidebar-tint-dark: #2a2a2cb3;
+    --im-color-titlebar-dark: #2a2a2cb3;
+    --im-color-text-primary-dark: #ffffffd9;
+    --im-color-text-secondary-dark: #ffffff8c;
+    --im-color-text-tertiary-dark: #ffffff59;
+    --im-color-separator-dark: #ffffff1a;
+    --im-color-accent-dark: #0a84ff;
+    --im-color-accent-text-dark: #ffffff;
+    --im-color-row-hover-dark: #ffffff14;
+    --im-color-row-current-dark: #ffffff1f;
+    --im-color-focus-ring-dark: #0a84ff80;
+    --im-color-status-fine-dark: #30d158;
+    --im-color-status-attention-dark: #ff9f0a;
+    --im-color-status-wait-dark: #98989d;
+    --im-color-status-bad-dark: #ff453a;
+}
+
+[data-os="windows"] {
+    --im-font-family: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    --im-font-size-body: 14px;
+    --im-font-size-caption: 12px;
+    --im-font-size-title: 16px;
+    --im-font-size-large-title: 28px;
+    --im-radius-control: 4px;
+    --im-radius-window: 8px;
+    --im-control-height: 32px;
+    --im-focus-width: 2px;
+    --im-focus-offset: 2px;
+
+    --im-color-surface: #fbfbfb;
+    --im-color-sidebar: #f3f3f3;
+    --im-color-sidebar-tint: #f3f3f3cc;
+    --im-color-titlebar: #f3f3f3cc;
+    --im-color-text-primary: #1a1a1a;
+    --im-color-text-secondary: #5f5f5f;
+    --im-color-text-tertiary: #767676;
+    --im-color-separator: #e0e0e0;
+    --im-color-accent: #005fb8;
+    --im-color-accent-text: #ffffff;
+    --im-color-row-hover: #0000000a;
+    --im-color-row-current: #00000014;
+    --im-color-focus-ring: #1a1a1a;
+    --im-color-status-fine: #0f7b0f;
+    --im-color-status-attention: #9d5d00;
+    --im-color-status-wait: #5f5f5f;
+    --im-color-status-bad: #c42b1c;
+
+    --im-color-surface-dark: #272727;
+    --im-color-sidebar-dark: #202020;
+    --im-color-sidebar-tint-dark: #202020cc;
+    --im-color-titlebar-dark: #202020cc;
+    --im-color-text-primary-dark: #ffffff;
+    --im-color-text-secondary-dark: #cfcfcf;
+    --im-color-text-tertiary-dark: #9d9d9d;
+    --im-color-separator-dark: #3a3a3a;
+    --im-color-accent-dark: #60cdff;
+    --im-color-accent-text-dark: #000000;
+    --im-color-row-hover-dark: #ffffff0f;
+    --im-color-row-current-dark: #ffffff17;
+    --im-color-focus-ring-dark: #ffffff;
+    --im-color-status-fine-dark: #6ccb5f;
+    --im-color-status-attention-dark: #fce100;
+    --im-color-status-wait-dark: #9d9d9d;
+    --im-color-status-bad-dark: #ff99a4;
+}
+
+[data-os="linux"] {
+    --im-font-family: Cantarell, "Adwaita Sans", system-ui, sans-serif;
+    --im-font-size-body: 15px;
+    --im-font-size-caption: 12px;
+    --im-font-size-title: 16px;
+    --im-font-size-large-title: 24px;
+    --im-radius-control: 6px;
+    --im-radius-window: 12px;
+    --im-control-height: 34px;
+    --im-focus-width: 2px;
+    --im-focus-offset: 2px;
+
+    --im-color-surface: #fafafb;
+    --im-color-sidebar: #ebebed;
+    --im-color-sidebar-tint: #ebebed;
+    --im-color-titlebar: #ebebed;
+    --im-color-text-primary: #323232;
+    --im-color-text-secondary: #5e5e62;
+    --im-color-text-tertiary: #77767b;
+    --im-color-separator: #d9d9dc;
+    --im-color-accent: #3584e4;
+    --im-color-accent-text: #ffffff;
+    --im-color-row-hover: #0000000f;
+    --im-color-row-current: #0000001f;
+    --im-color-focus-ring: #3584e4;
+    --im-color-status-fine: #26a269;
+    --im-color-status-attention: #e5a50a;
+    --im-color-status-wait: #77767b;
+    --im-color-status-bad: #c01c28;
+
+    --im-color-surface-dark: #222226;
+    --im-color-sidebar-dark: #2e2e32;
+    --im-color-sidebar-tint-dark: #2e2e32;
+    --im-color-titlebar-dark: #303034;
+    --im-color-text-primary-dark: #ffffff;
+    --im-color-text-secondary-dark: #c0bfbc;
+    --im-color-text-tertiary-dark: #8d8d91;
+    --im-color-separator-dark: #3f3f44;
+    --im-color-accent-dark: #3584e4;
+    --im-color-accent-text-dark: #ffffff;
+    --im-color-row-hover-dark: #ffffff0f;
+    --im-color-row-current-dark: #ffffff1f;
+    --im-color-focus-ring-dark: #3584e4;
+    --im-color-status-fine-dark: #57e389;
+    --im-color-status-attention-dark: #f8e45c;
+    --im-color-status-wait-dark: #9a9996;
+    --im-color-status-bad-dark: #ff7b63;
+}
+
+/* data-theme, when present, wins over the system setting; without it the media query decides. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --im-color-surface: var(--im-color-surface-dark);
+        --im-color-sidebar: var(--im-color-sidebar-dark);
+        --im-color-sidebar-tint: var(--im-color-sidebar-tint-dark);
+        --im-color-titlebar: var(--im-color-titlebar-dark);
+        --im-color-text-primary: var(--im-color-text-primary-dark);
+        --im-color-text-secondary: var(--im-color-text-secondary-dark);
+        --im-color-text-tertiary: var(--im-color-text-tertiary-dark);
+        --im-color-separator: var(--im-color-separator-dark);
+        --im-color-accent: var(--im-color-accent-dark);
+        --im-color-accent-text: var(--im-color-accent-text-dark);
+        --im-color-row-hover: var(--im-color-row-hover-dark);
+        --im-color-row-current: var(--im-color-row-current-dark);
+        --im-color-focus-ring: var(--im-color-focus-ring-dark);
+        --im-color-status-fine: var(--im-color-status-fine-dark);
+        --im-color-status-attention: var(--im-color-status-attention-dark);
+        --im-color-status-wait: var(--im-color-status-wait-dark);
+        --im-color-status-bad: var(--im-color-status-bad-dark);
+    }
+}
+
+:root[data-theme="dark"] {
+    --im-color-surface: var(--im-color-surface-dark);
+    --im-color-sidebar: var(--im-color-sidebar-dark);
+    --im-color-sidebar-tint: var(--im-color-sidebar-tint-dark);
+    --im-color-titlebar: var(--im-color-titlebar-dark);
+    --im-color-text-primary: var(--im-color-text-primary-dark);
+    --im-color-text-secondary: var(--im-color-text-secondary-dark);
+    --im-color-text-tertiary: var(--im-color-text-tertiary-dark);
+    --im-color-separator: var(--im-color-separator-dark);
+    --im-color-accent: var(--im-color-accent-dark);
+    --im-color-accent-text: var(--im-color-accent-text-dark);
+    --im-color-row-hover: var(--im-color-row-hover-dark);
+    --im-color-row-current: var(--im-color-row-current-dark);
+    --im-color-focus-ring: var(--im-color-focus-ring-dark);
+    --im-color-status-fine: var(--im-color-status-fine-dark);
+    --im-color-status-attention: var(--im-color-status-attention-dark);
+    --im-color-status-wait: var(--im-color-status-wait-dark);
+    --im-color-status-bad: var(--im-color-status-bad-dark);
+}
