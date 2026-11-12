@@ -54,8 +54,10 @@ export function Settings() {
     const [loadFailed, setLoadFailed] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<Change['key'], string>>>({});
 
-    // Only the reply to the latest request is shown; an older reply would bring back a stale view.
+    // Only the reply to the latest request is shown, and a row's error follows its latest change; an older reply
+    // would bring back a stale view or error.
     const latest = useRef(0);
+    const latestChange = useRef<Partial<Record<Change['key'], number>>>({});
 
     useEffect(() => {
         const load = () => {
@@ -89,22 +91,28 @@ export function Settings() {
         const shown = view;
         setView({ ...shown, [next.key]: { ...shown[next.key], value: next.value } });
         const request = ++latest.current;
+        latestChange.current[next.key] = request;
+        const isLatestChange = () => latestChange.current[next.key] === request;
         try {
             const saved = await setSetting(next);
             if (request === latest.current) {
                 setView(saved);
             }
-            setErrors((previous) => ({ ...previous, [next.key]: undefined }));
+            if (isLatestChange()) {
+                setErrors((previous) => ({ ...previous, [next.key]: undefined }));
+            }
         } catch (error) {
-            setErrors((previous) => ({ ...previous, [next.key]: String(error) || strings.settingFailed }));
+            if (isLatestChange()) {
+                setErrors((previous) => ({ ...previous, [next.key]: String(error) || strings.settingFailed }));
+            }
             if (request === latest.current) {
                 setView(shown);
+                const reload = ++latest.current;
+                getSettings().then(
+                    (loaded) => reload === latest.current && setView(loaded),
+                    () => undefined,
+                );
             }
-            const reload = ++latest.current;
-            getSettings().then(
-                (loaded) => reload === latest.current && setView(loaded),
-                () => undefined,
-            );
         }
     };
 

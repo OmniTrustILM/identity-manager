@@ -220,6 +220,38 @@ test('a second click before the first change is answered switches back', async (
     expect(toggle().checked).toBe(true);
 });
 
+function deferredChanges() {
+    const answers: { resolve: (view: SettingsView) => void; reject: (reason: string) => void }[] = [];
+    bridge((command) => (command === 'set_setting' ? new Promise((resolve, reject) => answers.push({ resolve, reject })) : open));
+    return answers;
+}
+
+test('a refusal of an older change after a newer one succeeded changes nothing', async () => {
+    const answers = deferredChanges();
+    await render();
+    await act(async () => toggle().click());
+    await act(async () => toggle().click());
+
+    await act(async () => answers[1]?.resolve(open));
+    await act(async () => answers[0]?.reject('no'));
+
+    expect(toggle().checked).toBe(true);
+    expect(alerts()).toEqual([]);
+    expect(calls.filter((call) => call.command === 'settings')).toHaveLength(1);
+});
+
+test('a success of an older change does not clear the error of a newer one', async () => {
+    const answers = deferredChanges();
+    await render();
+    await act(async () => toggle().click());
+    await act(async () => toggle().click());
+
+    await act(async () => answers[1]?.reject('no'));
+    await act(async () => answers[0]?.resolve({ ...open, startAtLogin: { value: false, locked: false } }));
+
+    expect(alerts()).toEqual(['no']);
+});
+
 test('shows the load error when the settings are unavailable', async () => {
     bridge(() => Promise.reject('no bridge'));
 
