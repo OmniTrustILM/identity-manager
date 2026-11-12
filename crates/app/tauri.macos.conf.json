@@ -1,0 +1,41 @@
+{
+    "app": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "Identity Manager",
+                "width": 1080,
+                "height": 720,
+                "minWidth": 760,
+                "minHeight": 480,
+                "transparent": true,
+                "windowEffects": {
+                    "effects": [
+                        "sidebar"
+                    ],
+                    "state": "followsWindowActiveState"
+                },
+                "titleBarStyle": "Overlay",
+                "hiddenTitle": true
+            },
+            {
+                "label": "summary",
+                "title": "Identity Manager",
+                "visible": false,
+                "decorations": false,
+                "resizable": false,
+                "skipTaskbar": true,
+                "alwaysOnTop": true,
+                "acceptFirstMouse": true,
+                "width": 340,
+                "height": 160,
+                "transparent": true,
+                "windowEffects": {
+                    "effects": [
+                        "popover"
+                    ]
+                }
+            }
+        ]
+    }
+}

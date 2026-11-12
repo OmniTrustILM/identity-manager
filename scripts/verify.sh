@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 usage() {
-    echo "usage: scripts/verify.sh <lint|test|coverage|all|bundle|self-check>" >&2
+    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check>" >&2
     exit 2
 }
 
@@ -60,6 +60,15 @@ coverage() {
     cp app/coverage-vitest/lcov.info reports/ui.lcov
 }
 
+component_tests() {
+    (cd app && npm run test:ct)
+}
+
+# The browsers are installed in CI on Linux only; elsewhere they are a local choice.
+browsers_available() {
+    [[ "$(uname -s)" == Linux || ( "$(uname -s)" == Darwin && -z "${CI:-}" ) ]]
+}
+
 bundle() {
     local bundles
     case "$(uname -s)" in
@@ -100,7 +109,12 @@ case "${1:-}" in
     lint) lint ;;
     test) run_tests ;;
     coverage) coverage ;;
-    all) lint; coverage ;;
+    ct) component_tests ;;
+    all)
+        lint
+        coverage
+        if browsers_available; then component_tests; fi
+        ;;
     bundle) bundle ;;
     self-check) self_check ;;
     *) usage ;;

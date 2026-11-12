@@ -86,6 +86,20 @@ Runs the bundled application with `--self-check`. Run `bundle` first; on Linux t
 bash scripts/verify.sh test
 ```
 
+### Component tests
+
+```bash
+bash scripts/verify.sh ct
+```
+
+Runs the component tests (`*.ct.tsx`, next to the components) in Chromium and WebKit. Install the browsers once:
+
+```bash
+cd app && npx playwright install chromium webkit
+```
+
+On Linux add `--with-deps` to install the system libraries too.
+
 ### Coverage
 
 ```bash
@@ -121,6 +135,31 @@ env -u SONAR_TOKEN scripts/sonar-local.sh
 The script starts an ephemeral `sonarqube:community` container, runs the coverage build, analyses the project and
 fails unless the quality gate passes and no open issue touches a line changed since `BASE_BRANCH` (default
 `origin/main`).
+
+## Design tokens
+
+All sizes, radii, fonts and colours live as CSS variables in `app/src/design-system/tokens.css`, one set per
+system. The values come from the design files (`*.pen`), which are the drawings; change a value in both.
+
+- The interface sets `data-os` on `<html>` from the platform the core reports (`macos`, `windows` or `linux`), and the
+  matching set applies.
+- Light and dark follow the system only, through `prefers-color-scheme`. On Linux the web view does not follow the
+  desktop, so the application reads the colour scheme from the Settings portal and sets `data-theme` on `<html>`.
+- `@theme inline` in `app/src/styles.css` maps the variables to Tailwind utilities. Components use those utilities and
+  contain no colour or size literals.
+
+## Window settings
+
+The native material is set in `crates/app/tauri.conf.json` and the platform files next to it:
+
+- macOS: the main window is `transparent` with the `sidebar` window effect and an overlay title bar with a hidden
+  title. `transparent` needs `macOSPrivateApi`, which in turn needs the `macos-private-api` feature of `tauri`.
+- Windows: the main window is `transparent` with the `mica` effect. Mica needs Windows 11; Windows 10 shows no
+  material.
+- Linux: the window is opaque.
+
+`tauri.macos.conf.json` and `tauri.windows.conf.json` replace the whole `windows` array of `tauri.conf.json`, they do
+not merge into it.
 
 ## License
 

@@ -1,5 +1,5 @@
 name: Setup
-description: Install Node.js, the Linux system packages for Tauri, the Rust toolchain from rust-toolchain.toml, cargo tools and app dependencies
+description: Install Node.js, the Linux system packages for Tauri, the Rust toolchain from rust-toolchain.toml, cargo tools, app dependencies and the Playwright browsers on Linux
 
 runs:
   using: composite
@@ -36,3 +36,30 @@ runs:
       shell: bash
       working-directory: app
       run: npm ci --ignore-scripts
+
+    - name: Read the Playwright version
+      if: runner.os == 'Linux'
+      id: playwright
+      shell: bash
+      working-directory: app
+      run: echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Playwright browsers
+      if: runner.os == 'Linux'
+      id: playwright-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+    - name: Install Playwright browsers
+      if: runner.os == 'Linux' && steps.playwright-cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: app
+      run: npx playwright install --with-deps chromium webkit
+
+    - name: Install Playwright system packages
+      if: runner.os == 'Linux' && steps.playwright-cache.outputs.cache-hit == 'true'
+      shell: bash
+      working-directory: app
+      run: npx playwright install-deps chromium webkit
