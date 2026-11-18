@@ -80,6 +80,8 @@ impl std::error::Error for TokenError {}
 
 /// Used when the provider names no lifetime.
 const DEFAULT_LIFETIME: Duration = Duration::from_secs(300);
+/// The longest lifetime taken from the provider, so that an absurd one cannot overflow the clock.
+const MAX_LIFETIME: Duration = Duration::from_secs(24 * 60 * 60);
 
 #[derive(Deserialize)]
 struct TokenResponse {
@@ -204,7 +206,8 @@ async fn request_tokens(
     })?;
     let lifetime = parsed
         .expires_in
-        .map_or(DEFAULT_LIFETIME, Duration::from_secs);
+        .map_or(DEFAULT_LIFETIME, Duration::from_secs)
+        .min(MAX_LIFETIME);
     Ok(Tokens {
         access: AccessToken::new(parsed.access_token),
         expires_at: Instant::now() + lifetime,
@@ -362,6 +365,30 @@ mod tests {
 
         let left = tokens.expires_at.saturating_duration_since(Instant::now());
         assert!(left > Duration::from_secs(200) && left <= Duration::from_secs(300));
+    }
+
+    #[tokio::test]
+    async fn a_huge_lifetime_is_capped_at_a_day() {
+        let server = MockServer::start().await;
+        token_endpoint(
+            &server,
+            ok(json!({"access_token": "a1", "expires_in": u64::MAX})),
+        )
+        .await;
+        let metadata = metadata(&server, false);
+
+        let tokens = refresh(
+            &client_for_tests(),
+            &metadata,
+            &client_id(&metadata),
+            &RefreshToken::new("r0"),
+            None,
+        )
+        .await
+        .unwrap();
+
+        let left = tokens.expires_at.saturating_duration_since(Instant::now());
+        assert!(left > Duration::from_secs(23 * 60 * 60) && left <= MAX_LIFETIME);
     }
 
     #[tokio::test]
