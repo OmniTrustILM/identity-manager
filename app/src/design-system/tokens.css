@@ -22,6 +22,8 @@
     --im-radius-control: 6px;
     --im-radius-window: 10px;
     --im-control-height: 28px;
+    --im-form-width: 340px;
+    --im-button-height: 32px;
     --im-focus-width: 3px;
     --im-focus-offset: 1px;
     --im-switch-width: 38px;
@@ -53,6 +55,10 @@
     --im-color-switch-off-track: #e5e5e5;
     --im-color-switch-off-thumb: #ffffff;
     --im-color-switch-off-edge: #00000000;
+    --im-color-input: #ffffff;
+    --im-color-input-edge: #0000001a;
+    --im-color-button: #f2f2f2;
+    --im-color-button-edge: #d9d9d9;
 
     --im-color-surface-dark: #1e1e1e;
     --im-color-sidebar-dark: #2a2a2a;
@@ -77,6 +83,10 @@
     --im-color-switch-off-track-dark: #393939;
     --im-color-switch-off-thumb-dark: #ffffff;
     --im-color-switch-off-edge-dark: #00000000;
+    --im-color-input-dark: #1e1e1e;
+    --im-color-input-edge-dark: #ffffff1a;
+    --im-color-button-dark: #2f2f2f;
+    --im-color-button-edge-dark: #444444;
 }
 
 [data-os="windows"] {
@@ -88,6 +98,8 @@
     --im-radius-control: 4px;
     --im-radius-window: 8px;
     --im-control-height: 32px;
+    --im-form-width: 380px;
+    --im-button-height: 36px;
     --im-focus-width: 2px;
     --im-focus-offset: 2px;
     --im-switch-width: 40px;
@@ -119,6 +131,10 @@
     --im-color-switch-off-track: #00000000;
     --im-color-switch-off-thumb: #5f5f5f;
     --im-color-switch-off-edge: #5f5f5f;
+    --im-color-input: #fbfbfb;
+    --im-color-input-edge: #e0e0e0;
+    --im-color-button: #f1f1f1;
+    --im-color-button-edge: #e0e0e0;
 
     --im-color-surface-dark: #272727;
     --im-color-sidebar-dark: #202020;
@@ -143,6 +159,10 @@
     --im-color-switch-off-track-dark: #00000000;
     --im-color-switch-off-thumb-dark: #cfcfcf;
     --im-color-switch-off-edge-dark: #cfcfcf;
+    --im-color-input-dark: #272727;
+    --im-color-input-edge-dark: #3a3a3a;
+    --im-color-button-dark: #333333;
+    --im-color-button-edge-dark: #3a3a3a;
 }
 
 [data-os="linux"] {
@@ -154,6 +174,8 @@
     --im-radius-control: 6px;
     --im-radius-window: 12px;
     --im-control-height: 34px;
+    --im-form-width: 380px;
+    --im-button-height: 38px;
     --im-focus-width: 2px;
     --im-focus-offset: 2px;
     --im-switch-width: 46px;
@@ -185,6 +207,10 @@
     --im-color-switch-off-track: #dcdcdc;
     --im-color-switch-off-thumb: #ffffff;
     --im-color-switch-off-edge: #00000000;
+    --im-color-input: #dcdcdc;
+    --im-color-input-edge: #00000000;
+    --im-color-button: #dcdcdc;
+    --im-color-button-edge: #00000000;
 
     --im-color-surface-dark: #222226;
     --im-color-sidebar-dark: #2e2e32;
@@ -209,6 +235,10 @@
     --im-color-switch-off-track-dark: #3d3d40;
     --im-color-switch-off-thumb-dark: #ffffff;
     --im-color-switch-off-edge-dark: #00000000;
+    --im-color-input-dark: #3d3d40;
+    --im-color-input-edge-dark: #00000000;
+    --im-color-button-dark: #3d3d40;
+    --im-color-button-edge-dark: #00000000;
 }
 
 /* data-theme, when present, wins over the system setting; without it the media query decides. */
@@ -237,6 +267,10 @@
         --im-color-switch-off-track: var(--im-color-switch-off-track-dark);
         --im-color-switch-off-thumb: var(--im-color-switch-off-thumb-dark);
         --im-color-switch-off-edge: var(--im-color-switch-off-edge-dark);
+        --im-color-input: var(--im-color-input-dark);
+        --im-color-input-edge: var(--im-color-input-edge-dark);
+        --im-color-button: var(--im-color-button-dark);
+        --im-color-button-edge: var(--im-color-button-edge-dark);
     }
 }
 
@@ -264,4 +298,8 @@
     --im-color-switch-off-track: var(--im-color-switch-off-track-dark);
     --im-color-switch-off-thumb: var(--im-color-switch-off-thumb-dark);
     --im-color-switch-off-edge: var(--im-color-switch-off-edge-dark);
+    --im-color-input: var(--im-color-input-dark);
+    --im-color-input-edge: var(--im-color-input-edge-dark);
+    --im-color-button: var(--im-color-button-dark);
+    --im-color-button-edge: var(--im-color-button-edge-dark);
 }

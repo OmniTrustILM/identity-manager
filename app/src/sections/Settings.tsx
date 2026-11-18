@@ -1,9 +1,11 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { useAppInfo } from '../app-info';
-import { type Change, getSettings, type LogLevel, setSetting, type SettingsView } from '../bridge';
+import { type Change, connect, getSettings, type LogLevel, setSetting, type SettingsView, signOut } from '../bridge';
 import { LockNote } from '../components/Switch/LockNote';
 import { Select } from '../components/Switch/Select';
 import { Switch } from '../components/Switch/Switch';
+import { TextField } from '../components/TextField/TextField';
+import { useSession } from '../session';
 import { strings } from '../strings';
 
 const logLevels: readonly LogLevel[] = ['error', 'warn', 'info', 'debug'];
@@ -21,6 +23,9 @@ interface RowProps {
     renderControl: (props: ControlProps) => ReactNode;
 }
 
+const rowClass =
+    'border-separator px-s4 py-s3 in-data-[os=windows]:rounded-control in-data-[os=windows]:border in-data-[os=windows]:bg-card';
+
 function Row({ label, locked, error, renderControl }: Readonly<RowProps>) {
     const id = useId();
     const lockId = `${id}-lock`;
@@ -28,7 +33,7 @@ function Row({ label, locked, error, renderControl }: Readonly<RowProps>) {
     const describedBy = [locked && lockId, error && errorId].filter(Boolean).join(' ');
 
     return (
-        <div className="border-separator px-s4 py-s3 in-data-[os=windows]:rounded-control in-data-[os=windows]:border in-data-[os=windows]:bg-card">
+        <div className={rowClass}>
             <div className="flex items-center justify-between gap-s4">
                 <div className="flex flex-col gap-s1">
                     <label htmlFor={id} className="text-body text-primary">
@@ -47,9 +52,69 @@ function Row({ label, locked, error, renderControl }: Readonly<RowProps>) {
     );
 }
 
+function Group({ title, children }: Readonly<{ title: string; children: ReactNode }>) {
+    const id = useId();
+    return (
+        <section aria-labelledby={id} className="flex flex-col gap-s3">
+            <h2 id={id} className="text-title font-semibold">
+                {title}
+            </h2>
+            <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-window border border-separator bg-card in-data-[os=windows]:gap-s1 in-data-[os=windows]:overflow-visible in-data-[os=windows]:border-0 in-data-[os=windows]:bg-transparent">
+                {children}
+            </div>
+        </section>
+    );
+}
+
+interface AddressRowProps {
+    address: string;
+    locked: boolean;
+    readOnly: boolean;
+}
+
+/** The ILM address in use; confirming another one connects to it, which signs the person out of the old one. */
+function AddressRow({ address, locked, readOnly }: Readonly<AddressRowProps>) {
+    const [draft, setDraft] = useState(address);
+    const [error, setError] = useState<string>();
+
+    useEffect(() => setDraft(address), [address]);
+
+    const confirm = () => {
+        const next = draft.trim();
+        if (next === address) {
+            return;
+        }
+        setError(undefined);
+        connect(next).catch((failure) => {
+            setDraft(address);
+            setError(String(failure) || strings.settingFailed);
+        });
+    };
+
+    return (
+        <Row
+            label={strings.ilmAddress}
+            locked={locked}
+            error={error}
+            renderControl={(props) => (
+                <div className="w-1/2">
+                    <TextField
+                        {...props}
+                        value={draft}
+                        readOnly={readOnly}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onBlur={confirm}
+                        onKeyDown={(event) => event.key === 'Enter' && confirm()}
+                    />
+                </div>
+            )}
+        />
+    );
+}
+
 export function Settings() {
     const { platform } = useAppInfo();
-    const groupId = useId();
+    const { view: session } = useSession();
     const [view, setView] = useState<SettingsView | null>(null);
     const [loadFailed, setLoadFailed] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<Change['key'], string>>>({});
@@ -123,38 +188,48 @@ export function Settings() {
                     {platform === 'linux' ? strings.preferences : strings.settings}
                 </h1>
             )}
-            <section aria-labelledby={groupId} className="flex flex-col gap-s3">
-                <h2 id={groupId} className="text-title font-semibold">
-                    {strings.general}
-                </h2>
-                <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-window border border-separator bg-card in-data-[os=windows]:gap-s1 in-data-[os=windows]:overflow-visible in-data-[os=windows]:border-0 in-data-[os=windows]:bg-transparent">
-                    <Row
-                        label={strings.startAtLogin}
-                        locked={view.startAtLogin.locked}
-                        error={errors.startAtLogin}
-                        renderControl={(props) => (
-                            <Switch
-                                {...props}
-                                checked={view.startAtLogin.value}
-                                onChange={(value) => change({ key: 'startAtLogin', value })}
-                            />
-                        )}
-                    />
-                    <Row
-                        label={strings.logLevel}
-                        locked={view.logLevel.locked}
-                        error={errors.logLevel}
-                        renderControl={(props) => (
-                            <Select
-                                {...props}
-                                value={view.logLevel.value}
-                                options={logLevels}
-                                onChange={(value) => change({ key: 'logLevel', value })}
-                            />
-                        )}
-                    />
-                </div>
-            </section>
+            <Group title={strings.general}>
+                <Row
+                    label={strings.startAtLogin}
+                    locked={view.startAtLogin.locked}
+                    error={errors.startAtLogin}
+                    renderControl={(props) => (
+                        <Switch {...props} checked={view.startAtLogin.value} onChange={(value) => change({ key: 'startAtLogin', value })} />
+                    )}
+                />
+                <Row
+                    label={strings.logLevel}
+                    locked={view.logLevel.locked}
+                    error={errors.logLevel}
+                    renderControl={(props) => (
+                        <Select
+                            {...props}
+                            value={view.logLevel.value}
+                            options={logLevels}
+                            onChange={(value) => change({ key: 'logLevel', value })}
+                        />
+                    )}
+                />
+            </Group>
+            {session?.state === 'signedIn' && (
+                <Group title={strings.connection}>
+                    <AddressRow address={session.address} locked={view.ilmUrl.locked} readOnly={platform === 'macos'} />
+                    <div className={`flex items-center justify-between gap-s4 ${rowClass}`}>
+                        <div className="flex flex-col">
+                            <p className="text-body text-primary">{session.person.name}</p>
+                            <p className="text-caption text-secondary">{session.person.username}</p>
+                        </div>
+                        <button
+                            type="button"
+                            tabIndex={0}
+                            onClick={() => signOut().catch(() => undefined)}
+                            className="h-control rounded-control border border-input-edge bg-input px-s3 text-body text-primary"
+                        >
+                            {strings.signOut}
+                        </button>
+                    </div>
+                </Group>
+            )}
         </div>
     );
 }

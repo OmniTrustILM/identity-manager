@@ -22,3 +22,5 @@
   write, the autosave backup in `~/.pencil/backup/` is the fallback.
 - `scripts/verify.sh policy-system` writes real system policy (sudo, `/Library/Managed Preferences`, `/etc`, the
   registry) and runs only in CI; do not run it locally.
+- `scripts/verify.sh keyring-system` writes to the real system protected storage (Keychain, Credential Manager,
+  Secret Service) and runs only in CI; do not run it locally.

@@ -36,6 +36,10 @@ jobs:
         shell: bash
         run: bash scripts/verify.sh policy-system
 
+      - name: Protected storage
+        shell: bash
+        run: bash scripts/verify.sh keyring-system
+
       # Package up PR context for downstream workflow_run (Sonar handoff).
       # Values go through env (not inline ${{ }} in the script) and jq --arg, so
       # an unusual branch/repo name can neither inject shell nor break the JSON.

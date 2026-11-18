@@ -1,7 +1,9 @@
 use std::path::PathBuf;
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use auto_launch::{AutoLaunch, AutoLaunchBuilder, WindowsEnableMode};
+use im_core::ilm::IlmUrl;
+use im_core::session::{Connection, ConnectionSettings};
 use im_core::settings::{self, Change, Layer, LogLevel, SettingsView, store};
 use log::LevelFilter;
 #[cfg(target_os = "linux")]
@@ -152,9 +154,13 @@ fn level_name(level: LogLevel) -> String {
 }
 
 /// One line per setting with its effective value and the layer it comes from.
-fn start_lines(policy: &Layer, person: &Layer) -> [String; 2] {
+fn start_lines(policy: &Layer, person: &Layer) -> [String; 3] {
     let view = settings::view(policy, person);
-    let [(login, login_source), (level, level_source)] = settings::sources(policy, person);
+    let [
+        (login, login_source),
+        (level, level_source),
+        (ilm, ilm_source),
+    ] = settings::sources(policy, person);
     [
         format!(
             "{login} is {} from {login_source}",
@@ -164,23 +170,44 @@ fn start_lines(policy: &Layer, person: &Layer) -> [String; 2] {
             "{level} is {} from {level_source}",
             level_name(view.log_level.value)
         ),
+        format!(
+            "{ilm} is {} from {ilm_source}",
+            view.ilm_url.value.as_deref().unwrap_or("not set")
+        ),
     ]
 }
 
+impl ConnectionSettings for Settings {
+    fn connection(&self) -> Connection {
+        let (policy, person) = self.layers();
+        Connection {
+            locked: policy.ilm_url.is_some(),
+            address: policy.ilm_url.or(person.ilm_url),
+            provider: policy.sign_in_provider,
+        }
+    }
+
+    fn save_address(&self, address: &IlmUrl) -> Result<(), String> {
+        self.change(Change::IlmUrl(address.clone())).map(|_| ())
+    }
+}
+
 #[tauri::command]
-pub fn settings(state: State<'_, Settings>) -> SettingsView {
+pub fn settings(state: State<'_, Arc<Settings>>) -> SettingsView {
     state.view()
 }
 
 #[tauri::command]
-pub fn set_setting(state: State<'_, Settings>, change: Change) -> Result<SettingsView, String> {
+pub fn set_setting(
+    state: State<'_, Arc<Settings>>,
+    change: Change,
+) -> Result<SettingsView, String> {
     state.change(change)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
 
     #[derive(Default)]
     struct Recorder {
@@ -282,6 +309,7 @@ mod tests {
         *policy.lock().unwrap() = Layer {
             start_at_login: Some(false),
             log_level: Some(LogLevel::Error),
+            ..Layer::default()
         };
 
         settings.view();
@@ -307,6 +335,22 @@ mod tests {
         assert_eq!(saved.log_level, Some(LogLevel::Debug));
         assert_eq!(*recorder.levels.lock().unwrap(), [LevelFilter::Debug]);
         assert_eq!(*recorder.autostart.lock().unwrap(), [true]);
+    }
+
+    #[test]
+    fn an_address_change_is_saved() {
+        let (folder, settings, _) = fixture(no_policy(), true);
+
+        let view = settings
+            .change(Change::IlmUrl(IlmUrl::parse("ilm.example.com").unwrap()))
+            .expect("the change is accepted");
+
+        assert_eq!(
+            view.ilm_url.value.as_deref(),
+            Some("https://ilm.example.com")
+        );
+        let saved = store::load(&folder.path().join("settings.json"));
+        assert_eq!(saved.ilm_url, IlmUrl::parse("ilm.example.com").ok());
     }
 
     #[test]
@@ -386,6 +430,44 @@ mod tests {
     }
 
     #[test]
+    fn the_connection_follows_policy_then_the_person() {
+        use im_core::session::{Connection, ConnectionSettings};
+        let policy = Layer {
+            sign_in_provider: Some("Corporate".into()),
+            ..Layer::default()
+        };
+        let (_folder, settings, _) = fixture(policy, true);
+        assert_eq!(
+            settings.connection(),
+            Connection {
+                address: None,
+                locked: false,
+                provider: Some("Corporate".into())
+            }
+        );
+
+        let address = IlmUrl::parse("ilm.example.com").unwrap();
+        settings.save_address(&address).unwrap();
+        assert_eq!(settings.connection().address, Some(address));
+
+        let (_folder, locked, _) = fixture(
+            Layer {
+                ilm_url: IlmUrl::parse("policy.example.com").ok(),
+                ..Layer::default()
+            },
+            true,
+        );
+        let connection = locked.connection();
+        assert!(connection.locked);
+        assert_eq!(connection.address, IlmUrl::parse("policy.example.com").ok());
+        assert!(
+            locked
+                .save_address(&IlmUrl::parse("ilm.example.com").unwrap())
+                .is_err()
+        );
+    }
+
+    #[test]
     fn autostart_applies_only_outside_self_check_and_debug_builds() {
         assert!(autostart_applies(false, false));
         assert!(!autostart_applies(true, false));
@@ -401,6 +483,7 @@ mod tests {
         };
         let person = Layer {
             start_at_login: Some(false),
+            ilm_url: IlmUrl::parse("ilm.example.com").ok(),
             ..Layer::default()
         };
 
@@ -408,7 +491,8 @@ mod tests {
             start_lines(&policy, &person),
             [
                 "StartAtLogin is false from person".to_string(),
-                "LogLevel is warn from policy".to_string()
+                "LogLevel is warn from policy".to_string(),
+                "IlmUrl is https://ilm.example.com from person".to_string()
             ]
         );
         assert_eq!(

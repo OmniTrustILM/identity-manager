@@ -1,0 +1,16 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "session",
+    "description": "The main window may read and change the sign-in and listen for its changes.",
+    "windows": ["main"],
+    "permissions": [
+        "allow-session",
+        "allow-connect",
+        "allow-sign-in",
+        "allow-reopen-browser",
+        "allow-cancel-sign-in",
+        "allow-sign-out",
+        "core:event:allow-listen",
+        "core:event:allow-unlisten"
+    ]
+}

@@ -34,6 +34,10 @@ jobs:
         shell: bash
         run: bash scripts/verify.sh policy-system
 
+      - name: Protected storage
+        shell: bash
+        run: bash scripts/verify.sh keyring-system
+
       - name: Bundle
         shell: bash
         run: bash scripts/verify.sh bundle

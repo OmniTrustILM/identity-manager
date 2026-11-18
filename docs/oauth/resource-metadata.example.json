@@ -1,0 +1,15 @@
+{
+  "resource": "https://ilm.example.com/api",
+  "resource_name": "OmniTrust ILM",
+  "authorization_servers": ["https://login.example.com/realms/main"],
+  "bearer_methods_supported": ["header"],
+  "otilm_authorization_servers": [
+    {
+      "issuer": "https://login.example.com/realms/main",
+      "name": "Company sign-in",
+      "client_id": "identity-manager",
+      "scopes": ["openid", "profile", "email", "offline_access"],
+      "resource": "https://ilm.example.com/api"
+    }
+  ]
+}

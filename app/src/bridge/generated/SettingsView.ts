@@ -5,4 +5,4 @@ import type { LogLevel } from "./LogLevel";
 /**
  * Every setting as the interface shows it.
  */
-export type SettingsView = { startAtLogin: Entry<boolean>, logLevel: Entry<LogLevel>, };
+export type SettingsView = { startAtLogin: Entry<boolean>, logLevel: Entry<LogLevel>, ilmUrl: Entry<string | null>, };

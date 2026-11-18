@@ -19,6 +19,10 @@
 			<false/>
 			<key>LogLevel</key>
 			<string>debug</string>
+			<key>IlmUrl</key>
+			<string>https://ilm.example.com</string>
+			<key>SignInProvider</key>
+			<string>Corporate</string>
 		</dict>
 	</array>
 	<key>PayloadType</key>

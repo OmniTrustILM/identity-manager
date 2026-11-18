@@ -25,6 +25,12 @@ fn main() {
                 "settings",
                 "set_setting",
                 "pending_section",
+                "session",
+                "connect",
+                "sign_in",
+                "reopen_browser",
+                "cancel_sign_in",
+                "sign_out",
             ])),
     )
     .expect("the Tauri build failed");

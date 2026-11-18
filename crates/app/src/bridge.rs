@@ -124,6 +124,7 @@ mod tests {
         let app = builder::<MockRuntime>(Mode::Normal)
             .build(crate::context())
             .expect("the mock app builds");
+        crate::session::manage_for_tests(app.handle());
         let window = WebviewWindowBuilder::new(&app, label, WebviewUrl::default())
             .build()
             .expect("the main window is created");
@@ -375,6 +376,97 @@ mod tests {
                 "allow-settings",
                 "allow-set-setting",
                 "allow-pending-section",
+                "core:event:allow-listen",
+                "core:event:allow-unlisten"
+            ])
+        );
+    }
+
+    const SESSION_COMMANDS: [&str; 6] = [
+        "session",
+        "connect",
+        "sign_in",
+        "reopen_browser",
+        "cancel_sign_in",
+        "sign_out",
+    ];
+    const SETTINGS_WINDOW_SESSION_COMMANDS: [&str; 2] = ["session", "sign_out"];
+
+    #[test]
+    fn the_summary_is_refused_every_session_command() {
+        for command in SESSION_COMMANDS {
+            assert!(refused_by_capabilities(&summary(command)), "{command}");
+        }
+    }
+
+    #[test]
+    fn the_main_window_may_call_every_session_command() {
+        for command in SESSION_COMMANDS {
+            let answer = call(command, serde_json::json!({}));
+            assert!(!refused_by_capabilities(&answer), "{command}: {answer:?}");
+        }
+    }
+
+    #[test]
+    fn the_settings_window_may_call_only_the_session_and_sign_out_commands_and_only_on_macos() {
+        for command in SESSION_COMMANDS {
+            let answer = call_in("settings", LOCAL_ORIGIN, command, serde_json::json!({}));
+            let granted =
+                cfg!(target_os = "macos") && SETTINGS_WINDOW_SESSION_COMMANDS.contains(&command);
+            assert_eq!(
+                refused_by_capabilities(&answer),
+                !granted,
+                "{command}: {answer:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_remote_page_is_refused_every_session_command() {
+        for label in ["main", "settings"] {
+            for command in SESSION_COMMANDS {
+                let answer = call_in(label, "https://example.com", command, serde_json::json!({}));
+                assert!(
+                    refused_by_capabilities(&answer),
+                    "{label} {command}: {answer:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_session_capability_grants_only_the_session_commands_and_event_listening() {
+        let file = include_str!("../capabilities/session.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["windows"], serde_json::json!(["main"]));
+        assert!(parsed.get("platforms").is_none());
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!([
+                "allow-session",
+                "allow-connect",
+                "allow-sign-in",
+                "allow-reopen-browser",
+                "allow-cancel-sign-in",
+                "allow-sign-out",
+                "core:event:allow-listen",
+                "core:event:allow-unlisten"
+            ])
+        );
+    }
+
+    #[test]
+    fn the_settings_window_session_capability_is_for_macos_and_grants_only_two_commands_and_event_listening()
+     {
+        let file = include_str!("../capabilities/settings-window-session.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["platforms"], serde_json::json!(["macOS"]));
+        assert_eq!(parsed["windows"], serde_json::json!(["settings"]));
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!([
+                "allow-session",
+                "allow-sign-out",
                 "core:event:allow-listen",
                 "core:event:allow-unlisten"
             ])

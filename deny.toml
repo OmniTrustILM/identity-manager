@@ -122,6 +122,11 @@ allow = ["Unicode-3.0"]
 crate = "target-lexicon@0.12.16"
 allow = ["Apache-2.0 WITH LLVM-exception"]
 
+# Mozilla root certificates as data, a dependency of the platform verifier of reqwest
+[[licenses.exceptions]]
+crate = "webpki-root-certs@1.0.12"
+allow = ["CDLA-Permissive-2.0"]
+
 [bans]
 multiple-versions = "warn"
 

@@ -1,9 +1,11 @@
+import { emit } from '@tauri-apps/api/event';
 import { clearMocks, mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { StrictMode } from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { App } from './App';
+import type { SessionView } from './bridge';
 import { strings } from './strings';
 
 const info = {
@@ -35,7 +37,14 @@ afterEach(async () => {
 
 let schemeRequests: number;
 
-function mockBridge(appInfo: () => unknown, scheme: string | null = null, label = 'main') {
+const signedIn: SessionView = {
+    state: 'signedIn',
+    address: 'https://ilm.example.com',
+    person: { name: 'Alex Morgan', username: 'alex.morgan' },
+    allowedListings: ['certificates'],
+};
+
+function mockBridge(appInfo: () => unknown, scheme: string | null = null, label = 'main', session: () => unknown = () => signedIn) {
     mockWindows(label);
     mockIPC(
         (command, args) => {
@@ -43,7 +52,14 @@ function mockBridge(appInfo: () => unknown, scheme: string | null = null, label 
                 return appInfo();
             }
             if (command === 'settings') {
-                return { startAtLogin: { value: true, locked: false }, logLevel: { value: 'info', locked: true } };
+                return {
+                    startAtLogin: { value: true, locked: false },
+                    logLevel: { value: 'info', locked: true },
+                    ilmUrl: { value: 'https://ilm.example.com', locked: false },
+                };
+            }
+            if (command === 'session') {
+                return session();
             }
             if (command === 'color_scheme') {
                 schemeRequests += 1;
@@ -201,4 +217,120 @@ test('on macOS the main window has no Settings entry', async () => {
     await render(<App />);
 
     expect(container.querySelector('nav > div')).toBeNull();
+});
+
+const mainWith = (session: () => unknown) => mockBridge(() => info, null, 'main', session);
+const signedOut: SessionView = { state: 'signedOut', address: null, locked: false, problem: null };
+
+test('while the session starts the main window shows nothing to use but still reports', async () => {
+    mainWith(() => ({ state: 'starting' }));
+
+    await render(<App />);
+
+    expect(container.querySelector('button')).toBeNull();
+    expect(container.querySelector('input')).toBeNull();
+    expect(container.querySelector('nav')).toBeNull();
+    expect(reports).toEqual([info]);
+});
+
+test('signed out without an address the main window shows Connect, not the shell', async () => {
+    mainWith(() => signedOut);
+
+    await render(<App />);
+
+    expect(container.querySelector('h1')?.textContent).toBe(strings.connectTitle);
+    expect(container.querySelector('nav')).toBeNull();
+});
+
+test('signed out with the address of the organization the main window shows Welcome', async () => {
+    mainWith(() => ({ ...signedOut, address: 'https://ilm.example.com', locked: true }));
+
+    await render(<App />);
+
+    expect(container.querySelector('h1')?.textContent).toBe(strings.welcomeTitle);
+});
+
+test('while the person signs in the main window shows Waiting', async () => {
+    mainWith(() => ({ state: 'signingIn', provider: 'Company SSO' }));
+
+    await render(<App />);
+
+    expect(container.querySelector('h1')?.textContent).toBe(strings.waitingTitle);
+});
+
+test('session-changed switches between the sign-in and the shell', async () => {
+    mainWith(() => signedOut);
+    await render(<App />);
+
+    await act(async () => emit('session-changed', signedIn));
+    expect(container.querySelector('nav')).not.toBeNull();
+    expect(container.querySelector('input')).toBeNull();
+
+    await act(async () => emit('session-changed', signedOut));
+    expect(container.querySelector('nav')).toBeNull();
+    expect(container.querySelector('h1')?.textContent).toBe(strings.connectTitle);
+});
+
+test('a session that cannot be read is reported and shows nothing to use', async () => {
+    mainWith(() => {
+        throw new Error('no bridge');
+    });
+
+    await render(<App />);
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(strings.sessionLoadError);
+    expect(container.querySelector('nav')).toBeNull();
+});
+
+test('the summary window does not wait for the session', async () => {
+    mockBridge(
+        () => info,
+        null,
+        'summary',
+        () => signedOut,
+    );
+
+    await render(<App />);
+
+    expect(container.querySelector('button')?.textContent).toBe(strings.openApp);
+});
+
+test('a change announced while the session is still being read is not overwritten by that read', async () => {
+    let answer: (view: SessionView) => void = () => undefined;
+    mainWith(() => new Promise((resolve) => (answer = resolve)));
+    await render(<App />);
+
+    await act(async () => emit('session-changed', signedOut));
+    await act(async () => answer(signedIn));
+
+    expect(container.querySelector('h1')?.textContent).toBe(strings.connectTitle);
+});
+
+test('a change announced after the window is gone is ignored', async () => {
+    mainWith(() => signedOut);
+    await render(<App />);
+    await act(async () => root.render(null));
+
+    await act(async () => emit('session-changed', signedIn));
+
+    expect(container.querySelector('nav')).toBeNull();
+});
+
+test('the sign-in still shows when the window cannot listen for changes', async () => {
+    mockWindows('main');
+    mockIPC((command) => {
+        if (command === 'app_info') {
+            return info;
+        }
+        if (command === 'session') {
+            return signedOut;
+        }
+        if (command === 'plugin:event|listen') {
+            return Promise.reject('refused');
+        }
+    });
+
+    await render(<App />);
+
+    expect(container.querySelector('h1')?.textContent).toBe(strings.connectTitle);
 });

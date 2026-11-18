@@ -27,6 +27,10 @@
     --color-switch-off: var(--im-color-switch-off-track);
     --color-switch-thumb-off: var(--im-color-switch-off-thumb);
     --color-switch-edge: var(--im-color-switch-off-edge);
+    --color-input: var(--im-color-input);
+    --color-input-edge: var(--im-color-input-edge);
+    --color-button: var(--im-color-button);
+    --color-button-edge: var(--im-color-button-edge);
 
     --text-body: var(--im-font-size-body);
     --text-caption: var(--im-font-size-caption);
@@ -47,6 +51,8 @@
     --spacing-icon: var(--im-icon-size);
     --spacing-titlebar: var(--im-titlebar-inset);
     --spacing-select: var(--im-select-width);
+    --spacing-form: var(--im-form-width);
+    --spacing-button: var(--im-button-height);
     --spacing-switch-width: var(--im-switch-width);
     --spacing-switch-height: var(--im-switch-height);
     --spacing-switch-thumb: var(--im-switch-thumb);

@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import { expect, test } from '@playwright/experimental-ct-react';
 import type { Locator, Page } from '@playwright/test';
 import { keyboardReady } from '../../playwright/focus';
@@ -6,8 +7,14 @@ import type { Platform, SettingsView } from '../bridge';
 
 type Scheme = 'light' | 'dark';
 
-const view: SettingsView = { startAtLogin: { value: true, locked: false }, logLevel: { value: 'debug', locked: true } };
+const view: SettingsView = {
+    startAtLogin: { value: true, locked: false },
+    logLevel: { value: 'debug', locked: true },
+    ilmUrl: { value: null, locked: false },
+};
 const unlocked: SettingsView = { ...view, logLevel: { value: 'info', locked: false } };
+
+const shots = process.env.SIGN_IN_SHOTS;
 
 const words: Record<Platform, string | null> = { macos: null, windows: 'Settings', linux: 'Preferences' };
 const cards: Record<Platform, Record<Scheme, string>> = {
@@ -104,4 +111,51 @@ test('a refused change shows its reason under the row and keeps the stored value
     await expect(page.getByRole('alert')).toHaveText('LogLevel is managed by your organization');
     await expect(page.getByRole('combobox', { name: 'Log level' })).toHaveValue('info');
     await expect(page.getByRole('combobox', { name: 'Log level' })).toHaveAccessibleDescription('LogLevel is managed by your organization');
+});
+
+const connection = (os: Platform) => (os === 'macos' ? { width: 520, height: 420 } : { width: 760, height: 640 });
+
+for (const os of ['macos', 'windows', 'linux'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+        test(`on ${os} in ${scheme} the group Connection shows the address, the person and Sign out`, async ({ mount, page }) => {
+            await open(page, mount, os, scheme, { view: unlocked });
+            await page.setViewportSize(connection(os));
+
+            await expect(page.getByRole('heading', { name: 'Connection' })).toBeVisible();
+            const address = page.getByRole('textbox', { name: 'ILM address' });
+            await expect(address).toHaveValue('ilm.example.com');
+            await expect(address).toHaveJSProperty('readOnly', os === 'macos');
+            await expect(page.getByText('Alex Morgan')).toBeVisible();
+            await expect(page.getByText('alex.morgan')).toBeVisible();
+            await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+            if (shots) {
+                mkdirSync(shots, { recursive: true });
+                await page.screenshot({ path: `${shots}/settings-${os}-${scheme}.png` });
+            }
+        });
+    }
+}
+
+test('an address set by the organization is locked and says so', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'light', { view: { ...unlocked, ilmUrl: { value: 'ilm.example.com', locked: true } } });
+
+    const address = page.getByRole('textbox', { name: 'ILM address' });
+    await expect(address).toBeDisabled();
+    await expect(address).toHaveAccessibleDescription('Managed by your organization');
+});
+
+test('the keyboard alone changes the address, and a refused address shows its reason', async ({ mount, page }) => {
+    await open(page, mount, 'linux', 'light', { view: unlocked, refuse: 'The address must start with https://' });
+    await keyboardReady(page);
+    await page.getByRole('combobox', { name: 'Log level' }).focus();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('textbox', { name: 'ILM address' })).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('http://ilm.example.org');
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('alert')).toHaveText('The address must start with https://');
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeFocused();
 });

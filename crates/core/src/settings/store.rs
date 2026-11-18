@@ -7,9 +7,11 @@ use std::path::Path;
 use serde_json::{Map, Value};
 
 use super::{Layer, LogLevel};
+use crate::ilm::IlmUrl;
 
 const START_AT_LOGIN: &str = "startAtLogin";
 const LOG_LEVEL: &str = "logLevel";
+const ILM_URL: &str = "ilmUrl";
 
 /// Reads the person's layer; a missing, unreadable or malformed file gives an empty layer
 /// and an invalid or unknown key is dropped.
@@ -41,11 +43,13 @@ fn parse(entries: Map<String, Value>) -> Layer {
         match key.as_str() {
             START_AT_LOGIN => layer.start_at_login = value.as_bool(),
             LOG_LEVEL => layer.log_level = serde_json::from_value::<LogLevel>(value).ok(),
+            ILM_URL => layer.ilm_url = serde_json::from_value::<IlmUrl>(value).ok(),
             _ => log::warn!("ignoring unknown setting {key}"),
         }
         let kept = match key.as_str() {
             START_AT_LOGIN => layer.start_at_login.is_some(),
             LOG_LEVEL => layer.log_level.is_some(),
+            ILM_URL => layer.ilm_url.is_some(),
             _ => continue,
         };
         if !kept {
@@ -64,6 +68,9 @@ pub fn save(path: &Path, layer: &Layer) -> io::Result<()> {
     }
     if let Some(value) = layer.log_level {
         entries.insert(LOG_LEVEL.into(), serde_json::to_value(value)?);
+    }
+    if let Some(value) = &layer.ilm_url {
+        entries.insert(ILM_URL.into(), serde_json::to_value(value)?);
     }
     let text = serde_json::to_string_pretty(&entries)?;
 
@@ -88,6 +95,8 @@ mod tests {
         Layer {
             start_at_login: Some(false),
             log_level: Some(LogLevel::Debug),
+            ilm_url: Some(IlmUrl::parse("ilm.example.com").unwrap()),
+            sign_in_provider: None,
         }
     }
 
@@ -119,7 +128,11 @@ mod tests {
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(
             written,
-            serde_json::json!({ "startAtLogin": false, "logLevel": "debug" })
+            serde_json::json!({
+                "startAtLogin": false,
+                "logLevel": "debug",
+                "ilmUrl": "https://ilm.example.com"
+            })
         );
     }
 
@@ -137,6 +150,7 @@ mod tests {
             Layer {
                 start_at_login: None,
                 log_level: Some(LogLevel::Debug),
+                ..Layer::default()
             }
         );
         fs::write(&path, r#"{"startAtLogin":true,"logLevel":"loud"}"#).unwrap();
@@ -144,8 +158,15 @@ mod tests {
             load(&path),
             Layer {
                 start_at_login: Some(true),
-                log_level: None,
+                ..Layer::default()
             }
+        );
+        fs::write(&path, r#"{"ilmUrl":"http://ilm.example.com"}"#).unwrap();
+        assert_eq!(load(&path), Layer::default());
+        fs::write(&path, r#"{"ilmUrl":"ilm.example.com"}"#).unwrap();
+        assert_eq!(
+            load(&path).ilm_url,
+            Some(IlmUrl::parse("https://ilm.example.com").unwrap())
         );
     }
 

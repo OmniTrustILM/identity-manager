@@ -9,6 +9,7 @@ use std::fmt;
 #[cfg(unix)]
 use std::path::Path;
 
+use crate::ilm::IlmUrl;
 use crate::settings::{Layer, LogLevel};
 
 /// A value as a policy source stores it.
@@ -26,6 +27,8 @@ pub type RawMap = BTreeMap<String, PolicyValue>;
 
 pub(crate) const START_AT_LOGIN: &str = "StartAtLogin";
 pub(crate) const LOG_LEVEL: &str = "LogLevel";
+pub(crate) const ILM_URL: &str = "IlmUrl";
+pub(crate) const SIGN_IN_PROVIDER: &str = "SignInProvider";
 
 /// Maps the known names with the expected types to a layer; anything else is ignored with a warning.
 pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
@@ -37,7 +40,19 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
                 Some(level) => layer.log_level = Some(level),
                 None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
             },
-            (START_AT_LOGIN | LOG_LEVEL, _) => {
+            (ILM_URL, PolicyValue::Text(text)) => match IlmUrl::parse(text) {
+                Ok(url) => layer.ilm_url = Some(url),
+                Err(error) => {
+                    log::warn!("policy {name} in {source} has an invalid value ({error}); ignored");
+                }
+            },
+            (SIGN_IN_PROVIDER, PolicyValue::Text(text)) if !text.trim().is_empty() => {
+                layer.sign_in_provider = Some(text.trim().to_string());
+            }
+            (SIGN_IN_PROVIDER, PolicyValue::Text(_)) => {
+                log::warn!("policy {name} in {source} has an invalid value; ignored");
+            }
+            (START_AT_LOGIN | LOG_LEVEL | ILM_URL | SIGN_IN_PROVIDER, _) => {
                 log::warn!("policy {name} in {source} has the wrong type; ignored");
             }
             _ => log::warn!("policy {name} in {source} is unknown; ignored"),
@@ -61,6 +76,8 @@ pub fn merge(machine: Layer, user: Layer) -> Layer {
     Layer {
         start_at_login: machine.start_at_login.or(user.start_at_login),
         log_level: machine.log_level.or(user.log_level),
+        ilm_url: machine.ilm_url.or(user.ilm_url),
+        sign_in_provider: machine.sign_in_provider.or(user.sign_in_provider),
     }
 }
 
@@ -209,6 +226,42 @@ mod tests {
     }
 
     #[test]
+    fn the_address_and_the_provider_set_the_layer() {
+        let layer = to_layer(
+            &raw(&[
+                ("IlmUrl", text("ilm.example.com/ilm")),
+                ("SignInProvider", text("Corporate")),
+            ]),
+            "test",
+        );
+        assert_eq!(
+            layer.ilm_url,
+            IlmUrl::parse("https://ilm.example.com/ilm").ok()
+        );
+        assert_eq!(layer.sign_in_provider.as_deref(), Some("Corporate"));
+    }
+
+    #[test]
+    fn an_invalid_address_or_an_empty_provider_is_ignored() {
+        let layer = to_layer(
+            &raw(&[
+                ("IlmUrl", text("http://ilm.example.com")),
+                ("SignInProvider", text(" ")),
+            ]),
+            "test",
+        );
+        assert_eq!(layer, Layer::default());
+        let layer = to_layer(
+            &raw(&[
+                ("IlmUrl", PolicyValue::Bool(true)),
+                ("SignInProvider", PolicyValue::Int(1)),
+            ]),
+            "test",
+        );
+        assert_eq!(layer, Layer::default());
+    }
+
+    #[test]
     fn all_levels_are_recognised() {
         for (name, level) in [
             ("error", LogLevel::Error),
@@ -246,15 +299,20 @@ mod tests {
     fn machine_wins_per_key() {
         let machine = Layer {
             start_at_login: Some(false),
-            log_level: None,
+            ilm_url: IlmUrl::parse("machine.example.com").ok(),
+            ..Layer::default()
         };
         let user = Layer {
             start_at_login: Some(true),
             log_level: Some(LogLevel::Warn),
+            ilm_url: IlmUrl::parse("user.example.com").ok(),
+            sign_in_provider: Some("Corporate".into()),
         };
         let merged = merge(machine, user);
         assert_eq!(merged.start_at_login, Some(false));
         assert_eq!(merged.log_level, Some(LogLevel::Warn));
+        assert_eq!(merged.ilm_url, IlmUrl::parse("machine.example.com").ok());
+        assert_eq!(merged.sign_in_provider.as_deref(), Some("Corporate"));
     }
 
     fn folder(uid: u32, mode: u32) -> FileMeta {
