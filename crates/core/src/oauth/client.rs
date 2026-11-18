@@ -65,7 +65,6 @@ mod tests {
             authorization_endpoint: "https://idp.example/auth".into(),
             token_endpoint: "https://idp.example/token".into(),
             revocation_endpoint: None,
-            scopes_supported: vec![],
             cimd_supported,
             code_challenge_methods_supported: vec![],
         }

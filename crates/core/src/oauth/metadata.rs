@@ -12,7 +12,6 @@ pub struct ProviderMetadata {
     pub authorization_endpoint: String,
     pub token_endpoint: String,
     pub revocation_endpoint: Option<String>,
-    pub scopes_supported: Vec<String>,
     pub cimd_supported: bool,
     pub code_challenge_methods_supported: Vec<String>,
 }
@@ -50,7 +49,6 @@ struct Document {
     authorization_endpoint: Option<String>,
     token_endpoint: Option<String>,
     revocation_endpoint: Option<String>,
-    scopes_supported: Option<Vec<String>>,
     client_id_metadata_document_supported: Option<bool>,
     code_challenge_methods_supported: Option<Vec<String>>,
 }
@@ -126,7 +124,6 @@ fn accept(document: Document, issuer: &str) -> Result<ProviderMetadata, Metadata
         authorization_endpoint,
         token_endpoint,
         revocation_endpoint,
-        scopes_supported: document.scopes_supported.unwrap_or_default(),
         cimd_supported: document
             .client_id_metadata_document_supported
             .unwrap_or(false),
@@ -177,7 +174,6 @@ mod tests {
         let issuer = server.uri();
         let mut body = document(&issuer);
         body["revocation_endpoint"] = json!(format!("{issuer}/revoke"));
-        body["scopes_supported"] = json!(["openid", "offline_access"]);
         body["client_id_metadata_document_supported"] = json!(true);
         body["code_challenge_methods_supported"] = json!(["plain", "S256"]);
         serve(&server, "/.well-known/openid-configuration", body).await;
@@ -192,7 +188,6 @@ mod tests {
             metadata.revocation_endpoint,
             Some(format!("{issuer}/revoke"))
         );
-        assert_eq!(metadata.scopes_supported, ["openid", "offline_access"]);
         assert!(metadata.cimd_supported);
         assert_eq!(metadata.code_challenge_methods_supported, ["plain", "S256"]);
     }
@@ -212,7 +207,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(metadata.revocation_endpoint, None);
-        assert!(metadata.scopes_supported.is_empty());
         assert!(!metadata.cimd_supported);
         assert!(metadata.code_challenge_methods_supported.is_empty());
     }

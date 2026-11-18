@@ -227,7 +227,6 @@ mod tests {
             authorization_endpoint: format!("{}/auth", server.uri()),
             token_endpoint: format!("{}/token", server.uri()),
             revocation_endpoint: revocation.then(|| format!("{}/revoke", server.uri())),
-            scopes_supported: vec![],
             cimd_supported: false,
             code_challenge_methods_supported: vec![],
         }

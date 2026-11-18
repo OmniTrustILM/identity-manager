@@ -142,7 +142,6 @@ impl World {
                 "authorization_endpoint": format!("{issuer}/auth"),
                 "token_endpoint": format!("{issuer}/token"),
                 "revocation_endpoint": format!("{issuer}/revoke"),
-                "scopes_supported": ["openid", "offline_access"],
             })))
             .mount(&self.idp)
             .await;

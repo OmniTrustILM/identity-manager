@@ -19,7 +19,6 @@ use crate::ilm::resource::PublishedProvider;
 pub const FLOW_TIMEOUT: Duration = Duration::from_secs(300);
 
 const CALLBACK_PATH: &str = "/callback";
-const OFFLINE_ACCESS: &str = "offline_access";
 const MAX_REQUEST_LINE: usize = 4096;
 const READ_TIMEOUT: Duration = Duration::from_secs(1);
 
@@ -83,9 +82,8 @@ impl AuthorizationRequest {
                 .append_pair("response_type", "code")
                 .append_pair("client_id", client_id.as_str())
                 .append_pair("redirect_uri", &redirect_uri);
-            let scope = scope(metadata, provider);
-            if !scope.is_empty() {
-                query.append_pair("scope", &scope);
+            if !provider.scopes.is_empty() {
+                query.append_pair("scope", &provider.scopes.join(" "));
             }
             query
                 .append_pair("state", &pkce.state)
@@ -107,15 +105,6 @@ impl AuthorizationRequest {
             listener,
         })
     }
-}
-
-fn scope(metadata: &ProviderMetadata, provider: &PublishedProvider) -> String {
-    let mut scopes = provider.scopes.clone();
-    let wanted = OFFLINE_ACCESS.to_owned();
-    if metadata.scopes_supported.contains(&wanted) && !scopes.contains(&wanted) {
-        scopes.push(wanted);
-    }
-    scopes.join(" ")
 }
 
 /// Answers each connection and returns at the first answer to `/callback`, or when `timeout` ends.
@@ -240,13 +229,12 @@ mod tests {
 
     const ISSUER: &str = "https://idp.example";
 
-    fn metadata(scopes_supported: &[&str]) -> ProviderMetadata {
+    fn metadata() -> ProviderMetadata {
         ProviderMetadata {
             issuer: ISSUER.into(),
             authorization_endpoint: "https://idp.example/auth?tenant=t1".into(),
             token_endpoint: "https://idp.example/token".into(),
             revocation_endpoint: None,
-            scopes_supported: scopes_supported.iter().map(|s| (*s).into()).collect(),
             cimd_supported: false,
             code_challenge_methods_supported: vec![],
         }
@@ -262,12 +250,8 @@ mod tests {
         }
     }
 
-    async fn request(
-        supported: &[&str],
-        scopes: &[&str],
-        resource: Option<&str>,
-    ) -> AuthorizationRequest {
-        let metadata = metadata(supported);
+    async fn request(scopes: &[&str], resource: Option<&str>) -> AuthorizationRequest {
+        let metadata = metadata();
         let client_id = client_identity(Some("app-id"), &metadata).unwrap();
         AuthorizationRequest::new(&metadata, &client_id, &provider(scopes, resource))
             .await
@@ -280,7 +264,7 @@ mod tests {
 
     #[tokio::test]
     async fn the_url_carries_the_whole_request() {
-        let request = request(&[], &["openid", "ilm"], Some("https://ilm.example/api")).await;
+        let request = request(&["openid", "ilm"], Some("https://ilm.example/api")).await;
         let port = request.listener.local_addr().unwrap().port();
         let query = query(&request);
 
@@ -305,24 +289,22 @@ mod tests {
 
     #[tokio::test]
     async fn no_resource_is_sent_unless_published() {
-        let request = request(&[], &["openid"], None).await;
+        let request = request(&["openid"], None).await;
         assert!(!query(&request).contains_key("resource"));
     }
 
     #[tokio::test]
-    async fn offline_access_is_added_only_when_the_provider_lists_it() {
-        let listed = request(&["offline_access"], &["openid"], None).await;
-        assert_eq!(query(&listed)["scope"], "openid offline_access");
-        let unlisted = request(&["openid"], &["openid"], None).await;
-        assert_eq!(query(&unlisted)["scope"], "openid");
-        let present = request(&["offline_access"], &["openid", "offline_access"], None).await;
-        assert_eq!(query(&present)["scope"], "openid offline_access");
+    async fn the_published_scopes_are_sent_as_given() {
+        let plain = request(&["openid"], None).await;
+        assert_eq!(query(&plain)["scope"], "openid");
+        let offline = request(&["openid", "offline_access"], None).await;
+        assert_eq!(query(&offline)["scope"], "openid offline_access");
     }
 
     #[tokio::test]
     async fn the_listener_is_bound_to_loopback_on_its_own_port() {
-        let first = request(&[], &[], None).await;
-        let second = request(&[], &[], None).await;
+        let first = request(&[], None).await;
+        let second = request(&[], None).await;
         let address = first.listener.local_addr().unwrap();
         assert!(address.ip().is_loopback() && address.is_ipv4());
         assert_ne!(address.port(), second.listener.local_addr().unwrap().port());
@@ -331,7 +313,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_bad_authorization_endpoint_is_reported() {
-        let mut metadata = metadata(&[]);
+        let mut metadata = metadata();
         metadata.authorization_endpoint = "not a url".into();
         let client_id = client_identity(Some("app-id"), &metadata).unwrap();
         let result = AuthorizationRequest::new(&metadata, &client_id, &provider(&[], None)).await;
