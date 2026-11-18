@@ -236,7 +236,7 @@ mod tests {
                     cmd: command.into(),
                     callback: CallbackFn(0),
                     error: CallbackFn(1),
-                    url: "tauri://localhost".parse().unwrap(),
+                    url: crate::bridge::LOCAL_ORIGIN.parse().unwrap(),
                     body: tauri::ipc::InvokeBody::Json(body),
                     headers: Default::default(),
                     invoke_key: self.app.invoke_key().to_string(),

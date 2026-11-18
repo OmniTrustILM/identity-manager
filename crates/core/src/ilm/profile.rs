@@ -121,9 +121,7 @@ pub async fn profile(
                 log::warn!("ILM at {ilm} sent a profile this application cannot read");
                 IlmError::Malformed
             })?;
-            let person = Person::from(profile);
-            log::info!("ILM knows the person as {}", person.username);
-            Ok(person)
+            Ok(Person::from(profile))
         }
     }
 }

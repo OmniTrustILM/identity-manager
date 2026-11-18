@@ -537,7 +537,6 @@ impl Session {
                 None => _ = self.delete_item(&ilm).await,
             }
         }
-        let username = person.username.clone();
         let current = {
             let mut state = lock(&self.state);
             let current = is_current(&state, &origin);
@@ -557,7 +556,7 @@ impl Session {
             _ = self.delete_item(&ilm).await;
             return self.view();
         }
-        log::info!("signed in to {ilm} as {username}");
+        log::info!("signed in to {ilm}");
         self.publish()
     }
 

@@ -1151,7 +1151,7 @@ async fn the_log_of_a_full_flow_holds_no_secret() {
     let state = state.lock().unwrap().clone();
     let log = LOG.lock().unwrap().join("\n");
     assert!(log.contains("signed in"), "the flow logs what it does");
-    for secret in [
+    for (index, secret) in [
         "ACCESS-SECRET-1",
         "ACCESS-SECRET-2",
         "REFRESH-SECRET-1",
@@ -1159,8 +1159,11 @@ async fn the_log_of_a_full_flow_holds_no_secret() {
         "CODE-SECRET",
         verifier.as_str(),
         state.as_str(),
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
         assert!(!secret.is_empty());
-        assert!(!log.contains(secret), "the log holds {secret}");
+        assert!(!log.contains(secret), "the log holds secret number {index}");
     }
 }

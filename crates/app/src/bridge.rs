@@ -87,18 +87,21 @@ fn hide_window<R: Runtime>(app: &AppHandle<R>, label: &str) {
     }
 }
 
+/// The origin of the app's own pages, as the IPC sees it on this system.
+#[cfg(test)]
+pub(crate) const LOCAL_ORIGIN: &str = if cfg!(windows) {
+    "http://tauri.localhost"
+} else {
+    "tauri://localhost"
+};
+
 #[cfg(test)]
 mod tests {
+    use super::LOCAL_ORIGIN;
     use crate::{Mode, builder};
     use tauri::test::MockRuntime;
     use tauri::webview::InvokeRequest;
     use tauri::{WebviewUrl, WebviewWindowBuilder, ipc::CallbackFn};
-
-    const LOCAL_ORIGIN: &str = if cfg!(windows) {
-        "http://tauri.localhost"
-    } else {
-        "tauri://localhost"
-    };
 
     fn call(
         command: &str,
