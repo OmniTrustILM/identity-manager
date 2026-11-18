@@ -98,5 +98,10 @@ mod tests {
         let layer = to_layer(&parse_json(bytes, "example"), "example");
         assert_eq!(layer.start_at_login, Some(false));
         assert_eq!(layer.log_level, Some(crate::settings::LogLevel::Debug));
+        assert_eq!(
+            layer.ilm_url,
+            crate::ilm::IlmUrl::parse("https://ilm.example.com").ok()
+        );
+        assert_eq!(layer.sign_in_provider.as_deref(), Some("Corporate"));
     }
 }

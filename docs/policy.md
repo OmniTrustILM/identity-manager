@@ -9,6 +9,8 @@ the person sees its value but cannot change it.
 |----------------|------------------------------|---------|-------------------------------------------------------------------|
 | `StartAtLogin` | boolean                      | `true`  | Start Identity Manager when the person signs in.                  |
 | `LogLevel`     | string: `error`, `warn`, `info`, `debug` | `info`  | How much the application writes to its log.                       |
+| `IlmUrl`       | string                       | none    | The address of your ILM, for example `https://ilm.example.com`. HTTPS only; a path is allowed, a trailing slash, query, fragment or user name is not. |
+| `SignInProvider` | string                     | none    | The name of the identity provider to sign in with, as your ILM publishes it. When your ILM does not publish that name, the person chooses. Not shown in Settings. |
 
 How each source stores the types:
 
@@ -38,7 +40,7 @@ logs a warning. This keeps a file an ordinary user can write from acting as poli
 
 ### Invalid values
 
-A value of the wrong type, an unknown name or an invalid `LogLevel` is ignored with a warning in the log. The key stays
+A value of the wrong type, an unknown name, an invalid `LogLevel`, an invalid `IlmUrl` or an empty `SignInProvider` is ignored with a warning in the log. The key stays
 unlocked, and the other keys of the same source still apply.
 
 ## What the person sees
@@ -56,7 +58,7 @@ The person's own choices are stored in `settings.json` in the application's conf
 | Windows | `%APPDATA%\com.omnitrust.identity-manager\settings.json`                  |
 | Linux   | `~/.config/com.omnitrust.identity-manager/settings.json`                  |
 
-Its keys are `startAtLogin` (boolean) and `logLevel` (string).
+Its keys are `startAtLogin` (boolean), `logLevel` (string) and `ilmUrl` (string). `SignInProvider` has no key here: only policy sets it.
 
 ## Examples
 
@@ -66,4 +68,4 @@ Its keys are `startAtLogin` (boolean) and `logLevel` (string).
 - Linux: [policy/policy.json](policy/policy.json); install it as root:
   `sudo install -d -m 0755 /etc/identity-manager && sudo install -m 0644 policy.json /etc/identity-manager/policy.json`.
 
-All three set `StartAtLogin` to false and `LogLevel` to `debug`.
+All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com` and `SignInProvider` to `Corporate`.

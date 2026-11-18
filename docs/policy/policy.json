@@ -1,4 +1,6 @@
 {
   "StartAtLogin": false,
-  "LogLevel": "debug"
+  "LogLevel": "debug",
+  "IlmUrl": "https://ilm.example.com",
+  "SignInProvider": "Corporate"
 }

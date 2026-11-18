@@ -1,4 +1,5 @@
 export {
+    CircleAlert as ProblemIcon,
     ChevronsUpDown as SelectIcon,
     LayoutGrid as OverviewIcon,
     Lock as LockIcon,

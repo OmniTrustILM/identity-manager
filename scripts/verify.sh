@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 usage() {
-    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check|policy-system>" >&2
+    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check|policy-system|keyring-system>" >&2
     exit 2
 }
 
@@ -159,6 +159,19 @@ policy_system() {
     cargo test -p im-core --locked --test policy_system -- --ignored
 }
 
+# Saves, reads and deletes an item in the protected storage of the runner, so it runs on CI runners only.
+# Linux has no storage without a session: the secret service of an unlocked gnome-keyring runs on a private bus.
+keyring_system() {
+    [[ -n "${CI:-}" ]] || { echo "keyring-system writes to the protected storage of the system and runs on CI runners only (CI is not set)" >&2; exit 1; }
+    local run=(cargo test -p im-core --locked --test keyring_system -- --ignored)
+    if [[ "$(uname -s)" == Linux ]]; then
+        as_root apt-get install -y --no-install-recommends gnome-keyring dbus
+        dbus-run-session -- bash -c 'echo "" | gnome-keyring-daemon --unlock --components=secrets > /dev/null && "$@"' _ "${run[@]}"
+    else
+        "${run[@]}"
+    fi
+}
+
 case "${1:-}" in
     lint) lint ;;
     test) run_tests ;;
@@ -172,5 +185,6 @@ case "${1:-}" in
     bundle) bundle ;;
     self-check) self_check ;;
     policy-system) policy_system ;;
+    keyring-system) keyring_system ;;
     *) usage ;;
 esac

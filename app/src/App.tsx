@@ -3,10 +3,29 @@ import { AppInfoContext } from './app-info';
 import { type AppInfo, getAppInfo, type Platform, reportReady, windowLabel } from './bridge';
 import { Shell } from './components/Shell/Shell';
 import { TraySummary } from './components/TraySummary/TraySummary';
-import { sections, settingsSection } from './sections';
+import { settingsSection, visibleSections } from './sections';
 import { Settings } from './sections/Settings';
+import { SignIn } from './sections/SignIn';
+import { useSession } from './session';
 import { strings } from './strings';
 import { followSystemScheme } from './theme';
+
+function Main({ platform }: Readonly<{ platform: Platform }>) {
+    const { view, failed } = useSession();
+
+    if (failed) {
+        return <p role="alert">{strings.sessionLoadError}</p>;
+    }
+    switch (view?.state) {
+        case 'signedIn':
+            return <Shell sections={visibleSections(view.allowedListings)} bottom={settingsSection(platform)} />;
+        case 'signedOut':
+        case 'signingIn':
+            return <SignIn view={view} />;
+        default:
+            return null;
+    }
+}
 
 function Content({ label, platform }: Readonly<{ label: string; platform: Platform }>) {
     switch (label) {
@@ -15,7 +34,7 @@ function Content({ label, platform }: Readonly<{ label: string; platform: Platfo
         case 'settings':
             return <Settings />;
         default:
-            return <Shell sections={sections} bottom={settingsSection(platform)} />;
+            return <Main platform={platform} />;
     }
 }
 

@@ -1,7 +1,12 @@
 #![forbid(unsafe_code)]
 
 mod app_info;
+pub mod http;
+pub mod ilm;
+pub mod oauth;
 pub mod policy;
+pub mod session;
 pub mod settings;
+pub mod token;
 
 pub use app_info::{AppInfo, Platform};

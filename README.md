@@ -63,6 +63,9 @@ cd crates/app && ../../app/node_modules/.bin/tauri dev
 
 The application loads the interface from the server and reloads it on change.
 
+Debug builds store the refresh token too. Each build changes the code signature, so macOS asks once per build to
+allow keychain access.
+
 ### Bundle
 
 ```bash
@@ -160,6 +163,12 @@ The native material is set in `crates/app/tauri.conf.json` and the platform file
 
 `tauri.macos.conf.json` and `tauri.windows.conf.json` replace the whole `windows` array of `tauri.conf.json`, they do
 not merge into it.
+
+## Signing in
+
+The person enters the address of the ILM and signs in through their identity provider in the system browser; see
+[docs/sign-in.md](docs/sign-in.md) for what the ILM and the provider need. The refresh token is kept in the system's
+protected storage: the Keychain on macOS, the Credential Manager on Windows and the Secret Service on Linux.
 
 ## Settings and policy
 

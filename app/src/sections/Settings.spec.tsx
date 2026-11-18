@@ -1,15 +1,17 @@
+import { emit } from '@tauri-apps/api/event';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import { AppInfoContext } from '../app-info';
-import type { AppInfo, Change, SettingsView } from '../bridge';
+import type { AppInfo, Change, SessionView, SettingsView } from '../bridge';
 import { strings } from '../strings';
 import { Settings } from './Settings';
 
 const open: SettingsView = {
     startAtLogin: { value: true, locked: false },
     logLevel: { value: 'info', locked: false },
+    ilmUrl: { value: null, locked: false },
 };
 const lockedLevel: SettingsView = { ...open, logLevel: { value: 'debug', locked: true } };
 
@@ -34,10 +36,13 @@ afterEach(async () => {
 type Handler = (command: string, args: unknown) => unknown;
 
 function bridge(handler: Handler) {
-    mockIPC((command, args) => {
-        calls.push({ command, args });
-        return handler(command, args);
-    });
+    mockIPC(
+        (command, args) => {
+            calls.push({ command, args });
+            return handler(command, args);
+        },
+        { shouldMockEvents: true },
+    );
 }
 
 async function render(platform: AppInfo['platform'] = 'macos') {
@@ -74,7 +79,7 @@ test('shows the group General with a labelled switch and select from the view', 
     expect([...select().options].map((option) => option.value)).toEqual(['error', 'warn', 'info', 'debug']);
     expect(select().value).toBe('info');
     expect(container.textContent).not.toContain(strings.managedByOrganization);
-    expect(calls).toEqual([{ command: 'settings', args: {} }]);
+    expect(calls.map((call) => call.command).sort()).toEqual(['session', 'settings']);
 });
 
 test('changing the switch sends the change and shows the view that comes back', async () => {
@@ -169,6 +174,9 @@ test('keeps the view when the reload after a refusal fails too', async () => {
         if (command === 'set_setting') {
             return Promise.reject('no');
         }
+        if (command !== 'settings') {
+            return signedOut;
+        }
         reloads += 1;
         return reloads === 1 ? open : Promise.reject('gone');
     });
@@ -186,6 +194,9 @@ test('a reload on focus that answers after a change does not bring back the old 
     bridge((command) => {
         if (command === 'set_setting') {
             return { ...open, startAtLogin: { value: false, locked: false } };
+        }
+        if (command !== 'settings') {
+            return signedOut;
         }
         reads += 1;
         return reads === 1 ? open : new Promise((resolve) => (answerReload = resolve));
@@ -337,4 +348,147 @@ test.each([
 
     expect(container.querySelectorAll('h1')).toHaveLength(1);
     expect(container.querySelector('h1')?.textContent).toBe(heading);
+});
+
+const signedIn: SessionView = {
+    state: 'signedIn',
+    address: 'https://ilm.example.com',
+    person: { name: 'Alex Morgan', username: 'alex.morgan' },
+    allowedListings: [],
+};
+const signedOut: SessionView = { state: 'signedOut', address: null, locked: false, problem: null };
+
+function connected(settings: SettingsView = open, session: SessionView = signedIn, connect: () => unknown = () => []) {
+    bridge((command) => {
+        switch (command) {
+            case 'settings':
+                return settings;
+            case 'session':
+                return session;
+            case 'connect':
+                return connect();
+            default:
+                return signedOut;
+        }
+    });
+}
+
+const address = () => container.querySelector('input[type="text"]') as HTMLInputElement;
+const signOutButton = () => [...container.querySelectorAll('button')].find((button) => button.textContent === strings.signOut);
+
+async function typeAddress(text: string) {
+    await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(address(), text);
+        address().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+}
+
+test('signed in, the group Connection shows the address, the person and Sign out', async () => {
+    connected();
+
+    await render('windows');
+
+    const groups = [...container.querySelectorAll('section')];
+    expect(groups.map((group) => group.querySelector('h2')?.textContent)).toEqual([strings.general, strings.connection]);
+    expect(groups[1]?.getAttribute('aria-labelledby')).toBe(groups[1]?.querySelector('h2')?.id);
+    expect(container.querySelector(`label[for="${address().id}"]`)?.textContent).toBe(strings.ilmAddress);
+    expect(address().value).toBe('https://ilm.example.com');
+    expect(address().disabled).toBe(false);
+    expect(container.textContent).toContain('Alex Morgan');
+    expect(container.textContent).toContain('alex.morgan');
+    expect(signOutButton()).toBeDefined();
+});
+
+test('without a sign-in there is no group Connection', async () => {
+    connected(open, signedOut);
+
+    await render('windows');
+
+    expect(container.querySelectorAll('section')).toHaveLength(1);
+    expect(container.textContent).not.toContain(strings.signOut);
+});
+
+test('an address set by the organization is locked and says so', async () => {
+    connected({ ...open, ilmUrl: { value: 'https://ilm.example.com', locked: true } });
+
+    await render('linux');
+
+    expect(address().disabled).toBe(true);
+    expect(document.getElementById(address().getAttribute('aria-describedby') ?? '')?.textContent).toBe(strings.managedByOrganization);
+});
+
+test('in the Settings window on macOS the address can only be read', async () => {
+    connected();
+
+    await render('macos');
+
+    expect(address().readOnly).toBe(true);
+    expect(address().value).toBe('https://ilm.example.com');
+    expect(signOutButton()).toBeDefined();
+});
+
+test('confirming a new address with Enter connects to it', async () => {
+    connected();
+    await render('windows');
+    await typeAddress('ilm.example.org');
+
+    await act(async () => {
+        address().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+
+    expect(calls.filter((call) => call.command === 'connect')).toEqual([{ command: 'connect', args: { address: 'ilm.example.org' } }]);
+});
+
+test('leaving the field with a new address connects to it, with the same address it does nothing', async () => {
+    connected();
+    await render('windows');
+
+    await act(async () => address().dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+    expect(calls.some((call) => call.command === 'connect')).toBe(false);
+
+    await typeAddress('ilm.example.org');
+    await act(async () => address().dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+    expect(calls.filter((call) => call.command === 'connect')).toHaveLength(1);
+});
+
+test('a refused address shows the reason under the row and brings back the address in use', async () => {
+    connected(open, signedIn, () => Promise.reject('The address must start with https://'));
+    await render('windows');
+    await typeAddress('http://ilm.example.org');
+
+    await act(async () => address().dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+
+    expect(alerts()).toEqual(['The address must start with https://']);
+    expect(address().value).toBe('https://ilm.example.com');
+    expect(address().getAttribute('aria-describedby')).toContain(document.querySelector('[role="alert"]')?.id);
+});
+
+test('a refusal without a message says that the setting could not be changed', async () => {
+    connected(open, signedIn, () => Promise.reject(''));
+    await render('windows');
+    await typeAddress('ilm.example.org');
+
+    await act(async () => address().dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+
+    expect(alerts()).toEqual([strings.settingFailed]);
+});
+
+test('Sign out asks the session to sign out', async () => {
+    connected();
+    await render('windows');
+
+    await act(async () => signOutButton()?.click());
+
+    expect(calls.at(-1)).toEqual({ command: 'sign_out', args: {} });
+});
+
+test('the group follows the session: it goes when the person signs out and shows the new address after a change', async () => {
+    connected();
+    await render('windows');
+
+    await act(async () => emit('session-changed', { ...signedIn, address: 'https://ilm.example.org' }));
+    expect(address().value).toBe('https://ilm.example.org');
+
+    await act(async () => emit('session-changed', signedOut));
+    expect(container.querySelectorAll('section')).toHaveLength(1);
 });

@@ -5,6 +5,7 @@ mod dock;
 mod main_window;
 mod mode;
 mod self_check;
+mod session;
 mod settings;
 mod settings_window;
 mod summary;
@@ -13,6 +14,7 @@ mod tray;
 use im_core::AppInfo;
 use log::LevelFilter;
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use tauri::{AppHandle, Manager, Runtime, WindowEvent};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
@@ -58,6 +60,8 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
     if !cfg!(test) {
         builder = builder.plugin(logging());
     }
+    // Only the Rust side opens the browser; no window is granted the plugin's permissions.
+    builder = builder.plugin(tauri_plugin_opener::init());
     #[cfg(target_os = "macos")]
     if !cfg!(test) {
         builder = builder
@@ -79,7 +83,13 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             color_scheme::color_scheme,
             settings::settings,
             settings::set_setting,
-            settings_window::pending_section
+            settings_window::pending_section,
+            session::session,
+            session::connect,
+            session::sign_in,
+            session::reopen_browser,
+            session::cancel_sign_in,
+            session::sign_out
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)
@@ -100,10 +110,21 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             let autostart =
                 settings::autostart_applies(mode == Mode::SelfCheck, cfg!(debug_assertions));
             let effects = settings::SystemEffects::new(app.handle(), autostart);
-            let settings =
-                settings::Settings::new(person_file, im_core::policy::read, effects, autostart);
+            let settings = Arc::new(settings::Settings::new(
+                person_file,
+                im_core::policy::read,
+                effects,
+                autostart,
+            ));
             settings.start();
-            app.manage(settings);
+            app.manage(settings.clone());
+            session::manage(
+                app.handle(),
+                mode,
+                settings,
+                session::protected_store(),
+                Arc::new(session::SystemOpener::new(app.handle())),
+            );
             log::info!("starting {} {} in {mode:?} mode", info.name, info.version);
             if mode == Mode::SelfCheck {
                 self_check::start_timer(app.handle().clone());
