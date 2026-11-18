@@ -14,6 +14,8 @@ pub struct ProviderMetadata {
     pub revocation_endpoint: Option<String>,
     pub cimd_supported: bool,
     pub code_challenge_methods_supported: Vec<String>,
+    /// Whether every answer from the provider names its issuer in `iss` (RFC 9207).
+    pub iss_required: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,6 +53,7 @@ struct Document {
     revocation_endpoint: Option<String>,
     client_id_metadata_document_supported: Option<bool>,
     code_challenge_methods_supported: Option<Vec<String>>,
+    authorization_response_iss_parameter_supported: Option<bool>,
 }
 
 pub async fn provider_metadata(
@@ -113,12 +116,17 @@ fn accept(document: Document, issuer: &str) -> Result<ProviderMetadata, Metadata
         )?),
         None => None,
     };
+    // Many providers do not publish their methods; a published list must hold S256.
+    if document
+        .code_challenge_methods_supported
+        .as_ref()
+        .is_some_and(|methods| !methods.iter().any(|method| method == "S256"))
+    {
+        return Err(MetadataError::NoS256);
+    }
     let methods = document
         .code_challenge_methods_supported
         .unwrap_or_default();
-    if !methods.is_empty() && !methods.iter().any(|method| method == "S256") {
-        return Err(MetadataError::NoS256);
-    }
     Ok(ProviderMetadata {
         issuer: issuer.to_owned(),
         authorization_endpoint,
@@ -128,6 +136,9 @@ fn accept(document: Document, issuer: &str) -> Result<ProviderMetadata, Metadata
             .client_id_metadata_document_supported
             .unwrap_or(false),
         code_challenge_methods_supported: methods,
+        iss_required: document
+            .authorization_response_iss_parameter_supported
+            .unwrap_or(false),
     })
 }
 
@@ -176,6 +187,7 @@ mod tests {
         body["revocation_endpoint"] = json!(format!("{issuer}/revoke"));
         body["client_id_metadata_document_supported"] = json!(true);
         body["code_challenge_methods_supported"] = json!(["plain", "S256"]);
+        body["authorization_response_iss_parameter_supported"] = json!(true);
         serve(&server, "/.well-known/openid-configuration", body).await;
 
         let metadata = provider_metadata(&client_for_tests(), &issuer)
@@ -190,6 +202,7 @@ mod tests {
         );
         assert!(metadata.cimd_supported);
         assert_eq!(metadata.code_challenge_methods_supported, ["plain", "S256"]);
+        assert!(metadata.iss_required);
     }
 
     #[tokio::test]
@@ -209,6 +222,7 @@ mod tests {
         assert_eq!(metadata.revocation_endpoint, None);
         assert!(!metadata.cimd_supported);
         assert!(metadata.code_challenge_methods_supported.is_empty());
+        assert!(!metadata.iss_required);
     }
 
     #[tokio::test]
@@ -342,17 +356,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_method_list_without_s256_is_refused() {
-        let server = MockServer::start().await;
-        let issuer = server.uri();
-        let mut body = document(&issuer);
-        body["code_challenge_methods_supported"] = json!(["plain"]);
-        serve(&server, "/.well-known/openid-configuration", body).await;
+    async fn a_method_list_without_s256_is_refused_even_when_empty() {
+        for methods in [json!(["plain"]), json!([])] {
+            let server = MockServer::start().await;
+            let issuer = server.uri();
+            let mut body = document(&issuer);
+            body["code_challenge_methods_supported"] = methods;
+            serve(&server, "/.well-known/openid-configuration", body).await;
 
-        let error = provider_metadata(&client_for_tests(), &issuer)
-            .await
-            .unwrap_err();
-        assert_eq!(error, MetadataError::NoS256);
+            let error = provider_metadata(&client_for_tests(), &issuer)
+                .await
+                .unwrap_err();
+            assert_eq!(error, MetadataError::NoS256);
+        }
     }
 
     #[tokio::test]

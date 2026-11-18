@@ -387,12 +387,30 @@ impl Session {
             (Some(locked), true) => locked.clone(),
             _ => parse_address(address).map_err(|error| error.to_string())?,
         };
+        let mut signed_out = false;
         if connection.address.as_ref() != Some(&ilm) {
             self.settings.save_address(&ilm)?;
             if connection.address.is_some() {
                 self.sign_out_of(connection.address).await;
+                signed_out = true;
             }
         }
+        let offered = self.offer(ilm, connection.provider.as_deref()).await;
+        // Signing out closes the window that asked, so the sign-in screen has to show why the new address failed.
+        if let Err(problem) = &offered
+            && signed_out
+        {
+            self.fail(problem.clone());
+        }
+        offered
+    }
+
+    /// Lists the providers `ilm` publishes that can be used, or only `chosen` when it is one of them.
+    async fn offer(
+        &self,
+        ilm: IlmUrl,
+        chosen: Option<&str>,
+    ) -> Result<Vec<ProviderChoice>, String> {
         let published = discover(&self.client, &ilm)
             .await
             .map_err(|error| error.to_string())?;
@@ -417,7 +435,7 @@ impl Session {
         if candidates.is_empty() {
             return Err(NO_PROVIDER.to_owned());
         }
-        if let Some(name) = &connection.provider {
+        if let Some(name) = chosen {
             match candidates
                 .iter()
                 .position(|candidate| candidate.published.name == *name)
@@ -462,9 +480,8 @@ impl Session {
         });
         log::info!("sign-in with {name} started");
         open(&request.url);
-        let issuer = candidate.metadata.issuer.as_str();
         let code = tokio::select! {
-            code = wait_for_code(request.listener, &request.state, issuer, FLOW_TIMEOUT) => code,
+            code = wait_for_code(request.listener, &request.state, &candidate.metadata, FLOW_TIMEOUT) => code,
             () = cancel.notified() => return self.view(),
         };
         let code = match code {

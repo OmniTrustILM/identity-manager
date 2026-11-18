@@ -1058,19 +1058,30 @@ async fn a_late_failure_of_a_cancelled_attempt_leaves_a_newer_sign_in_alone() {
 }
 
 #[tokio::test]
-async fn a_new_address_is_saved_before_the_signed_out_view_is_told() {
+async fn a_new_address_is_saved_before_the_signed_out_view_is_told_and_its_failure_shows_there() {
     let world = World::new().await;
     world.code_grant("a1", Some("r1"), 3600).await;
     world.profile_for("a1").await;
     world.sign_in().await;
     let other = MockServer::start().await;
 
-    let _ = world.session.connect(&other.uri()).await;
+    let answer = world.session.connect(&other.uri()).await;
 
-    let told = world.views.lock().unwrap().last().cloned();
+    let views = world.views.lock().unwrap().clone();
+    let [.., signed_out, failed] = views.as_slice() else {
+        panic!("{views:?}");
+    };
     assert!(
-        matches!(&told, Some(SessionView::SignedOut { address: Some(address), .. }) if *address == other.uri()),
-        "{told:?}"
+        matches!(signed_out, SessionView::SignedOut { address: Some(address), problem: None, .. } if *address == other.uri()),
+        "{signed_out:?}"
+    );
+    assert_eq!(
+        *failed,
+        SessionView::SignedOut {
+            address: Some(other.uri()),
+            locked: false,
+            problem: answer.err(),
+        }
     );
 }
 

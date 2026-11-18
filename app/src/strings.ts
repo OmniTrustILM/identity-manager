@@ -28,6 +28,7 @@ export const strings = {
     waitingHint: (provider: string) => `Finish signing in with ${provider}, then return to this window.`,
     openBrowserAgain: 'Open the browser again',
     cancel: 'Cancel',
+    back: 'Back',
     connectFailed: 'Could not connect to this ILM.',
     connection: 'Connection',
     signOut: 'Sign out',

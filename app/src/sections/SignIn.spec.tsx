@@ -110,7 +110,7 @@ test('Continue shows the choice when the ILM offers several providers and signs 
 
     expect(heading()).toBe(strings.chooseTitle);
     expect(container.textContent).toContain(strings.chooseHint);
-    expect(buttons().map((candidate) => candidate.textContent)).toEqual(['Company SSO', 'Okta']);
+    expect(buttons().map((candidate) => candidate.textContent)).toEqual(['Company SSO', 'Okta', strings.back]);
     expect(commands()).toEqual(['connect']);
 
     await press('Okta');
@@ -210,6 +210,18 @@ test('a sign-in that ends with a problem returns to the choice with its reason, 
 
     expect(heading()).toBe(strings.chooseTitle);
     expect(alerts()).toEqual(['Sign-in timed out.']);
+});
+
+test('Back from the choice returns to the address to change it', async () => {
+    bridge((command) => (command === 'connect' ? several : undefined));
+    await render(idle);
+    await type('ilm.example.com');
+    await press(strings.continue);
+    expect(heading()).toBe(strings.chooseTitle);
+
+    await press(strings.back);
+
+    expect(heading()).toBe(strings.connectTitle);
 });
 
 test('while the address is checked the button cannot be pressed again', async () => {

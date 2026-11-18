@@ -115,7 +115,7 @@ for (const os of ['macos', 'windows', 'linux'] as const) {
 
             await expect(page.getByRole('heading', { level: 1, name: 'Choose how to sign in' })).toBeVisible();
             const names = page.getByRole('button');
-            await expect(names).toHaveText(['Company SSO', 'Microsoft Entra ID', 'Okta']);
+            await expect(names).toHaveText(['Company SSO', 'Microsoft Entra ID', 'Okta', 'Back']);
             await expect(names.first()).toHaveCSS('background-color', buttons[os][scheme]);
             expect((await box(names.first())).height).toBe(want.button);
             await common(page);

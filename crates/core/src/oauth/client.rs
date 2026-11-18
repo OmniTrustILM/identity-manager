@@ -67,6 +67,7 @@ mod tests {
             revocation_endpoint: None,
             cimd_supported,
             code_challenge_methods_supported: vec![],
+            iss_required: false,
         }
     }
 

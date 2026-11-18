@@ -229,6 +229,7 @@ mod tests {
             revocation_endpoint: revocation.then(|| format!("{}/revoke", server.uri())),
             cimd_supported: false,
             code_challenge_methods_supported: vec![],
+            iss_required: false,
         }
     }
 

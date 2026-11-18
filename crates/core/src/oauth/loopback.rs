@@ -109,11 +109,12 @@ impl AuthorizationRequest {
 
 /// Answers each connection and returns at the first answer to `/callback`, or when `timeout` ends.
 /// Any other path is answered with 404 and the wait goes on; an answer to `/callback` that does not
-/// match the request ends the flow. The listener is closed on return.
+/// match the request ends the flow. `iss` must name `provider`'s issuer when present, and be present when
+/// the provider says it always sends it. The listener is closed on return.
 pub async fn wait_for_code(
     listener: TcpListener,
     state: &str,
-    expected_issuer: &str,
+    provider: &ProviderMetadata,
     timeout: Duration,
 ) -> Result<Code, FlowError> {
     let wait = async {
@@ -129,7 +130,7 @@ pub async fn wait_for_code(
                 respond(&mut stream, "404 Not Found", FAILURE_PAGE).await;
                 continue;
             };
-            let outcome = judge(&query, state, expected_issuer);
+            let outcome = judge(&query, state, provider);
             match &outcome {
                 Ok(_) => respond(&mut stream, "200 OK", SUCCESS_PAGE).await,
                 Err(_) => respond(&mut stream, "400 Bad Request", FAILURE_PAGE).await,
@@ -161,14 +162,18 @@ fn callback_query(rest: &str) -> Option<HashMap<String, String>> {
 fn judge(
     query: &HashMap<String, String>,
     state: &str,
-    expected_issuer: &str,
+    provider: &ProviderMetadata,
 ) -> Result<Code, FlowError> {
     if query.get("state").map(String::as_str) != Some(state) {
         log::warn!("refused a sign-in answer with a missing or wrong state");
         return Err(FlowError::Refused);
     }
-    if query.get("iss").is_some_and(|iss| iss != expected_issuer) {
-        log::warn!("refused a sign-in answer from another issuer");
+    let issuer_matches = match query.get("iss") {
+        Some(iss) => *iss == provider.issuer,
+        None => !provider.iss_required,
+    };
+    if !issuer_matches {
+        log::warn!("refused a sign-in answer that does not name the expected issuer");
         return Err(FlowError::Refused);
     }
     if let Some(error) = query.get("error") {
@@ -237,6 +242,7 @@ mod tests {
             revocation_endpoint: None,
             cimd_supported: false,
             code_challenge_methods_supported: vec![],
+            iss_required: false,
         }
     }
 
@@ -333,11 +339,20 @@ mod tests {
         state: &'static str,
         timeout: Duration,
     ) -> (u16, tokio::task::JoinHandle<Result<Code, FlowError>>) {
+        start_for(state, timeout, metadata())
+    }
+
+    fn start_for(
+        state: &'static str,
+        timeout: Duration,
+        provider: ProviderMetadata,
+    ) -> (u16, tokio::task::JoinHandle<Result<Code, FlowError>>) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let port = listener.local_addr().unwrap().port();
         let listener = TcpListener::from_std(listener).unwrap();
-        let task = tokio::spawn(wait_for_code(listener, state, ISSUER, timeout));
+        let task =
+            tokio::spawn(async move { wait_for_code(listener, state, &provider, timeout).await });
         (port, task)
     }
 
@@ -423,6 +438,18 @@ mod tests {
             "/callback?code=c&state=s1&iss=https%3A%2F%2Fevil.example",
         )
         .await;
+        assert!(answer.starts_with("HTTP/1.1 400"));
+        assert!(matches!(task.await.unwrap(), Err(FlowError::Refused)));
+    }
+
+    #[tokio::test]
+    async fn a_missing_issuer_fails_the_flow_when_the_provider_always_sends_it() {
+        let provider = ProviderMetadata {
+            iss_required: true,
+            ..metadata()
+        };
+        let (port, task) = start_for("s1", LONG, provider);
+        let answer = get(port, "/callback?code=c&state=s1").await;
         assert!(answer.starts_with("HTTP/1.1 400"));
         assert!(matches!(task.await.unwrap(), Err(FlowError::Refused)));
     }

@@ -10,6 +10,7 @@ type Waiting = Extract<SessionView, { state: 'signingIn' }>;
 // WebKit leaves buttons out of the Tab order unless they say so.
 const primary = 'h-button w-full rounded-control bg-accent px-s3 text-body text-on-accent disabled:opacity-disabled';
 const secondary = 'h-button w-full rounded-control border border-button-edge bg-button px-s3 text-body text-primary';
+const plain = 'h-control rounded-control px-s3 text-body text-accent';
 
 function useFirstFocus<T extends HTMLElement>() {
     const first = useRef<T>(null);
@@ -114,7 +115,7 @@ function Address({ view, onChoose }: Readonly<{ view: Idle; onChoose: (providers
     );
 }
 
-function Choice({ providers, problem }: Readonly<{ providers: ProviderChoice[]; problem: string | null }>) {
+function Choice({ providers, problem, onBack }: Readonly<{ providers: ProviderChoice[]; problem: string | null; onBack: () => void }>) {
     const problemId = useId();
     const first = useFirstFocus<HTMLButtonElement>();
     const [error, setError] = useState<string | null>(null);
@@ -137,6 +138,9 @@ function Choice({ providers, problem }: Readonly<{ providers: ProviderChoice[]; 
                     </button>
                 ))}
                 {shown && <Problem id={problemId}>{shown}</Problem>}
+                <button type="button" tabIndex={0} onClick={onBack} className={`${plain} self-center`}>
+                    {strings.back}
+                </button>
             </div>
         </Step>
     );
@@ -150,12 +154,7 @@ function Waiting({ view }: Readonly<{ view: Waiting }>) {
                 <button ref={first} type="button" tabIndex={0} onClick={() => reopenBrowser().catch(() => undefined)} className={secondary}>
                     {strings.openBrowserAgain}
                 </button>
-                <button
-                    type="button"
-                    tabIndex={0}
-                    onClick={() => cancelSignIn().catch(() => undefined)}
-                    className="h-control rounded-control px-s3 text-body text-accent"
-                >
+                <button type="button" tabIndex={0} onClick={() => cancelSignIn().catch(() => undefined)} className={plain}>
                     {strings.cancel}
                 </button>
             </div>
@@ -176,8 +175,12 @@ export function SignIn({ view }: Readonly<{ view: Idle | Waiting }>) {
     if (view.state === 'signingIn') {
         return <Waiting view={view} />;
     }
+    const back = () => {
+        setProviders(null);
+        setTried(false);
+    };
     return providers ? (
-        <Choice providers={providers} problem={tried ? view.problem : null} />
+        <Choice providers={providers} problem={tried ? view.problem : null} onBack={back} />
     ) : (
         <Address view={view} onChoose={setProviders} />
     );
