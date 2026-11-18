@@ -96,7 +96,7 @@ pub struct SettingsView {
 pub enum Change {
     StartAtLogin(bool),
     LogLevel(LogLevel),
-    IlmUrl(IlmUrl),
+    IlmUrl(#[cfg_attr(any(test, feature = "ts"), ts(as = "String"))] IlmUrl),
 }
 
 /// A change to a setting that policy fixes.

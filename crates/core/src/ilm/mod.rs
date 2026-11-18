@@ -38,7 +38,6 @@ impl std::error::Error for AddressError {}
 
 /// A normalised ILM address: HTTPS, with the path of an ILM under a prefix and no trailing slash.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS), ts(type = "string"))]
 pub struct IlmUrl(String);
 
 impl IlmUrl {
