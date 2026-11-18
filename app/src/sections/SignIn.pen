@@ -1549,6 +1549,32 @@
                       "fontWeight": "normal"
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "BOKMU",
+                  "name": "Back button",
+                  "width": "fill_container",
+                  "height": 32,
+                  "cornerRadius": "$radius.control",
+                  "padding": [
+                    0,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "RnRAx",
+                      "name": "Back",
+                      "fill": "$color.accent",
+                      "content": "Back",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
                 }
               ]
             }
@@ -1823,6 +1849,32 @@
                       "fontWeight": "normal"
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "PJsJi",
+                  "name": "Back button",
+                  "width": "fill_container",
+                  "height": 36,
+                  "cornerRadius": "$radius.control",
+                  "padding": [
+                    0,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "dUH8m",
+                      "name": "Back",
+                      "fill": "$color.accent",
+                      "content": "Back",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
                 }
               ]
             }
@@ -1990,6 +2042,32 @@
                       "name": "Okta",
                       "fill": "$color.text-primary",
                       "content": "Okta",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Nb63K",
+                  "name": "Back button",
+                  "width": "fill_container",
+                  "height": 38,
+                  "cornerRadius": "$radius.control",
+                  "padding": [
+                    0,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "vOQaj",
+                      "name": "Back",
+                      "fill": "$color.accent",
+                      "content": "Back",
                       "fontFamily": "$font.family-preview",
                       "fontSize": "$font.body",
                       "fontWeight": "normal"
@@ -4838,6 +4916,32 @@
                       "fontWeight": "normal"
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "fnymV",
+                  "name": "Back button",
+                  "width": "fill_container",
+                  "height": 32,
+                  "cornerRadius": "$radius.control",
+                  "padding": [
+                    0,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "q2ZoZ",
+                      "name": "Back",
+                      "fill": "$color.accent",
+                      "content": "Back",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
                 }
               ]
             }
@@ -5112,6 +5216,32 @@
                       "fontWeight": "normal"
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "xqX8e",
+                  "name": "Back button",
+                  "width": "fill_container",
+                  "height": 36,
+                  "cornerRadius": "$radius.control",
+                  "padding": [
+                    0,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "uFvIx",
+                      "name": "Back",
+                      "fill": "$color.accent",
+                      "content": "Back",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
                 }
               ]
             }
@@ -5279,6 +5409,32 @@
                       "name": "Okta",
                       "fill": "$color.text-primary",
                       "content": "Okta",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "C8tLWQ",
+                  "name": "Back button",
+                  "width": "fill_container",
+                  "height": 38,
+                  "cornerRadius": "$radius.control",
+                  "padding": [
+                    0,
+                    14
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "g5MN0",
+                      "name": "Back",
+                      "fill": "$color.accent",
+                      "content": "Back",
                       "fontFamily": "$font.family-preview",
                       "fontSize": "$font.body",
                       "fontWeight": "normal"
