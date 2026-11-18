@@ -243,7 +243,7 @@ test('Waiting names the provider and offers the browser again and Cancel', async
     await render(waiting);
 
     expect(heading()).toBe(strings.waitingTitle);
-    expect(container.querySelector('[role="status"]')?.textContent).toBe(strings.waitingHint('Company SSO'));
+    expect(container.querySelector('output')?.textContent).toBe(strings.waitingHint('Company SSO'));
     expect(buttons().map((candidate) => candidate.textContent)).toEqual([strings.openBrowserAgain, strings.cancel]);
 
     await press(strings.openBrowserAgain);

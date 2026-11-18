@@ -85,9 +85,9 @@ function AddressRow({ address, locked, readOnly }: Readonly<AddressRowProps>) {
             return;
         }
         setError(undefined);
-        connect(next).catch((failure) => {
+        connect(next).catch((error_) => {
             setDraft(address);
-            setError(String(failure) || strings.settingFailed);
+            setError(String(error_) || strings.settingFailed);
         });
     };
 

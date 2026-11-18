@@ -70,8 +70,8 @@ function Address({ view, onChoose }: Readonly<{ view: Idle; onChoose: (providers
             } else {
                 onChoose(providers);
             }
-        } catch (failure) {
-            setError(reason(failure));
+        } catch (error_) {
+            setError(reason(error_));
         } finally {
             setBusy(false);
         }
@@ -131,7 +131,7 @@ function Choice({ providers, problem, onBack }: Readonly<{ providers: ProviderCh
                         type="button"
                         tabIndex={0}
                         aria-describedby={shown ? problemId : undefined}
-                        onClick={() => signIn(provider.id).catch((failure) => setError(reason(failure)))}
+                        onClick={() => signIn(provider.id).catch((error_) => setError(reason(error_)))}
                         className={secondary}
                     >
                         {provider.name}
@@ -149,7 +149,7 @@ function Choice({ providers, problem, onBack }: Readonly<{ providers: ProviderCh
 function Waiting({ view }: Readonly<{ view: Waiting }>) {
     const first = useFirstFocus<HTMLButtonElement>();
     return (
-        <Step title={strings.waitingTitle} hint={<p role="status">{strings.waitingHint(view.provider)}</p>}>
+        <Step title={strings.waitingTitle} hint={<output className="block">{strings.waitingHint(view.provider)}</output>}>
             <div className="flex flex-col items-center gap-s4">
                 <button ref={first} type="button" tabIndex={0} onClick={() => reopenBrowser().catch(() => undefined)} className={secondary}>
                     {strings.openBrowserAgain}
