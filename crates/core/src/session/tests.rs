@@ -475,7 +475,7 @@ async fn a_refused_code_or_a_refused_token_gives_a_problem_and_saves_nothing() {
 }
 
 #[tokio::test]
-async fn without_a_refresh_token_the_session_lasts_as_long_as_the_access_token() {
+async fn without_a_refresh_token_the_access_token_is_used_until_it_expires() {
     let world = World::new().await;
     world.code_grant("a1", None, 30).await;
     world.profile_for("a1").await;
@@ -483,6 +483,18 @@ async fn without_a_refresh_token_the_session_lasts_as_long_as_the_access_token()
 
     assert!(is_signed_in(&world.sign_in().await));
     assert_eq!(world.stored_refresh(), None);
+
+    assert_eq!(world.call_things().await, Ok(200));
+    assert!(is_signed_in(&world.session.view()));
+}
+
+#[tokio::test]
+async fn without_a_refresh_token_the_session_ends_with_the_access_token() {
+    let world = World::new().await;
+    world.code_grant("a1", None, 0).await;
+    world.profile_for("a1").await;
+    world.serve_things(Some("a1")).await;
+    assert!(is_signed_in(&world.sign_in().await));
 
     assert_eq!(world.call_things().await, Err(CallError::SignedOut));
     assert!(matches!(
@@ -984,6 +996,9 @@ async fn a_token_is_given_only_for_the_ilm_signed_in_to() {
 #[tokio::test]
 async fn a_saved_item_of_another_provider_is_never_sent_for_renewal() {
     let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 30).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
     world
         .store
         .save(&Item {
@@ -994,7 +1009,17 @@ async fn a_saved_item_of_another_provider_is_never_sent_for_renewal() {
             refresh_token: RefreshToken::new("theirs"),
         })
         .unwrap();
-    world.code_grant("a1", None, 30).await;
+
+    assert_eq!(world.call_things().await, Err(CallError::SignedOut));
+
+    assert_eq!(world.requests(&world.idp, "/token").await.len(), 1);
+}
+
+#[tokio::test]
+async fn a_sign_in_without_a_refresh_token_never_renews_with_an_older_saved_one() {
+    let world = World::new().await;
+    world.put_item("of-someone-else");
+    world.code_grant("a1", None, 0).await;
     world.profile_for("a1").await;
     world.store.broken.store(true, Ordering::SeqCst);
     world.sign_in().await;
@@ -1003,6 +1028,51 @@ async fn a_saved_item_of_another_provider_is_never_sent_for_renewal() {
     assert_eq!(world.call_things().await, Err(CallError::SignedOut));
 
     assert_eq!(world.requests(&world.idp, "/token").await.len(), 1);
+}
+
+#[tokio::test]
+async fn a_late_failure_of_a_cancelled_attempt_leaves_a_newer_sign_in_alone() {
+    let world = World::new().await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(invalid_grant().set_delay(Duration::from_millis(300)))
+        .up_to_n_times(1)
+        .with_priority(1)
+        .mount(&world.idp)
+        .await;
+    world.code_grant("a2", Some("r2"), 3600).await;
+    world.profile_for("a2").await;
+    world.session.connect(&world.ilm.uri()).await.unwrap();
+    let session = &world.session;
+
+    let (late, newer) = tokio::join!(session.sign_in("0", browser("first")), async {
+        while world.requests(&world.idp, "/token").await.is_empty() {
+            tokio::task::yield_now().await;
+        }
+        session.cancel();
+        session.sign_in("0", browser("second")).await
+    });
+
+    assert!(is_signed_in(&newer));
+    assert!(is_signed_in(&late));
+    assert!(is_signed_in(&world.session.view()));
+}
+
+#[tokio::test]
+async fn a_new_address_is_saved_before_the_signed_out_view_is_told() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 3600).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+    let other = MockServer::start().await;
+
+    let _ = world.session.connect(&other.uri()).await;
+
+    let told = world.views.lock().unwrap().last().cloned();
+    assert!(
+        matches!(&told, Some(SessionView::SignedOut { address: Some(address), .. }) if *address == other.uri()),
+        "{told:?}"
+    );
 }
 
 #[tokio::test]

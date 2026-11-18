@@ -202,6 +202,10 @@ pub fn set_setting(
     state: State<'_, Arc<Settings>>,
     change: Change,
 ) -> Result<SettingsView, String> {
+    // A new address has to sign out of the old ILM first, which only `connect` does.
+    if matches!(change, Change::IlmUrl(_)) {
+        return Err("The ILM address is changed through Connect.".to_owned());
+    }
     state.change(change)
 }
 

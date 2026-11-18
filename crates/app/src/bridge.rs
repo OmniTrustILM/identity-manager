@@ -323,6 +323,23 @@ mod tests {
     }
 
     #[test]
+    fn set_setting_refuses_the_ilm_address() {
+        let window = if cfg!(target_os = "macos") {
+            "settings"
+        } else {
+            "main"
+        };
+        let change = serde_json::json!({ "change": { "key": "ilmUrl", "value": "https://ilm.example.com" } });
+
+        let answer = call_in(window, LOCAL_ORIGIN, "set_setting", change);
+
+        assert!(
+            matches!(&answer, Err(error) if error.to_string().contains("through Connect")),
+            "{answer:?}"
+        );
+    }
+
+    #[test]
     fn a_remote_page_is_refused_the_settings_commands() {
         for label in ["main", "settings"] {
             let answer = call_in(

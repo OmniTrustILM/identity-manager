@@ -197,6 +197,21 @@ test('a refused sign-in shows its reason under the choice and keeps the choice',
     expect(heading()).toBe(strings.chooseTitle);
 });
 
+test('a sign-in that ends with a problem returns to the choice with its reason, and an older problem does not show there', async () => {
+    bridge((command) => (command === 'connect' ? several : undefined));
+    await render({ ...idle, problem: 'Older problem.' });
+    await type('ilm.example.com');
+    await press(strings.continue);
+    expect(heading()).toBe(strings.chooseTitle);
+    expect(alerts()).toEqual([]);
+
+    await render(waiting);
+    await render({ ...idle, problem: 'Sign-in timed out.' });
+
+    expect(heading()).toBe(strings.chooseTitle);
+    expect(alerts()).toEqual(['Sign-in timed out.']);
+});
+
 test('while the address is checked the button cannot be pressed again', async () => {
     let finish: (providers: ProviderChoice[]) => void = () => undefined;
     bridge((command) => (command === 'connect' ? new Promise((resolve) => (finish = resolve)) : undefined));

@@ -334,3 +334,29 @@ test('the sign-in still shows when the window cannot listen for changes', async 
 
     expect(container.querySelector('h1')?.textContent).toBe(strings.connectTitle);
 });
+
+test('the session is read only once the window listens for its changes', async () => {
+    let listening: (id: number) => void = () => undefined;
+    const commands: string[] = [];
+    mockWindows('main');
+    mockIPC((command) => {
+        commands.push(command);
+        if (command === 'app_info') {
+            return info;
+        }
+        if (command === 'session') {
+            return signedOut;
+        }
+        if (command === 'plugin:event|listen') {
+            return new Promise((resolve) => (listening = resolve));
+        }
+    });
+
+    await render(<App />);
+    expect(commands).not.toContain('session');
+
+    await act(async () => listening(1));
+
+    expect(commands).toContain('session');
+    expect(container.querySelector('h1')?.textContent).toBe(strings.connectTitle);
+});

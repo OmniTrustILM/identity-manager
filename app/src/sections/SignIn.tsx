@@ -114,10 +114,11 @@ function Address({ view, onChoose }: Readonly<{ view: Idle; onChoose: (providers
     );
 }
 
-function Choice({ providers }: Readonly<{ providers: ProviderChoice[] }>) {
+function Choice({ providers, problem }: Readonly<{ providers: ProviderChoice[]; problem: string | null }>) {
     const problemId = useId();
     const first = useFirstFocus<HTMLButtonElement>();
     const [error, setError] = useState<string | null>(null);
+    const shown = error ?? problem;
 
     return (
         <Step title={strings.chooseTitle} hint={strings.chooseHint}>
@@ -128,14 +129,14 @@ function Choice({ providers }: Readonly<{ providers: ProviderChoice[] }>) {
                         ref={index === 0 ? first : undefined}
                         type="button"
                         tabIndex={0}
-                        aria-describedby={error ? problemId : undefined}
+                        aria-describedby={shown ? problemId : undefined}
                         onClick={() => signIn(provider.id).catch((failure) => setError(reason(failure)))}
                         className={secondary}
                     >
                         {provider.name}
                     </button>
                 ))}
-                {error && <Problem id={problemId}>{error}</Problem>}
+                {shown && <Problem id={problemId}>{shown}</Problem>}
             </div>
         </Step>
     );
@@ -164,9 +165,20 @@ function Waiting({ view }: Readonly<{ view: Waiting }>) {
 
 export function SignIn({ view }: Readonly<{ view: Idle | Waiting }>) {
     const [providers, setProviders] = useState<ProviderChoice[] | null>(null);
+    // Only a problem from an attempt made from the choice belongs to it.
+    const [tried, setTried] = useState(false);
+    useEffect(() => {
+        if (view.state === 'signingIn') {
+            setTried(true);
+        }
+    }, [view.state]);
 
     if (view.state === 'signingIn') {
         return <Waiting view={view} />;
     }
-    return providers ? <Choice providers={providers} /> : <Address view={view} onChoose={setProviders} />;
+    return providers ? (
+        <Choice providers={providers} problem={tried ? view.problem : null} />
+    ) : (
+        <Address view={view} onChoose={setProviders} />
+    );
 }

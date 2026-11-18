@@ -16,10 +16,13 @@ export function useSession(): { view: SessionView | null; failed: boolean } {
                 setView(next);
             }
         }).catch(() => () => undefined);
-        getSession().then(
-            (loaded) => current && !changed && setView(loaded),
-            () => current && setFailed(true),
-        );
+        // Read only once listening, so that no change between the read and the listener is lost.
+        listening
+            .then(() => getSession())
+            .then(
+                (loaded) => current && !changed && setView(loaded),
+                () => current && setFailed(true),
+            );
         return () => {
             current = false;
             void listening.then((stop) => stop());

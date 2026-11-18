@@ -135,6 +135,15 @@ enum Origin {
     },
 }
 
+impl Origin {
+    fn attempt(&self) -> Option<&Arc<Notify>> {
+        match self {
+            Origin::Saved => None,
+            Origin::Browser { attempt, .. } => Some(attempt),
+        }
+    }
+}
+
 /// What a sign-in with one provider rests on.
 #[derive(Clone)]
 struct Grant {
@@ -149,6 +158,8 @@ struct Active {
     access: AccessToken,
     expires_at: Instant,
     grant: Grant,
+    /// Whether a refresh token belongs to this sign-in; without one it ends with the access token.
+    refreshable: bool,
 }
 
 enum State {
@@ -178,13 +189,11 @@ pub struct Session {
     unsaved: Mutex<Option<Item>>,
 }
 
-/// Whether the sign-in that `origin` names is still the one under way.
-fn is_current(state: &State, origin: &Origin) -> bool {
-    match (state, origin) {
-        (State::Starting, Origin::Saved) => true,
-        (State::SigningIn { cancel, .. }, Origin::Browser { attempt, .. }) => {
-            Arc::ptr_eq(cancel, attempt)
-        }
+/// Whether the browser sign-in `attempt`, or with none the renewal at start, is still the one under way.
+fn is_current(state: &State, attempt: Option<&Arc<Notify>>) -> bool {
+    match (state, attempt) {
+        (State::Starting, None) => true,
+        (State::SigningIn { cancel, .. }, Some(attempt)) => Arc::ptr_eq(cancel, attempt),
         _ => false,
     }
 }
@@ -269,6 +278,27 @@ impl Session {
         self.set(State::SignedOut {
             problem: Some(problem),
         })
+    }
+
+    /// Ends the sign-in `attempt` with `problem`, unless something else has ended it meanwhile.
+    fn fail_attempt(
+        &self,
+        attempt: Option<&Arc<Notify>>,
+        problem: impl Into<String>,
+    ) -> SessionView {
+        let problem = problem.into();
+        log::warn!("{problem}");
+        let current = {
+            let mut state = lock(&self.state);
+            let current = is_current(&state, attempt);
+            if current {
+                *state = State::SignedOut {
+                    problem: Some(problem),
+                };
+            }
+            current
+        };
+        if current { self.publish() } else { self.view() }
     }
 
     async fn in_store<T: Send + 'static>(
@@ -357,15 +387,11 @@ impl Session {
             (Some(locked), true) => locked.clone(),
             _ => parse_address(address).map_err(|error| error.to_string())?,
         };
-        if connection
-            .address
-            .as_ref()
-            .is_some_and(|current| *current != ilm)
-        {
-            self.sign_out().await;
-        }
         if connection.address.as_ref() != Some(&ilm) {
             self.settings.save_address(&ilm)?;
+            if connection.address.is_some() {
+                self.sign_out_of(connection.address).await;
+            }
         }
         let published = discover(&self.client, &ilm)
             .await
@@ -443,7 +469,7 @@ impl Session {
         };
         let code = match code {
             Ok(code) => code,
-            Err(error) => return self.fail(error.to_string()),
+            Err(error) => return self.fail_attempt(Some(&cancel), error.to_string()),
         };
         let resource = candidate.published.resource.clone();
         let tokens = match exchange(
@@ -458,7 +484,9 @@ impl Session {
         .await
         {
             Ok(tokens) => tokens,
-            Err(error) => return self.fail(format!("Sign-in failed: {error}.")),
+            Err(error) => {
+                return self.fail_attempt(Some(&cancel), format!("Sign-in failed: {error}."));
+            }
         };
         let item = tokens.refresh.as_ref().map(|refresh_token| Item {
             ilm: ilm.clone(),
@@ -521,10 +549,10 @@ impl Session {
     ) -> SessionView {
         let person = match profile(&self.client, &ilm, &tokens.access).await {
             Ok(person) => person,
-            Err(error) => return self.fail(error.to_string()),
+            Err(error) => return self.fail_attempt(origin.attempt(), error.to_string()),
         };
         let _renewing = self.renewing.lock().await;
-        if !is_current(&lock(&self.state), &origin) {
+        if !is_current(&lock(&self.state), origin.attempt()) {
             log::info!("the sign-in ended before ILM answered and is not kept");
             if let Origin::Saved = origin {
                 _ = self.delete_item(&ilm).await;
@@ -537,9 +565,13 @@ impl Session {
                 None => _ = self.delete_item(&ilm).await,
             }
         }
+        let refreshable = match &origin {
+            Origin::Saved => true,
+            Origin::Browser { item, .. } => item.is_some(),
+        };
         let current = {
             let mut state = lock(&self.state);
-            let current = is_current(&state, &origin);
+            let current = is_current(&state, origin.attempt());
             if current {
                 *state = State::SignedIn(Box::new(Active {
                     ilm: ilm.clone(),
@@ -547,6 +579,7 @@ impl Session {
                     access: tokens.access,
                     expires_at: tokens.expires_at,
                     grant,
+                    refreshable,
                 }));
             }
             current
@@ -562,14 +595,19 @@ impl Session {
 
     /// Forgets the access token, deletes the saved refresh token and then revokes it at the provider.
     pub async fn sign_out(&self) -> SessionView {
+        self.sign_out_of(self.settings.connection().address).await
+    }
+
+    /// Signs out; `address` names the saved sign-in to remove when nobody is signed in.
+    async fn sign_out_of(&self, address: Option<IlmUrl>) -> SessionView {
         let _renewing = self.renewing.lock().await;
         let (ilm, known) = match std::mem::replace(&mut *lock(&self.state), State::Starting) {
             State::SignedIn(active) => (Some(active.ilm.clone()), Some(active.grant)),
             State::SigningIn { cancel, .. } => {
                 cancel.notify_one();
-                (self.settings.connection().address, None)
+                (address, None)
             }
-            _ => (self.settings.connection().address, None),
+            _ => (address, None),
         };
         let item = match &ilm {
             Some(ilm) => self.load_item(ilm).await.ok().flatten(),
@@ -671,14 +709,22 @@ impl Session {
         let _renewing = self.renewing.lock().await;
         let grant = match &*lock(&self.state) {
             State::SignedIn(active) if active.ilm == *ilm => {
-                let good = refused != Some(&active.access)
-                    && active.expires_at > Instant::now() + RENEW_MARGIN;
-                if good {
+                let margin = if active.refreshable {
+                    RENEW_MARGIN
+                } else {
+                    Duration::ZERO
+                };
+                if refused != Some(&active.access) && active.expires_at > Instant::now() + margin {
                     return Ok(active.access.clone());
                 }
-                active.grant.clone()
+                active.refreshable.then(|| active.grant.clone())
             }
             _ => return Err(CallError::SignedOut),
+        };
+        let Some(grant) = grant else {
+            log::info!("the access token has ended and no refresh token belongs to this sign-in");
+            self.fail(SIGN_IN_ENDED);
+            return Err(CallError::SignedOut);
         };
         let item = match self.load_item(ilm).await {
             Ok(Some(item))
