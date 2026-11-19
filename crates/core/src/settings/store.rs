@@ -6,12 +6,14 @@ use std::path::Path;
 
 use serde_json::{Map, Value};
 
-use super::{Layer, LogLevel, RememberedCertificate};
+use super::{IdleMinutes, Layer, LogLevel, RememberedCertificate};
 use crate::ilm::IlmUrl;
 
 const START_AT_LOGIN: &str = "startAtLogin";
 const LOG_LEVEL: &str = "logLevel";
 const ILM_URL: &str = "ilmUrl";
+const REQUIRE_UNLOCK: &str = "requireUnlock";
+const LOCK_AFTER_IDLE: &str = "lockAfterIdle";
 const SIGN_IN_CERTIFICATE: &str = "signInCertificate";
 
 /// Reads the person's layer; a missing, unreadable or malformed file gives an empty layer
@@ -51,6 +53,10 @@ fn parse(entries: Map<String, Value>) -> Layer {
             START_AT_LOGIN => layer.start_at_login = value.as_bool(),
             LOG_LEVEL => layer.log_level = serde_json::from_value::<LogLevel>(value).ok(),
             ILM_URL => layer.ilm_url = serde_json::from_value::<IlmUrl>(value).ok(),
+            REQUIRE_UNLOCK => layer.require_unlock = value.as_bool(),
+            LOCK_AFTER_IDLE => {
+                layer.lock_after_idle = value.as_i64().and_then(IdleMinutes::new);
+            }
             SIGN_IN_CERTIFICATE => {
                 layer.sign_in_certificate = remembered_certificate(&value);
             }
@@ -60,6 +66,8 @@ fn parse(entries: Map<String, Value>) -> Layer {
             START_AT_LOGIN => layer.start_at_login.is_some(),
             LOG_LEVEL => layer.log_level.is_some(),
             ILM_URL => layer.ilm_url.is_some(),
+            REQUIRE_UNLOCK => layer.require_unlock.is_some(),
+            LOCK_AFTER_IDLE => layer.lock_after_idle.is_some(),
             SIGN_IN_CERTIFICATE => layer.sign_in_certificate.is_some(),
             _ => continue,
         };
@@ -82,6 +90,12 @@ pub fn save(path: &Path, layer: &Layer) -> io::Result<()> {
     }
     if let Some(value) = &layer.ilm_url {
         entries.insert(ILM_URL.into(), serde_json::to_value(value)?);
+    }
+    if let Some(value) = layer.require_unlock {
+        entries.insert(REQUIRE_UNLOCK.into(), Value::Bool(value));
+    }
+    if let Some(value) = layer.lock_after_idle {
+        entries.insert(LOCK_AFTER_IDLE.into(), Value::from(value.get()));
     }
     if let Some(value) = &layer.sign_in_certificate {
         entries.insert(
@@ -117,6 +131,8 @@ mod tests {
             start_at_login: Some(false),
             log_level: Some(LogLevel::Debug),
             ilm_url: Some(IlmUrl::parse("ilm.example.com").unwrap()),
+            require_unlock: Some(false),
+            lock_after_idle: IdleMinutes::new(15),
             sign_in_provider: None,
             sign_in_method: None,
             sign_in_certificate: Some(remembered()),
@@ -162,6 +178,8 @@ mod tests {
                 "startAtLogin": false,
                 "logLevel": "debug",
                 "ilmUrl": "https://ilm.example.com",
+                "requireUnlock": false,
+                "lockAfterIdle": 15,
                 "signInCertificate": {
                     "ilm": "https://ilm.example.com",
                     "fingerprint": Fingerprint::of(b"certificate").to_string()
@@ -202,6 +220,22 @@ mod tests {
             load(&path).ilm_url,
             Some(IlmUrl::parse("https://ilm.example.com").unwrap())
         );
+    }
+
+    #[test]
+    fn the_unlock_keys_are_read_and_invalid_values_are_dropped() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(&path, r#"{"requireUnlock":false,"lockAfterIdle":1440}"#).unwrap();
+        let layer = load(&path);
+        assert_eq!(layer.require_unlock, Some(false));
+        assert_eq!(layer.lock_after_idle, IdleMinutes::new(1440));
+        for invalid in ["0", "1441", "-1", "1.5", r#""15""#, "true", "null"] {
+            fs::write(&path, format!(r#"{{"lockAfterIdle":{invalid}}}"#)).unwrap();
+            assert_eq!(load(&path), Layer::default(), "{invalid}");
+        }
+        fs::write(&path, r#"{"requireUnlock":"yes"}"#).unwrap();
+        assert_eq!(load(&path), Layer::default());
     }
 
     #[test]

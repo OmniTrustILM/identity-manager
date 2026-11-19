@@ -9,7 +9,7 @@ type Scheme = 'light' | 'dark';
 type Idle = Extract<SessionView, { state: 'signedOut' }>;
 
 const shots = process.env.SIGN_IN_SHOTS;
-const idle: Idle = { state: 'signedOut', address: 'ilm.example.com', locked: false, problem: null };
+const idle: Idle = { state: 'signedOut', address: 'ilm.example.com', locked: false, problem: null, again: false };
 const managed: Idle = { ...idle, locked: true };
 const failed: Idle = { ...idle, problem: 'This ILM does not publish how to sign in' };
 const providers: ProviderChoice[] = [
@@ -67,6 +67,7 @@ type Story = {
     refuse?: string;
     certificates?: CertificateChoice[];
     refuseCertificate?: string;
+    again?: ProviderChoice[];
 };
 
 async function open(
@@ -340,4 +341,38 @@ test('a single certificate on this computer is used without asking', async ({ mo
     await page.getByRole('button', { name: 'Continue' }).click();
 
     await expect(page.getByRole('heading', { level: 1, name: 'Signing in with your certificate' })).toBeVisible();
+});
+
+const ended: Idle = { ...idle, problem: 'Your sign-in has ended.', again: true };
+
+for (const os of ['macos', 'windows', 'linux'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+        test(`on ${os} in ${scheme} an ended sign-in shows the problem and Sign in again as the accent button`, async ({ mount, page }) => {
+            await open(page, mount, os, scheme, { view: ended });
+
+            await expect(page.getByRole('heading', { name: 'Signed out' })).toBeVisible();
+            await expect(page.getByRole('alert')).toHaveText('Your sign-in has ended.');
+            const again = page.getByRole('button', { name: 'Sign in again' });
+            await expect(again).toBeFocused();
+            await expect(again).toHaveCSS('background-color', accents[os][scheme]);
+        });
+    }
+}
+
+test('the keyboard alone repeats the sign-in, and a choice that comes back is made with the keyboard', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'light', { view: ended, again: providers });
+    await keyboardReady(page);
+
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('heading', { name: 'Choose how to sign in' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Company SSO' })).toBeFocused();
+});
+
+test('a refusal of Sign in again is announced', async ({ mount, page }) => {
+    await open(page, mount, 'linux', 'light', { view: ended, refuse: 'Unlock Identity Manager first.' });
+
+    await page.getByRole('button', { name: 'Sign in again' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('Unlock Identity Manager first.');
 });

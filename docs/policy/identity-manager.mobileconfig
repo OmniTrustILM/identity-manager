@@ -21,6 +21,10 @@
 			<string>debug</string>
 			<key>IlmUrl</key>
 			<string>https://ilm.example.com</string>
+			<key>RequireUnlock</key>
+			<true/>
+			<key>LockAfterIdle</key>
+			<integer>15</integer>
 			<key>SignInProvider</key>
 			<string>Corporate</string>
 			<key>SignInMethod</key>

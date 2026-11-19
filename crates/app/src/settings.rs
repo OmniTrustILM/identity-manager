@@ -9,9 +9,9 @@ use im_core::settings::{
     self, Change, Layer, LogLevel, RememberedCertificate, SettingsView, store,
 };
 use log::LevelFilter;
-#[cfg(target_os = "linux")]
-use tauri::Manager;
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime};
+
+use crate::lock::Guard;
 
 /// What the effective settings do to the system.
 pub trait Effects: Send + Sync {
@@ -237,20 +237,25 @@ impl ConnectionSettings for Settings {
 }
 
 #[tauri::command]
-pub fn settings(state: State<'_, Arc<Settings>>) -> SettingsView {
-    state.view()
+pub async fn settings<R: Runtime>(app: AppHandle<R>) -> SettingsView {
+    let settings = app.state::<Arc<Settings>>().inner().clone();
+    let guard = app.state::<Arc<Guard>>().inner().clone();
+    guard.adopt(|| settings.view()).await
 }
 
 #[tauri::command]
-pub fn set_setting(
-    state: State<'_, Arc<Settings>>,
+pub async fn set_setting<R: Runtime>(
+    app: AppHandle<R>,
     change: Change,
 ) -> Result<SettingsView, String> {
     // A new address has to sign out of the old ILM first, which only `connect` does.
     if matches!(change, Change::IlmUrl(_)) {
         return Err("The ILM address is changed through Connect.".to_owned());
     }
-    state.change(change)
+    let settings = app.state::<Arc<Settings>>().inner().clone();
+    settings.change(change)?;
+    let guard = app.state::<Arc<Guard>>().inner().clone();
+    Ok(guard.adopt(|| settings.view()).await)
 }
 
 #[cfg(test)]

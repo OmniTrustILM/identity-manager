@@ -53,6 +53,32 @@ impl SignInMethod {
     }
 }
 
+/// Minutes without input after which the application locks: a whole number from 1 to 1440.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(try_from = "i64")]
+pub struct IdleMinutes(u16);
+
+impl IdleMinutes {
+    pub fn new(minutes: i64) -> Option<Self> {
+        match u16::try_from(minutes) {
+            Ok(minutes @ 1..=1440) => Some(Self(minutes)),
+            _ => None,
+        }
+    }
+
+    pub fn get(self) -> u16 {
+        self.0
+    }
+}
+
+impl TryFrom<i64> for IdleMinutes {
+    type Error = String;
+
+    fn try_from(minutes: i64) -> Result<Self, Self::Error> {
+        Self::new(minutes).ok_or_else(|| format!("{minutes} is not from 1 to 1440 minutes"))
+    }
+}
+
 /// The certificate last used to sign in, with the ILM address it signed in to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RememberedCertificate {
@@ -66,6 +92,8 @@ pub struct Layer {
     pub start_at_login: Option<bool>,
     pub log_level: Option<LogLevel>,
     pub ilm_url: Option<IlmUrl>,
+    pub require_unlock: Option<bool>,
+    pub lock_after_idle: Option<IdleMinutes>,
     /// Which sign-in provider to use; only policy sets it.
     pub sign_in_provider: Option<String>,
     /// Which way of signing in is allowed; only policy sets it.
@@ -100,6 +128,21 @@ pub struct Entry<T> {
     pub locked: bool,
 }
 
+/// Whether the system can ask the person to unlock the application.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub enum Unlock {
+    Available,
+    /// The system could ask, but the person has not set up a password, Touch ID or Windows Hello.
+    NotSetUp,
+    Unsupported,
+}
+
 /// Every setting as the interface shows it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -112,6 +155,11 @@ pub struct SettingsView {
     pub start_at_login: Entry<bool>,
     pub log_level: Entry<LogLevel>,
     pub ilm_url: Entry<Option<String>>,
+    pub require_unlock: Entry<bool>,
+    pub lock_after_idle: Entry<Option<u16>>,
+    /// What the system can do; the settings do not know it, so `view` says unsupported until the application
+    /// reads the system.
+    pub unlock: Unlock,
 }
 
 /// One setting changed by the person.
@@ -126,6 +174,10 @@ pub enum Change {
     StartAtLogin(bool),
     LogLevel(LogLevel),
     IlmUrl(#[cfg_attr(any(test, feature = "ts"), ts(as = "String"))] IlmUrl),
+    RequireUnlock(bool),
+    LockAfterIdle(
+        #[cfg_attr(any(test, feature = "ts"), ts(as = "Option<u16>"))] Option<IdleMinutes>,
+    ),
 }
 
 /// A change to a setting that policy fixes.
@@ -141,6 +193,7 @@ impl fmt::Display for Locked {
 impl std::error::Error for Locked {}
 
 const DEFAULT_START_AT_LOGIN: bool = true;
+const DEFAULT_REQUIRE_UNLOCK: bool = true;
 
 fn resolve<T: Copy>(policy: Option<T>, person: Option<T>, default: T) -> (T, Source) {
     match (policy, person) {
@@ -177,6 +230,22 @@ fn ilm_url<'a>(policy: &'a Layer, person: &'a Layer) -> (Option<&'a IlmUrl>, Sou
     }
 }
 
+fn require_unlock(policy: &Layer, person: &Layer) -> (bool, Source) {
+    resolve(
+        policy.require_unlock,
+        person.require_unlock,
+        DEFAULT_REQUIRE_UNLOCK,
+    )
+}
+
+fn lock_after_idle(policy: &Layer, person: &Layer) -> (Option<IdleMinutes>, Source) {
+    match (policy.lock_after_idle, person.lock_after_idle) {
+        (Some(minutes), _) => (Some(minutes), Source::Policy),
+        (None, Some(minutes)) => (Some(minutes), Source::Person),
+        (None, None) => (None, Source::Default),
+    }
+}
+
 /// Merges the layers: policy over the person's choice over the default.
 pub fn view(policy: &Layer, person: &Layer) -> SettingsView {
     SettingsView {
@@ -186,6 +255,12 @@ pub fn view(policy: &Layer, person: &Layer) -> SettingsView {
             let (url, source) = ilm_url(policy, person);
             (url.map(ToString::to_string), source)
         }),
+        require_unlock: entry(require_unlock(policy, person)),
+        lock_after_idle: entry({
+            let (minutes, source) = lock_after_idle(policy, person);
+            (minutes.map(IdleMinutes::get), source)
+        }),
+        unlock: Unlock::Unsupported,
     }
 }
 
@@ -219,6 +294,18 @@ pub fn apply(change: Change, policy: &Layer, person: &mut Layer) -> Result<(), L
             }
             person.ilm_url = Some(value);
         }
+        Change::RequireUnlock(value) => {
+            if policy.require_unlock.is_some() {
+                return Err(Locked("Require unlock"));
+            }
+            person.require_unlock = Some(value);
+        }
+        Change::LockAfterIdle(value) => {
+            if policy.lock_after_idle.is_some() {
+                return Err(Locked("Lock after idle"));
+            }
+            person.lock_after_idle = value;
+        }
     }
     Ok(())
 }
@@ -238,6 +325,13 @@ mod tests {
 
     fn ilm(address: &str) -> Option<IlmUrl> {
         Some(IlmUrl::parse(address).unwrap())
+    }
+
+    #[test]
+    fn the_view_leaves_what_the_system_can_do_to_the_application() {
+        let view = view(&Layer::default(), &Layer::default());
+
+        assert_eq!(view.unlock, Unlock::Unsupported);
     }
 
     #[test]
@@ -347,6 +441,118 @@ mod tests {
         assert_eq!(Source::Policy.to_string(), "policy");
         assert_eq!(Source::Person.to_string(), "person");
         assert_eq!(Source::Default.to_string(), "default");
+    }
+
+    fn minutes(value: i64) -> Option<IdleMinutes> {
+        Some(IdleMinutes::new(value).unwrap())
+    }
+
+    #[test]
+    fn unlock_defaults_to_required_and_idle_lock_to_off() {
+        let view = view(&Layer::default(), &Layer::default());
+        assert_eq!(
+            view.require_unlock,
+            Entry {
+                value: true,
+                locked: false
+            }
+        );
+        assert_eq!(
+            view.lock_after_idle,
+            Entry {
+                value: None,
+                locked: false
+            }
+        );
+    }
+
+    #[test]
+    fn unlock_settings_follow_person_then_policy() {
+        let person = Layer {
+            require_unlock: Some(false),
+            lock_after_idle: minutes(15),
+            ..Layer::default()
+        };
+        let by_person = view(&Layer::default(), &person);
+        assert_eq!(
+            by_person.require_unlock,
+            Entry {
+                value: false,
+                locked: false
+            }
+        );
+        assert_eq!(
+            by_person.lock_after_idle,
+            Entry {
+                value: Some(15),
+                locked: false
+            }
+        );
+
+        let policy = Layer {
+            require_unlock: Some(true),
+            lock_after_idle: minutes(60),
+            ..Layer::default()
+        };
+        let by_policy = view(&policy, &person);
+        assert_eq!(
+            by_policy.require_unlock,
+            Entry {
+                value: true,
+                locked: true
+            }
+        );
+        assert_eq!(
+            by_policy.lock_after_idle,
+            Entry {
+                value: Some(60),
+                locked: true
+            }
+        );
+    }
+
+    #[test]
+    fn idle_minutes_accept_one_to_1440_only() {
+        for (value, accepted) in [
+            (-1, false),
+            (0, false),
+            (1, true),
+            (1440, true),
+            (1441, false),
+            (i64::MAX, false),
+        ] {
+            assert_eq!(IdleMinutes::new(value).is_some(), accepted, "{value}");
+        }
+        assert_eq!(IdleMinutes::new(90).unwrap().get(), 90);
+    }
+
+    #[test]
+    fn locked_unlock_changes_are_refused_and_unlocked_ones_stored() {
+        let policy = Layer {
+            require_unlock: Some(true),
+            lock_after_idle: minutes(5),
+            ..Layer::default()
+        };
+        let mut person = Layer::default();
+        let refused = apply(Change::RequireUnlock(false), &policy, &mut person).unwrap_err();
+        assert_eq!(
+            refused.to_string(),
+            "Require unlock is managed by your organization."
+        );
+        let refused = apply(Change::LockAfterIdle(None), &policy, &mut person).unwrap_err();
+        assert_eq!(
+            refused.to_string(),
+            "Lock after idle is managed by your organization."
+        );
+        assert_eq!(person, Layer::default());
+
+        let open = Layer::default();
+        apply(Change::RequireUnlock(false), &open, &mut person).unwrap();
+        apply(Change::LockAfterIdle(minutes(30)), &open, &mut person).unwrap();
+        assert_eq!(person.require_unlock, Some(false));
+        assert_eq!(person.lock_after_idle, minutes(30));
+        apply(Change::LockAfterIdle(None), &open, &mut person).unwrap();
+        assert_eq!(person.lock_after_idle, None);
     }
 
     #[test]
@@ -513,6 +719,9 @@ mod tests {
                 "startAtLogin": { "value": false, "locked": true },
                 "logLevel": { "value": "debug", "locked": true },
                 "ilmUrl": { "value": null, "locked": false },
+                "requireUnlock": { "value": true, "locked": false },
+                "lockAfterIdle": { "value": null, "locked": false },
+                "unlock": "unsupported",
             })
         );
     }
@@ -531,6 +740,21 @@ mod tests {
             address,
             Change::IlmUrl(IlmUrl::parse("https://ilm.example.com").unwrap())
         );
+        let unlock: Change =
+            serde_json::from_value(json!({ "key": "requireUnlock", "value": false })).unwrap();
+        assert_eq!(unlock, Change::RequireUnlock(false));
+        let idle: Change =
+            serde_json::from_value(json!({ "key": "lockAfterIdle", "value": 20 })).unwrap();
+        assert_eq!(idle, Change::LockAfterIdle(minutes(20)));
+        let off: Change =
+            serde_json::from_value(json!({ "key": "lockAfterIdle", "value": null })).unwrap();
+        assert_eq!(off, Change::LockAfterIdle(None));
+        for bad in [json!(0), json!(1441), json!(-5), json!("20")] {
+            assert!(
+                serde_json::from_value::<Change>(json!({ "key": "lockAfterIdle", "value": bad }))
+                    .is_err()
+            );
+        }
         assert!(
             serde_json::from_value::<Change>(json!({ "key": "ilmUrl", "value": "http://x" }))
                 .is_err()

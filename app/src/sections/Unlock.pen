@@ -1,0 +1,2729 @@
+{
+  "version": "2.14",
+  "children": [
+    {
+      "type": "frame",
+      "id": "NhN3W",
+      "x": 0,
+      "y": 0,
+      "name": "Unlock/locked/macOS",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 520,
+      "height": 380,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "iXjJg",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 52,
+          "padding": [
+            0,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "vnw5x",
+              "name": "Traffic lights",
+              "width": 60,
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "sWxMP",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "ZBL2O",
+                  "name": "Minimise",
+                  "fill": "#FEBC2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "JIlap",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "ExUox",
+              "name": "Title",
+              "fill": "$color.text-primary",
+              "content": "Identity Manager",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.title",
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "K7isiT",
+              "name": "Balance",
+              "width": 60,
+              "height": 1
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "fsKMV",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "UA0fp",
+              "name": "Column",
+              "width": 340,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "DUVV0",
+                  "name": "App icon placeholder",
+                  "width": 72,
+                  "height": 72,
+                  "fill": "$color.accent",
+                  "cornerRadius": 18,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "hRTdT",
+                      "name": "Icon key-round",
+                      "width": 40,
+                      "height": 40,
+                      "icon": "key-round",
+                      "library": "lucide",
+                      "fill": "$color.accent-text"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "fC1UP",
+                  "name": "Identity Manager is locked",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "zf68D",
+                  "name": "Unlock button",
+                  "width": "fill_container",
+                  "height": 32,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Df1zA",
+                      "name": "Unlock",
+                      "fill": "$color.accent-text",
+                      "content": "Unlock",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "qVPpL",
+      "x": 1480,
+      "y": 0,
+      "name": "Unlock/cancelled/macOS",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 520,
+      "height": 380,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "RfanR",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 52,
+          "padding": [
+            0,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "GfyZd",
+              "name": "Traffic lights",
+              "width": 60,
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "I4i1l",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "w5WeP4",
+                  "name": "Minimise",
+                  "fill": "#FEBC2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "B5fix",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "eoaW0",
+              "name": "Title",
+              "fill": "$color.text-primary",
+              "content": "Identity Manager",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.title",
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "z0hgr",
+              "name": "Balance",
+              "width": 60,
+              "height": 1
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "U2icWN",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "tL4oK",
+              "name": "Column",
+              "width": 340,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "a5mSjf",
+                  "name": "App icon placeholder",
+                  "width": 72,
+                  "height": 72,
+                  "fill": "$color.accent",
+                  "cornerRadius": 18,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "bc2NU",
+                      "name": "Icon key-round",
+                      "width": 40,
+                      "height": 40,
+                      "icon": "key-round",
+                      "library": "lucide",
+                      "fill": "$color.accent-text"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "Ypw7d",
+                  "name": "Identity Manager is locked",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "KyUKF",
+                  "name": "Unlock button",
+                  "width": "fill_container",
+                  "height": 32,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Ks1AF",
+                      "name": "Unlock",
+                      "fill": "$color.accent-text",
+                      "content": "Unlock",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "lfdRl",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "qiOMU",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "DCNpP",
+                      "name": "Unlock problem",
+                      "fill": "$color.status-bad",
+                      "content": "Unlock was cancelled.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "MJ8en",
+      "x": 620,
+      "y": 0,
+      "name": "Unlock/locked/Windows",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 760,
+      "height": 440,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "Uyl6b",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "TircZ",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "XKBCA",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "L8ZRd",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "M3CxY7",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "eRdTw",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Tn73e",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "qQoXw",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "t434s",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Dxkzw",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "G0SBEs",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "EXTEu",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "ZSYrU",
+              "name": "Column",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "PxiYG",
+                  "name": "App icon placeholder",
+                  "width": 72,
+                  "height": 72,
+                  "fill": "$color.accent",
+                  "cornerRadius": 18,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "N2CTWw",
+                      "name": "Icon key-round",
+                      "width": 40,
+                      "height": 40,
+                      "icon": "key-round",
+                      "library": "lucide",
+                      "fill": "$color.accent-text"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "da6rV",
+                  "name": "Identity Manager is locked",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "KGJxH",
+                  "name": "Unlock button",
+                  "width": "fill_container",
+                  "height": 36,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Sj7L7",
+                      "name": "Unlock",
+                      "fill": "$color.accent-text",
+                      "content": "Unlock",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "RVJL1",
+      "x": 2100,
+      "y": 0,
+      "name": "Unlock/cancelled/Windows",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 760,
+      "height": 440,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "f7m8O",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "gXNw2",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "o1WsY",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "Lv490",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Oguvb",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "zv6kd",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "jNG6T",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Yu7hu",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "OWBHx",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "bJX5z",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "PAmBF",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "rJAhY",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "M6zdl",
+              "name": "Column",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "e3iJg",
+                  "name": "App icon placeholder",
+                  "width": 72,
+                  "height": 72,
+                  "fill": "$color.accent",
+                  "cornerRadius": 18,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Cq7qu",
+                      "name": "Icon key-round",
+                      "width": 40,
+                      "height": 40,
+                      "icon": "key-round",
+                      "library": "lucide",
+                      "fill": "$color.accent-text"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "fHgcf",
+                  "name": "Identity Manager is locked",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "wl1du",
+                  "name": "Unlock button",
+                  "width": "fill_container",
+                  "height": 36,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "YvOXO",
+                      "name": "Unlock",
+                      "fill": "$color.accent-text",
+                      "content": "Unlock",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "c1pPGG",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "QwlvB",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "L8LCs",
+                      "name": "Unlock problem",
+                      "fill": "$color.status-bad",
+                      "content": "Unlock was cancelled.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "hfnsP",
+      "x": 0,
+      "y": 520,
+      "name": "Unlock/locked/macOS dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 520,
+      "height": 380,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "vdmiD",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 52,
+          "padding": [
+            0,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "xHcHJ",
+              "name": "Traffic lights",
+              "width": 60,
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "oYo41",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "j9Mhf",
+                  "name": "Minimise",
+                  "fill": "#FEBC2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "EmBSx",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "ixwhN",
+              "name": "Title",
+              "fill": "$color.text-primary",
+              "content": "Identity Manager",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.title",
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "P9kfyu",
+              "name": "Balance",
+              "width": 60,
+              "height": 1
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "lTzkF",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "cJu4s",
+              "name": "Column",
+              "width": 340,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "HKorA",
+                  "name": "App icon placeholder",
+                  "width": 72,
+                  "height": 72,
+                  "fill": "$color.accent",
+                  "cornerRadius": 18,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "nmLUb",
+                      "name": "Icon key-round",
+                      "width": 40,
+                      "height": 40,
+                      "icon": "key-round",
+                      "library": "lucide",
+                      "fill": "$color.accent-text"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "r5XOi",
+                  "name": "Identity Manager is locked",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "G7Vy3",
+                  "name": "Unlock button",
+                  "width": "fill_container",
+                  "height": 32,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "BConR",
+                      "name": "Unlock",
+                      "fill": "$color.accent-text",
+                      "content": "Unlock",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "FsmP1",
+      "x": 1480,
+      "y": 520,
+      "name": "Unlock/cancelled/macOS dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 520,
+      "height": 380,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "uuZSn",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 52,
+          "padding": [
+            0,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "xIazF",
+              "name": "Traffic lights",
+              "width": 60,
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "t6n9s",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "NuPo8",
+                  "name": "Minimise",
+                  "fill": "#FEBC2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "uka8M",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "u0ilKh",
+              "name": "Title",
+              "fill": "$color.text-primary",
+              "content": "Identity Manager",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.title",
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "Skuje",
+              "name": "Balance",
+              "width": 60,
+              "height": 1
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "v8UCs",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "NtF0x",
+              "name": "Column",
+              "width": 340,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "HYNbx",
+                  "name": "App icon placeholder",
+                  "width": 72,
+                  "height": 72,
+                  "fill": "$color.accent",
+                  "cornerRadius": 18,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "o0FkIf",
+                      "name": "Icon key-round",
+                      "width": 40,
+                      "height": 40,
+                      "icon": "key-round",
+                      "library": "lucide",
+                      "fill": "$color.accent-text"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "A7AWG",
+                  "name": "Identity Manager is locked",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "S2KUOp",
+                  "name": "Unlock button",
+                  "width": "fill_container",
+                  "height": 32,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "X5CkoE",
+                      "name": "Unlock",
+                      "fill": "$color.accent-text",
+                      "content": "Unlock",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "i4HBJ",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Z2nZlW",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "bC4H1",
+                      "name": "Unlock problem",
+                      "fill": "$color.status-bad",
+                      "content": "Unlock was cancelled.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "EOvho",
+      "x": 620,
+      "y": 520,
+      "name": "Unlock/locked/Windows dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 760,
+      "height": 440,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "khAdV",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "WyeG6",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "f2Wfvv",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "Jotgm",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "IGqPB",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "g9zY3",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Z5TBh",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Dr2Ql",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "KXGhg",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "rn9pl",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "bDZDT",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "dGmMH",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "OlRU6",
+              "name": "Column",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Ilouh",
+                  "name": "App icon placeholder",
+                  "width": 72,
+                  "height": 72,
+                  "fill": "$color.accent",
+                  "cornerRadius": 18,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "TLOMz",
+                      "name": "Icon key-round",
+                      "width": 40,
+                      "height": 40,
+                      "icon": "key-round",
+                      "library": "lucide",
+                      "fill": "$color.accent-text"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "ZAWT3",
+                  "name": "Identity Manager is locked",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "QNk7P",
+                  "name": "Unlock button",
+                  "width": "fill_container",
+                  "height": 36,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "o5oYj",
+                      "name": "Unlock",
+                      "fill": "$color.accent-text",
+                      "content": "Unlock",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "RyL2g",
+      "x": 2100,
+      "y": 520,
+      "name": "Unlock/cancelled/Windows dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 760,
+      "height": 440,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "zUfYF",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "x4J016",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "jooBV",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "D60q6",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "gRYcS",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "b9QUr",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Ol0Jy",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Dmsmy",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Y18Dwu",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "VzA5s",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "FHNUZ",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "tz8cx",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "ygH5w",
+              "name": "Column",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "S90Rc8",
+                  "name": "App icon placeholder",
+                  "width": 72,
+                  "height": 72,
+                  "fill": "$color.accent",
+                  "cornerRadius": 18,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "dkLWM",
+                      "name": "Icon key-round",
+                      "width": 40,
+                      "height": 40,
+                      "icon": "key-round",
+                      "library": "lucide",
+                      "fill": "$color.accent-text"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "R4eWkV",
+                  "name": "Identity Manager is locked",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "Z5Arx",
+                  "name": "Unlock button",
+                  "width": "fill_container",
+                  "height": 36,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "VGdMf",
+                      "name": "Unlock",
+                      "fill": "$color.accent-text",
+                      "content": "Unlock",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Om4Fb",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "JqctO",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "UDhML",
+                      "name": "Unlock problem",
+                      "fill": "$color.status-bad",
+                      "content": "Unlock was cancelled.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "themes": {
+    "os": [
+      "macos",
+      "windows",
+      "linux"
+    ],
+    "mode": [
+      "light",
+      "dark"
+    ]
+  },
+  "variables": {
+    "color.surface": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#1E1E1E",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FBFBFB",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#272727",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FAFAFB",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#222226",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.sidebar": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#ECECEC",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2A2A2A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#F3F3F3",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#202020",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#EBEBED",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2E2E32",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.titlebar": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E8E8E8B3",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2A2A2CB3",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#F3F3F3CC",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#202020CC",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#EBEBED",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#303034",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.text-primary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#000000D9",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFFD9",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#1A1A1A",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#323232",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.text-secondary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#00000080",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF8C",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#5F5F5F",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#CFCFCF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#5E5E62",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#C0BFBC",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.text-tertiary": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#00000059",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF59",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#767676",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#9D9D9D",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#77767B",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#8D8D91",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.separator": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#0000001A",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF1A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#E0E0E0",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3A3A3A",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#D9D9DC",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3F3F44",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.accent": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#007AFF",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#0A84FF",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#005FB8",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#60CDFF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.accent-text": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#000000",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.row-hover": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#0000000D",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF14",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0000000A",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF0F",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0000000F",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF0F",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.row-current": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#0000001A",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF1F",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#00000014",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF17",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#0000001F",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF1F",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.focus-ring": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#007AFF80",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#0A84FF80",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#1A1A1A",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#3584E4",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-bad": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FF3B30",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF453A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#C42B1C",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF99A4",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#C01C28",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF7B63",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.body": {
+      "type": "number",
+      "value": [
+        {
+          "value": 13,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 13,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 14,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 14,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 15,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 15,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.caption": {
+      "type": "number",
+      "value": [
+        {
+          "value": 11,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 11,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.title": {
+      "type": "number",
+      "value": [
+        {
+          "value": 15,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 15,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 16,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.large-title": {
+      "type": "number",
+      "value": [
+        {
+          "value": 22,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 22,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 28,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 28,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 24,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 24,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "radius.control": {
+      "type": "number",
+      "value": [
+        {
+          "value": 6,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 6,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 4,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 4,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 6,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 6,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "radius.window": {
+      "type": "number",
+      "value": [
+        {
+          "value": 10,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 10,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 8,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 8,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 12,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "control.height": {
+      "type": "number",
+      "value": [
+        {
+          "value": 28,
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 28,
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 32,
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 32,
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": 34,
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": 34,
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.family": {
+      "type": "string",
+      "value": [
+        {
+          "value": "-apple-system",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "-apple-system",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Segoe UI Variable",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Segoe UI Variable",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "font.family-preview": {
+      "type": "string",
+      "value": [
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Inter",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "space.1": {
+      "type": "number",
+      "value": 4
+    },
+    "space.2": {
+      "type": "number",
+      "value": 8
+    },
+    "space.3": {
+      "type": "number",
+      "value": 12
+    },
+    "space.4": {
+      "type": "number",
+      "value": 16
+    },
+    "space.5": {
+      "type": "number",
+      "value": 24
+    }
+  },
+  "fileToken": "e8900c99-d529-408c-b5d4-b12197dc1a5e"
+}

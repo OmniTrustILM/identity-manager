@@ -4,5 +4,7 @@ Windows Registry Editor Version 5.00
 "StartAtLogin"=dword:00000000
 "LogLevel"="debug"
 "IlmUrl"="https://ilm.example.com"
+"RequireUnlock"=dword:00000001
+"LockAfterIdle"=dword:0000000f
 "SignInProvider"="Corporate"
 "SignInMethod"="oauth"

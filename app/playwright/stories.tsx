@@ -12,6 +12,7 @@ import type { Section } from '../src/sections';
 import { sections as realSections, settingsSection } from '../src/sections';
 import { Settings } from '../src/sections/Settings';
 import { SignIn } from '../src/sections/SignIn';
+import { Unlock } from '../src/sections/Unlock';
 
 const First = () => <p>First content</p>;
 const Second = () => <p>Second content</p>;
@@ -41,10 +42,38 @@ export function ShellStory({ platform }: StoryProps) {
     );
 }
 
-export function TraySummaryStory({ platform }: StoryProps) {
+type SeenProps = Readonly<{ session?: SessionView; refuse?: string; seen?: (command: string) => void }>;
+
+/** Stands in for the commands of the summary and the unlock: each command is passed to `seen`, `refuse` rejects it. */
+function useCommands({ session, refuse, seen }: SeenProps) {
+    useMemo(() => {
+        mockIPC(
+            (command) => {
+                if (command === 'session') {
+                    return session;
+                }
+                seen?.(command);
+                return refuse && (command === 'unlock' || command === 'sign_in_again') ? Promise.reject(refuse) : undefined;
+            },
+            { shouldMockEvents: true },
+        );
+    }, [session, refuse, seen]);
+}
+
+export function TraySummaryStory({ platform, ...commands }: StoryProps & SeenProps) {
+    useCommands(commands);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <TraySummary />
+        </AppInfoContext.Provider>
+    );
+}
+
+export function UnlockStory({ platform, automatic = false, ...commands }: StoryProps & SeenProps & Readonly<{ automatic?: boolean }>) {
+    useCommands(commands);
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            <Unlock automatic={automatic} />
         </AppInfoContext.Provider>
     );
 }
@@ -88,6 +117,7 @@ export const signedInView: SessionView = {
     person: { name: 'Alex Morgan', username: 'alex.morgan' },
     allowedListings: [],
     certificate: null,
+    unreachable: false,
 };
 
 type SettingsProps = StoryProps & Readonly<{ view: SettingsView; refuse?: string; session?: SessionView }>;
@@ -122,7 +152,14 @@ export function SettingsStory({ platform, view, refuse, session = signedInView }
 
 type Idle = Extract<SessionView, { state: 'signedOut' }>;
 type SignInProps = StoryProps &
-    Readonly<{ view: Idle; providers?: ProviderChoice[]; refuse?: string; certificates?: CertificateChoice[]; refuseCertificate?: string }>;
+    Readonly<{
+        view: Idle;
+        providers?: ProviderChoice[];
+        refuse?: string;
+        certificates?: CertificateChoice[];
+        refuseCertificate?: string;
+        again?: ProviderChoice[];
+    }>;
 const noProviders: ProviderChoice[] = [];
 const noCertificates: CertificateChoice[] = [];
 
@@ -134,6 +171,7 @@ export function SignInStory({
     refuse,
     certificates = noCertificates,
     refuseCertificate,
+    again = noProviders,
 }: SignInProps) {
     const [shown, setShown] = useState<Idle | Extract<SessionView, { state: 'signingIn' }>>(view);
     useMemo(() => {
@@ -150,6 +188,8 @@ export function SignInStory({
                     });
                     return new Promise(() => undefined);
                 }
+                case 'sign_in_again':
+                    return refuse ? Promise.reject(refuse) : again;
                 case 'certificates':
                     return certificates;
                 case 'sign_in_with_certificate':
@@ -165,7 +205,7 @@ export function SignInStory({
                     return undefined;
             }
         });
-    }, [view, providers, refuse, certificates, refuseCertificate]);
+    }, [view, providers, refuse, certificates, refuseCertificate, again]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <SignIn view={shown} />

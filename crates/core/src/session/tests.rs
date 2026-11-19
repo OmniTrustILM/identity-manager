@@ -319,6 +319,7 @@ pub(super) fn signed_out(world: &World, problem: Option<&str>) -> SessionView {
         address: Some(world.ilm.uri()),
         locked: false,
         problem: problem.map(str::to_owned),
+        again: false,
     }
 }
 
@@ -423,6 +424,7 @@ async fn a_full_sign_in_ends_signed_in_with_the_person_and_keeps_only_the_refres
         },
         allowed_listings: vec!["certificates".into()],
         certificate: None,
+        unreachable: false,
     };
     assert_eq!(view, expected);
     assert_eq!(world.session.view(), expected);
@@ -575,7 +577,8 @@ async fn a_start_without_an_address_or_an_item_shows_signed_out() {
         SessionView::SignedOut {
             address: None,
             locked: false,
-            problem: None
+            problem: None,
+            again: false,
         }
     );
 
@@ -629,13 +632,7 @@ async fn a_start_that_cannot_reach_the_provider_keeps_the_item_and_says_so() {
 
     let view = world.session.start().await;
 
-    assert!(matches!(
-        view,
-        SessionView::SignedOut {
-            problem: Some(_),
-            ..
-        }
-    ));
+    assert!(matches!(view, SessionView::Unreachable { .. }));
     assert_eq!(world.stored_refresh().as_deref(), Some("r1"));
 }
 
@@ -647,13 +644,7 @@ async fn a_start_with_an_unreadable_provider_or_store_keeps_the_item_and_says_so
 
     let view = world.session.start().await;
 
-    assert!(matches!(
-        view,
-        SessionView::SignedOut {
-            problem: Some(_),
-            ..
-        }
-    ));
+    assert!(matches!(view, SessionView::Unreachable { .. }));
     assert_eq!(world.stored_refresh().as_deref(), Some("r1"));
 }
 
@@ -1140,6 +1131,7 @@ async fn a_new_address_is_saved_before_the_signed_out_view_is_told_and_its_failu
             address: Some(other.uri()),
             locked: false,
             problem: answer.err(),
+            again: false,
         }
     );
 }
@@ -1305,4 +1297,690 @@ async fn the_log_of_a_full_flow_holds_no_secret() {
         assert!(!secret.is_empty());
         assert!(!log.contains(secret), "the log holds secret number {index}");
     }
+}
+
+impl World {
+    /// ILM answers the profile of the token `access` with `listings`, ahead of the profile of `profile_for`.
+    async fn listings_for(&self, access: &str, listings: &[&str]) {
+        Mock::given(method("GET"))
+            .and(path("/api/v1/auth/profile"))
+            .and(header("authorization", format!("Bearer {access}").as_str()))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "username": "jdoe",
+                "firstName": "Jane",
+                "lastName": "Doe",
+                "permissions": {"allowedListings": listings, "allowedActions": []},
+            })))
+            .with_priority(1)
+            .mount(&self.ilm)
+            .await;
+    }
+
+    fn ended(&self, problem: &str) -> SessionView {
+        SessionView::SignedOut {
+            address: Some(self.ilm.uri()),
+            locked: false,
+            problem: Some(problem.to_owned()),
+            again: true,
+        }
+    }
+
+    fn unreachable_view(&self) -> bool {
+        matches!(
+            self.session.view(),
+            SessionView::SignedIn {
+                unreachable: true,
+                ..
+            }
+        )
+    }
+}
+
+#[test]
+fn the_views_of_a_locked_unreachable_and_ended_session_have_their_shapes() {
+    let shape = |view: SessionView| serde_json::to_value(view).unwrap();
+
+    assert_eq!(shape(SessionView::Locked {}), json!({"state": "locked"}));
+    assert_eq!(
+        shape(SessionView::Unreachable {
+            address: "https://ilm.example.com".into(),
+            problem: "ILM cannot be reached.".into(),
+        }),
+        json!({
+            "state": "unreachable",
+            "address": "https://ilm.example.com",
+            "problem": "ILM cannot be reached.",
+        })
+    );
+    assert_eq!(
+        shape(SessionView::SignedOut {
+            address: None,
+            locked: false,
+            problem: None,
+            again: true,
+        }),
+        json!({"state": "signedOut", "address": null, "locked": false, "problem": null, "again": true})
+    );
+    assert_eq!(
+        shape(SessionView::SignedIn {
+            address: "a".into(),
+            person: PersonView {
+                name: "n".into(),
+                username: "u".into()
+            },
+            allowed_listings: vec![],
+            certificate: None,
+            unreachable: true,
+        })["unreachable"],
+        json!(true)
+    );
+}
+
+#[tokio::test]
+async fn a_check_reads_the_profile_again_and_updates_the_listings() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 3600).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+    world.listings_for("a1", &["certificates", "keys"]).await;
+
+    let view = world.session.check().await;
+
+    assert!(matches!(
+        &view,
+        SessionView::SignedIn { allowed_listings, unreachable: false, .. }
+            if allowed_listings == &["certificates", "keys"]
+    ));
+    assert_eq!(world.views.lock().unwrap().last(), Some(&view));
+}
+
+#[tokio::test]
+async fn a_check_that_changes_nothing_tells_nobody() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 3600).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+    let told = world.views.lock().unwrap().len();
+
+    world.session.check().await;
+
+    assert_eq!(world.views.lock().unwrap().len(), told);
+}
+
+#[tokio::test]
+async fn a_check_while_not_signed_in_does_nothing() {
+    let world = World::at_address().await;
+
+    assert_eq!(world.session.check().await, SessionView::Starting);
+}
+
+#[tokio::test]
+async fn a_check_that_cannot_reach_a_service_flags_the_sign_in_and_the_next_one_clears_it() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 30).await;
+    world
+        .grant("refresh_token", ResponseTemplate::new(503), Some(1))
+        .await;
+    world
+        .grant("refresh_token", tokens("a2", Some("r1"), 3600), None)
+        .await;
+    world.profile_for("a1").await;
+    world.profile_for("a2").await;
+    world.sign_in().await;
+
+    world.session.check().await;
+    assert!(world.unreachable_view());
+    assert_eq!(world.stored_refresh().as_deref(), Some("r1"));
+
+    world.session.check().await;
+    assert!(!world.unreachable_view());
+    assert!(is_signed_in(&world.session.view()));
+}
+
+#[tokio::test]
+async fn a_check_that_gets_no_useful_answer_from_ilm_flags_the_sign_in() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 3600).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/auth/profile"))
+        .respond_with(ResponseTemplate::new(502))
+        .with_priority(1)
+        .mount(&world.ilm)
+        .await;
+
+    world.session.check().await;
+
+    assert!(world.unreachable_view());
+}
+
+#[tokio::test]
+async fn a_check_that_ilm_refuses_ends_the_sign_in_with_a_way_to_repeat_it() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 3600).await;
+    world
+        .grant("refresh_token", tokens("a2", Some("r1"), 3600), None)
+        .await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/auth/profile"))
+        .respond_with(ResponseTemplate::new(401))
+        .with_priority(1)
+        .mount(&world.ilm)
+        .await;
+
+    let view = world.session.check().await;
+
+    assert_eq!(view, world.ended("ILM did not accept the sign-in."));
+    assert_eq!(world.session.check().await, view);
+}
+
+#[tokio::test]
+async fn a_check_whose_renewal_is_refused_ends_the_sign_in_with_a_way_to_repeat_it() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 30).await;
+    world.grant("refresh_token", invalid_grant(), None).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+
+    let view = world.session.check().await;
+
+    assert_eq!(view, world.ended(SIGN_IN_ENDED));
+    assert_eq!(world.stored_refresh(), None);
+}
+
+#[tokio::test]
+async fn a_check_after_the_last_token_ended_ends_the_sign_in_with_a_way_to_repeat_it() {
+    let world = World::new().await;
+    world.code_grant("a1", None, 0).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+
+    assert_eq!(world.session.check().await, world.ended(SIGN_IN_ENDED));
+}
+
+#[tokio::test]
+async fn a_start_refused_by_the_provider_or_by_ilm_can_be_repeated() {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world.grant("refresh_token", invalid_grant(), None).await;
+    assert_eq!(world.session.start().await, world.ended(SIGN_IN_ENDED));
+
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world
+        .grant("refresh_token", tokens("a-unknown", Some("r1"), 3600), None)
+        .await;
+    assert_eq!(
+        world.session.start().await,
+        world.ended("ILM did not accept the sign-in.")
+    );
+}
+
+#[tokio::test]
+async fn a_start_that_cannot_reach_ilm_keeps_the_item_and_retries_to_signed_in() {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world
+        .grant("refresh_token", tokens("a1", Some("r1"), 3600), None)
+        .await;
+    world.profile_for("a1").await;
+    world.settings.connection.lock().unwrap().address =
+        Some(IlmUrl::for_tests("http://127.0.0.1:1"));
+    world
+        .store
+        .save(&Item {
+            ilm: IlmUrl::for_tests("http://127.0.0.1:1"),
+            issuer: world.idp.uri(),
+            client_id: "app".into(),
+            resource: None,
+            refresh_token: RefreshToken::new("r1"),
+        })
+        .unwrap();
+
+    let view = world.session.start().await;
+
+    assert!(
+        matches!(&view, SessionView::Unreachable { address, problem }
+            if address.contains("127.0.0.1:1") && problem == "ILM cannot be reached."),
+        "{view:?}"
+    );
+    assert_eq!(world.session.retry().await, view);
+
+    *world.settings.connection.lock().unwrap() = Connection {
+        address: Some(world.address()),
+        ..Connection::default()
+    };
+    world.put_item("r1");
+    assert!(is_signed_in(&world.session.retry().await));
+}
+
+#[tokio::test]
+async fn a_retry_signs_in_once_the_provider_answers_and_keeps_the_saved_item() {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world
+        .grant("refresh_token", ResponseTemplate::new(503), Some(1))
+        .await;
+    world
+        .grant("refresh_token", tokens("a1", Some("r1"), 3600), None)
+        .await;
+    world.profile_for("a1").await;
+    assert!(matches!(
+        world.session.start().await,
+        SessionView::Unreachable { .. }
+    ));
+
+    let view = world.session.retry().await;
+
+    assert!(is_signed_in(&view), "{view:?}");
+    assert_eq!(world.stored_refresh().as_deref(), Some("r1"));
+}
+
+#[tokio::test]
+async fn a_retry_that_the_provider_refuses_ends_the_sign_in_with_a_way_to_repeat_it() {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world
+        .grant("refresh_token", ResponseTemplate::new(503), Some(1))
+        .await;
+    world.grant("refresh_token", invalid_grant(), None).await;
+    world.session.start().await;
+
+    assert_eq!(world.session.retry().await, world.ended(SIGN_IN_ENDED));
+    assert_eq!(world.stored_refresh(), None);
+}
+
+#[tokio::test]
+async fn a_retry_outside_the_unreachable_state_changes_nothing() {
+    let world = World::at_address().await;
+    world.session.start().await;
+    let told = world.views.lock().unwrap().len();
+
+    assert_eq!(world.session.retry().await, signed_out(&world, None));
+    assert_eq!(world.views.lock().unwrap().len(), told);
+}
+
+async fn ended_by_a_refused_renewal() -> World {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world.grant("refresh_token", invalid_grant(), None).await;
+    world.session.start().await;
+    world
+}
+
+#[tokio::test]
+async fn signing_in_again_starts_the_browser_flow_with_the_provider_of_the_ended_sign_in() {
+    let world = ended_by_a_refused_renewal().await;
+    world.code_grant("a2", Some("r2"), 3600).await;
+    world.profile_for("a2").await;
+
+    let again = world.session.sign_in_again(browser("the-code")).await;
+
+    assert!(
+        matches!(&again, SignInAgain::View(view) if is_signed_in(view)),
+        "{again:?}"
+    );
+    assert_eq!(world.stored_refresh().as_deref(), Some("r2"));
+}
+
+#[tokio::test]
+async fn signing_in_again_goes_to_the_choice_when_the_provider_is_gone() {
+    let world = ended_by_a_refused_renewal().await;
+    *lock(&world.session.state) = State::SignedOut {
+        problem: None,
+        again: Some(Again::Provider("https://gone.example.com".into())),
+    };
+
+    let again = world.session.sign_in_again(browser("the-code")).await;
+
+    assert_eq!(
+        again,
+        SignInAgain::Choose(vec![ProviderChoice {
+            id: "0".into(),
+            name: "Corporate".into()
+        }])
+    );
+    assert!(world.requests(&world.idp, "/auth").await.is_empty());
+}
+
+#[tokio::test]
+async fn signing_in_again_does_nothing_unless_a_sign_in_ended() {
+    let world = World::at_address().await;
+    world.session.start().await;
+
+    let again = world.session.sign_in_again(browser("the-code")).await;
+
+    assert_eq!(again, SignInAgain::View(signed_out(&world, None)));
+}
+
+#[tokio::test]
+async fn signing_in_again_says_so_when_the_ilm_publishes_nothing_or_has_no_address() {
+    let world = ended_by_a_refused_renewal().await;
+    world.ilm.reset().await;
+    let again = world.session.sign_in_again(browser("the-code")).await;
+    assert!(matches!(
+        &again,
+        SignInAgain::View(SessionView::SignedOut {
+            problem: Some(_),
+            again: false,
+            ..
+        })
+    ));
+
+    let world = World::new().await;
+    *lock(&world.session.state) = State::SignedOut {
+        problem: None,
+        again: Some(Again::Certificate),
+    };
+    let again = world.session.sign_in_again(browser("the-code")).await;
+    assert!(matches!(
+        &again,
+        SignInAgain::View(SessionView::SignedOut { problem: Some(p), .. }) if p == CONNECT_FIRST
+    ));
+}
+
+#[tokio::test]
+async fn signing_out_and_changing_the_address_forget_how_to_sign_in_again() {
+    let world = ended_by_a_refused_renewal().await;
+    assert!(matches!(
+        world.session.view(),
+        SessionView::SignedOut { again: true, .. }
+    ));
+    assert_eq!(world.session.sign_out().await, signed_out(&world, None));
+
+    let world = ended_by_a_refused_renewal().await;
+    let other = MockServer::start().await;
+    assert!(world.session.connect(&other.uri()).await.is_err());
+    assert!(matches!(
+        world.session.view(),
+        SessionView::SignedOut { again: false, .. }
+    ));
+}
+
+/// The profile of a person other than `jdoe`.
+fn profile_of(username: &str) -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(json!({
+        "username": username,
+        "firstName": "Other",
+        "lastName": "Person",
+        "permissions": {"allowedListings": ["keys"], "allowedActions": []},
+    }))
+}
+
+#[tokio::test]
+async fn two_retries_at_once_renew_the_saved_sign_in_once() {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world
+        .grant("refresh_token", ResponseTemplate::new(503), Some(1))
+        .await;
+    world
+        .grant(
+            "refresh_token",
+            tokens("a1", Some("r2"), 3600).set_delay(std::time::Duration::from_millis(200)),
+            None,
+        )
+        .await;
+    world.profile_for("a1").await;
+    assert!(matches!(
+        world.session.start().await,
+        SessionView::Unreachable { .. }
+    ));
+
+    let (first, second) = tokio::join!(world.session.retry(), world.session.retry());
+
+    assert!(is_signed_in(&first), "{first:?}");
+    assert_eq!(first, second);
+    assert_eq!(world.requests(&world.idp, "/token").await.len(), 2);
+    assert!(world.stored_refresh().is_some());
+}
+
+#[tokio::test]
+async fn a_start_that_gets_no_useful_answer_from_ilm_keeps_the_item_and_retries_to_signed_in() {
+    for failure in [
+        ResponseTemplate::new(502),
+        ResponseTemplate::new(200).set_body_string("not a profile"),
+    ] {
+        let world = World::at_address().await;
+        world.put_item("r1");
+        world
+            .grant("refresh_token", tokens("a1", Some("r1"), 3600), None)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/auth/profile"))
+            .respond_with(failure)
+            .with_priority(1)
+            .up_to_n_times(1)
+            .mount(&world.ilm)
+            .await;
+        world.profile_for("a1").await;
+
+        let view = world.session.start().await;
+
+        assert!(matches!(view, SessionView::Unreachable { .. }), "{view:?}");
+        assert_eq!(world.stored_refresh().as_deref(), Some("r1"));
+        assert!(is_signed_in(&world.session.retry().await));
+    }
+}
+
+#[tokio::test]
+async fn signing_in_again_does_nothing_when_the_sign_in_changed_while_ilm_was_asked() {
+    let world = ended_by_a_refused_renewal().await;
+    Mock::given(method("GET"))
+        .and(path("/.well-known/oauth-protected-resource/api"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({
+                    "resource": world.api(""),
+                    "authorization_servers": [world.idp.uri()],
+                    "otilm_authorization_servers": [
+                        {"issuer": world.idp.uri(), "name": "Corporate", "client_id": "app", "scopes": ["openid"]}
+                    ],
+                }))
+                .set_delay(std::time::Duration::from_millis(300)),
+        )
+        .with_priority(1)
+        .mount(&world.ilm)
+        .await;
+    let opened = AtomicBool::new(false);
+
+    let (again, _) = tokio::join!(
+        world
+            .session
+            .sign_in_again(|_| opened.store(true, Ordering::SeqCst)),
+        async {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            world.session.sign_out().await
+        }
+    );
+
+    assert_eq!(again, SignInAgain::View(signed_out(&world, None)));
+    assert!(!opened.load(Ordering::SeqCst));
+}
+
+/// A check of the person signed in first, whose answer comes only after that person signed out and another
+/// signed in to the same ILM.
+async fn late_answer_of_an_earlier_person(answer: ResponseTemplate) -> (World, SessionView) {
+    let world = World::new().await;
+    world
+        .grant(
+            "authorization_code",
+            tokens("a1", Some("r1"), 3600),
+            Some(1),
+        )
+        .await;
+    world.code_grant("a2", Some("r2"), 3600).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/auth/profile"))
+        .and(header("authorization", "Bearer a1"))
+        .respond_with(answer.set_delay(std::time::Duration::from_millis(600)))
+        .with_priority(1)
+        .mount(&world.ilm)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/auth/profile"))
+        .and(header("authorization", "Bearer a2"))
+        .respond_with(profile_of("second"))
+        .mount(&world.ilm)
+        .await;
+
+    let (_, signed_in) = tokio::join!(world.session.check(), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        world.session.sign_out().await;
+        world.sign_in().await
+    });
+    assert!(is_signed_in(&signed_in), "{signed_in:?}");
+    (world, signed_in)
+}
+
+#[tokio::test]
+async fn a_late_profile_of_an_earlier_person_does_not_change_the_person_signed_in_since() {
+    let (world, signed_in) = late_answer_of_an_earlier_person(profile_of("first")).await;
+
+    assert_eq!(world.session.view(), signed_in);
+    assert!(matches!(
+        signed_in,
+        SessionView::SignedIn { person, .. } if person.username == "second"
+    ));
+}
+
+#[tokio::test]
+async fn a_late_refusal_of_an_earlier_sign_in_does_not_end_the_sign_in_made_since() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 3600).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+    let earlier = Arc::new(());
+    let current = match &*lock(&world.session.state) {
+        State::SignedIn(active) => active.id.clone(),
+        _ => panic!("signed in"),
+    };
+
+    world
+        .session
+        .end_active(&earlier, "ILM did not accept the sign-in.")
+        .await;
+    assert!(is_signed_in(&world.session.view()));
+
+    world
+        .session
+        .end_active(&current, "ILM did not accept the sign-in.")
+        .await;
+    assert_eq!(
+        world.session.view(),
+        world.ended("ILM did not accept the sign-in.")
+    );
+}
+
+#[tokio::test]
+async fn a_slow_offer_for_an_address_that_changed_leaves_the_newer_providers_in_place() {
+    let world = ended_by_a_refused_renewal().await;
+    let other = World::new().await;
+    Mock::given(method("GET"))
+        .and(path("/.well-known/oauth-protected-resource/api"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({
+                    "resource": world.api(""),
+                    "authorization_servers": [world.idp.uri()],
+                    "otilm_authorization_servers": [
+                        {"issuer": world.idp.uri(), "name": "Corporate", "client_id": "app", "scopes": ["openid"]}
+                    ],
+                }))
+                .set_delay(std::time::Duration::from_millis(300)),
+        )
+        .with_priority(1)
+        .mount(&world.ilm)
+        .await;
+
+    let (_, connected) = tokio::join!(world.session.sign_in_again(|_| ()), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        world.session.connect(&other.ilm.uri()).await
+    });
+
+    assert!(connected.is_ok(), "{connected:?}");
+    let (chosen, _) = world.session.candidate("0").expect("a provider is offered");
+    assert_eq!(chosen, other.address());
+}
+
+#[tokio::test]
+async fn a_slow_offer_that_fails_after_the_sign_in_changed_sets_no_problem() {
+    let world = ended_by_a_refused_renewal().await;
+    Mock::given(method("GET"))
+        .and(path("/.well-known/oauth-protected-resource/api"))
+        .respond_with(ResponseTemplate::new(500).set_delay(std::time::Duration::from_millis(300)))
+        .with_priority(1)
+        .mount(&world.ilm)
+        .await;
+
+    let (again, _) = tokio::join!(world.session.sign_in_again(|_| ()), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        world.session.sign_out().await
+    });
+
+    assert_eq!(again, SignInAgain::View(signed_out(&world, None)));
+    assert_eq!(world.session.view(), signed_out(&world, None));
+}
+
+#[tokio::test]
+async fn a_slow_connect_that_fails_after_another_address_was_signed_in_leaves_that_sign_in_alone() {
+    let world = World::at_address().await;
+    let slow = World::new().await;
+    let newer = World::new().await;
+    newer.code_grant("a1", Some("r1"), 3600).await;
+    newer.profile_for("a1").await;
+    Mock::given(method("GET"))
+        .and(path("/.well-known/oauth-protected-resource/api"))
+        .respond_with(ResponseTemplate::new(500).set_delay(std::time::Duration::from_millis(400)))
+        .with_priority(1)
+        .mount(&slow.ilm)
+        .await;
+
+    let (slow_address, newer_address) = (slow.ilm.uri(), newer.ilm.uri());
+    let (slow_connect, _) = tokio::join!(world.session.connect(&slow_address), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        world.session.connect(&newer_address).await.unwrap();
+        world.session.sign_in("0", browser("the-code")).await
+    });
+
+    assert!(slow_connect.is_err());
+    assert!(
+        is_signed_in(&world.session.view()),
+        "{:?}",
+        world.session.view()
+    );
+}
+
+#[tokio::test]
+async fn a_slow_connect_that_fails_after_a_second_connect_signed_in_leaves_that_sign_in_alone() {
+    let world = World::at_address().await;
+    let target = World::new().await;
+    target.code_grant("a1", Some("r1"), 3600).await;
+    target.profile_for("a1").await;
+    Mock::given(method("GET"))
+        .and(path("/.well-known/oauth-protected-resource/api"))
+        .respond_with(ResponseTemplate::new(500).set_delay(std::time::Duration::from_millis(400)))
+        .with_priority(1)
+        .up_to_n_times(1)
+        .mount(&target.ilm)
+        .await;
+    let address = target.ilm.uri();
+
+    let (first, _) = tokio::join!(world.session.connect(&address), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        world.session.connect(&address).await.unwrap();
+        world.session.sign_in("0", browser("the-code")).await
+    });
+
+    assert!(first.is_err());
+    assert!(
+        is_signed_in(&world.session.view()),
+        "{:?}",
+        world.session.view()
+    );
 }

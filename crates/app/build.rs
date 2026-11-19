@@ -33,6 +33,8 @@ fn main() {
                 "reopen_browser",
                 "cancel_sign_in",
                 "sign_out",
+                "unlock",
+                "sign_in_again",
             ])),
     )
     .expect("the Tauri build failed");

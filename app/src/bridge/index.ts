@@ -95,6 +95,21 @@ export function onSessionChanged(handler: (view: SessionView) => void): Promise<
     return listen<SessionView>('session-changed', (event) => handler(event.payload));
 }
 
+/** Asks the system to confirm the person; resolves to the real view, rejects with the reason it stayed locked. */
+export function unlock(): Promise<SessionView> {
+    return invoke<SessionView>('unlock');
+}
+
+/** Repeats an ended sign-in; the providers to choose from, or none when the browser flow has started. */
+export function signInAgain(): Promise<ProviderChoice[]> {
+    return invoke<ProviderChoice[]>('sign_in_again');
+}
+
+/** Calls the handler with the providers to choose from when the tray started a sign-in again; returns the unlisten. */
+export function onSignInChoices(handler: (providers: ProviderChoice[]) => void): Promise<() => void> {
+    return listen<ProviderChoice[]>('sign-in-choices', (event) => handler(event.payload));
+}
+
 export function windowLabel(): string {
     return getCurrentWindow().label;
 }

@@ -5,8 +5,16 @@ import type { SignInKind } from "./SignInKind";
 /**
  * What the interface shows. It never holds a token, a code or an address of the identity provider.
  */
-export type SessionView = { "state": "starting" } | { "state": "signedOut", address: string | null, locked: boolean, problem: string | null, } | { "state": "signingIn", provider: string, method: SignInKind, } | { "state": "signedIn", address: string, person: PersonView, allowedListings: Array<string>, 
+export type SessionView = { "state": "starting" } | { "state": "locked", } | { "state": "signedOut", address: string | null, locked: boolean, problem: string | null, 
+/**
+ * The sign-in ended without the person signing out, and can be repeated.
+ */
+again: boolean, } | { "state": "signingIn", provider: string, method: SignInKind, } | { "state": "unreachable", address: string, problem: string, } | { "state": "signedIn", address: string, person: PersonView, allowedListings: Array<string>, 
 /**
  * Short fingerprint of the certificate of a certificate sign-in, `None` for a sign-in with a provider.
  */
-certificate: string | null, };
+certificate: string | null, 
+/**
+ * The last check could not reach ILM.
+ */
+unreachable: boolean, };

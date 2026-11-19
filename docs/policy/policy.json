@@ -2,6 +2,8 @@
   "StartAtLogin": false,
   "LogLevel": "debug",
   "IlmUrl": "https://ilm.example.com",
+  "RequireUnlock": true,
+  "LockAfterIdle": 15,
   "SignInProvider": "Corporate",
   "SignInMethod": "oauth"
 }

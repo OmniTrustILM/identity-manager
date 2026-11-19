@@ -12,6 +12,9 @@ const open: SettingsView = {
     startAtLogin: { value: true, locked: false },
     logLevel: { value: 'info', locked: false },
     ilmUrl: { value: null, locked: false },
+    requireUnlock: { value: true, locked: false },
+    lockAfterIdle: { value: null, locked: false },
+    unlock: 'available',
 };
 const lockedLevel: SettingsView = {
     ...open,
@@ -380,18 +383,20 @@ test.each([
     expect(container.querySelector('h1')?.textContent).toBe(heading);
 });
 
-const signedIn: SessionView = {
+const signedIn: Extract<SessionView, { state: 'signedIn' }> = {
     state: 'signedIn',
     address: 'https://ilm.example.com',
     person: { name: 'Alex Morgan', username: 'alex.morgan' },
     allowedListings: [],
     certificate: null,
+    unreachable: false,
 };
 const signedOut: SessionView = {
     state: 'signedOut',
     address: null,
     locked: false,
     problem: null,
+    again: false,
 };
 
 function connected(settings: SettingsView = open, session: SessionView = signedIn, connect: () => unknown = () => []) {
@@ -425,8 +430,8 @@ test('signed in, the group Connection shows the address, the person and Sign out
     await render('windows');
 
     const groups = [...container.querySelectorAll('section')];
-    expect(groups.map((group) => group.querySelector('h2')?.textContent)).toEqual([strings.general, strings.connection]);
-    expect(groups[1]?.getAttribute('aria-labelledby')).toBe(groups[1]?.querySelector('h2')?.id);
+    expect(groups.map((group) => group.querySelector('h2')?.textContent)).toEqual([strings.general, strings.security, strings.connection]);
+    expect(groups[2]?.getAttribute('aria-labelledby')).toBe(groups[2]?.querySelector('h2')?.id);
     expect(container.querySelector(`label[for="${address().id}"]`)?.textContent).toBe(strings.ilmAddress);
     expect(address().value).toBe('https://ilm.example.com');
     expect(address().disabled).toBe(false);
@@ -451,7 +456,7 @@ test('without a sign-in there is no group Connection', async () => {
 
     await render('windows');
 
-    expect(container.querySelectorAll('section')).toHaveLength(1);
+    expect(container.querySelectorAll('section')).toHaveLength(2);
     expect(container.textContent).not.toContain(strings.signOut);
 });
 
@@ -459,6 +464,8 @@ test('an address set by the organization is locked and says so', async () => {
     connected({
         ...open,
         ilmUrl: { value: 'https://ilm.example.com', locked: true },
+        requireUnlock: { value: true, locked: false },
+        lockAfterIdle: { value: null, locked: false },
     });
 
     await render('linux');
@@ -545,5 +552,162 @@ test('the group follows the session: it goes when the person signs out and shows
     expect(address().value).toBe('https://ilm.example.org');
 
     await act(async () => emit('session-changed', signedOut));
-    expect(container.querySelectorAll('section')).toHaveLength(1);
+    expect(container.querySelectorAll('section')).toHaveLength(2);
+});
+
+const security = () =>
+    [...container.querySelectorAll('section')].find((group) => group.querySelector('h2')?.textContent === strings.security);
+const field = (label: string) => {
+    const row = [...(security()?.querySelectorAll('label') ?? [])].find((candidate) => candidate.textContent === label);
+    return document.getElementById(row?.htmlFor ?? '');
+};
+const unlockSwitch = (label = strings.unlockWithTouchId) => field(label) as HTMLInputElement;
+const idle = () => field(strings.lockAfterIdle) as HTMLSelectElement;
+const optionTexts = () => [...idle().options].map((option) => option.textContent);
+
+test('on macOS the group Security has the switch for Touch ID and the select for inactivity', async () => {
+    bridge(() => open);
+
+    await render('macos');
+
+    expect(unlockSwitch().checked).toBe(true);
+    expect(unlockSwitch().disabled).toBe(false);
+    expect(optionTexts()).toEqual([strings.never, '5 minutes', '15 minutes', '30 minutes', '60 minutes']);
+    expect(idle().value).toBe('never');
+    expect(idle().disabled).toBe(false);
+    expect(security()?.getAttribute('aria-labelledby')).toBe(security()?.querySelector('h2')?.id);
+});
+
+test('on Windows the switch asks for Windows Hello', async () => {
+    bridge(() => open);
+
+    await render('windows');
+
+    expect(unlockSwitch(strings.unlockWithHello)).toBeDefined();
+    expect(container.textContent).not.toContain(strings.unlockWithTouchId);
+});
+
+test('the group Security is not shown where the system cannot unlock', async () => {
+    bridge(() => ({ ...open, unlock: 'unsupported' }));
+
+    await render('linux');
+
+    expect(security()).toBeUndefined();
+});
+
+test('turning the switch off and choosing a time send the changes', async () => {
+    bridge((command, args) => {
+        if (command !== 'set_setting') {
+            return open;
+        }
+        const { key, value } = (args as { change: Change }).change;
+        return { ...open, [key]: { value, locked: false } };
+    });
+    await render('macos');
+
+    await act(async () => unlockSwitch().click());
+    expect(calls.at(-1)?.args).toEqual({ change: { key: 'requireUnlock', value: false } });
+    expect(idle().disabled).toBe(true);
+
+    await act(async () => unlockSwitch().click());
+    await act(async () => {
+        idle().value = '15';
+        idle().dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(calls.at(-1)?.args).toEqual({ change: { key: 'lockAfterIdle', value: 15 } });
+    expect(idle().value).toBe('15');
+
+    await act(async () => {
+        idle().value = 'never';
+        idle().dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(calls.at(-1)?.args).toEqual({ change: { key: 'lockAfterIdle', value: null } });
+});
+
+test('the time cannot be chosen while the switch is off', async () => {
+    bridge(() => ({ ...open, requireUnlock: { value: false, locked: false }, lockAfterIdle: { value: 15, locked: false } }));
+
+    await render('macos');
+
+    expect(unlockSwitch().checked).toBe(false);
+    expect(idle().disabled).toBe(true);
+    expect(idle().value).toBe('15');
+});
+
+test('rows set by the organization are locked and say so', async () => {
+    bridge(() => ({ ...open, requireUnlock: { value: false, locked: true }, lockAfterIdle: { value: 15, locked: true } }));
+
+    await render('macos');
+
+    expect(unlockSwitch().disabled).toBe(true);
+    expect(idle().disabled).toBe(true);
+    expect(security()?.textContent?.split(strings.managedByOrganization)).toHaveLength(3);
+    expect(unlockSwitch().getAttribute('aria-describedby')).not.toBeNull();
+});
+
+test('a time of the organization that is not in the list is shown in minutes and stays locked', async () => {
+    bridge(() => ({ ...open, lockAfterIdle: { value: 7, locked: true } }));
+
+    await render('windows');
+
+    expect(optionTexts()).toContain('7 minutes');
+    expect(idle().value).toBe('7');
+    expect(idle().disabled).toBe(true);
+});
+
+test('where Windows Hello is not set up both rows are off and disabled, with the way to set it up', async () => {
+    bridge(() => ({ ...open, unlock: 'notSetUp' }));
+
+    await render('windows');
+
+    expect(unlockSwitch(strings.unlockWithHello).checked).toBe(false);
+    expect(unlockSwitch(strings.unlockWithHello).disabled).toBe(true);
+    expect(idle().disabled).toBe(true);
+    expect(security()?.textContent).toContain(strings.setUpHello);
+    expect(unlockSwitch(strings.unlockWithHello).getAttribute('aria-describedby')).not.toBeNull();
+});
+
+test('where the Mac has no password both rows are disabled, with the way to set one', async () => {
+    bridge(() => ({ ...open, unlock: 'notSetUp' }));
+
+    await render('macos');
+
+    expect(unlockSwitch().disabled).toBe(true);
+    expect(security()?.textContent).toContain(strings.setUpPassword);
+});
+
+test('a refused change of the switch shows the reason on its row', async () => {
+    bridge((command) => (command === 'set_setting' ? Promise.reject('Not allowed.') : open));
+    await render('macos');
+
+    await act(async () => unlockSwitch().click());
+
+    expect(alerts()).toEqual(['Not allowed.']);
+});
+
+test('while the application is locked the window shows Unlock, not the settings', async () => {
+    connected(open, { state: 'locked' });
+
+    await render('macos');
+
+    expect(container.querySelector('h1')?.textContent).toBe(strings.lockedTitle);
+    expect(container.querySelector('section')).toBeNull();
+    expect(container.textContent).not.toContain(strings.startAtLogin);
+});
+
+test('Settings returns when the session is unlocked', async () => {
+    connected(open, { state: 'locked' });
+    await render('macos');
+
+    await act(async () => emit('session-changed', signedIn));
+
+    expect(security()).toBeDefined();
+});
+
+test('Settings does not ask to unlock by itself', async () => {
+    connected(open, { state: 'locked' });
+
+    await render('macos');
+
+    expect(calls.map((call) => call.command)).not.toContain('unlock');
 });

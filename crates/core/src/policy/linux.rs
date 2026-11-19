@@ -107,5 +107,7 @@ mod tests {
             layer.sign_in_method,
             Some(crate::settings::SignInMethod::Oauth)
         );
+        assert_eq!(layer.require_unlock, Some(true));
+        assert_eq!(layer.lock_after_idle, crate::settings::IdleMinutes::new(15));
     }
 }

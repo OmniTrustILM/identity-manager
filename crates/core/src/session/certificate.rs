@@ -9,8 +9,8 @@ use reqwest::{Client, RequestBuilder, Response, StatusCode};
 use tokio::sync::Notify;
 
 use super::{
-    Active, CONNECT_FIRST, CallError, CertificateCall, CertificateChoice, Connection, Credential,
-    Session, SessionView, SignInKind, State, is_current, lock,
+    Active, Again, CONNECT_FIRST, CallError, CertificateCall, CertificateChoice, Connection,
+    Credential, Session, SessionView, SignInKind, State, is_current, lock,
 };
 use crate::identity::{self, Fingerprint, IdentityStore, is_signing_refused};
 use crate::ilm::IlmUrl;
@@ -44,16 +44,16 @@ fn epoch_millis(time: SystemTime) -> i64 {
     })
 }
 
-/// What to tell the person when the request could not be answered. A connection that fails, other than by timing
-/// out, after the server asked for the certificate counts as a refusal: some systems report the gateway's alert as a
-/// reset connection.
-fn request_problem(error: &(dyn Error + 'static), asked: bool) -> String {
+/// What to tell the person when the request was refused, or none when ILM could not be reached. A connection that
+/// fails, other than by timing out, after the server asked for the certificate counts as a refusal: some systems
+/// report the gateway's alert as a reset connection.
+fn refusal(error: &(dyn Error + 'static), asked: bool) -> Option<&'static str> {
     if is_signing_refused(error) {
-        KEY_REFUSED.to_owned()
+        Some(KEY_REFUSED)
     } else if asked || handshake_refused(error) {
-        HANDSHAKE_REFUSED.to_owned()
+        Some(HANDSHAKE_REFUSED)
     } else {
-        IlmError::Unreachable.to_string()
+        None
     }
 }
 
@@ -152,7 +152,7 @@ impl Session {
             .certificate
             .filter(|_| connection.method != Some(SignInMethod::Oauth))
         else {
-            return self.set(State::SignedOut { problem: None });
+            return self.set(State::signed_out(None));
         };
         log::info!("signing in again with the remembered certificate");
         self.certificate_sign_in(&ilm, fingerprint, None).await
@@ -184,10 +184,14 @@ impl Session {
         let response = match profile_request(&client, ilm).send().await {
             Ok(response) => response,
             Err(error) => {
-                return self.fail_attempt(
-                    attempt,
-                    request_problem(&error, asked.get() && !error.is_timeout()),
-                );
+                let problem = match refusal(&error, asked.get() && !error.is_timeout()) {
+                    Some(problem) => problem.to_owned(),
+                    None if silent => {
+                        return self.unreachable_at_start(ilm, IlmError::Unreachable.to_string());
+                    }
+                    None => IlmError::Unreachable.to_string(),
+                };
+                return self.fail_attempt(attempt, problem);
             }
         };
         log::info!(
@@ -206,10 +210,11 @@ impl Session {
             if is_current(&lock(&self.state), attempt) {
                 _ = self.forget_certificate_if(&fingerprint);
             }
-            return self.fail_attempt(attempt, NOT_KNOWN);
+            return self.end_attempt(attempt, NOT_KNOWN, silent.then_some(Again::Certificate));
         }
         let person = match read_profile(ilm, response).await {
             Ok(person) => person,
+            Err(error) if silent => return self.unreachable_at_start(ilm, error.to_string()),
             Err(error) => return self.fail_attempt(attempt, error.to_string()),
         };
         let _renewing = self.renewing.lock().await;
@@ -218,8 +223,10 @@ impl Session {
             let current = is_current(&state, attempt);
             if current {
                 *state = State::SignedIn(Box::new(Active {
+                    id: Arc::new(()),
                     ilm: ilm.clone(),
                     person,
+                    unreachable: false,
                     credential: Credential::Certificate {
                         fingerprint,
                         client,
@@ -295,6 +302,7 @@ impl Session {
             if current {
                 *state = State::SignedOut {
                     problem: Some(problem.to_owned()),
+                    again: Some(Again::Certificate),
                 };
             }
             current
