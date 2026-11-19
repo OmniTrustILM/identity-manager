@@ -13,7 +13,10 @@ const open: SettingsView = {
     logLevel: { value: 'info', locked: false },
     ilmUrl: { value: null, locked: false },
 };
-const lockedLevel: SettingsView = { ...open, logLevel: { value: 'debug', locked: true } };
+const lockedLevel: SettingsView = {
+    ...open,
+    logLevel: { value: 'debug', locked: true },
+};
 
 let container: HTMLElement;
 let root: Root;
@@ -88,21 +91,35 @@ test('changing the switch sends the change and shows the view that comes back', 
 
     await act(async () => toggle().click());
 
-    expect(calls.at(-1)).toEqual({ command: 'set_setting', args: { change: { key: 'startAtLogin', value: false } satisfies Change } });
+    expect(calls.at(-1)).toEqual({
+        command: 'set_setting',
+        args: {
+            change: { key: 'startAtLogin', value: false } satisfies Change,
+        },
+    });
     expect(toggle().checked).toBe(false);
 });
 
 test('changing the select sends the level', async () => {
     bridge((command, args) =>
         command === 'set_setting'
-            ? { ...open, logLevel: { value: (args as { change: { value: 'warn' } }).change.value, locked: false } }
+            ? {
+                  ...open,
+                  logLevel: {
+                      value: (args as { change: { value: 'warn' } }).change.value,
+                      locked: false,
+                  },
+              }
             : open,
     );
     await render();
 
     await chooseLevel('warn');
 
-    expect(calls.at(-1)).toEqual({ command: 'set_setting', args: { change: { key: 'logLevel', value: 'warn' } } });
+    expect(calls.at(-1)).toEqual({
+        command: 'set_setting',
+        args: { change: { key: 'logLevel', value: 'warn' } },
+    });
     expect(select().value).toBe('warn');
 });
 
@@ -225,14 +242,22 @@ test('a second click before the first change is answered switches back', async (
         { change: { key: 'startAtLogin', value: false } },
         { change: { key: 'startAtLogin', value: true } },
     ]);
-    await act(async () => answers[0]?.({ ...open, startAtLogin: { value: false, locked: false } }));
+    await act(async () =>
+        answers[0]?.({
+            ...open,
+            startAtLogin: { value: false, locked: false },
+        }),
+    );
     expect(toggle().checked).toBe(true);
     await act(async () => answers[1]?.(open));
     expect(toggle().checked).toBe(true);
 });
 
 function deferredChanges() {
-    const answers: { resolve: (view: SettingsView) => void; reject: (reason: string) => void }[] = [];
+    const answers: {
+        resolve: (view: SettingsView) => void;
+        reject: (reason: string) => void;
+    }[] = [];
     bridge((command) => (command === 'set_setting' ? new Promise((resolve, reject) => answers.push({ resolve, reject })) : open));
     return answers;
 }
@@ -258,7 +283,12 @@ test('a success of an older change does not clear the error of a newer one', asy
     await act(async () => toggle().click());
 
     await act(async () => answers[1]?.reject('no'));
-    await act(async () => answers[0]?.resolve({ ...open, startAtLogin: { value: false, locked: false } }));
+    await act(async () =>
+        answers[0]?.resolve({
+            ...open,
+            startAtLogin: { value: false, locked: false },
+        }),
+    );
 
     expect(alerts()).toEqual(['no']);
 });
@@ -355,8 +385,14 @@ const signedIn: SessionView = {
     address: 'https://ilm.example.com',
     person: { name: 'Alex Morgan', username: 'alex.morgan' },
     allowedListings: [],
+    certificate: null,
 };
-const signedOut: SessionView = { state: 'signedOut', address: null, locked: false, problem: null };
+const signedOut: SessionView = {
+    state: 'signedOut',
+    address: null,
+    locked: false,
+    problem: null,
+};
 
 function connected(settings: SettingsView = open, session: SessionView = signedIn, connect: () => unknown = () => []) {
     bridge((command) => {
@@ -399,6 +435,17 @@ test('signed in, the group Connection shows the address, the person and Sign out
     expect(signOutButton()).toBeDefined();
 });
 
+test('signed in with a certificate, the account row says so and shows the short fingerprint', async () => {
+    connected(open, { ...signedIn, certificate: '3F:A2:9C:01' });
+
+    await render('windows');
+
+    expect(container.textContent).toContain(strings.signedInWithCertificate);
+    expect(container.textContent).toContain('3F:A2:9C:01');
+    expect(container.textContent).not.toContain('alex.morgan');
+    expect(signOutButton()).toBeDefined();
+});
+
 test('without a sign-in there is no group Connection', async () => {
     connected(open, signedOut);
 
@@ -409,7 +456,10 @@ test('without a sign-in there is no group Connection', async () => {
 });
 
 test('an address set by the organization is locked and says so', async () => {
-    connected({ ...open, ilmUrl: { value: 'https://ilm.example.com', locked: true } });
+    connected({
+        ...open,
+        ilmUrl: { value: 'https://ilm.example.com', locked: true },
+    });
 
     await render('linux');
 
@@ -486,7 +536,12 @@ test('the group follows the session: it goes when the person signs out and shows
     connected();
     await render('windows');
 
-    await act(async () => emit('session-changed', { ...signedIn, address: 'https://ilm.example.org' }));
+    await act(async () =>
+        emit('session-changed', {
+            ...signedIn,
+            address: 'https://ilm.example.org',
+        }),
+    );
     expect(address().value).toBe('https://ilm.example.org');
 
     await act(async () => emit('session-changed', signedOut));

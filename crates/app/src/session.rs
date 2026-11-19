@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
 use im_core::http;
+use im_core::identity::{EmptyStore, IdentityStore, system_store};
 use im_core::session::{
-    KeyringStore, MemoryStore, ProviderChoice, RefreshStore, Session, SessionView,
+    CertificateChoice, KeyringStore, MemoryStore, ProviderChoice, RefreshStore, Session,
+    SessionView,
 };
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tauri_plugin_opener::OpenerExt;
@@ -57,11 +59,14 @@ pub fn manage<R: Runtime>(
     opener: Arc<dyn Opener>,
 ) {
     let events = app.clone();
-    let session = Arc::new(Session::new(http::client(), settings, store, move |view| {
-        if let Err(error) = events.emit(CHANGED, view) {
-            log::warn!("the sign-in state could not be sent to the windows: {error}");
-        }
-    }));
+    let session = Arc::new(
+        Session::new(http::client(), settings, store, move |view| {
+            if let Err(error) = events.emit(CHANGED, view) {
+                log::warn!("the sign-in state could not be sent to the windows: {error}");
+            }
+        })
+        .with_identities(identities()),
+    );
     app.manage(SignIn {
         session: session.clone(),
         opener,
@@ -85,6 +90,15 @@ pub fn protected_store() -> Arc<dyn RefreshStore> {
             log::warn!("the protected storage is unavailable, the sign-in is not kept: {error}");
             Arc::new(MemoryStore::default())
         }
+    }
+}
+
+/// The certificates of this computer. Unit tests see none, so they never reach the real store.
+fn identities() -> Arc<dyn IdentityStore> {
+    if cfg!(test) {
+        Arc::new(EmptyStore)
+    } else {
+        system_store()
     }
 }
 
@@ -134,6 +148,21 @@ pub async fn sign_in<R: Runtime>(app: AppHandle<R>, provider_id: String) -> Sess
     session
         .sign_in(&provider_id, move |url| opener.open(url))
         .await
+}
+
+#[tauri::command]
+pub async fn certificates<R: Runtime>(app: AppHandle<R>) -> Vec<CertificateChoice> {
+    let session = state(&app).session.clone();
+    session.certificates().await
+}
+
+#[tauri::command]
+pub async fn sign_in_with_certificate<R: Runtime>(
+    app: AppHandle<R>,
+    fingerprint: String,
+) -> SessionView {
+    let session = state(&app).session.clone();
+    session.sign_in_with_certificate(&fingerprint).await
 }
 
 #[tauri::command]
@@ -188,6 +217,8 @@ mod tests {
                 session,
                 connect,
                 sign_in,
+                certificates,
+                sign_in_with_certificate,
                 reopen_browser,
                 cancel_sign_in,
                 sign_out
@@ -299,6 +330,32 @@ mod tests {
 
         let view = fixture
             .call("sign_in", serde_json::json!({ "providerId": "0" }))
+            .unwrap();
+
+        assert_eq!(view["state"], "signedOut");
+        assert!(view["problem"].is_string());
+        assert_eq!(fixture.next_event(), view);
+        assert!(fixture.browser.0.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_computer_without_certificates_offers_none() {
+        let fixture = fixture(Mode::SelfCheck);
+
+        let answer = fixture.call("certificates", serde_json::json!({})).unwrap();
+
+        assert_eq!(answer, serde_json::json!([]));
+    }
+
+    #[test]
+    fn sign_in_with_a_certificate_without_a_connection_reports_a_problem() {
+        let fixture = fixture(Mode::SelfCheck);
+
+        let view = fixture
+            .call(
+                "sign_in_with_certificate",
+                serde_json::json!({ "fingerprint": "00" }),
+            )
             .unwrap();
 
         assert_eq!(view["state"], "signedOut");

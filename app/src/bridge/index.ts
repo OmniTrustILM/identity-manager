@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { AppInfo } from './generated/AppInfo';
+import type { CertificateChoice } from './generated/CertificateChoice';
 import type { Change } from './generated/Change';
 import type { ProviderChoice } from './generated/ProviderChoice';
 import type { Scheme } from './generated/Scheme';
@@ -9,7 +10,7 @@ import type { SessionView } from './generated/SessionView';
 import type { SettingsView } from './generated/SettingsView';
 import type { Shown } from './generated/Shown';
 
-export type { AppInfo, Change, ProviderChoice, Scheme, SessionView, SettingsView, Shown };
+export type { AppInfo, CertificateChoice, Change, ProviderChoice, Scheme, SessionView, SettingsView, Shown };
 export type { PersonView } from './generated/PersonView';
 export type { Entry } from './generated/Entry';
 export type { LogLevel } from './generated/LogLevel';
@@ -65,6 +66,16 @@ export function connect(address: string): Promise<ProviderChoice[]> {
 /** Resolves when the sign-in in the browser has ended. */
 export function signIn(providerId: string): Promise<SessionView> {
     return invoke<SessionView>('sign_in', { providerId });
+}
+
+/** The certificates on this computer that can sign in. */
+export function certificates(): Promise<CertificateChoice[]> {
+    return invoke<CertificateChoice[]>('certificates');
+}
+
+/** Resolves when the ILM has answered for the certificate. */
+export function signInWithCertificate(fingerprint: string): Promise<SessionView> {
+    return invoke<SessionView>('sign_in_with_certificate', { fingerprint });
 }
 
 export function reopenBrowser(): Promise<void> {

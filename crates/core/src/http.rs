@@ -4,6 +4,9 @@ use std::time::Duration;
 
 use reqwest::{Client, ClientBuilder, redirect};
 
+use crate::identity::ClientIdentity;
+use crate::identity::tls::{self, CertificateAsked};
+
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -18,6 +21,47 @@ fn builder() -> ClientBuilder {
 /// HTTPS only, checked against the certificate store of the system; redirects are not followed.
 pub fn client() -> Client {
     build(builder().https_only(true))
+}
+
+/// HTTPS only and checked against the certificate store of the system, like [`client`], and presents `identity`
+/// to a server that asks for a client certificate, and uses no proxy, which would be offered the certificate too.
+/// The handle tells whether a server asked.
+pub fn client_with_identity(identity: ClientIdentity) -> (Client, CertificateAsked) {
+    let (config, asked) = tls::client_config(identity);
+    (
+        build(
+            builder()
+                .https_only(true)
+                .no_proxy()
+                .use_preconfigured_tls(config),
+        ),
+        asked,
+    )
+}
+
+/// Like [`client_with_identity`] but trusting `root` alone.
+#[cfg(test)]
+pub fn client_with_identity_trusting(
+    root: &rustls::pki_types::CertificateDer<'static>,
+    identity: ClientIdentity,
+) -> (Client, CertificateAsked) {
+    let (config, asked) = tls::client_config_trusting(root, identity);
+    (
+        build(
+            builder()
+                .https_only(true)
+                .no_proxy()
+                .use_preconfigured_tls(config),
+        ),
+        asked,
+    )
+}
+
+/// Like [`client`] but trusting `root` alone: the plain client of the sign-in with a provider, for servers of tests.
+#[cfg(test)]
+pub fn client_trusting(root: &rustls::pki_types::CertificateDer<'static>) -> Client {
+    let root = reqwest::Certificate::from_der(root).expect("a valid root certificate");
+    build(builder().https_only(true).tls_certs_only([root]))
 }
 
 /// Like [`client`] but also reaches plain `http` servers, for stand-ins on 127.0.0.1.

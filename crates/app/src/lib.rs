@@ -87,6 +87,8 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             session::session,
             session::connect,
             session::sign_in,
+            session::certificates,
+            session::sign_in_with_certificate,
             session::reopen_browser,
             session::cancel_sign_in,
             session::sign_out

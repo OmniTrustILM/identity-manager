@@ -143,6 +143,68 @@ documentation. They are not tested against every version.
 4. In ILM enter the client ID (the application ID of the registration), the scopes and the audience that the access
    token carries.
 
+## Certificate sign-in
+
+A person can also sign in with a client certificate that is on their computer. ILM does not publish this method
+anywhere, so Identity Manager offers it when the computer holds a certificate that can sign in, and finds out
+whether ILM accepts it when the person signs in. This part is for the administrator of the ILM and its gateway.
+
+### What the gateway and ILM need
+
+- The gateway requests a client certificate optionally on the ILM host, the same host as the API. People who sign in
+  with OAuth do not present one.
+- The gateway forwards the certificate of the person (the leaf) in the header that ILM Core reads. The ILM Helm chart
+  names that header in `auth.header.certificate`, by default `ssl-client-cert`:
+  - ingress-nginx: the annotations `nginx.ingress.kubernetes.io/auth-tls-verify-client: "optional"`,
+    `nginx.ingress.kubernetes.io/auth-tls-secret` (the secret with the issuing CA) and
+    `nginx.ingress.kubernetes.io/auth-tls-pass-certificate-to-upstream: "true"`; the certificate goes in the header
+    `ssl-client-cert`.
+  - Traefik: the TLS option `clientAuth.clientAuthType: VerifyClientCertIfGiven` with the issuing CA in
+    `clientAuth.caFiles`, and the `passTLSClientCert` middleware with `pem: true`; the certificate goes in the header
+    `X-Forwarded-Tls-Client-Cert`.
+  - A gateway that follows [RFC 9440](https://www.rfc-editor.org/rfc/rfc9440) sends the header `Client-Cert`.
+- ILM Auth and the gateway both trust the CA that issued the certificates.
+- Each person's certificate is registered in ILM as their sign-in certificate. An administrator or the person
+  registers it in ILM's own interface. Identity Manager does not register certificates.
+
+### What the certificate needs
+
+- A private key in the certificate store of the person: the login keychain on macOS, the CurrentUser personal store
+  on Windows. Linux is not supported yet.
+- `clientAuth` in the extended key usage, when the certificate has an extended key usage.
+- An RSA key of 2048 bits or more, or an ECDSA key on P-256 or P-384.
+- A validity period that has started and not ended.
+
+Identity Manager lists only the certificates that meet these conditions. If there is one, it uses it. If there are
+several, the person chooses.
+
+### Certificate or token
+
+ILM checks the certificate before a bearer token. A request that carries a certificate is judged by the certificate
+alone: if ILM does not accept it, the answer is status 401, even when the request also has a valid token.
+
+### Choose the method
+
+The policy key `SignInMethod` fixes the method. `oauth` offers only the identity providers. `certificate` offers
+only the certificate. When the key is absent, both are offered. See [policy.md](policy.md).
+
+### Check it
+
+Use a certificate that is registered in ILM, with its key in files:
+
+```bash
+curl -i --cert client.pem --key client.key https://ilm.example.com/api/v1/auth/profile
+```
+
+The answer must be status 200 with the profile of the person. A certificate that ILM does not know gives status 401:
+
+```bash
+curl -i --cert unknown.pem --key unknown.key https://ilm.example.com/api/v1/auth/profile
+```
+
+If the gateway does not request a certificate, Identity Manager tells the person that the gateway is not set up for
+certificate sign-in. If it requests one but does not pass it on, ILM answers status 401.
+
 ## What the application stores
 
 After sign-in Identity Manager keeps the refresh token in the protected storage of the system, in one item together
@@ -160,5 +222,5 @@ Changing the ILM address signs out first.
 
 ## Policy
 
-The policy keys `IlmUrl` (the address of the ILM) and `SignInProvider` (the name of the provider to use when ILM
-publishes several) concern sign-in. See [policy.md](policy.md) for their types, sources and rules.
+The policy keys `IlmUrl` (the address of the ILM), `SignInProvider` (the name of the provider to use when ILM
+publishes several) and `SignInMethod` (`oauth` or `certificate`, see above) concern sign-in. See [policy.md](policy.md) for their types, sources and rules.

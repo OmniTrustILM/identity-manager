@@ -1,17 +1,22 @@
 //! The sign-in of the person: connecting to an ILM, the browser flow, silent renewal and sign-out.
 
+mod certificate;
+#[cfg(test)]
+mod certificate_tests;
 mod store;
 #[cfg(test)]
 mod tests;
 
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use reqwest::{Client, RequestBuilder, Response, StatusCode};
 use serde::Serialize;
 use tokio::sync::Notify;
 use url::Url;
 
+use crate::identity::tls::CertificateAsked;
+use crate::identity::{ClientIdentity, EmptyStore, Fingerprint, IdentityStore};
 use crate::ilm::profile::{Person, profile};
 use crate::ilm::resource::{PublishedProvider, discover};
 use crate::ilm::{AddressError, IlmUrl};
@@ -19,13 +24,19 @@ use crate::oauth::client::{ClientId, client_identity};
 use crate::oauth::loopback::{AuthorizationRequest, FLOW_TIMEOUT, wait_for_code};
 use crate::oauth::metadata::{ProviderMetadata, provider_metadata};
 use crate::oauth::token::{TokenError, Tokens, exchange, refresh, revoke};
+use crate::settings::SignInMethod;
 use crate::token::AccessToken;
+use certificate::certificate_choice;
 pub use store::{Item, KeyringStore, MemoryStore, RefreshStore, StoreError};
 
 /// An access token that expires sooner than this is renewed before it is used.
 const RENEW_MARGIN: Duration = Duration::from_secs(60);
 
 const NO_PROVIDER: &str = "This ILM offers no identity provider that this application can use.";
+const NO_PROVIDER_OR_CERTIFICATE: &str = "This ILM offers no identity provider that this application can use, and this computer has no certificate that can sign in.";
+const NO_PROVIDER_ALLOWED: &str =
+    "Your organization does not allow signing in with an identity provider.";
+const NO_CERTIFICATE: &str = "This computer has no certificate that can sign in.";
 const SIGN_IN_ENDED: &str = "Your sign-in has ended. Sign in again.";
 const CONNECT_FIRST: &str = "Enter the address of your ILM first.";
 
@@ -38,11 +49,20 @@ pub struct Connection {
     pub locked: bool,
     /// The name of the provider policy asks for.
     pub provider: Option<String>,
+    /// The way of signing in policy allows; none allows both.
+    pub method: Option<SignInMethod>,
+    /// The certificate the person last signed in with at this address.
+    pub certificate: Option<Fingerprint>,
 }
 
 pub trait ConnectionSettings: Send + Sync {
     fn connection(&self) -> Connection;
     fn save_address(&self, address: &IlmUrl) -> Result<(), String>;
+    /// Remembers the certificate the person signed in with at an ILM address.
+    fn save_certificate(&self, ilm: &IlmUrl, fingerprint: &Fingerprint) -> Result<(), String>;
+    /// Forgets the remembered certificate, whatever its address: any of them when `failed` is none, else only
+    /// that one.
+    fn forget_certificate(&self, failed: Option<&Fingerprint>) -> Result<(), String>;
 }
 
 /// An identity provider the person can sign in with. The id is only meaningful to the session.
@@ -51,6 +71,38 @@ pub trait ConnectionSettings: Send + Sync {
 pub struct ProviderChoice {
     pub id: String,
     pub name: String,
+}
+
+/// A certificate on this computer that can sign in, as the person sees it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct CertificateChoice {
+    pub fingerprint: String,
+    pub subject: String,
+    pub issuer: String,
+    /// Milliseconds since 1970 (UTC).
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number"))]
+    pub not_after: i64,
+    /// The certificate the person signed in with last.
+    pub remembered: bool,
+}
+
+/// How the person signs in while a sign-in is under way.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub enum SignInKind {
+    Browser,
+    Certificate,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -86,11 +138,14 @@ pub enum SessionView {
     },
     SigningIn {
         provider: String,
+        method: SignInKind,
     },
     SignedIn {
         address: String,
         person: PersonView,
         allowed_listings: Vec<String>,
+        /// Short fingerprint of the certificate of a certificate sign-in, `None` for a sign-in with a provider.
+        certificate: Option<String>,
     },
 }
 
@@ -124,6 +179,9 @@ struct Pending {
     candidates: Vec<Candidate>,
 }
 
+/// Builds the client that presents a certificate; the interface also tells whether the server asked for one.
+type CertificateClient = Box<dyn Fn(ClientIdentity) -> (Client, CertificateAsked) + Send + Sync>;
+
 /// Where the tokens of a new sign-in come from.
 enum Origin {
     /// The saved refresh token, renewed at start.
@@ -152,14 +210,34 @@ struct Grant {
     resource: Option<String>,
 }
 
-struct Active {
-    ilm: IlmUrl,
-    person: Person,
+/// The access token of a sign-in with a provider.
+struct OAuthCredential {
     access: AccessToken,
     expires_at: Instant,
     grant: Grant,
     /// Whether a refresh token belongs to this sign-in; without one it ends with the access token.
     refreshable: bool,
+}
+
+/// What proves the person to ILM. The two never mix: the OAuth client has no certificate and the
+/// certificate client sends no token.
+enum Credential {
+    OAuth(OAuthCredential),
+    Certificate {
+        fingerprint: Fingerprint,
+        /// Presents the certificate in every handshake.
+        client: Client,
+        /// Tells this sign-in from a later one with the same certificate.
+        generation: Arc<()>,
+        /// When the certificate expires, when the sign-in could read it.
+        not_after: Option<SystemTime>,
+    },
+}
+
+struct Active {
+    ilm: IlmUrl,
+    person: Person,
+    credential: Credential,
 }
 
 enum State {
@@ -169,7 +247,9 @@ enum State {
     },
     SigningIn {
         provider: String,
-        url: Url,
+        method: SignInKind,
+        /// Where the browser is, for a sign-in with a provider.
+        url: Option<Url>,
         cancel: Arc<Notify>,
     },
     SignedIn(Box<Active>),
@@ -180,6 +260,8 @@ pub struct Session {
     client: Client,
     settings: Arc<dyn ConnectionSettings>,
     store: Arc<dyn RefreshStore>,
+    identities: Arc<dyn IdentityStore>,
+    certificate_client: CertificateClient,
     on_change: Box<dyn Fn(&SessionView) + Send + Sync>,
     state: Mutex<State>,
     pending: Mutex<Option<Pending>>,
@@ -195,6 +277,33 @@ fn is_current(state: &State, attempt: Option<&Arc<Notify>>) -> bool {
         (State::Starting, None) => true,
         (State::SigningIn { cancel, .. }, Some(attempt)) => Arc::ptr_eq(cancel, attempt),
         _ => false,
+    }
+}
+
+/// What a call needs of a certificate sign-in.
+struct CertificateCall {
+    client: Client,
+    generation: Arc<()>,
+    fingerprint: Fingerprint,
+    not_after: Option<SystemTime>,
+}
+
+impl Credential {
+    fn certificate(&self) -> Option<CertificateCall> {
+        match self {
+            Credential::Certificate {
+                client,
+                generation,
+                fingerprint,
+                not_after,
+            } => Some(CertificateCall {
+                client: client.clone(),
+                generation: generation.clone(),
+                fingerprint: *fingerprint,
+                not_after: *not_after,
+            }),
+            Credential::OAuth(_) => None,
+        }
     }
 }
 
@@ -222,12 +331,29 @@ impl Session {
             client,
             settings,
             store,
+            identities: Arc::new(EmptyStore),
+            certificate_client: Box::new(crate::http::client_with_identity),
             on_change: Box::new(on_change),
             state: Mutex::new(State::Starting),
             pending: Mutex::new(None),
             renewing: tokio::sync::Mutex::new(()),
             unsaved: Mutex::new(None),
         }
+    }
+
+    /// The certificates of the person the sign-in can offer; by default there are none.
+    #[must_use]
+    pub fn with_identities(mut self, identities: Arc<dyn IdentityStore>) -> Self {
+        self.identities = identities;
+        self
+    }
+
+    /// Builds the certificate clients with `build`, to trust the servers of a test.
+    #[cfg(test)]
+    #[must_use]
+    fn with_certificate_client(mut self, build: CertificateClient) -> Self {
+        self.certificate_client = build;
+        self
     }
 
     pub fn view(&self) -> SessionView {
@@ -239,8 +365,11 @@ impl Session {
                 locked: connection.locked,
                 problem: problem.clone(),
             },
-            State::SigningIn { provider, .. } => SessionView::SigningIn {
+            State::SigningIn {
+                provider, method, ..
+            } => SessionView::SigningIn {
                 provider: provider.clone(),
+                method: *method,
             },
             State::SignedIn(active) => SessionView::SignedIn {
                 address: active.ilm.to_string(),
@@ -249,6 +378,10 @@ impl Session {
                     username: active.person.username.clone(),
                 },
                 allowed_listings: active.person.allowed_listings.clone(),
+                certificate: active
+                    .credential
+                    .certificate()
+                    .map(|held| held.fingerprint.short()),
             },
         }
     }
@@ -256,7 +389,7 @@ impl Session {
     /// The address that is open in the browser while the person signs in, to open it again.
     pub fn browser_url(&self) -> Option<Url> {
         match &*lock(&self.state) {
-            State::SigningIn { url, .. } => Some(url.clone()),
+            State::SigningIn { url, .. } => url.clone(),
             _ => None,
         }
     }
@@ -345,12 +478,16 @@ impl Session {
 
     /// Signs in again from the saved refresh token, when there is one for the current address.
     pub async fn start(&self) -> SessionView {
-        let Some(ilm) = self.settings.connection().address else {
+        let connection = self.settings.connection();
+        let Some(ilm) = connection.address.clone() else {
             return self.set(State::SignedOut { problem: None });
         };
+        if connection.method == Some(SignInMethod::Certificate) {
+            return self.start_with_certificate(ilm, &connection).await;
+        }
         let item = match self.load_item(&ilm).await {
             Ok(Some(item)) => item,
-            Ok(None) => return self.set(State::SignedOut { problem: None }),
+            Ok(None) => return self.start_with_certificate(ilm, &connection).await,
             Err(error) => {
                 return self.fail(format!("Your saved sign-in could not be read: {error}"));
             }
@@ -391,11 +528,11 @@ impl Session {
         if connection.address.as_ref() != Some(&ilm) {
             self.settings.save_address(&ilm)?;
             if connection.address.is_some() {
-                self.sign_out_of(connection.address).await;
+                self.sign_out_of(connection.address.clone()).await;
                 signed_out = true;
             }
         }
-        let offered = self.offer(ilm, connection.provider.as_deref()).await;
+        let offered = self.offer(ilm, &connection).await;
         // Signing out closes the window that asked, so the sign-in screen has to show why the new address failed.
         if let Err(problem) = &offered
             && signed_out
@@ -405,13 +542,63 @@ impl Session {
         offered
     }
 
-    /// Lists the providers `ilm` publishes that can be used, or only `chosen` when it is one of them.
+    /// Lists the providers `ilm` publishes that can be used, or only the one policy names when it is among them,
+    /// and last the certificate on this computer when one can sign in.
     async fn offer(
         &self,
         ilm: IlmUrl,
-        chosen: Option<&str>,
+        connection: &Connection,
     ) -> Result<Vec<ProviderChoice>, String> {
-        let published = discover(&self.client, &ilm)
+        let method = connection.method;
+        let mut discovery_error = None;
+        let candidates = if method == Some(SignInMethod::Certificate) {
+            Vec::new()
+        } else {
+            match self
+                .provider_candidates(&ilm, connection.provider.as_deref())
+                .await
+            {
+                Ok(candidates) => candidates,
+                Err(error) if method.is_none() => {
+                    log::warn!("the identity providers of {ilm} could not be listed: {error}");
+                    discovery_error = Some(error);
+                    Vec::new()
+                }
+                Err(error) => return Err(error),
+            }
+        };
+        let mut choices: Vec<ProviderChoice> = candidates
+            .iter()
+            .enumerate()
+            .map(|(index, candidate)| ProviderChoice {
+                id: index.to_string(),
+                name: candidate.published.name.clone(),
+            })
+            .collect();
+        if method != Some(SignInMethod::Oauth) && self.certificate_candidates().await > 0 {
+            choices.push(certificate_choice());
+        }
+        if choices.is_empty() {
+            return Err(discovery_error.unwrap_or_else(|| {
+                match method {
+                    Some(SignInMethod::Oauth) => NO_PROVIDER,
+                    Some(SignInMethod::Certificate) => NO_CERTIFICATE,
+                    None => NO_PROVIDER_OR_CERTIFICATE,
+                }
+                .to_owned()
+            }));
+        }
+        *lock(&self.pending) = Some(Pending { ilm, candidates });
+        Ok(choices)
+    }
+
+    /// The providers `ilm` publishes that can be used, or only `chosen` when it is one of them.
+    async fn provider_candidates(
+        &self,
+        ilm: &IlmUrl,
+        chosen: Option<&str>,
+    ) -> Result<Vec<Candidate>, String> {
+        let published = discover(&self.client, ilm)
             .await
             .map_err(|error| error.to_string())?;
         let mut candidates = Vec::new();
@@ -432,10 +619,9 @@ impl Session {
                 });
             }
         }
-        if candidates.is_empty() {
-            return Err(NO_PROVIDER.to_owned());
-        }
-        if let Some(name) = chosen {
+        if let Some(name) = chosen
+            && !candidates.is_empty()
+        {
             match candidates
                 .iter()
                 .position(|candidate| candidate.published.name == *name)
@@ -444,20 +630,14 @@ impl Session {
                 None => log::warn!("policy names the provider {name}, which {ilm} does not offer"),
             }
         }
-        let choices = candidates
-            .iter()
-            .enumerate()
-            .map(|(index, candidate)| ProviderChoice {
-                id: index.to_string(),
-                name: candidate.published.name.clone(),
-            })
-            .collect();
-        *lock(&self.pending) = Some(Pending { ilm, candidates });
-        Ok(choices)
+        Ok(candidates)
     }
 
     /// Opens the browser through `open` and waits until the person has signed in, cancelled or run out of time.
     pub async fn sign_in(&self, provider_id: &str, open: impl Fn(&Url) + Send) -> SessionView {
+        if self.settings.connection().method == Some(SignInMethod::Certificate) {
+            return self.fail(NO_PROVIDER_ALLOWED);
+        }
         let Some((ilm, candidate)) = self.candidate(provider_id) else {
             return self.fail(CONNECT_FIRST);
         };
@@ -475,7 +655,8 @@ impl Session {
         let name = candidate.published.name.clone();
         self.set(State::SigningIn {
             provider: name.clone(),
-            url: request.url.clone(),
+            method: SignInKind::Browser,
+            url: Some(request.url.clone()),
             cancel: cancel.clone(),
         });
         log::info!("sign-in with {name} started");
@@ -593,10 +774,12 @@ impl Session {
                 *state = State::SignedIn(Box::new(Active {
                     ilm: ilm.clone(),
                     person,
-                    access: tokens.access,
-                    expires_at: tokens.expires_at,
-                    grant,
-                    refreshable,
+                    credential: Credential::OAuth(OAuthCredential {
+                        access: tokens.access,
+                        expires_at: tokens.expires_at,
+                        grant,
+                        refreshable,
+                    }),
                 }));
             }
             current
@@ -605,6 +788,9 @@ impl Session {
             log::info!("the sign-in ended before ILM answered and is not kept");
             _ = self.delete_item(&ilm).await;
             return self.view();
+        }
+        if let Origin::Browser { .. } = origin {
+            _ = self.forget_certificate();
         }
         log::info!("signed in to {ilm}");
         self.publish()
@@ -619,7 +805,13 @@ impl Session {
     async fn sign_out_of(&self, address: Option<IlmUrl>) -> SessionView {
         let _renewing = self.renewing.lock().await;
         let (ilm, known) = match std::mem::replace(&mut *lock(&self.state), State::Starting) {
-            State::SignedIn(active) => (Some(active.ilm.clone()), Some(active.grant)),
+            State::SignedIn(active) => {
+                let grant = match active.credential {
+                    Credential::OAuth(oauth) => Some(oauth.grant),
+                    Credential::Certificate { .. } => None,
+                };
+                (Some(active.ilm), grant)
+            }
             State::SigningIn { cancel, .. } => {
                 cancel.notify_one();
                 (address, None)
@@ -636,6 +828,7 @@ impl Session {
             }),
             None => None,
         };
+        let problem = problem.or(self.forget_certificate().err());
         let view = self.set(State::SignedOut { problem });
         if let Some(item) = item {
             self.revoke_item(&item, known).await;
@@ -686,10 +879,13 @@ impl Session {
         &self,
         build: impl Fn(&Client, &IlmUrl) -> RequestBuilder + Sync,
     ) -> Result<Response, CallError> {
-        let ilm = match &*lock(&self.state) {
-            State::SignedIn(active) => active.ilm.clone(),
+        let (ilm, certificate) = match &*lock(&self.state) {
+            State::SignedIn(active) => (active.ilm.clone(), active.credential.certificate()),
             _ => return Err(CallError::SignedOut),
         };
+        if let Some(certificate) = certificate {
+            return self.call_with_certificate(&build, &ilm, &certificate).await;
+        }
         let token = self.usable_token(&ilm, None).await?;
         let response = self.send(&build, &ilm, &token).await?;
         if response.status() != StatusCode::UNAUTHORIZED {
@@ -726,15 +922,18 @@ impl Session {
         let _renewing = self.renewing.lock().await;
         let grant = match &*lock(&self.state) {
             State::SignedIn(active) if active.ilm == *ilm => {
-                let margin = if active.refreshable {
+                let Credential::OAuth(oauth) = &active.credential else {
+                    return Err(CallError::SignedOut);
+                };
+                let margin = if oauth.refreshable {
                     RENEW_MARGIN
                 } else {
                     Duration::ZERO
                 };
-                if refused != Some(&active.access) && active.expires_at > Instant::now() + margin {
-                    return Ok(active.access.clone());
+                if refused != Some(&oauth.access) && oauth.expires_at > Instant::now() + margin {
+                    return Ok(oauth.access.clone());
                 }
-                active.refreshable.then(|| active.grant.clone())
+                oauth.refreshable.then(|| oauth.grant.clone())
             }
             _ => return Err(CallError::SignedOut),
         };
@@ -765,9 +964,11 @@ impl Session {
         match self.renew_item(&item, &grant).await {
             Ok(tokens) => {
                 let access = tokens.access.clone();
-                if let State::SignedIn(active) = &mut *lock(&self.state) {
-                    active.access = tokens.access;
-                    active.expires_at = tokens.expires_at;
+                if let State::SignedIn(active) = &mut *lock(&self.state)
+                    && let Credential::OAuth(oauth) = &mut active.credential
+                {
+                    oauth.access = tokens.access;
+                    oauth.expires_at = tokens.expires_at;
                 }
                 Ok(access)
             }

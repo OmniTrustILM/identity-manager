@@ -6,6 +6,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::identity::Fingerprint;
 use crate::ilm::IlmUrl;
 
 /// How much the application writes to its log.
@@ -35,6 +36,30 @@ impl From<LogLevel> for log::LevelFilter {
     }
 }
 
+/// Which way of signing in the organization allows; no value allows both.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignInMethod {
+    Oauth,
+    Certificate,
+}
+
+impl SignInMethod {
+    pub fn parse(text: &str) -> Option<Self> {
+        match text.trim() {
+            "oauth" => Some(Self::Oauth),
+            "certificate" => Some(Self::Certificate),
+            _ => None,
+        }
+    }
+}
+
+/// The certificate last used to sign in, with the ILM address it signed in to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RememberedCertificate {
+    pub ilm: IlmUrl,
+    pub fingerprint: Fingerprint,
+}
+
 /// The settings one source sets; a missing value leaves the setting to the next layer.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Layer {
@@ -43,6 +68,10 @@ pub struct Layer {
     pub ilm_url: Option<IlmUrl>,
     /// Which sign-in provider to use; only policy sets it.
     pub sign_in_provider: Option<String>,
+    /// Which way of signing in is allowed; only policy sets it.
+    pub sign_in_method: Option<SignInMethod>,
+    /// The certificate last used to sign in; only the person's layer holds it.
+    pub sign_in_certificate: Option<RememberedCertificate>,
 }
 
 /// Where an effective value comes from.
@@ -392,6 +421,33 @@ mod tests {
         );
         assert_eq!(person, Layer::default());
         assert!(!view(&policy, &person).start_at_login.locked);
+    }
+
+    #[test]
+    fn the_sign_in_method_is_parsed_by_name() {
+        assert_eq!(SignInMethod::parse("oauth"), Some(SignInMethod::Oauth));
+        assert_eq!(
+            SignInMethod::parse(" certificate "),
+            Some(SignInMethod::Certificate)
+        );
+        assert_eq!(SignInMethod::parse("OAuth"), None);
+        assert_eq!(SignInMethod::parse(""), None);
+    }
+
+    #[test]
+    fn a_new_ilm_address_keeps_the_remembered_certificate_for_the_old_one() {
+        let remembered = RememberedCertificate {
+            ilm: IlmUrl::parse("mine.example.com").unwrap(),
+            fingerprint: Fingerprint::of(b"certificate"),
+        };
+        let mut person = Layer {
+            ilm_url: ilm("mine.example.com"),
+            sign_in_certificate: Some(remembered.clone()),
+            ..Layer::default()
+        };
+        let other = Change::IlmUrl(IlmUrl::parse("other.example.com").unwrap());
+        apply(other, &Layer::default(), &mut person).unwrap();
+        assert_eq!(person.sign_in_certificate, Some(remembered));
     }
 
     #[test]

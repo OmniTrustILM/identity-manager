@@ -2,5 +2,6 @@
   "StartAtLogin": false,
   "LogLevel": "debug",
   "IlmUrl": "https://ilm.example.com",
-  "SignInProvider": "Corporate"
+  "SignInProvider": "Corporate",
+  "SignInMethod": "oauth"
 }

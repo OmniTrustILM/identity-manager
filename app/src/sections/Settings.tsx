@@ -41,7 +41,11 @@ function Row({ label, locked, error, renderControl }: Readonly<RowProps>) {
                     </label>
                     {locked && <LockNote id={lockId} />}
                 </div>
-                {renderControl({ id, disabled: locked, 'aria-describedby': describedBy || undefined })}
+                {renderControl({
+                    id,
+                    disabled: locked,
+                    'aria-describedby': describedBy || undefined,
+                })}
             </div>
             {error && (
                 <p id={errorId} role="alert" className="pt-s2 text-caption text-bad">
@@ -154,7 +158,10 @@ export function Settings() {
 
     const change = async (next: Change) => {
         const shown = view;
-        setView({ ...shown, [next.key]: { ...shown[next.key], value: next.value } });
+        setView({
+            ...shown,
+            [next.key]: { ...shown[next.key], value: next.value },
+        });
         const request = ++latest.current;
         latestChange.current[next.key] = request;
         const isLatestChange = () => latestChange.current[next.key] === request;
@@ -164,11 +171,17 @@ export function Settings() {
                 setView(saved);
             }
             if (isLatestChange()) {
-                setErrors((previous) => ({ ...previous, [next.key]: undefined }));
+                setErrors((previous) => ({
+                    ...previous,
+                    [next.key]: undefined,
+                }));
             }
         } catch (error) {
             if (isLatestChange()) {
-                setErrors((previous) => ({ ...previous, [next.key]: String(error) || strings.settingFailed }));
+                setErrors((previous) => ({
+                    ...previous,
+                    [next.key]: String(error) || strings.settingFailed,
+                }));
             }
             if (request === latest.current) {
                 setView(shown);
@@ -216,8 +229,10 @@ export function Settings() {
                     <AddressRow address={session.address} locked={view.ilmUrl.locked} readOnly={platform === 'macos'} />
                     <div className={`flex items-center justify-between gap-s4 ${rowClass}`}>
                         <div className="flex flex-col">
-                            <p className="text-body text-primary">{session.person.name}</p>
-                            <p className="text-caption text-secondary">{session.person.username}</p>
+                            <p className="text-body text-primary">
+                                {session.certificate ? strings.signedInWithCertificate : session.person.name}
+                            </p>
+                            <p className="text-caption text-secondary">{session.certificate ?? session.person.username}</p>
                         </div>
                         <button
                             type="button"

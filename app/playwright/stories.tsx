@@ -1,7 +1,7 @@
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { useMemo, useState } from 'react';
 import { AppInfoContext } from '../src/app-info';
-import type { Change, LogLevel, Platform, ProviderChoice, SessionView, SettingsView } from '../src/bridge';
+import type { CertificateChoice, Change, LogLevel, Platform, ProviderChoice, SessionView, SettingsView } from '../src/bridge';
 import { LockNote } from '../src/components/Switch/LockNote';
 import { Select } from '../src/components/Switch/Select';
 import { Shell } from '../src/components/Shell/Shell';
@@ -87,6 +87,7 @@ export const signedInView: SessionView = {
     address: 'ilm.example.com',
     person: { name: 'Alex Morgan', username: 'alex.morgan' },
     allowedListings: [],
+    certificate: null,
 };
 
 type SettingsProps = StoryProps & Readonly<{ view: SettingsView; refuse?: string; session?: SessionView }>;
@@ -120,11 +121,20 @@ export function SettingsStory({ platform, view, refuse, session = signedInView }
 }
 
 type Idle = Extract<SessionView, { state: 'signedOut' }>;
-type SignInProps = StoryProps & Readonly<{ view: Idle; providers?: ProviderChoice[]; refuse?: string }>;
+type SignInProps = StoryProps &
+    Readonly<{ view: Idle; providers?: ProviderChoice[]; refuse?: string; certificates?: CertificateChoice[]; refuseCertificate?: string }>;
 const noProviders: ProviderChoice[] = [];
+const noCertificates: CertificateChoice[] = [];
 
 /** The sign-in against a stand-in for the commands: signing in moves it to Waiting and Cancel moves it back. */
-export function SignInStory({ platform, view, providers = noProviders, refuse }: SignInProps) {
+export function SignInStory({
+    platform,
+    view,
+    providers = noProviders,
+    refuse,
+    certificates = noCertificates,
+    refuseCertificate,
+}: SignInProps) {
     const [shown, setShown] = useState<Idle | Extract<SessionView, { state: 'signingIn' }>>(view);
     useMemo(() => {
         mockIPC((command, args) => {
@@ -133,9 +143,21 @@ export function SignInStory({ platform, view, providers = noProviders, refuse }:
                     return refuse ? Promise.reject(refuse) : providers;
                 case 'sign_in': {
                     const { providerId } = args as { providerId: string };
-                    setShown({ state: 'signingIn', provider: providers.find((provider) => provider.id === providerId)?.name ?? '' });
+                    setShown({
+                        state: 'signingIn',
+                        method: 'browser',
+                        provider: providers.find((provider) => provider.id === providerId)?.name ?? '',
+                    });
                     return new Promise(() => undefined);
                 }
+                case 'certificates':
+                    return certificates;
+                case 'sign_in_with_certificate':
+                    if (refuseCertificate) {
+                        return Promise.reject(refuseCertificate);
+                    }
+                    setShown({ state: 'signingIn', method: 'certificate', provider: 'Certificate on this computer' });
+                    return new Promise(() => undefined);
                 case 'cancel_sign_in':
                     setShown(view);
                     return undefined;
@@ -143,7 +165,7 @@ export function SignInStory({ platform, view, providers = noProviders, refuse }:
                     return undefined;
             }
         });
-    }, [view, providers, refuse]);
+    }, [view, providers, refuse, certificates, refuseCertificate]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <SignIn view={shown} />

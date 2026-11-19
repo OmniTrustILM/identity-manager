@@ -3,6 +3,7 @@ import { clearMocks, mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
     cancelSignIn,
+    certificates,
     colorScheme,
     connect,
     getAppInfo,
@@ -17,6 +18,7 @@ import {
     reportReady,
     setSetting,
     signIn,
+    signInWithCertificate,
     signOut,
     windowLabel,
 } from './index';
@@ -156,6 +158,29 @@ describe('bridge', () => {
 
         await expect(signIn('0')).resolves.toEqual(signedOut);
         expect(calls).toEqual([['sign_in', { providerId: '0' }]]);
+    });
+
+    it('certificates returns the certificates that can sign in', async () => {
+        const choice = { fingerprint: '3F:A2', subject: 'Alex', issuer: 'CA', notAfter: 1, remembered: false };
+        const calls: string[] = [];
+        mockIPC((command) => {
+            calls.push(command);
+            return [choice];
+        });
+
+        await expect(certificates()).resolves.toEqual([choice]);
+        expect(calls).toEqual(['certificates']);
+    });
+
+    it('signInWithCertificate passes the fingerprint and returns the view', async () => {
+        const calls: [string, unknown][] = [];
+        mockIPC((command, args) => {
+            calls.push([command, args]);
+            return signedOut;
+        });
+
+        await expect(signInWithCertificate('3F:A2')).resolves.toEqual(signedOut);
+        expect(calls).toEqual([['sign_in_with_certificate', { fingerprint: '3F:A2' }]]);
     });
 
     it('reopenBrowser and cancelSignIn call their commands', async () => {

@@ -6,12 +6,13 @@ use std::path::Path;
 
 use serde_json::{Map, Value};
 
-use super::{Layer, LogLevel};
+use super::{Layer, LogLevel, RememberedCertificate};
 use crate::ilm::IlmUrl;
 
 const START_AT_LOGIN: &str = "startAtLogin";
 const LOG_LEVEL: &str = "logLevel";
 const ILM_URL: &str = "ilmUrl";
+const SIGN_IN_CERTIFICATE: &str = "signInCertificate";
 
 /// Reads the person's layer; a missing, unreadable or malformed file gives an empty layer
 /// and an invalid or unknown key is dropped.
@@ -37,6 +38,12 @@ pub fn load(path: &Path) -> Layer {
     parse(entries)
 }
 
+fn remembered_certificate(value: &Value) -> Option<RememberedCertificate> {
+    let ilm = serde_json::from_value(value.get("ilm")?.clone()).ok()?;
+    let fingerprint = value.get("fingerprint")?.as_str()?.parse().ok()?;
+    Some(RememberedCertificate { ilm, fingerprint })
+}
+
 fn parse(entries: Map<String, Value>) -> Layer {
     let mut layer = Layer::default();
     for (key, value) in entries {
@@ -44,12 +51,16 @@ fn parse(entries: Map<String, Value>) -> Layer {
             START_AT_LOGIN => layer.start_at_login = value.as_bool(),
             LOG_LEVEL => layer.log_level = serde_json::from_value::<LogLevel>(value).ok(),
             ILM_URL => layer.ilm_url = serde_json::from_value::<IlmUrl>(value).ok(),
+            SIGN_IN_CERTIFICATE => {
+                layer.sign_in_certificate = remembered_certificate(&value);
+            }
             _ => log::warn!("ignoring unknown setting {key}"),
         }
         let kept = match key.as_str() {
             START_AT_LOGIN => layer.start_at_login.is_some(),
             LOG_LEVEL => layer.log_level.is_some(),
             ILM_URL => layer.ilm_url.is_some(),
+            SIGN_IN_CERTIFICATE => layer.sign_in_certificate.is_some(),
             _ => continue,
         };
         if !kept {
@@ -72,6 +83,15 @@ pub fn save(path: &Path, layer: &Layer) -> io::Result<()> {
     if let Some(value) = &layer.ilm_url {
         entries.insert(ILM_URL.into(), serde_json::to_value(value)?);
     }
+    if let Some(value) = &layer.sign_in_certificate {
+        entries.insert(
+            SIGN_IN_CERTIFICATE.into(),
+            serde_json::json!({
+                "ilm": serde_json::to_value(&value.ilm)?,
+                "fingerprint": value.fingerprint.to_string(),
+            }),
+        );
+    }
     let text = serde_json::to_string_pretty(&entries)?;
 
     if let Some(folder) = path.parent() {
@@ -89,6 +109,7 @@ pub fn save(path: &Path, layer: &Layer) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::identity::Fingerprint;
     use tempfile::tempdir;
 
     fn person() -> Layer {
@@ -97,6 +118,15 @@ mod tests {
             log_level: Some(LogLevel::Debug),
             ilm_url: Some(IlmUrl::parse("ilm.example.com").unwrap()),
             sign_in_provider: None,
+            sign_in_method: None,
+            sign_in_certificate: Some(remembered()),
+        }
+    }
+
+    fn remembered() -> RememberedCertificate {
+        RememberedCertificate {
+            ilm: IlmUrl::parse("ilm.example.com").unwrap(),
+            fingerprint: Fingerprint::of(b"certificate"),
         }
     }
 
@@ -131,7 +161,11 @@ mod tests {
             serde_json::json!({
                 "startAtLogin": false,
                 "logLevel": "debug",
-                "ilmUrl": "https://ilm.example.com"
+                "ilmUrl": "https://ilm.example.com",
+                "signInCertificate": {
+                    "ilm": "https://ilm.example.com",
+                    "fingerprint": Fingerprint::of(b"certificate").to_string()
+                }
             })
         );
     }
@@ -168,6 +202,30 @@ mod tests {
             load(&path).ilm_url,
             Some(IlmUrl::parse("https://ilm.example.com").unwrap())
         );
+    }
+
+    #[test]
+    fn the_sign_in_certificate_is_read_and_an_invalid_one_is_dropped() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let fingerprint = Fingerprint::of(b"certificate");
+        fs::write(
+            &path,
+            format!(
+                r#"{{"signInCertificate":{{"ilm":"https://ilm.example.com","fingerprint":"{fingerprint}"}}}}"#
+            ),
+        )
+        .unwrap();
+        assert_eq!(load(&path).sign_in_certificate, Some(remembered()));
+        for invalid in [
+            r#"{"ilm":"https://ilm.example.com","fingerprint":"not a fingerprint"}"#,
+            r#"{"fingerprint":"abc"}"#,
+            r#""not an object""#,
+            "7",
+        ] {
+            fs::write(&path, format!(r#"{{"signInCertificate":{invalid}}}"#)).unwrap();
+            assert_eq!(load(&path), Layer::default());
+        }
     }
 
     #[test]

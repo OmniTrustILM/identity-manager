@@ -7,6 +7,8 @@
         "allow-session",
         "allow-connect",
         "allow-sign-in",
+        "allow-certificates",
+        "allow-sign-in-with-certificate",
         "allow-reopen-browser",
         "allow-cancel-sign-in",
         "allow-sign-out",
