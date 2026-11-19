@@ -4,11 +4,14 @@ import {
     type CertificateChoice,
     certificates,
     connect,
+    onSignInChoices,
     type ProviderChoice,
     reopenBrowser,
     type SessionView,
     signIn,
+    signInAgain,
     signInWithCertificate,
+    signOut,
 } from '../bridge';
 import { TextField } from '../components/TextField/TextField';
 import { BusyIcon, LockIcon, ProblemIcon } from '../design-system/icons';
@@ -43,7 +46,7 @@ function Step({ title, hint, children }: Readonly<{ title: string; hint: ReactNo
             <div className="flex w-form flex-col gap-s4">
                 <header className="flex flex-col items-center gap-s2 text-center">
                     <h1 className="text-large-title font-semibold text-primary">{title}</h1>
-                    <div className="text-body text-secondary">{hint}</div>
+                    {hint && <div className="text-body text-secondary">{hint}</div>}
                 </header>
                 {children}
             </div>
@@ -123,6 +126,55 @@ function Address({ view, onChoose }: Readonly<{ view: Idle; onChoose: (providers
                     {managed ? strings.signIn : strings.continue}
                 </button>
             </form>
+        </Step>
+    );
+}
+
+/** A sign-in that ended without the person signing out: the reason, and one step to repeat it. */
+function Ended({ view, onChoose }: Readonly<{ view: Idle; onChoose: (providers: ProviderChoice[]) => void }>) {
+    const problemId = useId();
+    const first = useFirstFocus<HTMLButtonElement>();
+    const [error, setError] = useState<string | null>(null);
+
+    const again = () => {
+        setError(null);
+        signInAgain().then(
+            (providers) => providers.length > 0 && onChoose(providers),
+            (error_) => setError(reason(error_)),
+        );
+    };
+
+    return (
+        <Step title={strings.signedOutTitle} hint={null}>
+            <div className="flex flex-col gap-s3">
+                <Problem id={problemId}>{error ?? view.problem ?? strings.signInEnded}</Problem>
+                <button ref={first} type="button" tabIndex={0} aria-describedby={problemId} onClick={again} className={primary}>
+                    {strings.signInAgain}
+                </button>
+            </div>
+        </Step>
+    );
+}
+
+/** The saved sign-in is kept while ILM cannot be reached; the person is told where and why, and can sign out. */
+export function Unreachable({ view }: Readonly<{ view: Extract<SessionView, { state: 'unreachable' }> }>) {
+    const problemId = useId();
+    const first = useFirstFocus<HTMLButtonElement>();
+    const [error, setError] = useState<string | null>(null);
+
+    const leave = () => {
+        setError(null);
+        signOut().catch((error_) => setError(reason(error_)));
+    };
+
+    return (
+        <Step title={strings.unreachableTitle} hint={view.address}>
+            <div className="flex flex-col gap-s3">
+                <Problem id={problemId}>{error ?? view.problem}</Problem>
+                <button ref={first} type="button" tabIndex={0} aria-describedby={problemId} onClick={leave} className={plain}>
+                    {strings.signOut}
+                </button>
+            </div>
         </Step>
     );
 }
@@ -304,6 +356,14 @@ export function SignIn({ view }: Readonly<{ view: Idle | Waiting }>) {
         }
     }, [view.state]);
 
+    useEffect(() => {
+        // The tray can start a sign-in again, which hands the providers to this window.
+        const listening = onSignInChoices(setProviders).catch(() => () => undefined);
+        return () => {
+            void listening.then((stop) => stop());
+        };
+    }, []);
+
     if (view.state === 'signingIn') {
         return <Waiting view={view} />;
     }
@@ -313,7 +373,7 @@ export function SignIn({ view }: Readonly<{ view: Idle | Waiting }>) {
         setTried(false);
     };
     if (!providers) {
-        return <Address view={view} onChoose={setProviders} />;
+        return view.again ? <Ended view={view} onChoose={setProviders} /> : <Address view={view} onChoose={setProviders} />;
     }
     const onlyCertificate = providers.length === 1 && providers[0]?.id === certificateId;
     if (picking || onlyCertificate) {

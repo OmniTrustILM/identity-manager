@@ -308,6 +308,7 @@ pub struct SeenRequest {
 pub struct TestServer {
     port: u16,
     allowed: Arc<Mutex<Fingerprint>>,
+    failing: Arc<Mutex<Option<u16>>>,
     seen: Arc<Mutex<Vec<SeenRequest>>>,
     task: JoinHandle<()>,
 }
@@ -356,14 +357,17 @@ impl TestServer {
         let recorded = Arc::clone(&seen);
         let allowed = Arc::new(Mutex::new(allowed));
         let permitted = Arc::clone(&allowed);
+        let failing = Arc::new(Mutex::new(None));
+        let failure = Arc::clone(&failing);
         let task = tokio::spawn(async move {
             while let Ok((stream, _)) = listener.accept().await {
                 let (acceptor, recorded) = (acceptor.clone(), Arc::clone(&recorded));
                 let permitted = Arc::clone(&permitted);
+                let failure = Arc::clone(&failure);
                 tokio::spawn(async move {
                     // A client that fails the handshake is not recorded.
                     if let Ok(stream) = acceptor.accept(stream).await {
-                        answer(stream, &permitted, port, &recorded).await;
+                        answer(stream, &permitted, &failure, port, &recorded).await;
                     }
                 });
             }
@@ -371,6 +375,7 @@ impl TestServer {
         Self {
             port,
             allowed,
+            failing,
             seen,
             task,
         }
@@ -379,6 +384,11 @@ impl TestServer {
     /// From now on the profile is for `fingerprint` alone.
     pub fn allow(&self, fingerprint: Fingerprint) {
         *self.allowed.lock().expect("the allowed leaf") = fingerprint;
+    }
+
+    /// From now on every request is answered with `status`, or as before with none.
+    pub fn fail_with(&self, status: Option<u16>) {
+        *self.failing.lock().expect("the failure") = status;
     }
 
     pub fn url(&self) -> String {
@@ -405,6 +415,7 @@ type Connection = tokio_rustls::server::TlsStream<tokio::net::TcpStream>;
 async fn answer(
     mut stream: Connection,
     allowed: &Mutex<Fingerprint>,
+    failing: &Mutex<Option<u16>>,
     port: u16,
     seen: &Mutex<Vec<SeenRequest>>,
 ) {
@@ -434,7 +445,10 @@ async fn answer(
         authorization: head.contains("\r\nauthorization:"),
     });
     let allowed = *allowed.lock().expect("the allowed leaf");
-    let response = if fingerprint == Some(allowed) {
+    let failing = *failing.lock().expect("the failure");
+    let response = if let Some(status) = failing {
+        format!("HTTP/1.1 {status} Failure\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    } else if fingerprint == Some(allowed) {
         let body = profile_json();
         format!(
             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",

@@ -4,6 +4,7 @@ mod app_info;
 pub mod http;
 pub mod identity;
 pub mod ilm;
+pub mod lock;
 pub mod oauth;
 pub mod policy;
 pub mod session;

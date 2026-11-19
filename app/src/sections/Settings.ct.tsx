@@ -11,6 +11,9 @@ const view: SettingsView = {
     startAtLogin: { value: true, locked: false },
     logLevel: { value: 'debug', locked: true },
     ilmUrl: { value: null, locked: false },
+    requireUnlock: { value: true, locked: false },
+    lockAfterIdle: { value: null, locked: false },
+    unlock: 'unsupported',
 };
 const unlocked: SettingsView = {
     ...view,
@@ -156,6 +159,7 @@ const certificateSession: SessionView = {
     person: { name: 'Alex Morgan', username: 'alex.morgan' },
     allowedListings: [],
     certificate: '3F:A2:9C:01',
+    unreachable: false,
 };
 
 for (const os of ['macos', 'windows'] as const) {
@@ -186,6 +190,8 @@ test('an address set by the organization is locked and says so', async ({ mount,
         view: {
             ...unlocked,
             ilmUrl: { value: 'ilm.example.com', locked: true },
+            requireUnlock: { value: true, locked: false },
+            lockAfterIdle: { value: null, locked: false },
         },
     });
 
@@ -211,4 +217,84 @@ test('the keyboard alone changes the address, and a refused address shows its re
     await expect(page.getByRole('alert')).toHaveText('The address must start with https://');
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeFocused();
+});
+
+const ready: SettingsView = { ...unlocked, unlock: 'available' };
+const securityLabels = { macos: 'Ask for Touch ID or your password to unlock', windows: 'Ask for Windows Hello to unlock' } as const;
+
+for (const os of ['macos', 'windows'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+        test(`on ${os} in ${scheme} the group Security has its switch and its select by name`, async ({ mount, page }) => {
+            await open(page, mount, os, scheme, { view: ready });
+            await page.setViewportSize(connection(os));
+
+            await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
+            await expect(page.getByRole('switch', { name: securityLabels[os] })).toBeChecked();
+            const idle = page.getByRole('combobox', { name: 'Lock after inactivity' });
+            await expect(idle).toBeEnabled();
+            await expect(idle).toHaveValue('never');
+            await expect(idle.locator('option')).toHaveText(['Never', '5 minutes', '15 minutes', '30 minutes', '60 minutes']);
+        });
+    }
+}
+
+test('on Linux there is no group Security', async ({ mount, page }) => {
+    await open(page, mount, 'linux', 'light', { view: unlocked });
+
+    await expect(page.getByRole('heading', { name: 'Security' })).toHaveCount(0);
+});
+
+test('the keyboard alone turns unlocking off, which disables the time and skips it', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', { view: ready });
+    await keyboardReady(page);
+    const unlockSwitch = page.getByRole('switch', { name: securityLabels.macos });
+    await unlockSwitch.focus();
+
+    await page.keyboard.press('Space');
+    await expect(unlockSwitch).not.toBeChecked();
+    await expect(page.getByRole('combobox', { name: 'Lock after inactivity' })).toBeDisabled();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('textbox', { name: 'ILM address' })).toBeFocused();
+});
+
+test('the keyboard alone reaches the time and chooses it', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'light', { view: ready });
+    await keyboardReady(page);
+    await page.getByRole('switch', { name: securityLabels.windows }).focus();
+
+    await page.keyboard.press('Tab');
+    const idle = page.getByRole('combobox', { name: 'Lock after inactivity' });
+    await expect(idle).toBeFocused();
+    await idle.selectOption('15');
+    await expect(idle).toHaveValue('15');
+});
+
+test('a time set by the organization is locked, shown in minutes and says so', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'dark', { view: { ...ready, lockAfterIdle: { value: 7, locked: true } } });
+
+    const idle = page.getByRole('combobox', { name: 'Lock after inactivity' });
+    await expect(idle).toBeDisabled();
+    await expect(idle).toHaveValue('7');
+    await expect(idle).toHaveAccessibleDescription('Managed by your organization');
+});
+
+for (const scheme of ['light', 'dark'] as const) {
+    test(`on windows in ${scheme} Windows Hello not set up disables both rows and says how to set it up`, async ({ mount, page }) => {
+        await open(page, mount, 'windows', scheme, { view: { ...ready, unlock: 'notSetUp' } });
+
+        const unlockSwitch = page.getByRole('switch', { name: securityLabels.windows });
+        await expect(unlockSwitch).toBeDisabled();
+        await expect(unlockSwitch).not.toBeChecked();
+        await expect(unlockSwitch).toHaveAccessibleDescription('Set up Windows Hello to lock Identity Manager.');
+        await expect(page.getByRole('combobox', { name: 'Lock after inactivity' })).toBeDisabled();
+    });
+}
+
+test('on macOS without a password both rows are disabled and say how to set one', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', { view: { ...ready, unlock: 'notSetUp' } });
+
+    await expect(page.getByRole('switch', { name: securityLabels.macos })).toHaveAccessibleDescription(
+        'Set a password for this Mac to lock Identity Manager.',
+    );
+    await expect(page.getByRole('combobox', { name: 'Lock after inactivity' })).toBeDisabled();
 });

@@ -227,6 +227,13 @@ pub fn release<R: Runtime>(app: &AppHandle<R>, icon: Option<PhysicalRect<i32, u3
     }
 }
 
+/// Hides the summary.
+pub fn hide<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(LABEL) {
+        let _ = window.hide();
+    }
+}
+
 /// Shows the summary at the top-right corner of the work area, as it opens where no tray rectangle is known.
 pub fn show_in_corner<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window(LABEL) {

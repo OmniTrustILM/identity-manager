@@ -4,10 +4,12 @@ import { SelectIcon } from '../../design-system/icons';
 type SelectProps<T extends string> = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange'> & {
     value: T;
     options: readonly T[];
+    /** The text shown for an option; the option itself when absent. */
+    label?: (option: T) => string;
     onChange: (value: T) => void;
 };
 
-export function Select<T extends string>({ value, options, onChange, ...rest }: Readonly<SelectProps<T>>) {
+export function Select<T extends string>({ value, options, label = String, onChange, ...rest }: Readonly<SelectProps<T>>) {
     return (
         <span className="relative inline-flex items-center has-disabled:opacity-disabled">
             <select
@@ -18,7 +20,7 @@ export function Select<T extends string>({ value, options, onChange, ...rest }: 
             >
                 {options.map((option) => (
                     <option key={option} value={option}>
-                        {option}
+                        {label(option)}
                     </option>
                 ))}
             </select>

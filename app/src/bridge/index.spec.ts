@@ -11,6 +11,7 @@ import {
     getSettings,
     hideSummary,
     onOpenSection,
+    onSignInChoices,
     onSessionChanged,
     openMainWindow,
     pendingSection,
@@ -18,8 +19,10 @@ import {
     reportReady,
     setSetting,
     signIn,
+    signInAgain,
     signInWithCertificate,
     signOut,
+    unlock,
     windowLabel,
 } from './index';
 
@@ -216,6 +219,40 @@ describe('bridge', () => {
         await emit('session-changed', { state: 'starting' });
 
         expect(views).toEqual([signedOut]);
+    });
+
+    it('unlock calls unlock and returns the real view', async () => {
+        const calls: string[] = [];
+        mockIPC((command) => {
+            calls.push(command);
+            return { state: 'starting' };
+        });
+
+        await expect(unlock()).resolves.toEqual({ state: 'starting' });
+        expect(calls).toEqual(['unlock']);
+    });
+
+    it('signInAgain calls sign_in_again and returns the providers to choose from', async () => {
+        const calls: string[] = [];
+        mockIPC((command) => {
+            calls.push(command);
+            return [{ id: '0', name: 'Company SSO' }];
+        });
+
+        await expect(signInAgain()).resolves.toEqual([{ id: '0', name: 'Company SSO' }]);
+        expect(calls).toEqual(['sign_in_again']);
+    });
+
+    it('onSignInChoices passes the providers of each sign-in-choices event until it is unlistened', async () => {
+        mockIPC(() => undefined, { shouldMockEvents: true });
+        const choices: unknown[] = [];
+
+        const unlisten = await onSignInChoices((providers) => choices.push(providers));
+        await emit('sign-in-choices', [{ id: '0', name: 'Company SSO' }]);
+        unlisten();
+        await emit('sign-in-choices', []);
+
+        expect(choices).toEqual([[{ id: '0', name: 'Company SSO' }]]);
     });
 
     it('windowLabel returns the label of the current window', () => {

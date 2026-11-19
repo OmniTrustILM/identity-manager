@@ -10,6 +10,8 @@ the person sees its value but cannot change it.
 | `StartAtLogin` | boolean                      | `true`  | Start Identity Manager when the person signs in.                  |
 | `LogLevel`     | string: `error`, `warn`, `info`, `debug` | `info`  | How much the application writes to its log.                       |
 | `IlmUrl`       | string                       | none    | The address of your ILM, for example `https://ilm.example.com`. HTTPS only; a path is allowed, a trailing slash, query, fragment or user name is not. |
+| `RequireUnlock` | boolean                    | `true`  | Ask the system to confirm the person after a start with a saved sign-in and after the computer locks. Ignored where the system cannot confirm the person. |
+| `LockAfterIdle` | integer, 1 to 1440         | none    | Also lock after this many minutes without input. Without it there is no idle lock. Has an effect only while `RequireUnlock` is on. |
 | `SignInProvider` | string                     | none    | The name of the identity provider to sign in with, as your ILM publishes it. When your ILM does not publish that name, the person chooses. Not shown in Settings. |
 | `SignInMethod` | string: `oauth`, `certificate` | none    | The way of signing in that your organization allows. `oauth` offers only the identity providers; `certificate` offers only a certificate on the computer. Without it both are offered. Not shown in Settings. |
 
@@ -18,6 +20,7 @@ How each source stores the types:
 | Type    | macOS (property list) | Windows (registry)      | Linux (JSON)      |
 |---------|-----------------------|-------------------------|-------------------|
 | boolean | `<true/>`, `<false/>` | `REG_DWORD` `1` or `0`  | `true`, `false`   |
+| integer | `<integer>`           | `REG_DWORD`             | number            |
 | string  | `<string>`            | `REG_SZ`                | string            |
 
 ## Sources
@@ -41,7 +44,7 @@ logs a warning. This keeps a file an ordinary user can write from acting as poli
 
 ### Invalid values
 
-A value of the wrong type, an unknown name, an invalid `LogLevel`, an invalid `IlmUrl`, an invalid `SignInMethod` or an empty `SignInProvider` is ignored with a warning in the log. The key stays
+A value of the wrong type, an unknown name, an invalid `LogLevel`, an invalid `IlmUrl`, an invalid `SignInMethod`, a `LockAfterIdle` outside 1 to 1440 or an empty `SignInProvider` is ignored with a warning in the log. The key stays
 unlocked, and the other keys of the same source still apply.
 
 ## What the person sees
@@ -59,7 +62,7 @@ The person's own choices are stored in `settings.json` in the application's conf
 | Windows | `%APPDATA%\com.omnitrust.identity-manager\settings.json`                  |
 | Linux   | `~/.config/com.omnitrust.identity-manager/settings.json`                  |
 
-Its keys are `startAtLogin` (boolean), `logLevel` (string) and `ilmUrl` (string). `SignInProvider` and `SignInMethod` have no key here: only policy sets them. The file also keeps `signInCertificate`, the ILM address and the fingerprint of the certificate last used to sign in there; it is used only while that address is the ILM address.
+Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `requireUnlock` (boolean) and `lockAfterIdle` (number of minutes). `SignInProvider` and `SignInMethod` have no key here: only policy sets them. The file also keeps `signInCertificate`, the ILM address and the fingerprint of the certificate last used to sign in there; it is used only while that address is the ILM address.
 
 ## Examples
 
@@ -69,4 +72,4 @@ Its keys are `startAtLogin` (boolean), `logLevel` (string) and `ilmUrl` (string)
 - Linux: [policy/policy.json](policy/policy.json); install it as root:
   `sudo install -d -m 0755 /etc/identity-manager && sudo install -m 0644 policy.json /etc/identity-manager/policy.json`.
 
-All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `SignInProvider` to `Corporate` and `SignInMethod` to `certificate`.
+All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `RequireUnlock` to true, `LockAfterIdle` to 15, `SignInProvider` to `Corporate` and `SignInMethod` to `certificate`.

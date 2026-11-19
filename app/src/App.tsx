@@ -5,7 +5,8 @@ import { Shell } from './components/Shell/Shell';
 import { TraySummary } from './components/TraySummary/TraySummary';
 import { settingsSection, visibleSections } from './sections';
 import { Settings } from './sections/Settings';
-import { SignIn } from './sections/SignIn';
+import { SignIn, Unreachable } from './sections/SignIn';
+import { Unlock } from './sections/Unlock';
 import { useSession } from './session';
 import { strings } from './strings';
 import { followSystemScheme } from './theme';
@@ -22,6 +23,10 @@ function Main({ platform }: Readonly<{ platform: Platform }>) {
         case 'signedOut':
         case 'signingIn':
             return <SignIn view={view} />;
+        case 'unreachable':
+            return <Unreachable view={view} />;
+        case 'locked':
+            return <Unlock automatic />;
         default:
             return null;
     }

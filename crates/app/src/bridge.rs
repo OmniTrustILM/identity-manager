@@ -402,7 +402,7 @@ mod tests {
         );
     }
 
-    const SESSION_COMMANDS: [&str; 8] = [
+    const SESSION_COMMANDS: [&str; 10] = [
         "session",
         "connect",
         "sign_in",
@@ -411,13 +411,21 @@ mod tests {
         "reopen_browser",
         "cancel_sign_in",
         "sign_out",
+        "unlock",
+        "sign_in_again",
     ];
-    const SETTINGS_WINDOW_SESSION_COMMANDS: [&str; 2] = ["session", "sign_out"];
+    const SETTINGS_WINDOW_SESSION_COMMANDS: [&str; 3] = ["session", "sign_out", "unlock"];
+    const SUMMARY_SESSION_COMMANDS: [&str; 3] = ["session", "unlock", "sign_in_again"];
 
     #[test]
-    fn the_summary_is_refused_every_session_command() {
+    fn the_summary_may_call_only_the_session_unlock_and_sign_in_again_commands() {
         for command in SESSION_COMMANDS {
-            assert!(refused_by_capabilities(&summary(command)), "{command}");
+            let answer = summary(command);
+            assert_eq!(
+                refused_by_capabilities(&answer),
+                !SUMMARY_SESSION_COMMANDS.contains(&command),
+                "{command}: {answer:?}"
+            );
         }
     }
 
@@ -430,7 +438,8 @@ mod tests {
     }
 
     #[test]
-    fn the_settings_window_may_call_only_the_session_and_sign_out_commands_and_only_on_macos() {
+    fn the_settings_window_may_call_only_the_session_sign_out_and_unlock_commands_and_only_on_macos()
+     {
         for command in SESSION_COMMANDS {
             let answer = call_in("settings", LOCAL_ORIGIN, command, serde_json::json!({}));
             let granted =
@@ -473,6 +482,26 @@ mod tests {
                 "allow-reopen-browser",
                 "allow-cancel-sign-in",
                 "allow-sign-out",
+                "allow-unlock",
+                "allow-sign-in-again",
+                "core:event:allow-listen",
+                "core:event:allow-unlisten"
+            ])
+        );
+    }
+
+    #[test]
+    fn the_summary_session_capability_grants_three_session_commands_and_event_listening() {
+        let file = include_str!("../capabilities/summary-session.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["windows"], serde_json::json!(["summary"]));
+        assert!(parsed.get("platforms").is_none());
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!([
+                "allow-session",
+                "allow-unlock",
+                "allow-sign-in-again",
                 "core:event:allow-listen",
                 "core:event:allow-unlisten"
             ])
@@ -491,6 +520,7 @@ mod tests {
             serde_json::json!([
                 "allow-session",
                 "allow-sign-out",
+                "allow-unlock",
                 "core:event:allow-listen",
                 "core:event:allow-unlisten"
             ])

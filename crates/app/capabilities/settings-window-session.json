@@ -1,12 +1,13 @@
 {
     "$schema": "../gen/schemas/desktop-schema.json",
     "identifier": "settings-window-session",
-    "description": "On macOS the Settings window may read the sign-in, sign out and listen for its changes, and nothing else.",
+    "description": "On macOS the Settings window may read the sign-in, sign out, unlock and listen for its changes, and nothing else.",
     "windows": ["settings"],
     "platforms": ["macOS"],
     "permissions": [
         "allow-session",
         "allow-sign-out",
+        "allow-unlock",
         "core:event:allow-listen",
         "core:event:allow-unlisten"
     ]

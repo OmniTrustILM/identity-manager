@@ -11,7 +11,7 @@ use tokio::task::JoinHandle;
 use super::tests::{LOG, TestSettings, World, capture_logs};
 use super::{
     CallError, Connection, ConnectionSettings, Credential, Item, MemoryStore, PersonView,
-    ProviderChoice, RefreshStore, Session, SessionView, SignInKind, State, lock,
+    ProviderChoice, RefreshStore, Session, SessionView, SignInAgain, SignInKind, State, lock,
 };
 use crate::http::client_with_identity_trusting;
 use crate::identity::Candidate as FoundCertificate;
@@ -207,6 +207,7 @@ impl CertWorld {
             },
             allowed_listings: vec!["certificates".into()],
             certificate: Some(client.fingerprint().short()),
+            unreachable: false,
         }
     }
 
@@ -215,6 +216,16 @@ impl CertWorld {
             address: Some(self.address()),
             locked: true,
             problem: problem.map(str::to_owned),
+            again: false,
+        }
+    }
+
+    fn ended(&self, problem: &str) -> SessionView {
+        SessionView::SignedOut {
+            address: Some(self.address()),
+            locked: true,
+            problem: Some(problem.to_owned()),
+            again: true,
         }
     }
 
@@ -702,7 +713,7 @@ async fn a_401_signs_out_after_one_request() {
     assert_eq!(world.call_things().await, Err(CallError::SignedOut));
 
     assert_eq!(world.requests_for("/api/v1/things"), 1);
-    assert_eq!(world.session.view(), world.signed_out(Some(UNKNOWN)));
+    assert_eq!(world.session.view(), world.ended(UNKNOWN));
     assert_eq!(world.remembered(), None);
     assert_eq!(world.call_things().await, Err(CallError::SignedOut));
     assert_eq!(world.requests_for("/api/v1/things"), 1);
@@ -754,6 +765,7 @@ async fn a_network_failure_keeps_the_session() {
             },
             allowed_listings: vec!["certificates".into()],
             certificate: Some(jane.fingerprint().short()),
+            unreachable: false,
         }
     );
     assert_eq!(world.remembered(), Some(jane.fingerprint()));
@@ -863,11 +875,7 @@ async fn start_prefers_a_saved_provider_sign_in() {
 
     let view = world.session.start().await;
 
-    let SessionView::SignedOut {
-        problem: Some(problem),
-        ..
-    } = view
-    else {
+    let SessionView::Unreachable { problem, .. } = view else {
         panic!("the provider sign-in was tried and failed");
     };
     assert!(problem.starts_with("Could not renew the sign-in"));
@@ -918,7 +926,7 @@ async fn start_with_a_certificate_ilm_no_longer_knows_forgets_it() {
     .await;
     world.remember(&jane);
 
-    assert_eq!(world.session.start().await, world.signed_out(Some(UNKNOWN)));
+    assert_eq!(world.session.start().await, world.ended(UNKNOWN));
     assert_eq!(world.remembered(), None);
     assert_eq!(world.server.requests().len(), 1);
 }
@@ -964,7 +972,13 @@ async fn start_keeps_the_certificate_when_ilm_cannot_be_reached() {
 
     let view = world.session.start().await;
 
-    assert_eq!(view, world.signed_out(Some("ILM cannot be reached.")));
+    assert_eq!(
+        view,
+        SessionView::Unreachable {
+            address: world.address(),
+            problem: "ILM cannot be reached.".into()
+        }
+    );
     assert_eq!(world.remembered(), Some(jane.fingerprint()));
 }
 
@@ -1095,7 +1109,7 @@ async fn a_certificate_that_expired_during_the_session_ends_it_without_a_request
     assert_eq!(world.requests_for("/api/v1/things"), 0);
     assert_eq!(
         world.session.view(),
-        world.signed_out(Some("The certificate you signed in with has expired."))
+        world.ended("The certificate you signed in with has expired.")
     );
     assert_eq!(world.remembered(), None);
 }
@@ -1138,7 +1152,7 @@ async fn ending_the_sign_in_with_one_certificate_keeps_a_newer_remembered_one() 
         .end_certificate(&held.generation, UNKNOWN, &held.fingerprint)
         .await;
 
-    assert_eq!(world.session.view(), world.signed_out(Some(UNKNOWN)));
+    assert_eq!(world.session.view(), world.ended(UNKNOWN));
     assert_eq!(world.remembered(), Some(john.fingerprint()));
 }
 
@@ -1189,4 +1203,87 @@ async fn a_chooser_opened_for_an_address_that_has_since_changed_does_not_present
         }
     ));
     assert!(world.server.requests().is_empty());
+}
+
+#[tokio::test]
+async fn a_check_that_ilm_refuses_ends_the_sign_in_with_a_way_to_repeat_it() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let world = CertWorld::of(&ca, &jane).await;
+    world.sign_in(&jane).await;
+    world.server.allow(john.fingerprint());
+
+    assert_eq!(world.session.check().await, world.ended(UNKNOWN));
+    assert_eq!(world.session.check().await, world.ended(UNKNOWN));
+}
+
+#[tokio::test]
+async fn a_check_that_cannot_reach_ilm_flags_the_sign_in_and_keeps_it() {
+    let ca = TestCa::new();
+    let jane = ca.issue(Issue::client("Jane"));
+    let mut world = CertWorld::of(&ca, &jane).await;
+    world.sign_in(&jane).await;
+    world.stop_server(&ca, &jane).await;
+
+    let SessionView::SignedIn { unreachable, .. } = world.session.check().await else {
+        panic!("the sign-in stays");
+    };
+
+    assert!(unreachable);
+    assert_eq!(world.remembered(), Some(jane.fingerprint()));
+}
+
+#[tokio::test]
+async fn a_retry_signs_in_with_the_certificate_once_ilm_answers() {
+    let ca = TestCa::new();
+    let jane = ca.issue(Issue::client("Jane"));
+    let mut world = CertWorld::of(&ca, &jane).await;
+    world.remember(&jane);
+    world.stop_server(&ca, &jane).await;
+    assert!(matches!(
+        world.session.start().await,
+        SessionView::Unreachable { .. }
+    ));
+    world.settings.connection.lock().unwrap().address = IlmUrl::parse(&world.server.url()).ok();
+
+    let view = world.session.retry().await;
+
+    assert_eq!(view, world.signed_in(&jane));
+}
+
+#[tokio::test]
+async fn signing_in_again_after_a_certificate_ended_offers_the_certificate() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let world = CertWorld::of(&ca, &jane).await;
+    world.sign_in(&jane).await;
+    world.server.allow(john.fingerprint());
+    world.session.check().await;
+
+    let again = world.session.sign_in_again(|_| ()).await;
+
+    assert_eq!(again, SignInAgain::Choose(vec![entry()]));
+    assert_eq!(world.session.view(), world.ended(UNKNOWN));
+}
+
+#[tokio::test]
+async fn a_start_with_a_certificate_that_gets_no_useful_answer_keeps_it_and_retries_to_signed_in() {
+    let ca = TestCa::new();
+    let jane = ca.issue(Issue::client("Jane"));
+    let world = CertWorld::of(&ca, &jane).await;
+    world.remember(&jane);
+    world.server.fail_with(Some(502));
+
+    let view = world.session.start().await;
+
+    assert_eq!(
+        view,
+        SessionView::Unreachable {
+            address: world.address(),
+            problem: "ILM answered with an error (502).".into()
+        }
+    );
+    assert_eq!(world.remembered(), Some(jane.fingerprint()));
+    world.server.fail_with(None);
+    assert_eq!(world.session.retry().await, world.signed_in(&jane));
 }

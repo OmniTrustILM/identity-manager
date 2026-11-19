@@ -357,6 +357,3760 @@
         "mode": "dark"
       },
       "width": 340
+    },
+    {
+      "type": "frame",
+      "id": "r2X0r",
+      "x": 0,
+      "y": 400,
+      "name": "TraySummary/macOS/signed in",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "ztUPe",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "qv6EO",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "XgLjL",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "R41BdC",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "V2CIgB",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "KmBbU",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "OKBuD",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "XLUym",
+              "name": "Icon circle-check",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-check",
+              "library": "lucide",
+              "fill": "$color.status-fine"
+            },
+            {
+              "type": "frame",
+              "id": "xS7SZ",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "rR2uq",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "q7uf7",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "fZPVM",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "xwXWL",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "q0yi6w",
+      "x": 0,
+      "y": 640,
+      "name": "TraySummary/macOS/cannot reach",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "SZi9Y",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "F2PxL",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "JYflw",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "HsHYa",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "xSy7v",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "MMxJf",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "PkJzb",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "FDDw7",
+              "name": "Icon wifi-off",
+              "width": 16,
+              "height": 16,
+              "icon": "wifi-off",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "VBh7v",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dFl9M",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Cannot reach develop-02.otilm.com",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "IKJ05",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Q7AEan",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "yxMa5",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "P4b4ah",
+      "x": 0,
+      "y": 880,
+      "name": "TraySummary/macOS/signed out",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "BUzpq",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "K3wdA4",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "OPKqu",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "UNAZw",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "W8UZRa",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "jSb0e",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "zODjN",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "N14Kx7",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-bad"
+            },
+            {
+              "type": "frame",
+              "id": "fbFZY",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Y4IED8",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "rjxZg",
+                  "name": "Problem",
+                  "fill": "$color.status-bad",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Your sign-in has ended.",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "dDNLk",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "iQ7Yj",
+              "name": "Button Sign in again",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "aiCDw",
+                  "name": "Sign in again",
+                  "fill": "$color.accent-text",
+                  "content": "Sign in again",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "s1whO",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "q2iyyP",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "KkA2b",
+      "x": 0,
+      "y": 1120,
+      "name": "TraySummary/macOS/locked",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "fI2jc",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "MSuVs",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "WjMQQ",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "FoRMc",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hLZuy",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "V46xZh",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "DwF1m",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "dJnWi",
+              "name": "Icon lock",
+              "width": 16,
+              "height": 16,
+              "icon": "lock",
+              "library": "lucide",
+              "fill": "$color.text-secondary"
+            },
+            {
+              "type": "frame",
+              "id": "y13Opw",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "kp5rF",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mGscS",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "C6Ktjl",
+              "name": "Button Unlock",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "VE091",
+                  "name": "Unlock",
+                  "fill": "$color.accent-text",
+                  "content": "Unlock",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ozNty",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ojwNQ",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "r0hVcN",
+      "x": 380,
+      "y": 400,
+      "name": "TraySummary/Windows/signed in",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "y9n6zC",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "sCDlM",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "GaNt0",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wNQ8T",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "csbPp",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "ZUkDc",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Nvc8O",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "cJjOx",
+              "name": "Icon circle-check",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-check",
+              "library": "lucide",
+              "fill": "$color.status-fine"
+            },
+            {
+              "type": "frame",
+              "id": "kZTaC",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "hVBSk",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "f48Pg",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "vsIwh",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "q81olZ",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Z6c9qx",
+      "x": 380,
+      "y": 640,
+      "name": "TraySummary/Windows/cannot reach",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "B2VH2g",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "x9l6Sj",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "OX6KN",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "JSgZE",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "g5a4Y",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "EBGa5",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "b3dhl5",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "N55EUi",
+              "name": "Icon wifi-off",
+              "width": 16,
+              "height": 16,
+              "icon": "wifi-off",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "mt6Cu",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Pfb9j",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Cannot reach develop-02.otilm.com",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "L2JOwC",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "FwSRU",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "nu0lb",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Edj5z",
+      "x": 380,
+      "y": 880,
+      "name": "TraySummary/Windows/signed out",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "u57nNP",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "V6m9gi",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "lE3Xr",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "P19U9n",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "I91to",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "fgzyX",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "iYkOf",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "sWdvV",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-bad"
+            },
+            {
+              "type": "frame",
+              "id": "W7JDRX",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "a8KZB",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "J2rC2",
+                  "name": "Problem",
+                  "fill": "$color.status-bad",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Your sign-in has ended.",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Z8ZZh",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "RMZ1R",
+              "name": "Button Sign in again",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "IWSNf",
+                  "name": "Sign in again",
+                  "fill": "$color.accent-text",
+                  "content": "Sign in again",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "n8iVl",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "v3kmh6",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "BRrTk",
+      "x": 380,
+      "y": 1120,
+      "name": "TraySummary/Windows/locked",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "zgwPK",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "FetUZ",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "S1Ujxq",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "TIT3r",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "a14qf",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "GZpES",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "NniHJ",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "N49koP",
+              "name": "Icon lock",
+              "width": 16,
+              "height": 16,
+              "icon": "lock",
+              "library": "lucide",
+              "fill": "$color.text-secondary"
+            },
+            {
+              "type": "frame",
+              "id": "X3sSXj",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "j85aMQ",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "q1DFU",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "f6W6Se",
+              "name": "Button Unlock",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "kLre0",
+                  "name": "Unlock",
+                  "fill": "$color.accent-text",
+                  "content": "Unlock",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "vBs1u",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "EnbNV",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "iRHUj",
+      "x": 760,
+      "y": 400,
+      "name": "TraySummary/Linux/signed in",
+      "theme": {
+        "os": "linux",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "SUkUp",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "QtFLY",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "s3NjB",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "oxUEy",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "M3Dk6V",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "FOUiZ",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "w2PZCO",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "A2Cwtr",
+              "name": "Icon circle-check",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-check",
+              "library": "lucide",
+              "fill": "$color.status-fine"
+            },
+            {
+              "type": "frame",
+              "id": "TYC9e",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "j1jUFa",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "JJD6J",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "T5xlV",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Dg5ai",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "XQvRa",
+      "x": 760,
+      "y": 640,
+      "name": "TraySummary/Linux/cannot reach",
+      "theme": {
+        "os": "linux",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "Bj2oT",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "aptSt",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "U2Z8E",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "lQ0KH",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vDsAy",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "MaoCn",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "wgSAt",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "KRnos",
+              "name": "Icon wifi-off",
+              "width": 16,
+              "height": 16,
+              "icon": "wifi-off",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "lhlYA",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Hg78G",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Cannot reach develop-02.otilm.com",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "e1VyYT",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "WXOUm",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "rcT6R",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "ZDNEE",
+      "x": 760,
+      "y": 880,
+      "name": "TraySummary/Linux/signed out",
+      "theme": {
+        "os": "linux",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "RFeuY",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "aGM8P",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "S9o9R",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "B2wMT",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "I7kFEF",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "yQMrp",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "tnoWG",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "m4Qnw",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-bad"
+            },
+            {
+              "type": "frame",
+              "id": "IOgt9",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Wigih",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "YQLZe",
+                  "name": "Problem",
+                  "fill": "$color.status-bad",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Your sign-in has ended.",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "lFmut",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "gCwnz",
+              "name": "Button Sign in again",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "zaazu",
+                  "name": "Sign in again",
+                  "fill": "$color.accent-text",
+                  "content": "Sign in again",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wqrTs",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dU8re",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "cNtgY",
+      "x": 0,
+      "y": 1360,
+      "name": "TraySummary/macOS/signed in dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "yMlpY",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "fAfTC",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "BtYvY",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "D7Txi",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "X8xKPp",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "cs1Ch",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Xxvt4",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "JeRM8",
+              "name": "Icon circle-check",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-check",
+              "library": "lucide",
+              "fill": "$color.status-fine"
+            },
+            {
+              "type": "frame",
+              "id": "qT5yQ",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "xt5Pr",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ePRMh",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "JUY4d",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "y3UpM",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Z5ei75",
+      "x": 0,
+      "y": 1600,
+      "name": "TraySummary/macOS/cannot reach dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "D1NV6",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "o9KYRc",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "oLcUx",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "T1Ap78",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vgc2Y",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "FAI93",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ICWaC",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "xZyJ5",
+              "name": "Icon wifi-off",
+              "width": 16,
+              "height": 16,
+              "icon": "wifi-off",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "KbQgP",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "KdWRE",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Cannot reach develop-02.otilm.com",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "DvfpT",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "DQBmm",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ks3OK",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "ULax5",
+      "x": 0,
+      "y": 1840,
+      "name": "TraySummary/macOS/signed out dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "wnl4n",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "O7aI94",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "s70c1",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OYGlX",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "e38ub",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "V3vai",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "bSWRP",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "TFEYd",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-bad"
+            },
+            {
+              "type": "frame",
+              "id": "VH3hN",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "QMjrn",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "KiRL2",
+                  "name": "Problem",
+                  "fill": "$color.status-bad",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Your sign-in has ended.",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "RlEqy",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "uhSmQ",
+              "name": "Button Sign in again",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "z6O9L",
+                  "name": "Sign in again",
+                  "fill": "$color.accent-text",
+                  "content": "Sign in again",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "R8FiL",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "a3Azv",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "U4Gem",
+      "x": 0,
+      "y": 2080,
+      "name": "TraySummary/macOS/locked dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "N8PZ3v",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Wrh5I",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "yXBPJ",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Mf7bi",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "roJtR",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "bFfZW",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Vg4GR",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "EqXwA",
+              "name": "Icon lock",
+              "width": 16,
+              "height": 16,
+              "icon": "lock",
+              "library": "lucide",
+              "fill": "$color.text-secondary"
+            },
+            {
+              "type": "frame",
+              "id": "wLTe9",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "XtsNP",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "BGVpK",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "mutEy",
+              "name": "Button Unlock",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "o0hGl",
+                  "name": "Unlock",
+                  "fill": "$color.accent-text",
+                  "content": "Unlock",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "uavJf",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tl2So",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "X3K6vS",
+      "x": 380,
+      "y": 1360,
+      "name": "TraySummary/Windows/signed in dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "Qnk4U",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "L9wg0d",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "ay5Uq",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "T8lqoZ",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mIPLz",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "PUiva",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "m33ei",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "TPX4L",
+              "name": "Icon circle-check",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-check",
+              "library": "lucide",
+              "fill": "$color.status-fine"
+            },
+            {
+              "type": "frame",
+              "id": "b68eIg",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sHypy",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "B4Mjef",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "h499tW",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RNGPG",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "DnOCf",
+      "x": 380,
+      "y": 1600,
+      "name": "TraySummary/Windows/cannot reach dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "mEgTa",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "T8sjAl",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "FuelQ",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "v9mQBZ",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "HTKhm",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "XjhER",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xt125",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "Dy5d5",
+              "name": "Icon wifi-off",
+              "width": 16,
+              "height": 16,
+              "icon": "wifi-off",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "w3y0Ko",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "UWYU3",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Cannot reach develop-02.otilm.com",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "halNo",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "M53t4",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "W8Z5p",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "CpyVS",
+      "x": 380,
+      "y": 1840,
+      "name": "TraySummary/Windows/signed out dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "btnDS",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "a1pEXk",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "OiARI",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "b4UGI",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sUPuc",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "KlHEk",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Ll5FH",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "z4UDj",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-bad"
+            },
+            {
+              "type": "frame",
+              "id": "El5QT",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "y9Od6",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Vjn5p",
+                  "name": "Problem",
+                  "fill": "$color.status-bad",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Your sign-in has ended.",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "zp1jE",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "tXnL1",
+              "name": "Button Sign in again",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "wNPDa",
+                  "name": "Sign in again",
+                  "fill": "$color.accent-text",
+                  "content": "Sign in again",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ITfeu",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "HvtOn",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "TNGkT",
+      "x": 380,
+      "y": 2080,
+      "name": "TraySummary/Windows/locked dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "D8Se6D",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "gRLWA",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "izjvC",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "WpRCs",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "aTKm3",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "gFGED",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "h1q05v",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "eGXTr",
+              "name": "Icon lock",
+              "width": 16,
+              "height": 16,
+              "icon": "lock",
+              "library": "lucide",
+              "fill": "$color.text-secondary"
+            },
+            {
+              "type": "frame",
+              "id": "E9qtgL",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "o3CtRI",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Identity Manager is locked",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "EIwid",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "WLQBO",
+              "name": "Button Unlock",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "D5Gto",
+                  "name": "Unlock",
+                  "fill": "$color.accent-text",
+                  "content": "Unlock",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Q0oS4",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "a9JWFC",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "z4Fvj4",
+      "x": 760,
+      "y": 1360,
+      "name": "TraySummary/Linux/signed in dark",
+      "theme": {
+        "os": "linux",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "O44H9z",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "DF8ud",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "r9GjN",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "v0myvz",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "UXs7p",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "BaOw9",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "IUeDb",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "E07nV",
+              "name": "Icon circle-check",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-check",
+              "library": "lucide",
+              "fill": "$color.status-fine"
+            },
+            {
+              "type": "frame",
+              "id": "DPzbP",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "q1volP",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Kdh4a",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "z7pTaG",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Q6JhCB",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "FPUqS",
+      "x": 760,
+      "y": 1600,
+      "name": "TraySummary/Linux/cannot reach dark",
+      "theme": {
+        "os": "linux",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "pPhvL",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "NR7cN",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "pOaz0",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GfDew",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "c3t0A",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "ozitg",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Z7wTz0",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "vTPN0",
+              "name": "Icon wifi-off",
+              "width": 16,
+              "height": 16,
+              "icon": "wifi-off",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "DOWbh",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "rtOTz",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Cannot reach develop-02.otilm.com",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "u6WB7",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Ql1zR",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "o3pC5B",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "bykzv",
+      "x": 760,
+      "y": 1840,
+      "name": "TraySummary/Linux/signed out dark",
+      "theme": {
+        "os": "linux",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "gIymL",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "WsV8X",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "X12gzX",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mEbyy",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "WJlC2",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "kgjkh",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "TWgXI",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "CwqT6",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-bad"
+            },
+            {
+              "type": "frame",
+              "id": "r5z83K",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "U2taV",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "jdRhW",
+                  "name": "Problem",
+                  "fill": "$color.status-bad",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Your sign-in has ended.",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "f3CiIT",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "S6pCg",
+              "name": "Button Sign in again",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "HiiWx",
+                  "name": "Sign in again",
+                  "fill": "$color.accent-text",
+                  "content": "Sign in again",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "HHp8l",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.surface",
+              "cornerRadius": "$radius.control",
+              "stroke": "$color.separator",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "MzhsC",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "themes": {

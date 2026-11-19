@@ -1,7 +1,8 @@
 //! The Windows source: the values of a registry key.
 
 use super::{
-    ILM_URL, LOG_LEVEL, PolicyValue, RawMap, SIGN_IN_METHOD, SIGN_IN_PROVIDER, START_AT_LOGIN,
+    ILM_URL, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUIRE_UNLOCK, RawMap, SIGN_IN_METHOD,
+    SIGN_IN_PROVIDER, START_AT_LOGIN,
 };
 #[cfg(windows)]
 use crate::settings::Layer;
@@ -62,20 +63,24 @@ pub enum RegValue {
     Other,
 }
 
-/// `REG_DWORD` 0 and 1 are booleans, other numbers stay integers, `REG_SZ` is text. Value names ignore case, as
+/// `REG_DWORD` 0 and 1 are booleans, other numbers stay integers (`LockAfterIdle` is always a number), `REG_SZ` is text. Value names ignore case, as
 /// they do in the registry.
 pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> RawMap {
     values
         .into_iter()
         .map(|(name, value)| {
+            let name = known_name(name);
             let value = match value {
+                RegValue::Dword(number) if name == LOCK_AFTER_IDLE => {
+                    PolicyValue::Int(i64::from(number))
+                }
                 RegValue::Dword(0) => PolicyValue::Bool(false),
                 RegValue::Dword(1) => PolicyValue::Bool(true),
                 RegValue::Dword(number) => PolicyValue::Int(i64::from(number)),
                 RegValue::Sz(text) => PolicyValue::Text(text),
                 RegValue::Other => PolicyValue::Other,
             };
-            (known_name(name), value)
+            (name, value)
         })
         .collect()
 }
@@ -85,6 +90,8 @@ fn known_name(name: String) -> String {
         START_AT_LOGIN,
         LOG_LEVEL,
         ILM_URL,
+        REQUIRE_UNLOCK,
+        LOCK_AFTER_IDLE,
         SIGN_IN_PROVIDER,
         SIGN_IN_METHOD,
     ]
@@ -146,6 +153,23 @@ mod tests {
             layer.sign_in_method,
             Some(crate::settings::SignInMethod::Certificate)
         );
+    }
+
+    #[test]
+    fn the_unlock_values_reach_the_layer() {
+        for (minutes, expected) in [(1, 1), (90, 90)] {
+            let layer = to_layer(
+                &parse(vec![
+                    ("requireunlock", RegValue::Dword(0)),
+                    ("LockAfterIdle", RegValue::Dword(minutes)),
+                ]),
+                "test",
+            );
+            assert_eq!(layer.require_unlock, Some(false));
+            assert_eq!(layer.lock_after_idle.map(|m| m.get()), Some(expected));
+        }
+        let layer = to_layer(&parse(vec![("LockAfterIdle", RegValue::Dword(0))]), "test");
+        assert_eq!(layer.lock_after_idle, None);
     }
 
     #[test]

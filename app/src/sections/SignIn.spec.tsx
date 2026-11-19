@@ -1,15 +1,16 @@
+import { emit } from '@tauri-apps/api/event';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import type { CertificateChoice, ProviderChoice, SessionView } from '../bridge';
 import { strings } from '../strings';
-import { SignIn } from './SignIn';
+import { SignIn, Unreachable } from './SignIn';
 
 type Waiting = Extract<SessionView, { state: 'signingIn' }>;
 type Idle = Extract<SessionView, { state: 'signedOut' }>;
 
-const idle: Idle = { state: 'signedOut', address: null, locked: false, problem: null };
+const idle: Idle = { state: 'signedOut', address: null, locked: false, problem: null, again: false };
 const managed: Idle = { ...idle, address: 'https://ilm.example.com', locked: true };
 const waiting: Waiting = { state: 'signingIn', method: 'browser', provider: 'Company SSO' };
 const one: ProviderChoice[] = [{ id: '0', name: 'Company SSO' }];
@@ -34,10 +35,13 @@ afterEach(async () => {
 });
 
 function bridge(handler: (command: string, args: unknown) => unknown) {
-    mockIPC((command, args) => {
-        calls.push({ command, args });
-        return handler(command, args);
-    });
+    mockIPC(
+        (command, args) => {
+            calls.push({ command, args });
+            return handler(command, args);
+        },
+        { shouldMockEvents: true },
+    );
 }
 
 const render = (view: Idle | Waiting) => act(async () => root.render(<SignIn view={view} />));
@@ -465,4 +469,130 @@ test('a list that arrives after the step was left does nothing', async () => {
     await act(async () => finish([alex]));
 
     expect(commands()).toEqual(['connect', 'certificates']);
+});
+
+const ended: Idle = { ...idle, address: 'https://ilm.example.com', problem: 'Your sign-in has ended.', again: true };
+
+test('an ended sign-in says so with Sign in again as its primary button, focused', async () => {
+    await render(ended);
+
+    expect(heading()).toBe(strings.signedOutTitle);
+    expect(alerts()).toEqual(['Your sign-in has ended.']);
+    expect(buttons().map((candidate) => candidate.textContent)).toEqual([strings.signInAgain]);
+    expect(document.activeElement).toBe(button(strings.signInAgain));
+    expect(button(strings.signInAgain).classList.contains('bg-accent')).toBe(true);
+    expect(container.querySelector('input')).toBeNull();
+});
+
+test('an ended sign-in without a reason gives the usual one', async () => {
+    await render({ ...ended, problem: null });
+
+    expect(alerts()).toEqual([strings.signInEnded]);
+});
+
+test('Sign in again asks the application and waits for the browser flow when no choice is needed', async () => {
+    bridge(() => []);
+    await render(ended);
+
+    await press(strings.signInAgain);
+
+    expect(commands()).toEqual(['sign_in_again']);
+    expect(heading()).toBe(strings.signedOutTitle);
+});
+
+test('Sign in again shows the choice of providers the application returns', async () => {
+    bridge(() => several);
+    await render(ended);
+
+    await press(strings.signInAgain);
+
+    expect(heading()).toBe(strings.chooseTitle);
+    expect(buttons().map((candidate) => candidate.textContent)).toContain('Okta');
+});
+
+test('Sign in again shows why it was refused, including while locked', async () => {
+    bridge(() => Promise.reject('Unlock Identity Manager first.'));
+    await render(ended);
+
+    await press(strings.signInAgain);
+
+    expect(alerts()).toEqual(['Unlock Identity Manager first.']);
+});
+
+test('a refusal without a reason says the connection failed', async () => {
+    bridge(() => Promise.reject(''));
+    await render(ended);
+
+    await press(strings.signInAgain);
+
+    expect(alerts()).toEqual([strings.connectFailed]);
+});
+
+test('the choice of providers that the tray asked for shows in this window', async () => {
+    bridge(() => undefined);
+    await render(ended);
+
+    await act(async () => emit('sign-in-choices', several));
+
+    expect(heading()).toBe(strings.chooseTitle);
+});
+
+test('a choice of only a certificate that the tray asked for opens the certificate list', async () => {
+    bridge((command) => (command === 'certificates' ? [alex] : undefined));
+    await render(ended);
+
+    await act(async () => emit('sign-in-choices', [certificate]));
+
+    expect(heading()).toBe(strings.certificateTitle);
+});
+
+test('Back from a choice that was asked for returns to the ended sign-in', async () => {
+    bridge(() => undefined);
+    await render(ended);
+    await act(async () => emit('sign-in-choices', several));
+
+    await press(strings.back);
+
+    expect(heading()).toBe(strings.signedOutTitle);
+});
+
+const unreachable = { state: 'unreachable', address: 'https://ilm.example.com', problem: 'The connection timed out.' } as const;
+const renderUnreachable = () => act(async () => root.render(<Unreachable view={unreachable} />));
+
+test('unreachable shows the address and the problem, with Sign out as the way out, focused', async () => {
+    await renderUnreachable();
+
+    expect(heading()).toBe(strings.unreachableTitle);
+    expect(container.textContent).toContain('https://ilm.example.com');
+    expect(alerts()).toEqual(['The connection timed out.']);
+    expect(buttons().map((candidate) => candidate.textContent)).toEqual([strings.signOut]);
+    expect(document.activeElement).toBe(button(strings.signOut));
+    expect(button(strings.signOut).classList.contains('text-accent')).toBe(true);
+});
+
+test('Sign out from unreachable asks the application to sign out', async () => {
+    bridge(() => idle);
+    await renderUnreachable();
+
+    await press(strings.signOut);
+
+    expect(commands()).toEqual(['sign_out']);
+});
+
+test('Sign out from unreachable shows why it was refused', async () => {
+    bridge(() => Promise.reject('Unlock Identity Manager first.'));
+    await renderUnreachable();
+
+    await press(strings.signOut);
+
+    expect(alerts()).toEqual(['Unlock Identity Manager first.']);
+});
+
+test('a refused Sign out without a reason says the connection failed', async () => {
+    bridge(() => Promise.reject(''));
+    await renderUnreachable();
+
+    await press(strings.signOut);
+
+    expect(alerts()).toEqual([strings.connectFailed]);
 });

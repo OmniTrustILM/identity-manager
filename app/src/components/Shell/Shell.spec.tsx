@@ -97,13 +97,20 @@ test('the app information is required where it is read', async () => {
     window.removeEventListener('error', quiet);
 });
 
+const settingsView = {
+    startAtLogin: { value: true, locked: false },
+    logLevel: { value: 'info', locked: false },
+    requireUnlock: { value: true, locked: false },
+    lockAfterIdle: { value: null, locked: false },
+    unlock: 'unsupported',
+};
 const settingsEntry = () => container.querySelector('nav > div button') as HTMLElement | null;
 
 test.each([
     ['windows', 'Settings'],
     ['linux', 'Preferences'],
 ] as const)('on %s the sidebar ends with a %s entry that opens the page', async (platform, word) => {
-    mockIPC(() => ({ startAtLogin: { value: true, locked: false }, logLevel: { value: 'info', locked: false } }));
+    mockIPC(() => settingsView);
 
     await render(sections, platform, settingsSection(platform));
 
@@ -116,8 +123,6 @@ test.each([
 test('macOS has no Settings entry in the sidebar', () => {
     expect(settingsSection('macos')).toBeUndefined();
 });
-
-const settingsView = { startAtLogin: { value: true, locked: false }, logLevel: { value: 'info', locked: false } };
 
 /** Answers `pending_section` from a queue, one answer per call, `null` once it is empty. */
 function mockRequests(...answers: (string | null)[]) {

@@ -13240,6 +13240,1060 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "sr9NB",
+      "x": 4000,
+      "y": 0,
+      "name": "Sign in/Ended/macOS",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 520,
+      "height": 380,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "R6QGwS",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 52,
+          "padding": [
+            0,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "nQL6a",
+              "name": "Traffic lights",
+              "width": 60,
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "eSveL",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "HWIU4",
+                  "name": "Minimise",
+                  "fill": "#FEBC2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "qXx0Y",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "OFFty",
+              "name": "Title",
+              "fill": "$color.text-primary",
+              "content": "Identity Manager",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.title",
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "FP5Pd",
+              "name": "Balance",
+              "width": 60,
+              "height": 1
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Pj2y7",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "hG54v",
+              "name": "Column",
+              "width": 340,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "XaBMr",
+                  "name": "Signed out",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "IbdI1",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "l5n0iD",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Qhl2b",
+                      "name": "Sign-in ended problem",
+                      "fill": "$color.status-bad",
+                      "content": "Your sign-in has ended.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "eKDkG",
+                  "name": "Sign in again button",
+                  "width": "fill_container",
+                  "height": 32,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "x8Te4s",
+                      "name": "Sign in again",
+                      "fill": "$color.accent-text",
+                      "content": "Sign in again",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "mrPy6",
+      "x": 4620,
+      "y": 0,
+      "name": "Sign in/Ended/Windows",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 760,
+      "height": 440,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "Nj0eU",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "fiztq",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "K5E3K",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "OIWV3",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "NQwmP",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "vNZQh",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "GHjNK",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sso6T",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "d0jKPn",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "x1iflY",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "VvTey",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "CTvNc",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "k7Gu6G",
+              "name": "Column",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "YXyhh",
+                  "name": "Signed out",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "TXXgw",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "fBxFA",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "et13n",
+                      "name": "Sign-in ended problem",
+                      "fill": "$color.status-bad",
+                      "content": "Your sign-in has ended.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "qiKFl",
+                  "name": "Sign in again button",
+                  "width": "fill_container",
+                  "height": 36,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "DQykz",
+                      "name": "Sign in again",
+                      "fill": "$color.accent-text",
+                      "content": "Sign in again",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Tu3hA",
+      "x": 5440,
+      "y": 0,
+      "name": "Sign in/Ended/Linux",
+      "theme": {
+        "os": "linux",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 760,
+      "height": 440,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "N4j5K",
+          "name": "Header bar",
+          "width": "fill_container",
+          "height": 46,
+          "fill": "$color.titlebar",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "lHux8",
+              "name": "Title",
+              "fill": "$color.text-primary",
+              "content": "Identity Manager",
+              "fontFamily": "$font.family-preview",
+              "fontSize": 15,
+              "fontWeight": "700"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "HjTzy",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "bTR0m",
+              "name": "Column",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "NdQXy",
+                  "name": "Signed out",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "HUZZ1",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "uEZ44",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "IJeba",
+                      "name": "Sign-in ended problem",
+                      "fill": "$color.status-bad",
+                      "content": "Your sign-in has ended.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ID9E2",
+                  "name": "Sign in again button",
+                  "width": "fill_container",
+                  "height": 38,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "m3yos",
+                      "name": "Sign in again",
+                      "fill": "$color.accent-text",
+                      "content": "Sign in again",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "qiMZQ",
+      "x": 4000,
+      "y": 520,
+      "name": "Sign in/Ended/macOS dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 520,
+      "height": 380,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "Ho1xu",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 52,
+          "padding": [
+            0,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "uSpOS",
+              "name": "Traffic lights",
+              "width": 60,
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "ffMwK",
+                  "name": "Close",
+                  "fill": "#FF5F57",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "SbZg0",
+                  "name": "Minimise",
+                  "fill": "#FEBC2E",
+                  "width": 12,
+                  "height": 12
+                },
+                {
+                  "type": "ellipse",
+                  "id": "hSYuF",
+                  "name": "Zoom",
+                  "fill": "#28C840",
+                  "width": 12,
+                  "height": 12
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "v6bfM",
+              "name": "Title",
+              "fill": "$color.text-primary",
+              "content": "Identity Manager",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.title",
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "UwBrS",
+              "name": "Balance",
+              "width": 60,
+              "height": 1
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "z5vHqW",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "lk6Xw",
+              "name": "Column",
+              "width": 340,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "m5fPkp",
+                  "name": "Signed out",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "jXLOt",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "zHKnI",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Iek7m",
+                      "name": "Sign-in ended problem",
+                      "fill": "$color.status-bad",
+                      "content": "Your sign-in has ended.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "VSZbU",
+                  "name": "Sign in again button",
+                  "width": "fill_container",
+                  "height": 32,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "lX5zK",
+                      "name": "Sign in again",
+                      "fill": "$color.accent-text",
+                      "content": "Sign in again",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "JF6Ih",
+      "x": 4620,
+      "y": 520,
+      "name": "Sign in/Ended/Windows dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 760,
+      "height": 440,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "LykjG",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "cUV3z",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "lsAGS",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "q69JD",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qCaP8",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "fx35u",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "cG37W",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "H2i2XJ",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "AhFSw",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "kQfkS",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "DpJIf",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "W70yJb",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "UPlbB",
+              "name": "Column",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "a0hNbR",
+                  "name": "Signed out",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "sjCIU",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "ULSk7",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "jZx3z",
+                      "name": "Sign-in ended problem",
+                      "fill": "$color.status-bad",
+                      "content": "Your sign-in has ended.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "dzCQD",
+                  "name": "Sign in again button",
+                  "width": "fill_container",
+                  "height": 36,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "FxHZe",
+                      "name": "Sign in again",
+                      "fill": "$color.accent-text",
+                      "content": "Sign in again",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "vlxkZ",
+      "x": 5440,
+      "y": 520,
+      "name": "Sign in/Ended/Linux dark",
+      "theme": {
+        "os": "linux",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 760,
+      "height": 440,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "xMrBP",
+          "name": "Header bar",
+          "width": "fill_container",
+          "height": 46,
+          "fill": "$color.titlebar",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "yHjiU",
+              "name": "Title",
+              "fill": "$color.text-primary",
+              "content": "Identity Manager",
+              "fontFamily": "$font.family-preview",
+              "fontSize": 15,
+              "fontWeight": "700"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "M1J99C",
+          "name": "Body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "xankS",
+              "name": "Column",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "NHPY8",
+                  "name": "Signed out",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed out",
+                  "textAlign": "center",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.large-title",
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "eefGH",
+                  "name": "Error",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "f4E09V",
+                      "name": "Icon alert",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "circle-alert",
+                      "library": "lucide",
+                      "fill": "$color.status-bad"
+                    },
+                    {
+                      "type": "text",
+                      "id": "F0Yz46",
+                      "name": "Sign-in ended problem",
+                      "fill": "$color.status-bad",
+                      "content": "Your sign-in has ended.",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "xitTg",
+                  "name": "Sign in again button",
+                  "width": "fill_container",
+                  "height": 38,
+                  "fill": "$color.accent",
+                  "cornerRadius": "$radius.control",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "hOx75",
+                      "name": "Sign in again",
+                      "fill": "$color.accent-text",
+                      "content": "Sign in again",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "themes": {

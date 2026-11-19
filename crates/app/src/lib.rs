@@ -1,9 +1,12 @@
 mod bridge;
 mod color_scheme;
 mod dock;
+mod keep_alive;
+mod lock;
 #[cfg(any(windows, test))]
 mod main_window;
 mod mode;
+mod notice;
 mod self_check;
 mod session;
 mod settings;
@@ -62,6 +65,8 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
     }
     // Only the Rust side opens the browser; no window is granted the plugin's permissions.
     builder = builder.plugin(tauri_plugin_opener::init());
+    // Only the Rust side notifies; no window is granted the plugin's permissions.
+    builder = builder.plugin(tauri_plugin_notification::init());
     #[cfg(target_os = "macos")]
     if !cfg!(test) {
         builder = builder
@@ -91,7 +96,9 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             session::sign_in_with_certificate,
             session::reopen_browser,
             session::cancel_sign_in,
-            session::sign_out
+            session::sign_out,
+            session::unlock,
+            session::sign_in_again
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)
@@ -120,12 +127,19 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             ));
             settings.start();
             app.manage(settings.clone());
+            let notifier: Box<dyn notice::Notifier> = if mode == Mode::SelfCheck {
+                Box::new(notice::Silent)
+            } else {
+                Box::new(notice::SystemNotifier::new(app.handle()))
+            };
             session::manage(
                 app.handle(),
                 mode,
                 settings,
                 session::protected_store(),
                 Arc::new(session::SystemOpener::new(app.handle())),
+                notifier,
+                session::system_guard(app.handle(), mode),
             );
             log::info!("starting {} {} in {mode:?} mode", info.name, info.version);
             if mode == Mode::SelfCheck {

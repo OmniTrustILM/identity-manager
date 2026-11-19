@@ -43,9 +43,16 @@ const signedIn: SessionView = {
     person: { name: 'Alex Morgan', username: 'alex.morgan' },
     allowedListings: ['certificates'],
     certificate: null,
+    unreachable: false,
 };
 
-function mockBridge(appInfo: () => unknown, scheme: string | null = null, label = 'main', session: () => unknown = () => signedIn) {
+function mockBridge(
+    appInfo: () => unknown,
+    scheme: string | null = null,
+    label = 'main',
+    session: () => unknown = () => signedIn,
+    unlocking: () => unknown = () => undefined,
+) {
     mockWindows(label);
     mockIPC(
         (command, args) => {
@@ -57,7 +64,13 @@ function mockBridge(appInfo: () => unknown, scheme: string | null = null, label 
                     startAtLogin: { value: true, locked: false },
                     logLevel: { value: 'info', locked: true },
                     ilmUrl: { value: 'https://ilm.example.com', locked: false },
+                    requireUnlock: { value: true, locked: false },
+                    lockAfterIdle: { value: null, locked: false },
+                    unlock: 'unsupported',
                 };
+            }
+            if (command === 'unlock') {
+                return unlocking();
             }
             if (command === 'session') {
                 return session();
@@ -183,7 +196,7 @@ test('both windows report what they show, the summary with the height of its con
         reports = [];
         mockBridge(() => info, null, label);
         await render(<App />);
-        expect(reports).toEqual([expected]);
+        expect(reports.at(-1)).toEqual(expected);
         await act(async () => root.render(null));
         clearMocks();
     }
@@ -221,7 +234,7 @@ test('on macOS the main window has no Settings entry', async () => {
 });
 
 const mainWith = (session: () => unknown) => mockBridge(() => info, null, 'main', session);
-const signedOut: SessionView = { state: 'signedOut', address: null, locked: false, problem: null };
+const signedOut: SessionView = { state: 'signedOut', address: null, locked: false, problem: null, again: false };
 
 test('while the session starts the main window shows nothing to use but still reports', async () => {
     mainWith(() => ({ state: 'starting' }));
@@ -360,4 +373,74 @@ test('the session is read only once the window listens for its changes', async (
 
     expect(commands).toContain('session');
     expect(container.querySelector('h1')?.textContent).toBe(strings.connectTitle);
+});
+
+test('locked, the main window shows Unlock and asks once, with nothing personal', async () => {
+    let asked = 0;
+    mockBridge(
+        () => info,
+        null,
+        'main',
+        () => ({ state: 'locked' }),
+        () => asked++,
+    );
+
+    await render(<App />);
+
+    expect(container.querySelector('h1')?.textContent).toBe(strings.lockedTitle);
+    expect(container.querySelector('nav')).toBeNull();
+    expect(asked).toBe(1);
+});
+
+test('unlocking in the main window brings back the shell', async () => {
+    mockBridge(
+        () => info,
+        null,
+        'main',
+        () => ({ state: 'locked' }),
+        () => undefined,
+    );
+    await render(<App />);
+
+    await act(async () => emit('session-changed', signedIn));
+
+    expect(container.querySelector('nav')).not.toBeNull();
+});
+
+test('unreachable, the main window shows the address and the problem', async () => {
+    mainWith(() => ({ state: 'unreachable', address: 'https://ilm.example.com', problem: 'The connection timed out.' }));
+
+    await render(<App />);
+
+    expect(container.querySelector('h1')?.textContent).toBe(strings.unreachableTitle);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('The connection timed out.');
+});
+
+test('locked, the Settings window shows Unlock without asking', async () => {
+    let asked = 0;
+    mockBridge(
+        () => info,
+        null,
+        'settings',
+        () => ({ state: 'locked' }),
+        () => asked++,
+    );
+
+    await render(<App />);
+
+    expect(container.querySelector('h1')?.textContent).toBe(strings.lockedTitle);
+    expect(asked).toBe(0);
+});
+
+test('locked, the summary names the state and offers Unlock', async () => {
+    mockBridge(
+        () => info,
+        null,
+        'summary',
+        () => ({ state: 'locked' }),
+    );
+
+    await render(<App />);
+
+    expect([...container.querySelectorAll('button')].map((candidate) => candidate.textContent)).toEqual([strings.unlock, strings.openApp]);
 });

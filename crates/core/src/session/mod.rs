@@ -17,12 +17,12 @@ use url::Url;
 
 use crate::identity::tls::CertificateAsked;
 use crate::identity::{ClientIdentity, EmptyStore, Fingerprint, IdentityStore};
-use crate::ilm::profile::{Person, profile};
+use crate::ilm::profile::{IlmError, Person, profile, profile_request, read_profile};
 use crate::ilm::resource::{PublishedProvider, discover};
 use crate::ilm::{AddressError, IlmUrl};
 use crate::oauth::client::{ClientId, client_identity};
 use crate::oauth::loopback::{AuthorizationRequest, FLOW_TIMEOUT, wait_for_code};
-use crate::oauth::metadata::{ProviderMetadata, provider_metadata};
+use crate::oauth::metadata::{MetadataError, ProviderMetadata, provider_metadata};
 use crate::oauth::token::{TokenError, Tokens, exchange, refresh, revoke};
 use crate::settings::SignInMethod;
 use crate::token::AccessToken;
@@ -39,6 +39,7 @@ const NO_PROVIDER_ALLOWED: &str =
 const NO_CERTIFICATE: &str = "This computer has no certificate that can sign in.";
 const SIGN_IN_ENDED: &str = "Your sign-in has ended. Sign in again.";
 const CONNECT_FIRST: &str = "Enter the address of your ILM first.";
+const ADDRESS_CHANGED: &str = "The ILM address changed. Connect again.";
 
 /// What the session needs to know about the connection, from the settings of the person and of the
 /// organization.
@@ -131,14 +132,23 @@ pub struct PersonView {
 )]
 pub enum SessionView {
     Starting,
+    /// The application is locked and shows nothing about the sign-in; the application, not the session, says so.
+    Locked {},
     SignedOut {
         address: Option<String>,
         locked: bool,
         problem: Option<String>,
+        /// The sign-in ended without the person signing out, and can be repeated.
+        again: bool,
     },
     SigningIn {
         provider: String,
         method: SignInKind,
+    },
+    /// A saved sign-in that could not be renewed because ILM or the identity provider cannot be reached.
+    Unreachable {
+        address: String,
+        problem: String,
     },
     SignedIn {
         address: String,
@@ -146,7 +156,26 @@ pub enum SessionView {
         allowed_listings: Vec<String>,
         /// Short fingerprint of the certificate of a certificate sign-in, `None` for a sign-in with a provider.
         certificate: Option<String>,
+        /// The last check could not reach ILM.
+        unreachable: bool,
     },
+}
+
+/// What the person signed in with, kept in memory after the sign-in ended on its own, to repeat it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Again {
+    /// The issuer of the identity provider.
+    Provider(String),
+    Certificate,
+}
+
+/// Where a sign-in that ended continues.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SignInAgain {
+    /// The state after the attempt: waiting for the browser, or signed out with the reason.
+    View(SessionView),
+    /// The same sign-in is not possible any more: the person chooses among these, as after `connect`.
+    Choose(Vec<ProviderChoice>),
 }
 
 /// Why a call to ILM was not made.
@@ -235,15 +264,34 @@ enum Credential {
 }
 
 struct Active {
+    /// Tells this sign-in from a later one to the same ILM.
+    id: Arc<()>,
     ilm: IlmUrl,
     person: Person,
     credential: Credential,
+    /// The last check could not reach ILM.
+    unreachable: bool,
+}
+
+impl Active {
+    fn again(&self) -> Again {
+        match &self.credential {
+            Credential::OAuth(oauth) => Again::Provider(oauth.grant.metadata.issuer.clone()),
+            Credential::Certificate { .. } => Again::Certificate,
+        }
+    }
 }
 
 enum State {
     Starting,
     SignedOut {
         problem: Option<String>,
+        again: Option<Again>,
+    },
+    /// The saved sign-in is kept while ILM or the identity provider cannot be reached.
+    Unreachable {
+        ilm: IlmUrl,
+        problem: String,
     },
     SigningIn {
         provider: String,
@@ -253,6 +301,15 @@ enum State {
         cancel: Arc<Notify>,
     },
     SignedIn(Box<Active>),
+}
+
+impl State {
+    fn signed_out(problem: Option<String>) -> Self {
+        State::SignedOut {
+            problem,
+            again: None,
+        }
+    }
 }
 
 /// The sign-in of the person. The access token lives here, in memory; the refresh token only in the store.
@@ -267,6 +324,10 @@ pub struct Session {
     pending: Mutex<Option<Pending>>,
     /// Held while the saved refresh token or the signed-in state changes, so those changes do not interleave.
     renewing: tokio::sync::Mutex<()>,
+    /// Held while the saved sign-in is tried again, so two retries do not renew the same refresh token.
+    restoring: tokio::sync::Mutex<()>,
+    /// Held for a whole check, so an older answer never overwrites a newer one.
+    checking: tokio::sync::Mutex<()>,
     /// The latest refresh token when the store could not save it.
     unsaved: Mutex<Option<Item>>,
 }
@@ -274,7 +335,7 @@ pub struct Session {
 /// Whether the browser sign-in `attempt`, or with none the renewal at start, is still the one under way.
 fn is_current(state: &State, attempt: Option<&Arc<Notify>>) -> bool {
     match (state, attempt) {
-        (State::Starting, None) => true,
+        (State::Starting | State::Unreachable { .. }, None) => true,
         (State::SigningIn { cancel, .. }, Some(attempt)) => Arc::ptr_eq(cancel, attempt),
         _ => false,
     }
@@ -337,6 +398,8 @@ impl Session {
             state: Mutex::new(State::Starting),
             pending: Mutex::new(None),
             renewing: tokio::sync::Mutex::new(()),
+            restoring: tokio::sync::Mutex::new(()),
+            checking: tokio::sync::Mutex::new(()),
             unsaved: Mutex::new(None),
         }
     }
@@ -360,9 +423,14 @@ impl Session {
         let connection = self.settings.connection();
         match &*lock(&self.state) {
             State::Starting => SessionView::Starting,
-            State::SignedOut { problem } => SessionView::SignedOut {
+            State::SignedOut { problem, again } => SessionView::SignedOut {
                 address: connection.address.map(|address| address.to_string()),
                 locked: connection.locked,
+                problem: problem.clone(),
+                again: again.is_some(),
+            },
+            State::Unreachable { ilm, problem } => SessionView::Unreachable {
+                address: ilm.to_string(),
                 problem: problem.clone(),
             },
             State::SigningIn {
@@ -382,6 +450,7 @@ impl Session {
                     .credential
                     .certificate()
                     .map(|held| held.fingerprint.short()),
+                unreachable: active.unreachable,
             },
         }
     }
@@ -408,8 +477,31 @@ impl Session {
     fn fail(&self, problem: impl Into<String>) -> SessionView {
         let problem = problem.into();
         log::warn!("{problem}");
+        self.set(State::signed_out(Some(problem)))
+    }
+
+    /// Like `fail`, but only while the person is still signed out: a sign-in made meanwhile is left alone.
+    fn fail_if_signed_out(&self, problem: &str) {
+        let replaced = {
+            let mut state = lock(&self.state);
+            let signed_out = matches!(&*state, State::SignedOut { .. });
+            if signed_out {
+                *state = State::signed_out(Some(problem.to_owned()));
+            }
+            signed_out
+        };
+        if replaced {
+            log::warn!("{problem}");
+            self.publish();
+        }
+    }
+
+    /// Ends the sign-in the person did not end, so it can be repeated, with `problem`.
+    fn end_sign_in(&self, problem: &str, again: Again) -> SessionView {
+        log::info!("the sign-in ended: {problem}");
         self.set(State::SignedOut {
-            problem: Some(problem),
+            problem: Some(problem.to_owned()),
+            again: Some(again),
         })
     }
 
@@ -419,14 +511,47 @@ impl Session {
         attempt: Option<&Arc<Notify>>,
         problem: impl Into<String>,
     ) -> SessionView {
+        self.end_attempt(attempt, problem, None)
+    }
+
+    /// Like `fail_attempt`; `again` is how the sign-in can be repeated when it ended on its own.
+    fn end_attempt(
+        &self,
+        attempt: Option<&Arc<Notify>>,
+        problem: impl Into<String>,
+        again: Option<Again>,
+    ) -> SessionView {
         let problem = problem.into();
-        log::warn!("{problem}");
+        if again.is_some() {
+            log::info!("the sign-in ended: {problem}");
+        } else {
+            log::warn!("{problem}");
+        }
         let current = {
             let mut state = lock(&self.state);
             let current = is_current(&state, attempt);
             if current {
                 *state = State::SignedOut {
                     problem: Some(problem),
+                    again,
+                };
+            }
+            current
+        };
+        if current { self.publish() } else { self.view() }
+    }
+
+    /// The saved sign-in of the start, or of a retry, is kept: ILM or the identity provider cannot be reached.
+    fn unreachable_at_start(&self, ilm: &IlmUrl, problem: impl Into<String>) -> SessionView {
+        let problem = problem.into();
+        log::warn!("the saved sign-in is kept, {problem}");
+        let current = {
+            let mut state = lock(&self.state);
+            let current = is_current(&state, None);
+            if current {
+                *state = State::Unreachable {
+                    ilm: ilm.clone(),
+                    problem,
                 };
             }
             current
@@ -480,7 +605,7 @@ impl Session {
     pub async fn start(&self) -> SessionView {
         let connection = self.settings.connection();
         let Some(ilm) = connection.address.clone() else {
-            return self.set(State::SignedOut { problem: None });
+            return self.set(State::signed_out(None));
         };
         if connection.method == Some(SignInMethod::Certificate) {
             return self.start_with_certificate(ilm, &connection).await;
@@ -493,14 +618,18 @@ impl Session {
             }
         };
         log::info!("renewing the saved sign-in for {ilm}");
-        let provider = match provider_metadata(&self.client, &item.issuer).await {
-            Ok(metadata) => client_identity(Some(&item.client_id), &metadata)
-                .map(|client_id| (metadata, client_id))
-                .map_err(|error| error.to_string()),
-            Err(error) => Err(error.to_string()),
+        let metadata = match provider_metadata(&self.client, &item.issuer).await {
+            Ok(metadata) => metadata,
+            Err(MetadataError::Unreachable) => {
+                return self.unreachable_at_start(
+                    &ilm,
+                    "Could not renew the sign-in: the identity provider cannot be reached.",
+                );
+            }
+            Err(error) => return self.fail(format!("Could not renew the sign-in: {error}.")),
         };
-        let (metadata, client_id) = match provider {
-            Ok(provider) => provider,
+        let client_id = match client_identity(Some(&item.client_id), &metadata) {
+            Ok(client_id) => client_id,
             Err(error) => return self.fail(format!("Could not renew the sign-in: {error}.")),
         };
         let grant = Grant {
@@ -508,13 +637,136 @@ impl Session {
             client_id,
             resource: item.resource.clone(),
         };
-        match self.renew_item(&item, &grant).await {
+        let renewed = {
+            let _renewing = self.renewing.lock().await;
+            if !is_current(&lock(&self.state), None) {
+                log::info!("the sign-in changed before the saved one was renewed");
+                return self.view();
+            }
+            self.renew_item(&item, &grant).await
+        };
+        match renewed {
             Ok(tokens) => self.establish(ilm, tokens, grant, Origin::Saved).await,
-            Err(TokenError::Refused) => self.fail(SIGN_IN_ENDED),
-            Err(TokenError::Unreachable) => {
-                self.fail("Could not renew the sign-in: the identity provider cannot be reached.")
+            Err(TokenError::Refused) => {
+                self.end_attempt(None, SIGN_IN_ENDED, Some(Again::Provider(item.issuer)))
+            }
+            Err(TokenError::Unreachable) => self.unreachable_at_start(
+                &ilm,
+                "Could not renew the sign-in: the identity provider cannot be reached.",
+            ),
+        }
+    }
+
+    /// Tries the saved sign-in again while it is unreachable.
+    pub async fn retry(&self) -> SessionView {
+        let _restoring = self.restoring.lock().await;
+        if !matches!(&*lock(&self.state), State::Unreachable { .. }) {
+            return self.view();
+        }
+        log::info!("trying the saved sign-in again");
+        self.start().await
+    }
+
+    /// While signed in, reads the profile of the person: this renews the access token as needed, updates the
+    /// person and tells whether ILM can be reached.
+    pub async fn check(&self) -> SessionView {
+        let _checking = self.checking.lock().await;
+        let signed_in = match &*lock(&self.state) {
+            State::SignedIn(active) => Some((active.ilm.clone(), active.id.clone())),
+            _ => None,
+        };
+        let Some((ilm, id)) = signed_in else {
+            return self.view();
+        };
+        let answer = self.call_ilm(profile_request).await;
+        let profile = match answer {
+            Ok(response) if response.status() == StatusCode::UNAUTHORIZED => {
+                self.end_active(&id, "ILM did not accept the sign-in.")
+                    .await;
+                return self.view();
+            }
+            Ok(response) => read_profile(&ilm, response).await,
+            Err(CallError::SignedOut) => return self.view(),
+            Err(CallError::Unreachable) => Err(IlmError::Unreachable),
+        };
+        let before = self.view();
+        if let State::SignedIn(active) = &mut *lock(&self.state)
+            && Arc::ptr_eq(&active.id, &id)
+        {
+            match profile {
+                Ok(person) => {
+                    log::info!("the check of the sign-in succeeded");
+                    active.person = person;
+                    active.unreachable = false;
+                }
+                Err(error) => {
+                    log::info!("the check of the sign-in found ILM unreachable: {error}");
+                    active.unreachable = true;
+                }
             }
         }
+        let view = self.view();
+        if view != before {
+            (self.on_change)(&view);
+        }
+        view
+    }
+
+    /// Ends the sign-in `id` that ILM no longer accepts, unless it has ended already; a saved refresh token goes too.
+    async fn end_active(&self, id: &Arc<()>, problem: &str) {
+        let _renewing = self.renewing.lock().await;
+        let (again, saved) = match &*lock(&self.state) {
+            State::SignedIn(active) if Arc::ptr_eq(&active.id, id) => (
+                active.again(),
+                matches!(active.credential, Credential::OAuth(_)).then(|| active.ilm.clone()),
+            ),
+            _ => return,
+        };
+        // A restart must not restore a sign-in that ILM has refused.
+        if let Some(ilm) = saved {
+            _ = self.delete_item(&ilm).await;
+        }
+        self.end_sign_in(problem, again);
+    }
+
+    /// Repeats the sign-in that ended on its own: with the same identity provider when ILM still offers it,
+    /// else the person chooses. A sign-in with a certificate goes to the choice, which lists the certificates.
+    /// Any other state is left as it is.
+    pub async fn sign_in_again(&self, open: impl Fn(&Url) + Send) -> SignInAgain {
+        let ended = match &*lock(&self.state) {
+            State::SignedOut { again, .. } => again.clone(),
+            _ => None,
+        };
+        let Some(again) = ended else {
+            return SignInAgain::View(self.view());
+        };
+        let connection = self.settings.connection();
+        let Some(ilm) = connection.address.clone() else {
+            return SignInAgain::View(self.fail(CONNECT_FIRST));
+        };
+        log::info!("signing in again to {ilm}");
+        let offered = self.offer(ilm, &connection).await;
+        if !matches!(&*lock(&self.state), State::SignedOut { again: Some(_), .. }) {
+            return SignInAgain::View(self.view());
+        }
+        let choices = match offered {
+            Ok(choices) => choices,
+            Err(problem) => return SignInAgain::View(self.fail(problem)),
+        };
+        if let Again::Provider(issuer) = again
+            && let Some(index) = self.provider_index(&issuer)
+        {
+            return SignInAgain::View(self.sign_in(&index.to_string(), open).await);
+        }
+        SignInAgain::Choose(choices)
+    }
+
+    fn provider_index(&self, issuer: &str) -> Option<usize> {
+        lock(&self.pending)
+            .as_ref()?
+            .candidates
+            .iter()
+            .position(|candidate| candidate.metadata.issuer == issuer)
     }
 
     /// Takes the ILM address, signs out of another ILM when it changes, and lists the providers to sign in with.
@@ -532,12 +784,14 @@ impl Session {
                 signed_out = true;
             }
         }
-        let offered = self.offer(ilm, &connection).await;
-        // Signing out closes the window that asked, so the sign-in screen has to show why the new address failed.
+        let offered = self.offer(ilm.clone(), &connection).await;
+        // Signing out closes the window that asked, so the sign-in screen has to show why the new address failed,
+        // unless the person has moved on to another address since.
         if let Err(problem) = &offered
             && signed_out
+            && self.settings.connection().address.as_ref() == Some(&ilm)
         {
-            self.fail(problem.clone());
+            self.fail_if_signed_out(problem);
         }
         offered
     }
@@ -587,6 +841,9 @@ impl Session {
                 }
                 .to_owned()
             }));
+        }
+        if self.settings.connection().address.as_ref() != Some(&ilm) {
+            return Err(ADDRESS_CHANGED.to_owned());
         }
         *lock(&self.pending) = Some(Pending { ilm, candidates });
         Ok(choices)
@@ -730,7 +987,7 @@ impl Session {
                 return;
             };
             cancel.notify_one();
-            *state = State::SignedOut { problem: None };
+            *state = State::signed_out(None);
         }
         log::info!("sign-in cancelled");
         self.publish();
@@ -747,14 +1004,23 @@ impl Session {
     ) -> SessionView {
         let person = match profile(&self.client, &ilm, &tokens.access).await {
             Ok(person) => person,
+            Err(IlmError::Unauthorized) if matches!(origin, Origin::Saved) => {
+                let again = Again::Provider(grant.metadata.issuer);
+                // A restart must not retry a sign-in that ILM has refused.
+                let _renewing = self.renewing.lock().await;
+                if is_current(&lock(&self.state), None) {
+                    _ = self.delete_item(&ilm).await;
+                }
+                return self.end_attempt(None, IlmError::Unauthorized.to_string(), Some(again));
+            }
+            Err(error) if matches!(origin, Origin::Saved) => {
+                return self.unreachable_at_start(&ilm, error.to_string());
+            }
             Err(error) => return self.fail_attempt(origin.attempt(), error.to_string()),
         };
         let _renewing = self.renewing.lock().await;
         if !is_current(&lock(&self.state), origin.attempt()) {
             log::info!("the sign-in ended before ILM answered and is not kept");
-            if let Origin::Saved = origin {
-                _ = self.delete_item(&ilm).await;
-            }
             return self.view();
         }
         if let Origin::Browser { item, .. } = &origin {
@@ -772,8 +1038,10 @@ impl Session {
             let current = is_current(&state, origin.attempt());
             if current {
                 *state = State::SignedIn(Box::new(Active {
+                    id: Arc::new(()),
                     ilm: ilm.clone(),
                     person,
+                    unreachable: false,
                     credential: Credential::OAuth(OAuthCredential {
                         access: tokens.access,
                         expires_at: tokens.expires_at,
@@ -786,7 +1054,9 @@ impl Session {
         };
         if !current {
             log::info!("the sign-in ended before ILM answered and is not kept");
-            _ = self.delete_item(&ilm).await;
+            if let Origin::Browser { .. } = origin {
+                _ = self.delete_item(&ilm).await;
+            }
             return self.view();
         }
         if let Origin::Browser { .. } = origin {
@@ -829,7 +1099,7 @@ impl Session {
             None => None,
         };
         let problem = problem.or(self.forget_certificate().err());
-        let view = self.set(State::SignedOut { problem });
+        let view = self.set(State::signed_out(problem));
         if let Some(item) = item {
             self.revoke_item(&item, known).await;
         }
@@ -920,7 +1190,7 @@ impl Session {
         refused: Option<&AccessToken>,
     ) -> Result<AccessToken, CallError> {
         let _renewing = self.renewing.lock().await;
-        let grant = match &*lock(&self.state) {
+        let (grant, refreshable) = match &*lock(&self.state) {
             State::SignedIn(active) if active.ilm == *ilm => {
                 let Credential::OAuth(oauth) = &active.credential else {
                     return Err(CallError::SignedOut);
@@ -933,15 +1203,16 @@ impl Session {
                 if refused != Some(&oauth.access) && oauth.expires_at > Instant::now() + margin {
                     return Ok(oauth.access.clone());
                 }
-                oauth.refreshable.then(|| oauth.grant.clone())
+                (oauth.grant.clone(), oauth.refreshable)
             }
             _ => return Err(CallError::SignedOut),
         };
-        let Some(grant) = grant else {
+        let ended = || Again::Provider(grant.metadata.issuer.clone());
+        if !refreshable {
             log::info!("the access token has ended and no refresh token belongs to this sign-in");
-            self.fail(SIGN_IN_ENDED);
+            self.end_sign_in(SIGN_IN_ENDED, ended());
             return Err(CallError::SignedOut);
-        };
+        }
         let item = match self.load_item(ilm).await {
             Ok(Some(item))
                 if item.issuer == grant.metadata.issuer
@@ -953,7 +1224,7 @@ impl Session {
                 log::info!(
                     "no refresh token is saved for this sign-in; it ends with the access token"
                 );
-                self.fail(SIGN_IN_ENDED);
+                self.end_sign_in(SIGN_IN_ENDED, ended());
                 return Err(CallError::SignedOut);
             }
             Err(error) => {
@@ -973,7 +1244,7 @@ impl Session {
                 Ok(access)
             }
             Err(TokenError::Refused) => {
-                self.fail(SIGN_IN_ENDED);
+                self.end_sign_in(SIGN_IN_ENDED, ended());
                 Err(CallError::SignedOut)
             }
             Err(TokenError::Unreachable) => Err(CallError::Unreachable),

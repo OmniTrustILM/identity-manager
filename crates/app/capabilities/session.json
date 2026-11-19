@@ -12,6 +12,8 @@
         "allow-reopen-browser",
         "allow-cancel-sign-in",
         "allow-sign-out",
+        "allow-unlock",
+        "allow-sign-in-again",
         "core:event:allow-listen",
         "core:event:allow-unlisten"
     ]

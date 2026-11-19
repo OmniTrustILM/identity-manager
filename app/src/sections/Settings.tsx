@@ -1,14 +1,20 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { useAppInfo } from '../app-info';
-import { type Change, connect, getSettings, type LogLevel, setSetting, type SettingsView, signOut } from '../bridge';
+import { type Change, connect, getSettings, type LogLevel, type Platform, setSetting, type SettingsView, signOut } from '../bridge';
+import { InfoIcon } from '../design-system/icons';
 import { LockNote } from '../components/Switch/LockNote';
 import { Select } from '../components/Switch/Select';
 import { Switch } from '../components/Switch/Switch';
 import { TextField } from '../components/TextField/TextField';
 import { useSession } from '../session';
 import { strings } from '../strings';
+import { Unlock } from './Unlock';
 
 const logLevels: readonly LogLevel[] = ['error', 'warn', 'info', 'debug'];
+const idleChoices = [null, 5, 15, 30, 60];
+
+const idleKey = (minutes: number | null) => (minutes === null ? 'never' : String(minutes));
+const idleLabel = (key: string) => (key === 'never' ? strings.never : strings.minutes(Number(key)));
 
 interface ControlProps {
     id: string;
@@ -19,6 +25,9 @@ interface ControlProps {
 interface RowProps {
     label: string;
     locked: boolean;
+    /** Disabled for a reason of its own, which `note` gives. */
+    disabled?: boolean;
+    note?: string;
     error?: string;
     renderControl: (props: ControlProps) => ReactNode;
 }
@@ -26,11 +35,12 @@ interface RowProps {
 const rowClass =
     'border-separator px-s4 py-s3 in-data-[os=windows]:rounded-control in-data-[os=windows]:border in-data-[os=windows]:bg-card';
 
-function Row({ label, locked, error, renderControl }: Readonly<RowProps>) {
+function Row({ label, locked, disabled = false, note, error, renderControl }: Readonly<RowProps>) {
     const id = useId();
     const lockId = `${id}-lock`;
     const errorId = `${id}-error`;
-    const describedBy = [locked && lockId, error && errorId].filter(Boolean).join(' ');
+    const noteId = `${id}-note`;
+    const describedBy = [locked && lockId, note && noteId, error && errorId].filter(Boolean).join(' ');
 
     return (
         <div className={rowClass}>
@@ -40,10 +50,16 @@ function Row({ label, locked, error, renderControl }: Readonly<RowProps>) {
                         {label}
                     </label>
                     {locked && <LockNote id={lockId} />}
+                    {note && (
+                        <p id={noteId} className="flex items-center gap-s1 text-caption text-secondary">
+                            <InfoIcon aria-hidden className="size-icon shrink-0" />
+                            {note}
+                        </p>
+                    )}
                 </div>
                 {renderControl({
                     id,
-                    disabled: locked,
+                    disabled: locked || disabled,
                     'aria-describedby': describedBy || undefined,
                 })}
             </div>
@@ -67,6 +83,57 @@ function Group({ title, children }: Readonly<{ title: string; children: ReactNod
                 {children}
             </div>
         </section>
+    );
+}
+
+interface SecurityProps {
+    view: SettingsView;
+    platform: Platform;
+    errors: Partial<Record<Change['key'], string>>;
+    change: (next: Change) => void;
+}
+
+/** Locking the application: whether the system confirms the person, and after how long without input. */
+function Security({ view, platform, errors, change }: Readonly<SecurityProps>) {
+    const ready = view.unlock === 'available';
+    const minutes = view.lockAfterIdle.value;
+    const options = (idleChoices.includes(minutes) ? idleChoices : [...idleChoices, minutes]).map(idleKey);
+    let note: string | undefined;
+    if (!ready) {
+        note = platform === 'windows' ? strings.setUpHello : strings.setUpPassword;
+    }
+    return (
+        <Group title={strings.security}>
+            <Row
+                label={platform === 'windows' ? strings.unlockWithHello : strings.unlockWithTouchId}
+                locked={view.requireUnlock.locked}
+                disabled={!ready}
+                note={note}
+                error={errors.requireUnlock}
+                renderControl={(props) => (
+                    <Switch
+                        {...props}
+                        checked={ready && view.requireUnlock.value}
+                        onChange={(value) => change({ key: 'requireUnlock', value })}
+                    />
+                )}
+            />
+            <Row
+                label={strings.lockAfterIdle}
+                locked={view.lockAfterIdle.locked}
+                disabled={!ready || !view.requireUnlock.value}
+                error={errors.lockAfterIdle}
+                renderControl={(props) => (
+                    <Select
+                        {...props}
+                        value={idleKey(minutes)}
+                        options={options}
+                        label={idleLabel}
+                        onChange={(key) => change({ key: 'lockAfterIdle', value: key === 'never' ? null : Number(key) })}
+                    />
+                )}
+            />
+        </Group>
     );
 }
 
@@ -149,6 +216,9 @@ export function Settings() {
         };
     }, []);
 
+    if (session?.state === 'locked') {
+        return <Unlock automatic={false} />;
+    }
     if (loadFailed) {
         return <p role="alert">{strings.settingsLoadError}</p>;
     }
@@ -224,6 +294,7 @@ export function Settings() {
                     )}
                 />
             </Group>
+            {view.unlock !== 'unsupported' && <Security view={view} platform={platform} errors={errors} change={change} />}
             {session?.state === 'signedIn' && (
                 <Group title={strings.connection}>
                     <AddressRow address={session.address} locked={view.ilmUrl.locked} readOnly={platform === 'macos'} />

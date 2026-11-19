@@ -10,7 +10,7 @@ use std::fmt;
 use std::path::Path;
 
 use crate::ilm::IlmUrl;
-use crate::settings::{Layer, LogLevel, SignInMethod};
+use crate::settings::{IdleMinutes, Layer, LogLevel, SignInMethod};
 
 /// A value as a policy source stores it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,6 +28,8 @@ pub type RawMap = BTreeMap<String, PolicyValue>;
 pub(crate) const START_AT_LOGIN: &str = "StartAtLogin";
 pub(crate) const LOG_LEVEL: &str = "LogLevel";
 pub(crate) const ILM_URL: &str = "IlmUrl";
+pub(crate) const REQUIRE_UNLOCK: &str = "RequireUnlock";
+pub(crate) const LOCK_AFTER_IDLE: &str = "LockAfterIdle";
 pub(crate) const SIGN_IN_PROVIDER: &str = "SignInProvider";
 pub(crate) const SIGN_IN_METHOD: &str = "SignInMethod";
 
@@ -47,6 +49,11 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
                     log::warn!("policy {name} in {source} has an invalid value ({error}); ignored");
                 }
             },
+            (REQUIRE_UNLOCK, PolicyValue::Bool(on)) => layer.require_unlock = Some(*on),
+            (LOCK_AFTER_IDLE, PolicyValue::Int(minutes)) => match IdleMinutes::new(*minutes) {
+                Some(minutes) => layer.lock_after_idle = Some(minutes),
+                None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
+            },
             (SIGN_IN_PROVIDER, PolicyValue::Text(text)) if !text.trim().is_empty() => {
                 layer.sign_in_provider = Some(text.trim().to_string());
             }
@@ -57,7 +64,11 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
                 Some(method) => layer.sign_in_method = Some(method),
                 None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
             },
-            (START_AT_LOGIN | LOG_LEVEL | ILM_URL | SIGN_IN_PROVIDER | SIGN_IN_METHOD, _) => {
+            (
+                START_AT_LOGIN | LOG_LEVEL | ILM_URL | REQUIRE_UNLOCK | LOCK_AFTER_IDLE
+                | SIGN_IN_PROVIDER | SIGN_IN_METHOD,
+                _,
+            ) => {
                 log::warn!("policy {name} in {source} has the wrong type; ignored");
             }
             _ => log::warn!("policy {name} in {source} is unknown; ignored"),
@@ -82,6 +93,8 @@ pub fn merge(machine: Layer, user: Layer) -> Layer {
         start_at_login: machine.start_at_login.or(user.start_at_login),
         log_level: machine.log_level.or(user.log_level),
         ilm_url: machine.ilm_url.or(user.ilm_url),
+        require_unlock: machine.require_unlock.or(user.require_unlock),
+        lock_after_idle: machine.lock_after_idle.or(user.lock_after_idle),
         sign_in_provider: machine.sign_in_provider.or(user.sign_in_provider),
         sign_in_method: machine.sign_in_method.or(user.sign_in_method),
         sign_in_certificate: None,
@@ -284,6 +297,48 @@ mod tests {
     }
 
     #[test]
+    fn the_unlock_names_set_the_layer() {
+        let layer = to_layer(
+            &raw(&[
+                ("RequireUnlock", PolicyValue::Bool(false)),
+                ("LockAfterIdle", PolicyValue::Int(20)),
+            ]),
+            "test",
+        );
+        assert_eq!(layer.require_unlock, Some(false));
+        assert_eq!(layer.lock_after_idle, IdleMinutes::new(20));
+    }
+
+    #[test]
+    fn lock_after_idle_outside_one_to_1440_is_ignored() {
+        for (minutes, accepted) in [
+            (-1, false),
+            (0, false),
+            (1, true),
+            (1440, true),
+            (1441, false),
+        ] {
+            let layer = to_layer(
+                &raw(&[("LockAfterIdle", PolicyValue::Int(minutes))]),
+                "test",
+            );
+            assert_eq!(layer.lock_after_idle.is_some(), accepted, "{minutes}");
+        }
+    }
+
+    #[test]
+    fn wrong_types_for_the_unlock_names_are_ignored() {
+        for value in [text("true"), PolicyValue::Int(1), PolicyValue::Other] {
+            let layer = to_layer(&raw(&[("RequireUnlock", value)]), "test");
+            assert_eq!(layer, Layer::default());
+        }
+        for value in [text("20"), PolicyValue::Bool(true), PolicyValue::Other] {
+            let layer = to_layer(&raw(&[("LockAfterIdle", value)]), "test");
+            assert_eq!(layer, Layer::default());
+        }
+    }
+
+    #[test]
     fn all_levels_are_recognised() {
         for (name, level) in [
             ("error", LogLevel::Error),
@@ -330,9 +385,13 @@ mod tests {
             ilm_url: IlmUrl::parse("user.example.com").ok(),
             sign_in_provider: Some("Corporate".into()),
             sign_in_method: Some(SignInMethod::Certificate),
+            require_unlock: Some(false),
+            lock_after_idle: IdleMinutes::new(10),
             ..Layer::default()
         };
         let merged = merge(machine, user);
+        assert_eq!(merged.require_unlock, Some(false));
+        assert_eq!(merged.lock_after_idle, IdleMinutes::new(10));
         assert_eq!(merged.sign_in_method, Some(SignInMethod::Certificate));
         assert_eq!(merged.start_at_login, Some(false));
         assert_eq!(merged.log_level, Some(LogLevel::Warn));

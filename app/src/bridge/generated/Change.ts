@@ -4,4 +4,4 @@ import type { LogLevel } from "./LogLevel";
 /**
  * One setting changed by the person.
  */
-export type Change = { "key": "startAtLogin", "value": boolean } | { "key": "logLevel", "value": LogLevel } | { "key": "ilmUrl", "value": string };
+export type Change = { "key": "startAtLogin", "value": boolean } | { "key": "logLevel", "value": LogLevel } | { "key": "ilmUrl", "value": string } | { "key": "requireUnlock", "value": boolean } | { "key": "lockAfterIdle", "value": number | null };
