@@ -25,6 +25,7 @@ fn main() {
                 "settings",
                 "set_setting",
                 "pending_section",
+                "open_settings",
                 "session",
                 "connect",
                 "sign_in",

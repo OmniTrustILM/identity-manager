@@ -11,7 +11,8 @@ pub struct Shown {
     pub name: String,
     pub version: String,
     pub platform: Platform,
-    /// The natural height of the content in CSS pixels, sent by the tray summary so its window can fit it.
+    /// The natural height of the content in CSS pixels, sent by the tray summary and the macOS Settings window so
+    /// their windows can fit it.
     #[serde(default)]
     #[cfg_attr(test, ts(optional))]
     pub height: Option<u32>,
@@ -31,27 +32,39 @@ pub fn app_info() -> AppInfo {
     AppInfo::current()
 }
 
-/// The tallest the summary may grow, in logical pixels.
-const MAX_SUMMARY_HEIGHT: u32 = 600;
-
-/// A reported content height as a window height: at least one pixel, at most `MAX_SUMMARY_HEIGHT`.
-fn fitted_height(height: u32) -> u32 {
-    height.clamp(1, MAX_SUMMARY_HEIGHT)
+/// The tallest a window may grow to fit its content, in logical pixels; none for a window that keeps its size.
+fn max_fitted_height(label: &str) -> Option<u32> {
+    match label {
+        summary::LABEL => Some(600),
+        "settings" => Some(700),
+        _ => None,
+    }
 }
 
-/// Fits the summary window to the content height it reported, keeping the width from its configuration.
-fn fit_summary<R: Runtime>(window: &Window<R>, height: u32) {
+/// A reported content height as a window height: at least one pixel, at most `max`.
+fn fitted_height(height: u32, max: u32) -> u32 {
+    height.clamp(1, max)
+}
+
+/// Fits the window to the content height it reported, keeping its width.
+fn fit_to_content<R: Runtime>(window: &Window<R>, height: u32, max: u32) {
     let Ok(size) = window.inner_size() else {
         return;
     };
     let width = f64::from(size.width) / window.scale_factor().unwrap_or(1.0);
-    let _ = window.set_size(LogicalSize::new(width, f64::from(fitted_height(height))));
+    let _ = window.set_size(LogicalSize::new(
+        width,
+        f64::from(fitted_height(height, max)),
+    ));
 }
 
 #[tauri::command]
 pub fn report_ready<R: Runtime>(window: Window<R>, mode: State<'_, Mode>, report: Shown) {
-    if let (summary::LABEL, Some(height)) = (window.label(), report.height) {
-        fit_summary(&window, height);
+    if let (Some(max), Some(height)) = (max_fitted_height(window.label()), report.height) {
+        fit_to_content(&window, height, max);
+        if window.label() == "settings" {
+            crate::settings_window::reveal(window.app_handle());
+        }
     }
     let report = ReadyReport {
         name: report.name,
@@ -170,10 +183,24 @@ mod tests {
     }
 
     #[test]
-    fn a_reported_height_is_kept_within_the_summary_limits() {
-        assert_eq!(super::fitted_height(0), 1);
-        assert_eq!(super::fitted_height(118), 118);
-        assert_eq!(super::fitted_height(10_000), super::MAX_SUMMARY_HEIGHT);
+    fn report_ready_accepts_a_height_from_the_settings_window_on_macos_only() {
+        let report = serde_json::json!({ "report": { "name": "Identity Manager", "version": "0.1.0", "platform": "macos", "height": 420 } });
+        let answer = call_in("settings", LOCAL_ORIGIN, "report_ready", report);
+        assert_eq!(answer.is_ok(), cfg!(target_os = "macos"), "{answer:?}");
+    }
+
+    #[test]
+    fn only_the_summary_and_settings_windows_fit_their_content() {
+        assert_eq!(super::max_fitted_height("summary"), Some(600));
+        assert_eq!(super::max_fitted_height("settings"), Some(700));
+        assert_eq!(super::max_fitted_height("main"), None);
+    }
+
+    #[test]
+    fn a_reported_height_is_kept_within_the_limits() {
+        assert_eq!(super::fitted_height(0, 600), 1);
+        assert_eq!(super::fitted_height(118, 600), 118);
+        assert_eq!(super::fitted_height(10_000, 600), 600);
     }
 
     #[test]
@@ -379,8 +406,74 @@ mod tests {
         assert_eq!(parsed["windows"], serde_json::json!(["settings"]));
         assert_eq!(
             capability_permissions(file),
-            serde_json::json!(["allow-app-info", "allow-settings", "allow-set-setting"])
+            serde_json::json!([
+                "allow-app-info",
+                "allow-report-ready",
+                "allow-settings",
+                "allow-set-setting",
+                "core:window:allow-set-title",
+                "core:window:allow-start-dragging"
+            ])
         );
+    }
+
+    #[test]
+    fn the_settings_entry_capability_is_for_the_main_window_on_macos_and_grants_only_opening_settings()
+     {
+        let file = include_str!("../capabilities/settings-entry.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["platforms"], serde_json::json!(["macOS"]));
+        assert_eq!(parsed["windows"], serde_json::json!(["main"]));
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!(["allow-open-settings"])
+        );
+    }
+
+    #[test]
+    fn only_the_main_window_on_macos_may_open_the_settings_window() {
+        for label in ["main", "summary", "settings"] {
+            let answer = call_in(label, LOCAL_ORIGIN, "open_settings", serde_json::json!({}));
+            assert_eq!(
+                refused_by_capabilities(&answer),
+                !(cfg!(target_os = "macos") && label == "main"),
+                "{label}: {answer:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_title_bar_capability_is_for_the_main_window_on_macos_and_grants_only_moving_and_zooming()
+    {
+        let file = include_str!("../capabilities/title-bar.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["platforms"], serde_json::json!(["macOS"]));
+        assert_eq!(parsed["windows"], serde_json::json!(["main"]));
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!([
+                "core:window:allow-start-dragging",
+                "core:window:allow-internal-toggle-maximize"
+            ])
+        );
+    }
+
+    #[test]
+    fn on_macos_main_and_settings_may_move_their_window_and_only_main_may_zoom() {
+        for label in ["main", "summary", "settings"] {
+            for (command, windows) in [
+                ("plugin:window|start_dragging", &["main", "settings"][..]),
+                ("plugin:window|internal_toggle_maximize", &["main"][..]),
+                ("plugin:window|set_title", &["settings"][..]),
+            ] {
+                let answer = call_in(label, LOCAL_ORIGIN, command, serde_json::json!({}));
+                assert_eq!(
+                    refused_by_capabilities(&answer),
+                    !(cfg!(target_os = "macos") && windows.contains(&label)),
+                    "{label} {command}: {answer:?}"
+                );
+            }
+        }
     }
 
     #[test]

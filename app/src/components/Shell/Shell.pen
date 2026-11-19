@@ -1,5 +1,5 @@
 {
-  "version": "2.14",
+  "version": "2.22",
   "children": [
     {
       "type": "frame",
@@ -109,6 +109,72 @@
                       "name": "Overview",
                       "fill": "$color.text-primary",
                       "content": "Overview",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "T2y6M6",
+              "name": "Spacer",
+              "width": "fill_container",
+              "height": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "ydM0U",
+              "name": "Bottom",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "padding": [
+                0,
+                8,
+                8,
+                8
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "rZgjG",
+                  "name": "Separator",
+                  "width": "fill_container",
+                  "height": 1,
+                  "fill": "$color.separator"
+                },
+                {
+                  "type": "frame",
+                  "id": "d57TEY",
+                  "name": "Entry Settings",
+                  "width": "fill_container",
+                  "cornerRadius": "$radius.control",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "lE49B",
+                      "name": "Icon settings",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "settings",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "xU2Q9",
+                      "name": "Settings…",
+                      "fill": "$color.text-primary",
+                      "content": "Settings…",
                       "fontFamily": "$font.family-preview",
                       "fontSize": "$font.body",
                       "fontWeight": "normal"

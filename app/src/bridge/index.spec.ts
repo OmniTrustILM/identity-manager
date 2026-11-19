@@ -14,6 +14,7 @@ import {
     onSignInChoices,
     onSessionChanged,
     openMainWindow,
+    openSettings,
     pendingSection,
     reopenBrowser,
     reportReady,
@@ -55,6 +56,7 @@ describe('bridge', () => {
     it.each([
         ['openMainWindow', openMainWindow, 'open_main_window'],
         ['hideSummary', hideSummary, 'hide_summary'],
+        ['openSettings', openSettings, 'open_settings'],
     ])('%s calls %s without arguments', async (_name, wrapper, command) => {
         const calls: string[] = [];
         mockIPC((called) => {

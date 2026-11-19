@@ -1,5 +1,5 @@
 import { emit } from '@tauri-apps/api/event';
-import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
+import { clearMocks, mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test } from 'vitest';
@@ -31,6 +31,7 @@ beforeEach(() => {
     document.body.append(container);
     root = createRoot(container);
     calls = [];
+    localStorage.clear();
 });
 
 afterEach(async () => {
@@ -42,6 +43,7 @@ afterEach(async () => {
 type Handler = (command: string, args: unknown) => unknown;
 
 function bridge(handler: Handler) {
+    mockWindows('settings');
     mockIPC(
         (command, args) => {
             calls.push({ command, args });
@@ -59,6 +61,12 @@ async function render(platform: AppInfo['platform'] = 'macos') {
             </AppInfoContext.Provider>,
         ),
     );
+}
+
+/** Opens a pane of the macOS Settings window by its tab. */
+async function openPane(title: string) {
+    const tab = [...container.querySelectorAll('[role="tab"]')].find((candidate) => candidate.textContent === title) as HTMLElement;
+    await act(async () => tab.click());
 }
 
 const toggle = () => container.querySelector('input[role="switch"]') as HTMLInputElement;
@@ -85,7 +93,8 @@ test('shows the group General with a labelled switch and select from the view', 
     expect([...select().options].map((option) => option.value)).toEqual(['error', 'warn', 'info', 'debug']);
     expect(select().value).toBe('info');
     expect(container.textContent).not.toContain(strings.managedByOrganization);
-    expect(calls.map((call) => call.command).sort()).toEqual(['session', 'settings']);
+    expect(calls.map((call) => call.command).sort()).toEqual(['plugin:window|set_title', 'session', 'settings']);
+    expect(calls.find((call) => call.command === 'plugin:window|set_title')?.args).toMatchObject({ value: strings.general });
 });
 
 test('changing the switch sends the change and shows the view that comes back', async () => {
@@ -478,6 +487,7 @@ test('in the Settings window on macOS the address can only be read', async () =>
     connected();
 
     await render('macos');
+    await openPane(strings.connection);
 
     expect(address().readOnly).toBe(true);
     expect(address().value).toBe('https://ilm.example.com');
@@ -569,6 +579,7 @@ test('on macOS the group Security has the switch for Touch ID and the select for
     bridge(() => open);
 
     await render('macos');
+    await openPane(strings.security);
 
     expect(unlockSwitch().checked).toBe(true);
     expect(unlockSwitch().disabled).toBe(false);
@@ -604,6 +615,7 @@ test('turning the switch off and choosing a time send the changes', async () => 
         return { ...open, [key]: { value, locked: false } };
     });
     await render('macos');
+    await openPane(strings.security);
 
     await act(async () => unlockSwitch().click());
     expect(calls.at(-1)?.args).toEqual({ change: { key: 'requireUnlock', value: false } });
@@ -628,6 +640,7 @@ test('the time cannot be chosen while the switch is off', async () => {
     bridge(() => ({ ...open, requireUnlock: { value: false, locked: false }, lockAfterIdle: { value: 15, locked: false } }));
 
     await render('macos');
+    await openPane(strings.security);
 
     expect(unlockSwitch().checked).toBe(false);
     expect(idle().disabled).toBe(true);
@@ -638,6 +651,7 @@ test('rows set by the organization are locked and say so', async () => {
     bridge(() => ({ ...open, requireUnlock: { value: false, locked: true }, lockAfterIdle: { value: 15, locked: true } }));
 
     await render('macos');
+    await openPane(strings.security);
 
     expect(unlockSwitch().disabled).toBe(true);
     expect(idle().disabled).toBe(true);
@@ -671,6 +685,7 @@ test('where the Mac has no password both rows are disabled, with the way to set 
     bridge(() => ({ ...open, unlock: 'notSetUp' }));
 
     await render('macos');
+    await openPane(strings.security);
 
     expect(unlockSwitch().disabled).toBe(true);
     expect(security()?.textContent).toContain(strings.setUpPassword);
@@ -679,6 +694,7 @@ test('where the Mac has no password both rows are disabled, with the way to set 
 test('a refused change of the switch shows the reason on its row', async () => {
     bridge((command) => (command === 'set_setting' ? Promise.reject('Not allowed.') : open));
     await render('macos');
+    await openPane(strings.security);
 
     await act(async () => unlockSwitch().click());
 
@@ -700,6 +716,7 @@ test('Settings returns when the session is unlocked', async () => {
     await render('macos');
 
     await act(async () => emit('session-changed', signedIn));
+    await openPane(strings.security);
 
     expect(security()).toBeDefined();
 });

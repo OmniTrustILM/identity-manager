@@ -29,6 +29,26 @@ test('Tab reaches the sidebar, arrows move between entries and Enter opens one',
     await expect(page.getByRole('button', { name: 'First' })).toBeFocused();
 });
 
+test('on macOS the keyboard reaches Settings… at the bottom, which opens the Settings window and keeps the page', async ({
+    mount,
+    page,
+}) => {
+    await setup(page, 'macos');
+    await mount(shell('macos'));
+    await keyboardReady(page);
+
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('End');
+    const entry = page.getByRole('button', { name: 'Settings\u2026' });
+    await expect(entry).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByText('Settings window opened')).toBeVisible();
+    await expect(entry).not.toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('button', { name: 'First' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByText('First content')).toBeVisible();
+});
+
 test('a keyboard-focused entry shows a focus ring', async ({ mount, page }) => {
     await setup(page, 'windows');
     await mount(shell('windows'));

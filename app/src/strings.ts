@@ -3,6 +3,7 @@ export const strings = {
     overview: 'Overview',
     settings: 'Settings',
     preferences: 'Preferences',
+    settingsWindow: 'Settings\u2026',
     general: 'General',
     startAtLogin: 'Start at login',
     logLevel: 'Log level',

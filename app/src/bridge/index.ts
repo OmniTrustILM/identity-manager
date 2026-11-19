@@ -49,6 +49,15 @@ export function onOpenSection(handler: (section: string) => void): Promise<() =>
     return listen<string>('open-section', (event) => handler(event.payload));
 }
 
+export function setWindowTitle(title: string): Promise<void> {
+    return getCurrentWindow().setTitle(title);
+}
+
+/** Opens the Settings window; the macOS main window has no Settings page. */
+export function openSettings(): Promise<void> {
+    return invoke<void>('open_settings');
+}
+
 /** Takes the section the shell was asked to open, if any; it is handed out once. */
 export function pendingSection(): Promise<string | null> {
     return invoke<string | null>('pending_section');
