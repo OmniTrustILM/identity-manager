@@ -9,13 +9,19 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use super::tests::{LOG, TestSettings, World, capture_logs};
-use super::*;
+use super::{
+    CallError, Connection, ConnectionSettings, Credential, Item, MemoryStore, PersonView,
+    ProviderChoice, RefreshStore, Session, SessionView, SignInKind, State, lock,
+};
 use crate::http::client_with_identity_trusting;
 use crate::identity::Candidate as FoundCertificate;
 use crate::identity::testing::{
     ClientCerts, Issue, StandInStore, TestCa, TestIdentity, TestServer,
 };
+use crate::identity::{ClientIdentity, Fingerprint, IdentityStore};
+use crate::ilm::IlmUrl;
 use crate::oauth::token::RefreshToken;
+use crate::settings::SignInMethod;
 
 const ENTRY: &str = "Certificate on this computer";
 const NOT_ASKED: &str = "This ILM's gateway is not set up for certificate sign-in.";

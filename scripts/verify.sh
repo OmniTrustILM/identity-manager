@@ -197,7 +197,8 @@ make_test_identity() {
 
 # Prints the hash of the leaf in $1 as the DER bytes: SHA-256 for the test, SHA-1 for the Windows thumbprint.
 leaf_digest() {
-    openssl x509 -in "$2/leaf.pem" -outform DER | openssl dgst "-$1" -r | cut -d' ' -f1
+    local digest=$1 dir=$2
+    openssl x509 -in "$dir/leaf.pem" -outform DER | openssl dgst "-$digest" -r | cut -d' ' -f1
 }
 
 # The cleanups run from an EXIT trap, so they read globals.

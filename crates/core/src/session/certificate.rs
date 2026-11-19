@@ -64,7 +64,7 @@ fn handshake_refused(error: &(dyn Error + 'static)) -> bool {
             error
                 .downcast_ref::<io::Error>()
                 .and_then(io::Error::get_ref)
-                .and_then(|inner| inner.downcast_ref::<rustls::Error>())
+                .and_then(<dyn Error + Send + Sync>::downcast_ref::<rustls::Error>)
         });
         if matches!(tls, Some(rustls::Error::AlertReceived(_))) {
             return true;
