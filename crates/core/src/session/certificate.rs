@@ -27,7 +27,7 @@ const HANDSHAKE_REFUSED: &str = "The gateway did not accept this certificate.";
 const NOT_KNOWN: &str =
     "ILM does not know this certificate. It must be your sign-in certificate in ILM.";
 const KEY_REFUSED: &str = "The system did not allow the use of this certificate's key.";
-const GONE: &str = "The certificate you signed in with cannot be found or opened on this computer.";
+const GONE: &str = "The certificate you signed in with cannot be found, has expired or cannot be opened on this computer.";
 const EXPIRED: &str = "The certificate you signed in with has expired.";
 const NOT_ON_COMPUTER: &str = "This certificate is not on this computer.";
 
@@ -44,11 +44,12 @@ fn epoch_millis(time: SystemTime) -> i64 {
     })
 }
 
-/// What to tell the person when the request could not be answered.
-fn request_problem(error: &(dyn Error + 'static)) -> String {
+/// What to tell the person when the request could not be answered. A connection that fails after the server
+/// asked for the certificate counts as a refusal: some systems report the gateway's alert as a reset connection.
+fn request_problem(error: &(dyn Error + 'static), asked: bool) -> String {
     if is_signing_refused(error) {
         KEY_REFUSED.to_owned()
-    } else if handshake_refused(error) {
+    } else if asked || handshake_refused(error) {
         HANDSHAKE_REFUSED.to_owned()
     } else {
         IlmError::Unreachable.to_string()
@@ -181,7 +182,7 @@ impl Session {
         let (client, asked) = (self.certificate_client)(identity);
         let response = match profile_request(&client, ilm).send().await {
             Ok(response) => response,
-            Err(error) => return self.fail_attempt(attempt, request_problem(&error)),
+            Err(error) => return self.fail_attempt(attempt, request_problem(&error, asked.get())),
         };
         log::info!(
             "the server {} a client certificate",

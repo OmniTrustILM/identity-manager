@@ -23,7 +23,7 @@ const REFUSED: &str = "The gateway did not accept this certificate.";
 const UNKNOWN: &str =
     "ILM does not know this certificate. It must be your sign-in certificate in ILM.";
 const KEY_DENIED: &str = "The system did not allow the use of this certificate's key.";
-const GONE: &str = "The certificate you signed in with cannot be found or opened on this computer.";
+const GONE: &str = "The certificate you signed in with cannot be found, has expired or cannot be opened on this computer.";
 
 fn entry() -> ProviderChoice {
     ProviderChoice {
