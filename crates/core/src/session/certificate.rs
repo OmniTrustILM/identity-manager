@@ -27,7 +27,7 @@ const HANDSHAKE_REFUSED: &str = "The gateway did not accept this certificate.";
 const NOT_KNOWN: &str =
     "ILM does not know this certificate. It must be your sign-in certificate in ILM.";
 const KEY_REFUSED: &str = "The system did not allow the use of this certificate's key.";
-const GONE: &str = "The certificate you signed in with is no longer on this computer.";
+const GONE: &str = "The certificate you signed in with cannot be found or opened on this computer.";
 const EXPIRED: &str = "The certificate you signed in with has expired.";
 const NOT_ON_COMPUTER: &str = "This certificate is not on this computer.";
 
@@ -170,7 +170,6 @@ impl Session {
             .await
         else {
             if silent {
-                _ = self.forget_certificate_if(&fingerprint);
                 return self.fail_attempt(attempt, GONE);
             }
             return self.fail_attempt(attempt, NOT_ON_COMPUTER);
@@ -196,7 +195,10 @@ impl Session {
             if !asked.get() {
                 return self.fail_attempt(attempt, NOT_ASKED);
             }
-            _ = self.forget_certificate_if(&fingerprint);
+            let _renewing = self.renewing.lock().await;
+            if is_current(&lock(&self.state), attempt) {
+                _ = self.forget_certificate_if(&fingerprint);
+            }
             return self.fail_attempt(attempt, NOT_KNOWN);
         }
         let person = match read_profile(ilm, response).await {
@@ -228,6 +230,7 @@ impl Session {
         if let Err(error) = self.settings.save_certificate(ilm, &fingerprint) {
             log::warn!("the certificate could not be remembered for the next start: {error}");
         }
+        _ = self.delete_item(ilm).await;
         log::info!("signed in to {ilm} with a certificate");
         self.publish()
     }

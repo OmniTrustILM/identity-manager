@@ -178,8 +178,11 @@ fn trimming_keeps_the_leaf_and_intermediates_and_a_lone_self_signed_certificate(
     assert_eq!(trim(vec![leaf.clone(), root.clone()]), 1);
     assert_eq!(trim(vec![leaf.clone(), other, root.clone()]), 2);
     assert_eq!(trim(vec![leaf.clone()]), 1);
-    assert_eq!(trim(vec![root]), 1);
+    assert_eq!(trim(vec![root.clone()]), 1);
     assert_eq!(trim(Vec::new()), 0);
+    let rollover = ca.rollover();
+    assert!(is_self_signed(&rollover) && is_self_signed(&root));
+    assert_eq!(trim(vec![leaf, rollover, root]), 2);
 }
 
 #[test]

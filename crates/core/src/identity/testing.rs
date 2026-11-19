@@ -179,6 +179,21 @@ impl TestCa {
         &self.der
     }
 
+    /// A CA certificate with this CA's subject, signed by this CA with a new key: a key rollover that is self-issued
+    /// but not self-signed.
+    pub fn rollover(&self) -> CertificateDer<'static> {
+        let mut params = CertificateParams::default();
+        params.distinguished_name = self.params.distinguished_name.clone();
+        params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        let key = KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256).expect("a CA key");
+        let issuer = Issuer::from_params(&self.params, &self.key);
+        params
+            .signed_by(&key, &issuer)
+            .expect("a CA certificate")
+            .der()
+            .clone()
+    }
+
     pub fn issue(&self, issue: Issue) -> TestIdentity {
         let key_pair = match issue.key {
             KeyAlg::P256 => KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256),
@@ -299,18 +314,37 @@ pub struct TestServer {
 
 impl TestServer {
     pub async fn start(ca: &TestCa, client_certs: ClientCerts, allowed: Fingerprint) -> Self {
+        let client_root = (client_certs == ClientCerts::Required).then(|| ca.der());
+        Self::serve(ca, client_root, allowed).await
+    }
+
+    /// A server that requires a client certificate issued by `client_root`, a CA other than `ca`.
+    #[cfg(any(target_os = "macos", windows))]
+    pub async fn requiring(
+        ca: &TestCa,
+        client_root: &CertificateDer<'static>,
+        allowed: Fingerprint,
+    ) -> Self {
+        Self::serve(ca, Some(client_root), allowed).await
+    }
+
+    async fn serve(
+        ca: &TestCa,
+        client_root: Option<&CertificateDer<'static>>,
+        allowed: Fingerprint,
+    ) -> Self {
         let identity = ca.issue(Issue::server("localhost"));
         let builder = ServerConfig::builder();
-        let builder = match client_certs {
-            ClientCerts::Required => {
+        let builder = match client_root {
+            Some(root) => {
                 let mut roots = RootCertStore::empty();
-                roots.add(ca.der().clone()).expect("a valid root");
+                roots.add(root.clone()).expect("a valid root");
                 let verifier = WebPkiClientVerifier::builder(Arc::new(roots))
                     .build()
                     .expect("a client verifier");
                 builder.with_client_cert_verifier(verifier)
             }
-            ClientCerts::NotRequested => builder.with_no_client_auth(),
+            None => builder.with_no_client_auth(),
         };
         let config = builder
             .with_single_cert(identity.chain.clone(), identity.private_key())
@@ -431,9 +465,10 @@ fn profile_json() -> String {
 }
 
 /// The check of the ignored test of each system: the store holds the certificate named by
-/// `IM_IDENTITY_FINGERPRINT`, lists it as a candidate, opens it and signs with its key.
+/// `IM_IDENTITY_FINGERPRINT`, lists it as a candidate, opens it, signs with its key and completes a handshake
+/// with a server that requires a certificate issued by the CA in the PEM file `IM_IDENTITY_CA`.
 #[cfg(any(target_os = "macos", windows))]
-pub fn check_system_store(store: &dyn IdentityStore) {
+pub async fn check_system_store(store: &dyn IdentityStore) {
     let expected: Fingerprint = std::env::var("IM_IDENTITY_FINGERPRINT")
         .expect("IM_IDENTITY_FINGERPRINT names the certificate in the store")
         .parse()
@@ -457,4 +492,22 @@ pub fn check_system_store(store: &dyn IdentityStore) {
         .expect("the key supports one of the schemes");
     let signature = signer.sign(b"identity manager").expect("the key signs");
     assert!(!signature.is_empty());
+
+    let ca_file =
+        std::env::var("IM_IDENTITY_CA").expect("IM_IDENTITY_CA is the PEM file of the CA");
+    let client_root =
+        <CertificateDer<'static> as rustls::pki_types::pem::PemObject>::from_pem_file(&ca_file)
+            .expect("IM_IDENTITY_CA holds a certificate");
+    let server_ca = TestCa::new();
+    let server = TestServer::requiring(&server_ca, &client_root, expected).await;
+    let (client, _) = crate::http::client_with_identity_trusting(server_ca.der(), identity);
+    let response = client
+        .get(server.profile_url())
+        .send()
+        .await
+        .expect("the handshake with the system identity completes");
+    assert_eq!(response.status(), 200);
+    let seen = server.requests();
+    assert_eq!(seen.len(), 1);
+    assert_eq!(seen[0].fingerprint, Some(expected));
 }

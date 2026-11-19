@@ -220,7 +220,7 @@ remove_test_certificate() {
 # real readers, and removes it. The store is the real one, so this runs on CI runners only. Linux has no store.
 identity_system() {
     [[ -n "${CI:-}" ]] || { echo "identity-system writes to the certificate store of the system and runs on CI runners only (CI is not set)" >&2; exit 1; }
-    local password test_name
+    local password test_name ca_pem
     dir=$(mktemp -d)
     password=$(openssl rand -hex 16)
     make_test_identity "$dir" "$password"
@@ -251,7 +251,9 @@ identity_system() {
             ;;
         *) echo "identity-system has no certificate store to test on $(uname -s)" >&2; exit 1 ;;
     esac
-    IM_IDENTITY_FINGERPRINT=$(leaf_digest sha256 "$dir") \
+    ca_pem=$dir/ca.pem
+    [[ "$(uname -s)" == Darwin ]] || ca_pem=$(cygpath -w "$ca_pem")
+    IM_IDENTITY_FINGERPRINT=$(leaf_digest sha256 "$dir") IM_IDENTITY_CA=$ca_pem \
         cargo test -p im-core --locked -- --ignored "$test_name"
 }
 

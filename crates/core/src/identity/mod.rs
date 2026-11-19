@@ -266,9 +266,10 @@ pub fn usable<T>(items: impl IntoIterator<Item = (Vec<u8>, T)>, now: SystemTime)
     found
 }
 
-/// Drops the self-signed root at the end of a chain; a lone self-signed certificate stays.
+/// Drops the self-issued root at the end of a chain, and only that one: a self-issued key rollover before it is
+/// an intermediate. A lone self-issued certificate stays.
 fn trim_chain(mut chain: Vec<CertificateDer<'static>>) -> Vec<CertificateDer<'static>> {
-    while chain.len() > 1 && chain.last().is_some_and(is_self_signed) {
+    if chain.len() > 1 && chain.last().is_some_and(is_self_signed) {
         chain.pop();
     }
     chain

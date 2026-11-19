@@ -182,9 +182,9 @@ mod tests {
         }
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore = "reads the real keychain; runs in the system-store job only"]
-    fn system_store_lists_and_signs() {
-        super::super::testing::check_system_store(&KeychainStore);
+    async fn system_store_lists_and_signs() {
+        super::super::testing::check_system_store(&KeychainStore).await;
     }
 }

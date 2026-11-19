@@ -23,7 +23,7 @@ const REFUSED: &str = "The gateway did not accept this certificate.";
 const UNKNOWN: &str =
     "ILM does not know this certificate. It must be your sign-in certificate in ILM.";
 const KEY_DENIED: &str = "The system did not allow the use of this certificate's key.";
-const GONE: &str = "The certificate you signed in with is no longer on this computer.";
+const GONE: &str = "The certificate you signed in with cannot be found or opened on this computer.";
 
 fn entry() -> ProviderChoice {
     ProviderChoice {
@@ -414,6 +414,35 @@ async fn a_certificate_signs_in_without_a_token_and_is_remembered() {
     assert_eq!(seen[0].fingerprint, Some(jane.fingerprint()));
     assert!(!seen[0].authorization);
     assert_eq!(world.session.browser_url(), None);
+}
+
+#[tokio::test]
+async fn a_certificate_sign_in_deletes_the_saved_provider_sign_in() {
+    let ca = TestCa::new();
+    let jane = ca.issue(Issue::client("Jane"));
+    let world = CertWorld::of(&ca, &jane).await;
+    let address = world.settings.connection().address.unwrap();
+    world
+        .items
+        .save(&Item {
+            ilm: address.clone(),
+            issuer: "http://127.0.0.1:1".into(),
+            client_id: "app".into(),
+            resource: None,
+            refresh_token: RefreshToken::new("r1"),
+        })
+        .unwrap();
+    world.session.connect("").await.unwrap();
+    world.settings.connection.lock().unwrap().method = None;
+
+    let view = world
+        .session
+        .sign_in_with_certificate(&jane.fingerprint().to_string())
+        .await;
+
+    assert_eq!(view, world.signed_in(&jane));
+    assert_eq!(world.items.load(&address).unwrap(), None);
+    assert_eq!(world.session.start().await, world.signed_in(&jane));
 }
 
 #[tokio::test]
@@ -840,7 +869,7 @@ async fn start_prefers_a_saved_provider_sign_in() {
 }
 
 #[tokio::test]
-async fn start_with_a_certificate_that_is_gone_says_so_and_forgets_it() {
+async fn start_with_a_certificate_that_is_gone_says_so_and_keeps_it() {
     let ca = TestCa::new();
     let jane = ca.issue(Issue::client("Jane"));
     let world =
@@ -848,12 +877,12 @@ async fn start_with_a_certificate_that_is_gone_says_so_and_forgets_it() {
     world.remember(&jane);
 
     assert_eq!(world.session.start().await, world.signed_out(Some(GONE)));
-    assert_eq!(world.remembered(), None);
+    assert_eq!(world.remembered(), Some(jane.fingerprint()));
     assert!(world.server.requests().is_empty());
 }
 
 #[tokio::test]
-async fn start_with_a_certificate_that_has_expired_says_so_and_forgets_it() {
+async fn start_with_a_certificate_that_has_expired_says_so_and_keeps_it() {
     let ca = TestCa::new();
     let jane = ca.issue(Issue::client("Jane"));
     let later = SystemTime::now() + Duration::from_secs(80 * 365 * 24 * 3600);
@@ -867,7 +896,7 @@ async fn start_with_a_certificate_that_has_expired_says_so_and_forgets_it() {
     world.remember(&jane);
 
     assert_eq!(world.session.start().await, world.signed_out(Some(GONE)));
-    assert_eq!(world.remembered(), None);
+    assert_eq!(world.remembered(), Some(jane.fingerprint()));
 }
 
 #[tokio::test]
@@ -886,6 +915,37 @@ async fn start_with_a_certificate_ilm_no_longer_knows_forgets_it() {
     assert_eq!(world.session.start().await, world.signed_out(Some(UNKNOWN)));
     assert_eq!(world.remembered(), None);
     assert_eq!(world.server.requests().len(), 1);
+}
+
+#[tokio::test]
+async fn a_late_401_at_start_does_not_forget_a_certificate_remembered_since() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let world = CertWorld::start(
+        &ca,
+        ClientCerts::Required,
+        &john,
+        StandInStore::new(vec![jane.clone()]),
+    )
+    .await;
+    let gate = Gate::start(world.server_port()).await;
+    let direct = world.settings.connection().address;
+    world.remember(&jane);
+    world.through(&gate);
+    let session = &world.session;
+
+    let (started, ()) = tokio::join!(session.start(), async {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        world.settings.connection.lock().unwrap().address = direct;
+        world.server.allow(jane.fingerprint());
+        assert_eq!(world.sign_in(&jane).await, world.signed_in(&jane));
+        world.server.allow(john.fingerprint());
+        gate.release();
+    });
+
+    assert!(matches!(started, SessionView::SignedIn { .. }));
+    assert_eq!(world.session.view(), world.signed_in(&jane));
+    assert_eq!(world.remembered(), Some(jane.fingerprint()));
 }
 
 #[tokio::test]

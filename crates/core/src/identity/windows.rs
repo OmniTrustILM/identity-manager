@@ -100,9 +100,9 @@ impl Signer for PersonalSigner {
 mod tests {
     use super::*;
 
-    #[test]
+    #[tokio::test]
     #[ignore = "reads the real certificate store; runs in the system-store job only"]
-    fn system_store_lists_and_signs() {
-        super::super::testing::check_system_store(&PersonalStore);
+    async fn system_store_lists_and_signs() {
+        super::super::testing::check_system_store(&PersonalStore).await;
     }
 }
