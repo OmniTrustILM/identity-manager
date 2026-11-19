@@ -1545,7 +1545,6 @@ async fn a_start_that_cannot_reach_ilm_keeps_the_item_and_retries_to_signed_in()
     assert!(
         matches!(&view, SessionView::Unreachable { address, problem }
             if address.contains("127.0.0.1:1") && problem == "ILM cannot be reached."),
-        "{view:?}"
     );
     assert_eq!(world.session.retry().await, view);
 
@@ -1575,7 +1574,7 @@ async fn a_retry_signs_in_once_the_provider_answers_and_keeps_the_saved_item() {
 
     let view = world.session.retry().await;
 
-    assert!(is_signed_in(&view), "{view:?}");
+    assert!(is_signed_in(&view));
     assert_eq!(world.stored_refresh().as_deref(), Some("r1"));
 }
 
@@ -1760,7 +1759,7 @@ async fn a_start_that_gets_no_useful_answer_from_ilm_keeps_the_item_and_retries_
 
         let view = world.session.start().await;
 
-        assert!(matches!(view, SessionView::Unreachable { .. }), "{view:?}");
+        assert!(matches!(view, SessionView::Unreachable { .. }));
         assert_eq!(world.stored_refresh().as_deref(), Some("r1"));
         assert!(is_signed_in(&world.session.retry().await));
     }
@@ -1983,4 +1982,45 @@ async fn a_slow_connect_that_fails_after_a_second_connect_signed_in_leaves_that_
         "{:?}",
         world.session.view()
     );
+}
+
+#[tokio::test]
+async fn a_check_that_ilm_refuses_removes_the_saved_sign_in_so_a_restart_does_not_restore_it() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 3600).await;
+    world
+        .grant("refresh_token", tokens("a2", Some("r1"), 3600), None)
+        .await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+    assert_eq!(world.stored_refresh().as_deref(), Some("r1"));
+    Mock::given(method("GET"))
+        .and(path("/api/v1/auth/profile"))
+        .respond_with(ResponseTemplate::new(401))
+        .with_priority(1)
+        .mount(&world.ilm)
+        .await;
+
+    let view = world.session.check().await;
+
+    assert_eq!(view, world.ended("ILM did not accept the sign-in."));
+    assert_eq!(world.stored_refresh(), None);
+}
+
+#[tokio::test]
+async fn signing_out_while_the_saved_sign_in_waits_for_ilm_removes_it() {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world
+        .grant("refresh_token", ResponseTemplate::new(503), None)
+        .await;
+    assert!(matches!(
+        world.session.start().await,
+        SessionView::Unreachable { .. }
+    ));
+
+    let view = world.session.sign_out().await;
+
+    assert_eq!(view, signed_out(&world, None));
+    assert_eq!(world.stored_refresh(), None);
 }

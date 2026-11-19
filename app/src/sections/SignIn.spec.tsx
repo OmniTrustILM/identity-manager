@@ -556,15 +556,43 @@ test('Back from a choice that was asked for returns to the ended sign-in', async
     expect(heading()).toBe(strings.signedOutTitle);
 });
 
-test('unreachable shows the address and the problem, with nothing to press', async () => {
-    await act(async () =>
-        root.render(
-            <Unreachable view={{ state: 'unreachable', address: 'https://ilm.example.com', problem: 'The connection timed out.' }} />,
-        ),
-    );
+const unreachable = { state: 'unreachable', address: 'https://ilm.example.com', problem: 'The connection timed out.' } as const;
+const renderUnreachable = () => act(async () => root.render(<Unreachable view={unreachable} />));
+
+test('unreachable shows the address and the problem, with Sign out as the way out, focused', async () => {
+    await renderUnreachable();
 
     expect(heading()).toBe(strings.unreachableTitle);
     expect(container.textContent).toContain('https://ilm.example.com');
     expect(alerts()).toEqual(['The connection timed out.']);
-    expect(buttons()).toEqual([]);
+    expect(buttons().map((candidate) => candidate.textContent)).toEqual([strings.signOut]);
+    expect(document.activeElement).toBe(button(strings.signOut));
+    expect(button(strings.signOut).classList.contains('text-accent')).toBe(true);
+});
+
+test('Sign out from unreachable asks the application to sign out', async () => {
+    bridge(() => idle);
+    await renderUnreachable();
+
+    await press(strings.signOut);
+
+    expect(commands()).toEqual(['sign_out']);
+});
+
+test('Sign out from unreachable shows why it was refused', async () => {
+    bridge(() => Promise.reject('Unlock Identity Manager first.'));
+    await renderUnreachable();
+
+    await press(strings.signOut);
+
+    expect(alerts()).toEqual(['Unlock Identity Manager first.']);
+});
+
+test('a refused Sign out without a reason says the connection failed', async () => {
+    bridge(() => Promise.reject(''));
+    await renderUnreachable();
+
+    await press(strings.signOut);
+
+    expect(alerts()).toEqual([strings.connectFailed]);
 });

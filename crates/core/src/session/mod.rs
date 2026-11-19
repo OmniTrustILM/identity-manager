@@ -700,13 +700,20 @@ impl Session {
         view
     }
 
-    /// Ends the sign-in `id` that ILM no longer accepts, unless it has ended already.
+    /// Ends the sign-in `id` that ILM no longer accepts, unless it has ended already; a saved refresh token goes too.
     async fn end_active(&self, id: &Arc<()>, problem: &str) {
         let _renewing = self.renewing.lock().await;
-        let again = match &*lock(&self.state) {
-            State::SignedIn(active) if Arc::ptr_eq(&active.id, id) => active.again(),
+        let (again, saved) = match &*lock(&self.state) {
+            State::SignedIn(active) if Arc::ptr_eq(&active.id, id) => (
+                active.again(),
+                matches!(active.credential, Credential::OAuth(_)).then(|| active.ilm.clone()),
+            ),
             _ => return,
         };
+        // A restart must not restore a sign-in that ILM has refused.
+        if let Some(ilm) = saved {
+            _ = self.delete_item(&ilm).await;
+        }
         self.end_sign_in(problem, again);
     }
 

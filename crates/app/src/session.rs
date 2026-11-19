@@ -709,14 +709,30 @@ mod tests {
         let view = fixture.call("settings", serde_json::json!({})).unwrap();
         assert_eq!(view["unlock"], "available");
 
-        let off = fixture
-            .call(
-                "set_setting",
-                serde_json::json!({ "change": { "key": "requireUnlock", "value": false } }),
-            )
-            .unwrap();
+        fixture.prompt.queue(Confirmation::Confirmed);
+        fixture.call("unlock", serde_json::json!({})).unwrap();
+        let off = fixture.call("set_setting", turn_unlock_off()).unwrap();
         assert_eq!(off["requireUnlock"]["value"], false);
         assert!(!fixture.guard().is_locked());
+    }
+
+    fn turn_unlock_off() -> serde_json::Value {
+        serde_json::json!({ "change": { "key": "requireUnlock", "value": false } })
+    }
+
+    #[test]
+    fn a_setting_cannot_be_changed_while_locked_and_nothing_is_saved() {
+        let fixture = fixture(Mode::SelfCheck);
+        fixture.lock();
+
+        refused_as_locked(
+            fixture.call("set_setting", turn_unlock_off()),
+            "set_setting",
+        );
+
+        assert!(fixture.guard().is_locked());
+        let view = fixture.call("settings", serde_json::json!({})).unwrap();
+        assert_eq!(view["requireUnlock"]["value"], true);
     }
 
     #[test]
@@ -738,8 +754,8 @@ mod tests {
         assert!(log.contains("locked: computer"), "{log}");
         assert!(log.contains("unlocked"), "{log}");
         assert!(log.contains("notified that the sign-in has ended"), "{log}");
-        for secret in ["4242", "Ada", "ada.example.com"] {
-            assert!(!log.contains(secret), "{secret} in {log}");
+        for (index, secret) in ["4242", "Ada", "ada.example.com"].into_iter().enumerate() {
+            assert!(!log.contains(secret), "the log holds secret number {index}");
         }
     }
 

@@ -194,12 +194,16 @@ impl Guard {
         }
     }
 
-    /// Reads the computer and locks when it says the person is away.
-    pub fn sample(&self) {
-        let sample = Sample {
+    fn read_system(&self) -> Sample {
+        Sample {
             screen_locked: self.system.screen_locked(),
             idle: self.system.idle(),
-        };
+        }
+    }
+
+    /// Reads the computer and locks when it says the person is away.
+    pub fn sample(&self) {
+        let sample = self.read_system();
         let _shown = locked(&self.shown);
         let (change, real) = {
             let mut state = locked(&self.state);
@@ -261,9 +265,10 @@ impl Guard {
         match self.prompt.confirm(UNLOCK_REASON).await {
             Confirmation::Confirmed => {
                 let _shown = locked(&self.shown);
+                let sample = self.read_system();
                 let real = {
                     let mut state = locked(&self.state);
-                    state.lock.unlocked();
+                    state.lock.unlocked(sample);
                     state.real.clone()
                 };
                 log::info!("unlocked");
@@ -648,6 +653,19 @@ mod tests {
         assert!(!fixture.guard.is_locked());
         assert!(fixture.prompt.reasons().is_empty());
         assert_eq!(fixture.windows.take(), [Shown::Real("signedIn")]);
+    }
+
+    #[tokio::test]
+    async fn the_computer_locking_right_after_an_unlock_locks_the_application_again() {
+        let fixture = locked_fixture().await;
+        fixture.state.set(Some(false), Some(Duration::ZERO));
+        fixture.prompt.queue(Confirmation::Confirmed);
+        fixture.guard.unlock().await.unwrap();
+
+        fixture.state.set(Some(true), Some(Duration::ZERO));
+        fixture.guard.sample();
+
+        assert!(fixture.guard.is_locked());
     }
 
     #[tokio::test]

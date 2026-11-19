@@ -252,9 +252,10 @@ pub async fn set_setting<R: Runtime>(
     if matches!(change, Change::IlmUrl(_)) {
         return Err("The ILM address is changed through Connect.".to_owned());
     }
+    let guard = app.state::<Arc<Guard>>().inner().clone();
+    guard.ensure_unlocked()?;
     let settings = app.state::<Arc<Settings>>().inner().clone();
     settings.change(change)?;
-    let guard = app.state::<Arc<Guard>>().inner().clone();
     Ok(guard.adopt(|| settings.view()).await)
 }
 

@@ -93,11 +93,15 @@ impl Lock {
         }
     }
 
-    /// The user proved who they are.
-    pub fn unlocked(&mut self) {
+    /// The user proved who they are; `sample` is the reading of the system at that moment, so a screen that is
+    /// unlocked then, or an idle time below the limit, can lock again at once.
+    pub fn unlocked(&mut self, sample: Sample) {
         self.locked = false;
-        self.screen_seen_unlocked = false;
-        self.idle_seen_below_limit = false;
+        self.screen_seen_unlocked = sample.screen_locked != Some(true);
+        self.idle_seen_below_limit = match (sample.idle, self.config.idle_limit) {
+            (Some(idle), Some(limit)) => idle < limit,
+            _ => true,
+        };
     }
 
     /// Nothing personal is left once signed out.
@@ -155,7 +159,7 @@ mod tests {
     enum Step {
         Start(bool),
         Observe(Sample, bool),
-        Unlocked,
+        Unlocked(Sample),
         SignedOut,
         Configure(Config),
     }
@@ -303,13 +307,43 @@ mod tests {
                         Observe(sample(Some(true), Some(0)), true),
                         locked(Reason::Computer),
                     ),
-                    (Unlocked, None),
+                    (Unlocked(sample(Some(true), Some(0))), None),
                     (Observe(sample(Some(true), Some(0)), true), None),
                     (Observe(sample(None, Some(0)), true), None),
                     (Observe(sample(Some(false), Some(0)), true), None),
                     (
                         Observe(sample(Some(true), Some(0)), true),
                         locked(Reason::Computer),
+                    ),
+                ],
+            ),
+            (
+                "a screen that is unlocked at the unlock locks again at once",
+                config(),
+                vec![
+                    (
+                        Observe(sample(Some(true), Some(0)), true),
+                        locked(Reason::Computer),
+                    ),
+                    (Unlocked(sample(Some(false), Some(0))), None),
+                    (
+                        Observe(sample(Some(true), Some(0)), true),
+                        locked(Reason::Computer),
+                    ),
+                ],
+            ),
+            (
+                "idle below the limit at the unlock re-arms at once",
+                config(),
+                vec![
+                    (
+                        Observe(sample(Some(false), Some(400)), true),
+                        locked(Reason::Idle),
+                    ),
+                    (Unlocked(sample(Some(false), Some(10))), None),
+                    (
+                        Observe(sample(Some(false), Some(300)), true),
+                        locked(Reason::Idle),
                     ),
                 ],
             ),
@@ -321,7 +355,7 @@ mod tests {
                         Observe(sample(Some(false), Some(400)), true),
                         locked(Reason::Idle),
                     ),
-                    (Unlocked, None),
+                    (Unlocked(sample(Some(false), Some(400))), None),
                     (Observe(sample(Some(false), Some(400)), true), None),
                     (Observe(sample(Some(false), None), true), None),
                     (Observe(sample(Some(false), Some(10)), true), None),
@@ -339,8 +373,8 @@ mod tests {
                 let change = match step {
                     Start(signed_in) => lock.started(signed_in),
                     Observe(sample, signed_in) => lock.observe(sample, signed_in),
-                    Unlocked => {
-                        lock.unlocked();
+                    Unlocked(sample) => {
+                        lock.unlocked(sample);
                         None
                     }
                     SignedOut => lock.signed_out(),
@@ -357,7 +391,7 @@ mod tests {
         assert!(!lock.is_locked());
         lock.started(true);
         assert!(lock.is_locked());
-        lock.unlocked();
+        lock.unlocked(sample(Some(false), Some(0)));
         assert!(!lock.is_locked());
     }
 }

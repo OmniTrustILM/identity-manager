@@ -11,7 +11,7 @@ import { OverviewIcon, SettingsIcon } from '../src/design-system/icons';
 import type { Section } from '../src/sections';
 import { sections as realSections, settingsSection } from '../src/sections';
 import { Settings } from '../src/sections/Settings';
-import { SignIn } from '../src/sections/SignIn';
+import { SignIn, Unreachable } from '../src/sections/SignIn';
 import { Unlock } from '../src/sections/Unlock';
 
 const First = () => <p>First content</p>;
@@ -209,6 +209,20 @@ export function SignInStory({
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <SignIn view={shown} />
+        </AppInfoContext.Provider>
+    );
+}
+
+type UnreachableProps = StoryProps & Readonly<{ refuse?: string }>;
+
+/** The sign-in that waits for ILM, against a stand-in for Sign out. */
+export function UnreachableStory({ platform, refuse }: UnreachableProps) {
+    useMemo(() => {
+        mockIPC(() => (refuse ? Promise.reject(refuse) : undefined));
+    }, [refuse]);
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            <Unreachable view={{ state: 'unreachable', address: 'https://ilm.example.com', problem: 'ILM cannot be reached.' }} />
         </AppInfoContext.Provider>
     );
 }

@@ -11,6 +11,7 @@ import {
     signIn,
     signInAgain,
     signInWithCertificate,
+    signOut,
 } from '../bridge';
 import { TextField } from '../components/TextField/TextField';
 import { BusyIcon, LockIcon, ProblemIcon } from '../design-system/icons';
@@ -155,12 +156,25 @@ function Ended({ view, onChoose }: Readonly<{ view: Idle; onChoose: (providers: 
     );
 }
 
-/** The saved sign-in is kept while ILM cannot be reached; the person is told where and why. */
+/** The saved sign-in is kept while ILM cannot be reached; the person is told where and why, and can sign out. */
 export function Unreachable({ view }: Readonly<{ view: Extract<SessionView, { state: 'unreachable' }> }>) {
     const problemId = useId();
+    const first = useFirstFocus<HTMLButtonElement>();
+    const [error, setError] = useState<string | null>(null);
+
+    const leave = () => {
+        setError(null);
+        signOut().catch((error_) => setError(reason(error_)));
+    };
+
     return (
         <Step title={strings.unreachableTitle} hint={view.address}>
-            <Problem id={problemId}>{view.problem}</Problem>
+            <div className="flex flex-col gap-s3">
+                <Problem id={problemId}>{error ?? view.problem}</Problem>
+                <button ref={first} type="button" tabIndex={0} aria-describedby={problemId} onClick={leave} className={plain}>
+                    {strings.signOut}
+                </button>
+            </div>
         </Step>
     );
 }
