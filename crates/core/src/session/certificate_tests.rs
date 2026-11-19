@@ -835,10 +835,7 @@ async fn start_prefers_a_saved_provider_sign_in() {
     else {
         panic!("the provider sign-in was tried and failed");
     };
-    assert!(
-        problem.starts_with("Could not renew the sign-in"),
-        "{problem}"
-    );
+    assert!(problem.starts_with("Could not renew the sign-in"));
     assert!(world.server.requests().is_empty());
 }
 
@@ -938,7 +935,7 @@ fn secret_der(key: PrivateKeyDer<'static>) -> Vec<u8> {
 }
 
 #[tokio::test]
-async fn the_log_of_a_certificate_flow_holds_no_key_or_body() {
+async fn the_log_of_a_certificate_flow_holds_no_key_body_or_identity() {
     capture_logs();
     let ca = TestCa::new();
     let holder = ca.issue(Issue::client("Certificate Holder"));
@@ -952,10 +949,8 @@ async fn the_log_of_a_certificate_flow_holds_no_key_or_body() {
     let log = LOG.lock().unwrap().join("\n");
     let key = secret_der(holder.private_key());
     let hex: String = key.iter().map(|byte| format!("{byte:02x}")).collect();
-    assert!(log.contains("Certificate Holder"), "the subject is logged");
-    assert!(log.contains(&holder.fingerprint().to_string()));
     assert!(log.contains("asked for a client certificate"));
-    assert!(log.contains("as jdoe with a certificate"));
+    assert!(log.contains("with a certificate"));
     assert!(log.contains("signed out"));
     for (index, secret) in [
         STANDARD.encode(&key),
@@ -963,6 +958,8 @@ async fn the_log_of_a_certificate_flow_holds_no_key_or_body() {
         STANDARD.encode(holder.leaf().as_ref()),
         "5d3a4c3e-0000-4000-8000-000000000001".to_owned(),
         "allowedListings".to_owned(),
+        holder.fingerprint().to_string(),
+        "jdoe".to_owned(),
     ]
     .iter()
     .enumerate()

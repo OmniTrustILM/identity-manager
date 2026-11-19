@@ -152,7 +152,7 @@ impl Session {
         else {
             return self.set(State::SignedOut { problem: None });
         };
-        log::info!("signing in again with the certificate {fingerprint}");
+        log::info!("signing in again with the remembered certificate");
         self.certificate_sign_in(&ilm, fingerprint, None).await
     }
 
@@ -175,20 +175,10 @@ impl Session {
             }
             return self.fail_attempt(attempt, NOT_ON_COMPUTER);
         };
-        let not_after = match identity::assess(identity.chain()[0].as_ref(), SystemTime::now()) {
-            Ok(found) => {
-                log::info!(
-                    "signing in to {ilm} with the certificate {} issued by {} ({fingerprint})",
-                    found.candidate.subject,
-                    found.candidate.issuer
-                );
-                Some(found.candidate.not_after)
-            }
-            Err(_) => {
-                log::info!("signing in to {ilm} with the certificate {fingerprint}");
-                None
-            }
-        };
+        let not_after = identity::assess(identity.chain()[0].as_ref(), SystemTime::now())
+            .ok()
+            .map(|found| found.candidate.not_after);
+        log::info!("signing in to {ilm} with a certificate");
         let (client, asked) = (self.certificate_client)(identity);
         let response = match profile_request(&client, ilm).send().await {
             Ok(response) => response,
@@ -213,7 +203,6 @@ impl Session {
             Ok(person) => person,
             Err(error) => return self.fail_attempt(attempt, error.to_string()),
         };
-        let username = person.username.clone();
         let _renewing = self.renewing.lock().await;
         let current = {
             let mut state = lock(&self.state);
@@ -239,7 +228,7 @@ impl Session {
         if let Err(error) = self.settings.save_certificate(ilm, &fingerprint) {
             log::warn!("the certificate could not be remembered for the next start: {error}");
         }
-        log::info!("signed in to {ilm} as {username} with a certificate");
+        log::info!("signed in to {ilm} with a certificate");
         self.publish()
     }
 
@@ -258,7 +247,7 @@ impl Session {
             not_after,
         } = certificate;
         if not_after.is_some_and(|end| SystemTime::now() > end) {
-            log::warn!("the certificate {fingerprint} has expired");
+            log::warn!("the certificate has expired");
             self.end_certificate(generation, EXPIRED, fingerprint).await;
             return Err(CallError::SignedOut);
         }
@@ -269,7 +258,7 @@ impl Session {
         if response.status() != StatusCode::UNAUTHORIZED {
             return Ok(response);
         }
-        log::warn!("ILM no longer accepts the certificate {fingerprint}");
+        log::warn!("ILM no longer accepts the certificate");
         self.end_certificate(generation, NOT_KNOWN, fingerprint)
             .await;
         Err(CallError::SignedOut)
