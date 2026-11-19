@@ -44,8 +44,9 @@ fn epoch_millis(time: SystemTime) -> i64 {
     })
 }
 
-/// What to tell the person when the request could not be answered. A connection that fails after the server
-/// asked for the certificate counts as a refusal: some systems report the gateway's alert as a reset connection.
+/// What to tell the person when the request could not be answered. A connection that fails, other than by timing
+/// out, after the server asked for the certificate counts as a refusal: some systems report the gateway's alert as a
+/// reset connection.
 fn request_problem(error: &(dyn Error + 'static), asked: bool) -> String {
     if is_signing_refused(error) {
         KEY_REFUSED.to_owned()
@@ -182,7 +183,12 @@ impl Session {
         let (client, asked) = (self.certificate_client)(identity);
         let response = match profile_request(&client, ilm).send().await {
             Ok(response) => response,
-            Err(error) => return self.fail_attempt(attempt, request_problem(&error, asked.get())),
+            Err(error) => {
+                return self.fail_attempt(
+                    attempt,
+                    request_problem(&error, asked.get() && !error.is_timeout()),
+                );
+            }
         };
         log::info!(
             "the server {} a client certificate",
