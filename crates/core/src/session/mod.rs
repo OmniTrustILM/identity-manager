@@ -634,7 +634,15 @@ impl Session {
             client_id,
             resource: item.resource.clone(),
         };
-        match self.renew_item(&item, &grant).await {
+        let renewed = {
+            let _renewing = self.renewing.lock().await;
+            if !is_current(&lock(&self.state), None) {
+                log::info!("the sign-in changed before the saved one was renewed");
+                return self.view();
+            }
+            self.renew_item(&item, &grant).await
+        };
+        match renewed {
             Ok(tokens) => self.establish(ilm, tokens, grant, Origin::Saved).await,
             Err(TokenError::Refused) => {
                 self.end_attempt(None, SIGN_IN_ENDED, Some(Again::Provider(item.issuer)))
@@ -994,6 +1002,11 @@ impl Session {
             Ok(person) => person,
             Err(IlmError::Unauthorized) if matches!(origin, Origin::Saved) => {
                 let again = Again::Provider(grant.metadata.issuer);
+                // A restart must not retry a sign-in that ILM has refused.
+                let _renewing = self.renewing.lock().await;
+                if is_current(&lock(&self.state), None) {
+                    _ = self.delete_item(&ilm).await;
+                }
                 return self.end_attempt(None, IlmError::Unauthorized.to_string(), Some(again));
             }
             Err(error) if matches!(origin, Origin::Saved) => {
@@ -1004,9 +1017,6 @@ impl Session {
         let _renewing = self.renewing.lock().await;
         if !is_current(&lock(&self.state), origin.attempt()) {
             log::info!("the sign-in ended before ILM answered and is not kept");
-            if let Origin::Saved = origin {
-                _ = self.delete_item(&ilm).await;
-            }
             return self.view();
         }
         if let Origin::Browser { item, .. } = &origin {
@@ -1040,7 +1050,9 @@ impl Session {
         };
         if !current {
             log::info!("the sign-in ended before ILM answered and is not kept");
-            _ = self.delete_item(&ilm).await;
+            if let Origin::Browser { .. } = origin {
+                _ = self.delete_item(&ilm).await;
+            }
             return self.view();
         }
         if let Origin::Browser { .. } = origin {

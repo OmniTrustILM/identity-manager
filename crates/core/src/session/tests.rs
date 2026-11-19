@@ -649,7 +649,7 @@ async fn a_start_with_an_unreadable_provider_or_store_keeps_the_item_and_says_so
 }
 
 #[tokio::test]
-async fn a_start_whose_profile_is_refused_is_signed_out_with_the_item_kept() {
+async fn a_start_whose_profile_is_refused_is_signed_out_and_the_item_removed() {
     let world = World::at_address().await;
     world.put_item("r1");
     world
@@ -662,7 +662,7 @@ async fn a_start_whose_profile_is_refused_is_signed_out_with_the_item_kept() {
         &view,
         SessionView::SignedOut { problem: Some(p), .. } if p.contains("did not accept")
     ));
-    assert_eq!(world.stored_refresh().as_deref(), Some("r1"));
+    assert_eq!(world.stored_refresh(), None);
 }
 
 #[tokio::test]
@@ -2023,4 +2023,57 @@ async fn signing_out_while_the_saved_sign_in_waits_for_ilm_removes_it() {
 
     assert_eq!(view, signed_out(&world, None));
     assert_eq!(world.stored_refresh(), None);
+}
+
+#[tokio::test]
+async fn a_sign_out_during_a_retry_leaves_nothing_stored() {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world
+        .grant("refresh_token", ResponseTemplate::new(503), Some(1))
+        .await;
+    world
+        .grant(
+            "refresh_token",
+            tokens("a1", Some("r2"), 3600).set_delay(std::time::Duration::from_millis(400)),
+            None,
+        )
+        .await;
+    world.profile_for("a1").await;
+    assert!(matches!(
+        world.session.start().await,
+        SessionView::Unreachable { .. }
+    ));
+
+    tokio::join!(world.session.retry(), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        world.session.sign_out().await
+    });
+
+    assert_eq!(world.stored_refresh(), None);
+    assert_eq!(world.session.view(), signed_out(&world, None));
+}
+
+#[tokio::test]
+async fn a_restore_that_finishes_after_a_replacement_sign_in_leaves_its_saved_sign_in_alone() {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world
+        .grant(
+            "refresh_token",
+            tokens("a1", Some("r1"), 3600).set_delay(std::time::Duration::from_millis(400)),
+            None,
+        )
+        .await;
+    world.code_grant("a2", Some("r-new"), 3600).await;
+    world.profile_for("a1").await;
+    world.profile_for("a2").await;
+
+    tokio::join!(world.session.start(), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        world.sign_in().await
+    });
+
+    assert!(is_signed_in(&world.session.view()));
+    assert_eq!(world.stored_refresh().as_deref(), Some("r-new"));
 }
