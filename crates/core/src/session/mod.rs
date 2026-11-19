@@ -326,6 +326,8 @@ pub struct Session {
     renewing: tokio::sync::Mutex<()>,
     /// Held while the saved sign-in is tried again, so two retries do not renew the same refresh token.
     restoring: tokio::sync::Mutex<()>,
+    /// Held for a whole check, so an older answer never overwrites a newer one.
+    checking: tokio::sync::Mutex<()>,
     /// The latest refresh token when the store could not save it.
     unsaved: Mutex<Option<Item>>,
 }
@@ -397,6 +399,7 @@ impl Session {
             pending: Mutex::new(None),
             renewing: tokio::sync::Mutex::new(()),
             restoring: tokio::sync::Mutex::new(()),
+            checking: tokio::sync::Mutex::new(()),
             unsaved: Mutex::new(None),
         }
     }
@@ -667,6 +670,7 @@ impl Session {
     /// While signed in, reads the profile of the person: this renews the access token as needed, updates the
     /// person and tells whether ILM can be reached.
     pub async fn check(&self) -> SessionView {
+        let _checking = self.checking.lock().await;
         let signed_in = match &*lock(&self.state) {
             State::SignedIn(active) => Some((active.ilm.clone(), active.id.clone())),
             _ => None,

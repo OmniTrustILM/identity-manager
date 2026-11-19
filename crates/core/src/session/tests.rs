@@ -2077,3 +2077,34 @@ async fn a_restore_that_finishes_after_a_replacement_sign_in_leaves_its_saved_si
     assert!(is_signed_in(&world.session.view()));
     assert_eq!(world.stored_refresh().as_deref(), Some("r-new"));
 }
+
+#[tokio::test]
+async fn a_slower_older_check_does_not_overwrite_a_newer_answer() {
+    let world = World::new().await;
+    world.code_grant("a1", Some("r1"), 3600).await;
+    world.profile_for("a1").await;
+    world.sign_in().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/auth/profile"))
+        .respond_with(profile_of("older").set_delay(std::time::Duration::from_millis(400)))
+        .with_priority(1)
+        .up_to_n_times(1)
+        .mount(&world.ilm)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/auth/profile"))
+        .respond_with(profile_of("newer"))
+        .with_priority(2)
+        .mount(&world.ilm)
+        .await;
+
+    tokio::join!(world.session.check(), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        world.session.check().await
+    });
+
+    assert!(matches!(
+        world.session.view(),
+        SessionView::SignedIn { person, .. } if person.username == "newer"
+    ));
+}

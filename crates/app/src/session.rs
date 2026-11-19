@@ -191,8 +191,8 @@ pub async fn connect<R: Runtime>(
     app: AppHandle<R>,
     address: String,
 ) -> Result<Vec<ProviderChoice>, String> {
-    let (session, _) = unlocked(&app)?;
-    session.connect(&address).await
+    let (session, guard) = unlocked(&app)?;
+    unlocked_afterwards(&guard, session.connect(&address)).await?
 }
 
 #[tauri::command]
