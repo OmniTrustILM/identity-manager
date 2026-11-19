@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use im_core::session::SessionView;
 use im_core::{AppInfo, Platform};
@@ -59,7 +59,7 @@ impl Shown {
     /// The new look when the view changes what the tray shows.
     fn update(&self, view: &SessionView) -> Option<Look> {
         let next = Look::of(view);
-        let mut shown = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let mut shown = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         (*shown != next).then(|| {
             *shown = next;
             next
