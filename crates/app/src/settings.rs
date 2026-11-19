@@ -2,9 +2,12 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use auto_launch::{AutoLaunch, AutoLaunchBuilder, WindowsEnableMode};
+use im_core::identity::Fingerprint;
 use im_core::ilm::IlmUrl;
 use im_core::session::{Connection, ConnectionSettings};
-use im_core::settings::{self, Change, Layer, LogLevel, SettingsView, store};
+use im_core::settings::{
+    self, Change, Layer, LogLevel, RememberedCertificate, SettingsView, store,
+};
 use log::LevelFilter;
 #[cfg(target_os = "linux")]
 use tauri::Manager;
@@ -177,18 +180,59 @@ fn start_lines(policy: &Layer, person: &Layer) -> [String; 3] {
     ]
 }
 
+impl Settings {
+    fn save_person(&self, person: &Layer) -> Result<(), String> {
+        store::save(&self.person_file, person)
+            .map_err(|error| format!("The settings could not be saved: {error}"))
+    }
+}
+
 impl ConnectionSettings for Settings {
     fn connection(&self) -> Connection {
         let (policy, person) = self.layers();
+        let locked = policy.ilm_url.is_some();
+        let address = policy.ilm_url.or(person.ilm_url);
+        let certificate = person
+            .sign_in_certificate
+            .filter(|remembered| Some(&remembered.ilm) == address.as_ref())
+            .map(|remembered| remembered.fingerprint);
         Connection {
-            locked: policy.ilm_url.is_some(),
-            address: policy.ilm_url.or(person.ilm_url),
+            locked,
+            address,
             provider: policy.sign_in_provider,
+            method: policy.sign_in_method,
+            certificate,
         }
     }
 
     fn save_address(&self, address: &IlmUrl) -> Result<(), String> {
         self.change(Change::IlmUrl(address.clone())).map(|_| ())
+    }
+
+    fn save_certificate(&self, ilm: &IlmUrl, fingerprint: &Fingerprint) -> Result<(), String> {
+        let _saving = self.saving.lock().unwrap_or_else(PoisonError::into_inner);
+        let (_, mut person) = self.layers();
+        person.sign_in_certificate = Some(RememberedCertificate {
+            ilm: ilm.clone(),
+            fingerprint: *fingerprint,
+        });
+        self.save_person(&person)
+    }
+
+    fn forget_certificate(&self, failed: Option<&Fingerprint>) -> Result<(), String> {
+        let _saving = self.saving.lock().unwrap_or_else(PoisonError::into_inner);
+        let (_, mut person) = self.layers();
+        let forget = person
+            .sign_in_certificate
+            .as_ref()
+            .is_some_and(|remembered| {
+                failed.is_none_or(|failed| remembered.fingerprint == *failed)
+            });
+        if !forget {
+            return Ok(());
+        }
+        person.sign_in_certificate = None;
+        self.save_person(&person)
     }
 }
 
@@ -254,6 +298,52 @@ mod tests {
 
     fn no_policy() -> Layer {
         Layer::default()
+    }
+
+    #[test]
+    fn a_certificate_remembered_for_another_address_is_not_offered() {
+        let mine = IlmUrl::parse("mine.example.com").unwrap();
+        let other = IlmUrl::parse("other.example.com").unwrap();
+        let fingerprint = Fingerprint::of(b"certificate");
+        let (_folder, settings, _) = fixture(
+            Layer {
+                ilm_url: Some(other.clone()),
+                ..Layer::default()
+            },
+            true,
+        );
+        settings.save_certificate(&mine, &fingerprint).unwrap();
+
+        assert_eq!(settings.connection().certificate, None);
+
+        settings.save_certificate(&other, &fingerprint).unwrap();
+
+        assert_eq!(settings.connection().certificate, Some(fingerprint));
+    }
+
+    #[test]
+    fn forgetting_clears_a_certificate_of_any_address_and_only_the_failed_one() {
+        let mine = IlmUrl::parse("mine.example.com").unwrap();
+        let (kept, other) = (Fingerprint::of(b"kept"), Fingerprint::of(b"other"));
+        let (_folder, settings, _) = fixture(
+            Layer {
+                ilm_url: Some(IlmUrl::parse("other.example.com").unwrap()),
+                ..Layer::default()
+            },
+            true,
+        );
+        let remembered = || settings.layers().1.sign_in_certificate;
+        settings.save_certificate(&mine, &kept).unwrap();
+
+        settings.forget_certificate(Some(&other)).unwrap();
+        assert!(remembered().is_some());
+
+        settings.forget_certificate(Some(&kept)).unwrap();
+        assert_eq!(remembered(), None);
+
+        settings.save_certificate(&mine, &kept).unwrap();
+        settings.forget_certificate(None).unwrap();
+        assert_eq!(remembered(), None);
     }
 
     #[test]
@@ -446,7 +536,8 @@ mod tests {
             Connection {
                 address: None,
                 locked: false,
-                provider: Some("Corporate".into())
+                provider: Some("Corporate".into()),
+                ..Connection::default()
             }
         );
 

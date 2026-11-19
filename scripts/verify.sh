@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 usage() {
-    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check|policy-system|keyring-system>" >&2
+    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check|policy-system|keyring-system|identity-system>" >&2
     exit 2
 }
 
@@ -172,6 +172,89 @@ keyring_system() {
     fi
 }
 
+# Writes ca.pem, leaf.pem and identity.p12 (password in $2) for a throwaway CA and a client certificate with an
+# ECDSA P-256 key and the clientAuth extended key usage, into the directory $1.
+make_test_identity() {
+    local dir=$1 password=$2
+    (
+        cd "$dir"
+        export MSYS2_ARG_CONV_EXCL='*'
+        printf 'basicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\n' > ca.ext
+        printf 'basicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\n' > leaf.ext
+        openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out ca.key
+        openssl req -new -key ca.key -subj "/CN=Identity Manager Test CA" -out ca.csr
+        openssl x509 -req -in ca.csr -signkey ca.key -days 2 -extfile ca.ext -out ca.pem
+        openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out leaf.key
+        openssl req -new -key leaf.key -subj "/CN=Identity Manager Test Client" -out leaf.csr
+        openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -days 2 -extfile leaf.ext -out leaf.pem
+        # OpenSSL 3 writes a format the macOS importer rejects unless -legacy is given; LibreSSL has no such flag.
+        openssl pkcs12 -export -legacy -inkey leaf.key -in leaf.pem -name "Identity Manager Test Client" \
+            -passout "pass:$password" -out identity.p12 2> /dev/null \
+            || openssl pkcs12 -export -inkey leaf.key -in leaf.pem -name "Identity Manager Test Client" \
+                -passout "pass:$password" -out identity.p12
+    )
+}
+
+# Prints the hash of the leaf in $1 as the DER bytes: SHA-256 for the test, SHA-1 for the Windows thumbprint.
+leaf_digest() {
+    openssl x509 -in "$2/leaf.pem" -outform DER | openssl dgst "-$1" -r | cut -d' ' -f1
+}
+
+# The cleanups run from an EXIT trap, so they read globals.
+remove_test_keychain() {
+    if [[ ${#saved_keychains[@]} -gt 0 ]]; then
+        security list-keychains -d user -s "${saved_keychains[@]}" || true
+    fi
+    security delete-keychain "$keychain" || true
+    rm -rf "$dir"
+}
+
+remove_test_certificate() {
+    # shellcheck disable=SC2016 # PowerShell expands the variable
+    IM_THUMBPRINT="$thumbprint" pwsh -NoProfile -Command \
+        'Remove-Item "Cert:\CurrentUser\My\$env:IM_THUMBPRINT" -DeleteKey -ErrorAction SilentlyContinue' || true
+    rm -rf "$dir"
+}
+
+# Puts a throwaway client certificate into the user store of the runner, lists and signs with it through the
+# real readers, and removes it. The store is the real one, so this runs on CI runners only. Linux has no store.
+identity_system() {
+    [[ -n "${CI:-}" ]] || { echo "identity-system writes to the certificate store of the system and runs on CI runners only (CI is not set)" >&2; exit 1; }
+    local password test_name
+    dir=$(mktemp -d)
+    password=$(openssl rand -hex 16)
+    make_test_identity "$dir" "$password"
+    case "$(uname -s)" in
+        Darwin)
+            keychain="$dir/identity-test.keychain-db"
+            test_name=identity::macos::tests::system_store_lists_and_signs
+            saved_keychains=()
+            while IFS= read -r line; do
+                line=${line#*\"}
+                saved_keychains+=("${line%\"*}")
+            done < <(security list-keychains -d user)
+            trap remove_test_keychain EXIT
+            security create-keychain -p "$password" "$keychain"
+            security set-keychain-settings -lut 3600 "$keychain"
+            security unlock-keychain -p "$password" "$keychain"
+            security list-keychains -d user -s "$keychain" "${saved_keychains[@]}"
+            security import "$dir/identity.p12" -k "$keychain" -P "$password" -A -f pkcs12
+            security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+            ;;
+        MINGW* | MSYS* | CYGWIN*)
+            thumbprint=$(leaf_digest sha1 "$dir")
+            test_name=identity::windows::tests::system_store_lists_and_signs
+            trap remove_test_certificate EXIT
+            # shellcheck disable=SC2016 # PowerShell expands the variables
+            IM_PFX=$(cygpath -w "$dir/identity.p12") IM_PASSWORD="$password" pwsh -NoProfile -Command \
+                'Import-PfxCertificate -FilePath $env:IM_PFX -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $env:IM_PASSWORD -AsPlainText -Force) | Out-Null'
+            ;;
+        *) echo "identity-system has no certificate store to test on $(uname -s)" >&2; exit 1 ;;
+    esac
+    IM_IDENTITY_FINGERPRINT=$(leaf_digest sha256 "$dir") \
+        cargo test -p im-core --locked -- --ignored "$test_name"
+}
+
 case "${1:-}" in
     lint) lint ;;
     test) run_tests ;;
@@ -186,5 +269,6 @@ case "${1:-}" in
     self-check) self_check ;;
     policy-system) policy_system ;;
     keyring-system) keyring_system ;;
+    identity-system) identity_system ;;
     *) usage ;;
 esac

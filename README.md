@@ -66,6 +66,9 @@ The application loads the interface from the server and reloads it on change.
 Debug builds store the refresh token too. Each build changes the code signature, so macOS asks once per build to
 allow keychain access.
 
+Signing in with a certificate asks for the same: each debug rebuild changes the signature, so macOS asks again for
+permission to use the certificate's key.
+
 ### Bundle
 
 ```bash

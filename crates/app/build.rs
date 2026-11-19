@@ -28,6 +28,8 @@ fn main() {
                 "session",
                 "connect",
                 "sign_in",
+                "certificates",
+                "sign_in_with_certificate",
                 "reopen_browser",
                 "cancel_sign_in",
                 "sign_out",

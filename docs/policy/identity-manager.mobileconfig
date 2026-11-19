@@ -23,6 +23,8 @@
 			<string>https://ilm.example.com</string>
 			<key>SignInProvider</key>
 			<string>Corporate</string>
+			<key>SignInMethod</key>
+			<string>oauth</string>
 		</dict>
 	</array>
 	<key>PayloadType</key>

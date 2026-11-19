@@ -136,13 +136,18 @@ mod tests {
     fn address_and_provider_strings_reach_the_layer() {
         let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
 <key>IlmUrl</key><string>ilm.example.com</string>
-<key>SignInProvider</key><string>Corporate</string></dict></plist>"#;
+<key>SignInProvider</key><string>Corporate</string>
+<key>SignInMethod</key><string>certificate</string></dict></plist>"#;
         let layer = crate::policy::to_layer(&parse_plist(xml, "test"), "test");
         assert_eq!(
             layer.ilm_url,
             crate::ilm::IlmUrl::parse("ilm.example.com").ok()
         );
         assert_eq!(layer.sign_in_provider.as_deref(), Some("Corporate"));
+        assert_eq!(
+            layer.sign_in_method,
+            Some(crate::settings::SignInMethod::Certificate)
+        );
     }
 
     #[test]

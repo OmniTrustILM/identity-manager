@@ -5,3 +5,4 @@ Windows Registry Editor Version 5.00
 "LogLevel"="debug"
 "IlmUrl"="https://ilm.example.com"
 "SignInProvider"="Corporate"
+"SignInMethod"="oauth"

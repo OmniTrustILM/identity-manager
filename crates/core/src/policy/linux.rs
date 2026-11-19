@@ -103,5 +103,9 @@ mod tests {
             crate::ilm::IlmUrl::parse("https://ilm.example.com").ok()
         );
         assert_eq!(layer.sign_in_provider.as_deref(), Some("Corporate"));
+        assert_eq!(
+            layer.sign_in_method,
+            Some(crate::settings::SignInMethod::Oauth)
+        );
     }
 }

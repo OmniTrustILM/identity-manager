@@ -1,6 +1,8 @@
 //! The Windows source: the values of a registry key.
 
-use super::{ILM_URL, LOG_LEVEL, PolicyValue, RawMap, SIGN_IN_PROVIDER, START_AT_LOGIN};
+use super::{
+    ILM_URL, LOG_LEVEL, PolicyValue, RawMap, SIGN_IN_METHOD, SIGN_IN_PROVIDER, START_AT_LOGIN,
+};
 #[cfg(windows)]
 use crate::settings::Layer;
 
@@ -79,10 +81,16 @@ pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> R
 }
 
 fn known_name(name: String) -> String {
-    [START_AT_LOGIN, LOG_LEVEL, ILM_URL, SIGN_IN_PROVIDER]
-        .into_iter()
-        .find(|known| known.eq_ignore_ascii_case(&name))
-        .map_or(name, str::to_string)
+    [
+        START_AT_LOGIN,
+        LOG_LEVEL,
+        ILM_URL,
+        SIGN_IN_PROVIDER,
+        SIGN_IN_METHOD,
+    ]
+    .into_iter()
+    .find(|known| known.eq_ignore_ascii_case(&name))
+    .map_or(name, str::to_string)
 }
 
 #[cfg(test)]
@@ -123,6 +131,7 @@ mod tests {
                 ("LOGLEVEL", RegValue::Sz("debug".into())),
                 ("ilmurl", RegValue::Sz("ilm.example.com".into())),
                 ("SIGNINPROVIDER", RegValue::Sz("Corporate".into())),
+                ("signinmethod", RegValue::Sz("certificate".into())),
             ]),
             "test",
         );
@@ -133,6 +142,10 @@ mod tests {
             crate::ilm::IlmUrl::parse("ilm.example.com").ok()
         );
         assert_eq!(layer.sign_in_provider.as_deref(), Some("Corporate"));
+        assert_eq!(
+            layer.sign_in_method,
+            Some(crate::settings::SignInMethod::Certificate)
+        );
     }
 
     #[test]

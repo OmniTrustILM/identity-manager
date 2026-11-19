@@ -10,7 +10,7 @@ use std::fmt;
 use std::path::Path;
 
 use crate::ilm::IlmUrl;
-use crate::settings::{Layer, LogLevel};
+use crate::settings::{Layer, LogLevel, SignInMethod};
 
 /// A value as a policy source stores it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +29,7 @@ pub(crate) const START_AT_LOGIN: &str = "StartAtLogin";
 pub(crate) const LOG_LEVEL: &str = "LogLevel";
 pub(crate) const ILM_URL: &str = "IlmUrl";
 pub(crate) const SIGN_IN_PROVIDER: &str = "SignInProvider";
+pub(crate) const SIGN_IN_METHOD: &str = "SignInMethod";
 
 /// Maps the known names with the expected types to a layer; anything else is ignored with a warning.
 pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
@@ -52,7 +53,11 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
             (SIGN_IN_PROVIDER, PolicyValue::Text(_)) => {
                 log::warn!("policy {name} in {source} has an invalid value; ignored");
             }
-            (START_AT_LOGIN | LOG_LEVEL | ILM_URL | SIGN_IN_PROVIDER, _) => {
+            (SIGN_IN_METHOD, PolicyValue::Text(text)) => match SignInMethod::parse(text) {
+                Some(method) => layer.sign_in_method = Some(method),
+                None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
+            },
+            (START_AT_LOGIN | LOG_LEVEL | ILM_URL | SIGN_IN_PROVIDER | SIGN_IN_METHOD, _) => {
                 log::warn!("policy {name} in {source} has the wrong type; ignored");
             }
             _ => log::warn!("policy {name} in {source} is unknown; ignored"),
@@ -78,6 +83,8 @@ pub fn merge(machine: Layer, user: Layer) -> Layer {
         log_level: machine.log_level.or(user.log_level),
         ilm_url: machine.ilm_url.or(user.ilm_url),
         sign_in_provider: machine.sign_in_provider.or(user.sign_in_provider),
+        sign_in_method: machine.sign_in_method.or(user.sign_in_method),
+        sign_in_certificate: None,
     }
 }
 
@@ -262,6 +269,21 @@ mod tests {
     }
 
     #[test]
+    fn the_sign_in_method_sets_the_layer_and_a_bad_one_is_ignored() {
+        for (name, method) in [
+            ("oauth", SignInMethod::Oauth),
+            ("certificate", SignInMethod::Certificate),
+        ] {
+            let layer = to_layer(&raw(&[("SignInMethod", text(name))]), "test");
+            assert_eq!(layer.sign_in_method, Some(method));
+        }
+        for value in [text("password"), text(""), PolicyValue::Int(1)] {
+            let layer = to_layer(&raw(&[("SignInMethod", value)]), "test");
+            assert_eq!(layer, Layer::default());
+        }
+    }
+
+    #[test]
     fn all_levels_are_recognised() {
         for (name, level) in [
             ("error", LogLevel::Error),
@@ -307,8 +329,11 @@ mod tests {
             log_level: Some(LogLevel::Warn),
             ilm_url: IlmUrl::parse("user.example.com").ok(),
             sign_in_provider: Some("Corporate".into()),
+            sign_in_method: Some(SignInMethod::Certificate),
+            ..Layer::default()
         };
         let merged = merge(machine, user);
+        assert_eq!(merged.sign_in_method, Some(SignInMethod::Certificate));
         assert_eq!(merged.start_at_login, Some(false));
         assert_eq!(merged.log_level, Some(LogLevel::Warn));
         assert_eq!(merged.ilm_url, IlmUrl::parse("machine.example.com").ok());

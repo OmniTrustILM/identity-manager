@@ -42,6 +42,7 @@ const signedIn: SessionView = {
     address: 'https://ilm.example.com',
     person: { name: 'Alex Morgan', username: 'alex.morgan' },
     allowedListings: ['certificates'],
+    certificate: null,
 };
 
 function mockBridge(appInfo: () => unknown, scheme: string | null = null, label = 'main', session: () => unknown = () => signedIn) {

@@ -38,6 +38,11 @@ jobs:
         shell: bash
         run: bash scripts/verify.sh keyring-system
 
+      - name: Client certificate
+        if: runner.os != 'Linux'
+        shell: bash
+        run: bash scripts/verify.sh identity-system
+
       - name: Bundle
         shell: bash
         run: bash scripts/verify.sh bundle

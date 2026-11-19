@@ -2,7 +2,7 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import type { ProviderChoice, SessionView } from '../bridge';
+import type { CertificateChoice, ProviderChoice, SessionView } from '../bridge';
 import { strings } from '../strings';
 import { SignIn } from './SignIn';
 
@@ -11,7 +11,7 @@ type Idle = Extract<SessionView, { state: 'signedOut' }>;
 
 const idle: Idle = { state: 'signedOut', address: null, locked: false, problem: null };
 const managed: Idle = { ...idle, address: 'https://ilm.example.com', locked: true };
-const waiting: Waiting = { state: 'signingIn', provider: 'Company SSO' };
+const waiting: Waiting = { state: 'signingIn', method: 'browser', provider: 'Company SSO' };
 const one: ProviderChoice[] = [{ id: '0', name: 'Company SSO' }];
 const several: ProviderChoice[] = [...one, { id: '1', name: 'Okta' }];
 
@@ -275,4 +275,194 @@ test('Enter in the field submits the address', async () => {
     });
 
     expect(commands()).toEqual(['connect', 'sign_in']);
+});
+
+const certificate: ProviderChoice = { id: 'certificate', name: strings.certificateEntry };
+const alex: CertificateChoice = {
+    fingerprint: '3F:A2:9C:01',
+    subject: 'Alex Morgan',
+    issuer: 'Example CA',
+    notAfter: Date.UTC(2027, 2, 14, 12),
+    remembered: false,
+};
+const build: CertificateChoice = {
+    fingerprint: 'AA:BB:CC:DD',
+    subject: 'Build agent',
+    issuer: 'Example CA',
+    notAfter: Date.UTC(2028, 0, 21, 12),
+    remembered: false,
+};
+const waitingCertificate: Waiting = { state: 'signingIn', method: 'certificate', provider: strings.certificateEntry };
+
+const radios = () => [...container.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+const checked = () => radios().findIndex((radio) => radio.checked);
+const rows = () => [...container.querySelectorAll('label')].map((label) => label.textContent);
+
+/** Connect with a stand-in ILM that offers `offered` and a computer that holds `held`. */
+async function reachCertificates(offered: ProviderChoice[], held: CertificateChoice[], failure?: string) {
+    bridge((command) => {
+        switch (command) {
+            case 'connect':
+                return offered;
+            case 'certificates':
+                return held;
+            case 'sign_in_with_certificate':
+                return failure !== undefined ? Promise.reject(failure) : new Promise(() => undefined);
+            default:
+                return undefined;
+        }
+    });
+    await render(idle);
+    await type('ilm.example.com');
+    await press(strings.continue);
+}
+
+test('the certificate is the last entry on Choose provider and opens the list without signing in', async () => {
+    await reachCertificates([...several, certificate], [alex, build]);
+
+    expect(buttons().map((candidate) => candidate.textContent)).toEqual(['Company SSO', 'Okta', strings.certificateEntry, strings.back]);
+    await press(strings.certificateEntry);
+
+    expect(heading()).toBe(strings.certificateTitle);
+    expect(commands()).toEqual(['connect', 'certificates']);
+});
+
+test('several certificates are a labelled radio list with the first one selected', async () => {
+    await reachCertificates([certificate], [alex, build]);
+
+    expect(heading()).toBe(strings.certificateTitle);
+    expect(container.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(strings.certificateGroup);
+    expect(rows()).toEqual([
+        `Alex Morgan${'Example CA'} · ${strings.certificateExpires(alex.notAfter)}`,
+        `Build agent${'Example CA'} · ${strings.certificateExpires(build.notAfter)}`,
+    ]);
+    expect(strings.certificateExpires(alex.notAfter)).toMatch(/^Expires .*2027/);
+    expect(checked()).toBe(0);
+    expect(commands()).toEqual(['connect', 'certificates']);
+});
+
+test('the remembered certificate is selected and the one chosen is signed in with', async () => {
+    await reachCertificates([certificate], [alex, { ...build, remembered: true }]);
+    expect(checked()).toBe(1);
+
+    await act(async () => radios()[0]?.click());
+    expect(checked()).toBe(0);
+    await press(strings.signIn);
+
+    expect(calls.at(-1)).toEqual({ command: 'sign_in_with_certificate', args: { fingerprint: alex.fingerprint } });
+});
+
+test('one certificate signs in without asking', async () => {
+    await reachCertificates([certificate], [alex]);
+
+    expect(calls.at(-1)).toEqual({ command: 'sign_in_with_certificate', args: { fingerprint: alex.fingerprint } });
+});
+
+test('a refused certificate shows its reason under the list, which stays for another try', async () => {
+    await reachCertificates([certificate], [alex], 'ILM does not know this certificate.');
+
+    expect(alerts()).toEqual(['ILM does not know this certificate.']);
+    expect(rows()).toHaveLength(1);
+    expect(checked()).toBe(0);
+    expect(radios()[0]?.closest('[role="radiogroup"]')?.getAttribute('aria-describedby')).toBe(
+        container.querySelector('[role="alert"]')?.id,
+    );
+    expect(button(strings.signIn).disabled).toBe(false);
+});
+
+test('a failure without a message is still explained', async () => {
+    await reachCertificates([certificate], [alex, build], '');
+    await press(strings.signIn);
+
+    expect(alerts()).toEqual([strings.connectFailed]);
+});
+
+test('a sign-in that ends with a problem returns to the list with its reason and does not start again', async () => {
+    await reachCertificates([certificate], [alex]);
+    const before = commands().length;
+
+    await render(waitingCertificate);
+    await render({ ...idle, problem: 'The gateway did not accept this certificate.' });
+
+    expect(heading()).toBe(strings.certificateTitle);
+    expect(alerts()).toEqual(['The gateway did not accept this certificate.']);
+    expect(commands().filter((command) => command === 'sign_in_with_certificate')).toHaveLength(1);
+    expect(commands().length).toBeGreaterThan(before);
+});
+
+test('Back from the list returns to Choose provider', async () => {
+    await reachCertificates([...several, certificate], [alex, build]);
+    await press(strings.certificateEntry);
+
+    await press(strings.back);
+
+    expect(heading()).toBe(strings.chooseTitle);
+});
+
+test('Back from the list returns to Connect when the certificate was the only way', async () => {
+    await reachCertificates([certificate], [alex, build]);
+
+    await press(strings.back);
+
+    expect(heading()).toBe(strings.connectTitle);
+});
+
+test('no certificate and a failed read are explained', async () => {
+    await reachCertificates([certificate], []);
+    expect(alerts()).toEqual([strings.noCertificate]);
+    expect(button(strings.signIn).disabled).toBe(true);
+
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    bridge((command) => (command === 'connect' ? [certificate] : Promise.reject('The keychain is locked.')));
+    await render(idle);
+    await type('ilm.example.com');
+    await press(strings.continue);
+
+    expect(alerts()).toEqual(['The keychain is locked.']);
+});
+
+test('the keyboard reaches the radio list, moves through it and signs in', async () => {
+    await reachCertificates([certificate], [alex, build]);
+
+    expect(radios().every((radio) => radio.tabIndex === 0)).toBe(true);
+    expect(
+        radios()[0]
+            ?.closest('label')
+            ?.contains(radios()[0] ?? null),
+    ).toBe(true);
+    expect(buttons().every((candidate) => candidate.tabIndex === 0)).toBe(true);
+});
+
+test('Waiting for a certificate says so, shows no browser buttons and cancels', async () => {
+    bridge(() => undefined);
+    await render(waitingCertificate);
+
+    expect(heading()).toBe(strings.certificateWaitingTitle);
+    expect(container.querySelector('output')?.textContent).toBe(strings.certificateWaitingStatus);
+    expect(buttons().map((candidate) => candidate.textContent)).toEqual([strings.cancel]);
+    expect(document.activeElement).toBe(button(strings.cancel));
+
+    await press(strings.cancel);
+
+    expect(commands()).toEqual(['cancel_sign_in']);
+});
+
+test('a list that arrives after the step was left does nothing', async () => {
+    let finish: (found: CertificateChoice[]) => void = () => undefined;
+    bridge((command) => {
+        if (command === 'connect') {
+            return [certificate];
+        }
+        return command === 'certificates' ? new Promise((resolve) => (finish = resolve)) : undefined;
+    });
+    await render(idle);
+    await type('ilm.example.com');
+    await press(strings.continue);
+
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await act(async () => finish([alex]));
+
+    expect(commands()).toEqual(['connect', 'certificates']);
 });

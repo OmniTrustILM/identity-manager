@@ -1,7 +1,17 @@
 import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
-import { cancelSignIn, connect, type ProviderChoice, reopenBrowser, type SessionView, signIn } from '../bridge';
+import {
+    cancelSignIn,
+    type CertificateChoice,
+    certificates,
+    connect,
+    type ProviderChoice,
+    reopenBrowser,
+    type SessionView,
+    signIn,
+    signInWithCertificate,
+} from '../bridge';
 import { TextField } from '../components/TextField/TextField';
-import { LockIcon, ProblemIcon } from '../design-system/icons';
+import { BusyIcon, LockIcon, ProblemIcon } from '../design-system/icons';
 import { strings } from '../strings';
 
 type Idle = Extract<SessionView, { state: 'signedOut' }>;
@@ -41,6 +51,8 @@ function Step({ title, hint, children }: Readonly<{ title: string; hint: ReactNo
     );
 }
 
+const certificateId = 'certificate';
+
 function reason(error: unknown): string {
     return String(error) || strings.connectFailed;
 }
@@ -65,7 +77,7 @@ function Address({ view, onChoose }: Readonly<{ view: Idle; onChoose: (providers
             const providers = await connect(address.trim());
             if (providers.length === 0) {
                 setError(strings.connectFailed);
-            } else if (providers.length === 1 && providers[0]) {
+            } else if (providers.length === 1 && providers[0] && providers[0].id !== certificateId) {
                 await signIn(providers[0].id);
             } else {
                 onChoose(providers);
@@ -115,7 +127,12 @@ function Address({ view, onChoose }: Readonly<{ view: Idle; onChoose: (providers
     );
 }
 
-function Choice({ providers, problem, onBack }: Readonly<{ providers: ProviderChoice[]; problem: string | null; onBack: () => void }>) {
+function Choice({
+    providers,
+    problem,
+    onCertificate,
+    onBack,
+}: Readonly<{ providers: ProviderChoice[]; problem: string | null; onCertificate: () => void; onBack: () => void }>) {
     const problemId = useId();
     const first = useFirstFocus<HTMLButtonElement>();
     const [error, setError] = useState<string | null>(null);
@@ -131,7 +148,11 @@ function Choice({ providers, problem, onBack }: Readonly<{ providers: ProviderCh
                         type="button"
                         tabIndex={0}
                         aria-describedby={shown ? problemId : undefined}
-                        onClick={() => signIn(provider.id).catch((error_) => setError(reason(error_)))}
+                        onClick={() =>
+                            provider.id === certificateId
+                                ? onCertificate()
+                                : signIn(provider.id).catch((error_) => setError(reason(error_)))
+                        }
                         className={secondary}
                     >
                         {provider.name}
@@ -146,8 +167,118 @@ function Choice({ providers, problem, onBack }: Readonly<{ providers: ProviderCh
     );
 }
 
+const radio =
+    'size-icon shrink-0 appearance-none rounded-full border border-switch-edge checked:border-accent checked:bg-accent checked:shadow-[inset_0_0_0_var(--spacing-s1)_var(--color-field)]';
+
+function CertificateRow({ choice, checked, onSelect }: Readonly<{ choice: CertificateChoice; checked: boolean; onSelect: () => void }>) {
+    return (
+        <label className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-s3 rounded-control border border-field-edge bg-card px-s3 py-s2 has-checked:border-accent has-checked:bg-button">
+            <input type="radio" name="certificate" tabIndex={0} checked={checked} onChange={onSelect} className={`${radio} row-span-2`} />
+            <span className="truncate text-body text-primary">{choice.subject}</span>
+            <span className="truncate text-caption text-secondary">
+                {choice.issuer} · {strings.certificateExpires(choice.notAfter)}
+            </span>
+        </label>
+    );
+}
+
+/**
+ * Choose certificate. One candidate signs in without asking, but only on the first visit: after an attempt that failed
+ * the list shows again, with the reason, so that the person can retry or go back.
+ */
+function Certificates({ problem, automatic, onBack }: Readonly<{ problem: string | null; automatic: boolean; onBack: () => void }>) {
+    const problemId = useId();
+    const [choices, setChoices] = useState<CertificateChoice[] | null>(null);
+    const [selected, setSelected] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const shown = error ?? problem;
+
+    const signInWith = (fingerprint: string) => {
+        setError(null);
+        signInWithCertificate(fingerprint).catch((error_) => setError(reason(error_)));
+    };
+
+    useEffect(() => {
+        let current = true;
+        certificates().then(
+            (found) => {
+                if (!current) {
+                    return;
+                }
+                setChoices(found);
+                setSelected((found.find((choice) => choice.remembered) ?? found[0])?.fingerprint ?? null);
+                if (automatic && found.length === 1 && found[0]) {
+                    signInWithCertificate(found[0].fingerprint).catch((error_) => setError(reason(error_)));
+                }
+            },
+            (error_) => current && setError(reason(error_)),
+        );
+        return () => {
+            current = false;
+        };
+    }, [automatic]);
+
+    return (
+        <Step title={strings.certificateTitle} hint={strings.certificateHint}>
+            <div className="flex flex-col gap-s3">
+                {choices?.length === 0 && <Problem id={`${problemId}-none`}>{strings.noCertificate}</Problem>}
+                {choices && choices.length > 0 && (
+                    <div
+                        role="radiogroup"
+                        aria-label={strings.certificateGroup}
+                        aria-describedby={shown ? problemId : undefined}
+                        className="flex flex-col gap-s2"
+                    >
+                        {choices.map((choice) => (
+                            <CertificateRow
+                                key={choice.fingerprint}
+                                choice={choice}
+                                checked={choice.fingerprint === selected}
+                                onSelect={() => setSelected(choice.fingerprint)}
+                            />
+                        ))}
+                    </div>
+                )}
+                {shown && <Problem id={problemId}>{shown}</Problem>}
+                <button
+                    type="button"
+                    tabIndex={0}
+                    disabled={selected === null}
+                    onClick={() => selected && signInWith(selected)}
+                    className={primary}
+                >
+                    {strings.signIn}
+                </button>
+                <button type="button" tabIndex={0} onClick={onBack} className={`${plain} self-center`}>
+                    {strings.back}
+                </button>
+            </div>
+        </Step>
+    );
+}
+
+function WaitingForCertificate() {
+    const first = useFirstFocus<HTMLButtonElement>();
+    return (
+        <Step title={strings.certificateWaitingTitle} hint={strings.certificateWaitingHint}>
+            <div className="flex flex-col items-center gap-s4">
+                <output className="flex items-center gap-s2 text-body text-secondary">
+                    <BusyIcon aria-hidden className="size-icon text-accent motion-safe:animate-spin" />
+                    {strings.certificateWaitingStatus}
+                </output>
+                <button ref={first} type="button" tabIndex={0} onClick={() => cancelSignIn().catch(() => undefined)} className={plain}>
+                    {strings.cancel}
+                </button>
+            </div>
+        </Step>
+    );
+}
+
 function Waiting({ view }: Readonly<{ view: Waiting }>) {
     const first = useFirstFocus<HTMLButtonElement>();
+    if (view.method === 'certificate') {
+        return <WaitingForCertificate />;
+    }
     return (
         <Step title={strings.waitingTitle} hint={<output className="block">{strings.waitingHint(view.provider)}</output>}>
             <div className="flex flex-col items-center gap-s4">
@@ -164,6 +295,7 @@ function Waiting({ view }: Readonly<{ view: Waiting }>) {
 
 export function SignIn({ view }: Readonly<{ view: Idle | Waiting }>) {
     const [providers, setProviders] = useState<ProviderChoice[] | null>(null);
+    const [picking, setPicking] = useState(false);
     // Only a problem from an attempt made from the choice belongs to it.
     const [tried, setTried] = useState(false);
     useEffect(() => {
@@ -177,11 +309,21 @@ export function SignIn({ view }: Readonly<{ view: Idle | Waiting }>) {
     }
     const back = () => {
         setProviders(null);
+        setPicking(false);
         setTried(false);
     };
-    return providers ? (
-        <Choice providers={providers} problem={tried ? view.problem : null} onBack={back} />
-    ) : (
-        <Address view={view} onChoose={setProviders} />
-    );
+    if (!providers) {
+        return <Address view={view} onChoose={setProviders} />;
+    }
+    const onlyCertificate = providers.length === 1 && providers[0]?.id === certificateId;
+    if (picking || onlyCertificate) {
+        return (
+            <Certificates
+                problem={tried ? view.problem : null}
+                automatic={!tried}
+                onBack={onlyCertificate ? back : () => setPicking(false)}
+            />
+        );
+    }
+    return <Choice providers={providers} problem={tried ? view.problem : null} onCertificate={() => setPicking(true)} onBack={back} />;
 }

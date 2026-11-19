@@ -402,10 +402,12 @@ mod tests {
         );
     }
 
-    const SESSION_COMMANDS: [&str; 6] = [
+    const SESSION_COMMANDS: [&str; 8] = [
         "session",
         "connect",
         "sign_in",
+        "certificates",
+        "sign_in_with_certificate",
         "reopen_browser",
         "cancel_sign_in",
         "sign_out",
@@ -466,6 +468,8 @@ mod tests {
                 "allow-session",
                 "allow-connect",
                 "allow-sign-in",
+                "allow-certificates",
+                "allow-sign-in-with-certificate",
                 "allow-reopen-browser",
                 "allow-cancel-sign-in",
                 "allow-sign-out",

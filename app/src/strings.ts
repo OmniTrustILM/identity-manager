@@ -29,7 +29,18 @@ export const strings = {
     openBrowserAgain: 'Open the browser again',
     cancel: 'Cancel',
     back: 'Back',
+    certificateEntry: 'Certificate on this computer',
+    certificateTitle: 'Choose a certificate',
+    certificateHint: 'Choose the certificate to sign in with.',
+    certificateGroup: 'Certificates on this computer',
+    certificateExpires: (notAfter: number) =>
+        `Expires ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(notAfter))}`,
+    noCertificate: 'This computer has no certificate that can sign in.',
+    certificateWaitingTitle: 'Signing in with your certificate',
+    certificateWaitingHint: 'Your ILM is checking the certificate you chose.',
+    certificateWaitingStatus: 'Checking the certificate with ILM…',
     connectFailed: 'Could not connect to this ILM.',
     connection: 'Connection',
     signOut: 'Sign out',
+    signedInWithCertificate: 'Signed in with a certificate',
 };

@@ -2,6 +2,7 @@
 
 mod app_info;
 pub mod http;
+pub mod identity;
 pub mod ilm;
 pub mod oauth;
 pub mod policy;

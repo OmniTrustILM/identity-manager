@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/experimental-ct-react';
 import type { Locator, Page } from '@playwright/test';
 import { keyboardReady } from '../../playwright/focus';
 import { SignInStory } from '../../playwright/stories';
-import type { Platform, ProviderChoice, SessionView } from '../bridge';
+import type { CertificateChoice, Platform, ProviderChoice, SessionView } from '../bridge';
 
 type Scheme = 'light' | 'dark';
 type Idle = Extract<SessionView, { state: 'signedOut' }>;
@@ -44,7 +44,30 @@ const sizes: Record<Platform, { width: number; height: number }> = {
     linux: { width: 761, height: 395 },
 };
 
-type Story = { view: Idle; providers?: ProviderChoice[]; refuse?: string };
+const certificateEntry: ProviderChoice = { id: 'certificate', name: 'Certificate on this computer' };
+const alex: CertificateChoice = {
+    fingerprint: '3F:A2:9C:01',
+    subject: 'Alex Morgan',
+    issuer: 'Example Client CA',
+    notAfter: Date.UTC(2027, 2, 14, 12),
+    remembered: false,
+};
+const second: CertificateChoice = {
+    ...alex,
+    fingerprint: 'AA:BB:CC:DD',
+    subject: 'alex.morgan@example.com',
+    notAfter: Date.UTC(2026, 8, 2, 12),
+};
+const third: CertificateChoice = { ...alex, fingerprint: '11:22:33:44', subject: 'Build agent 07', notAfter: Date.UTC(2028, 0, 21, 12) };
+const several: CertificateChoice[] = [alex, { ...second, remembered: true }, third];
+
+type Story = {
+    view: Idle;
+    providers?: ProviderChoice[];
+    refuse?: string;
+    certificates?: CertificateChoice[];
+    refuseCertificate?: string;
+};
 
 async function open(
     page: Page,
@@ -135,6 +158,71 @@ for (const os of ['macos', 'windows', 'linux'] as const) {
             await shoot(page, `waiting-${os}-${scheme}`);
         });
 
+        if (os !== 'linux') {
+            test(`on ${os} in ${scheme} Choose provider ends with the certificate`, async ({ mount, page }) => {
+                await open(page, mount, os, scheme, { view: idle, providers: [...providers, certificateEntry] });
+                await page.getByRole('button', { name: 'Continue' }).click();
+
+                const names = page.getByRole('button');
+                await expect(names).toHaveText(['Company SSO', 'Microsoft Entra ID', 'Okta', 'Certificate on this computer', 'Back']);
+                await expect(names.nth(3)).toHaveCSS('background-color', buttons[os][scheme]);
+                expect((await box(names.nth(3))).height).toBe(want.button);
+                await common(page);
+                await shoot(page, `choose-provider-certificate-${os}-${scheme}`);
+            });
+
+            test(`on ${os} in ${scheme} Choose certificate lists the certificates`, async ({ mount, page }) => {
+                await open(page, mount, os, scheme, { view: idle, providers: [certificateEntry], certificates: several });
+                await page.getByRole('button', { name: 'Continue' }).click();
+
+                await expect(page.getByRole('heading', { level: 1, name: 'Choose a certificate' })).toBeVisible();
+                const group = page.getByRole('radiogroup', { name: 'Certificates on this computer' });
+                const radios = group.getByRole('radio');
+                await expect(radios).toHaveCount(3);
+                await expect(radios.nth(1)).toBeChecked();
+                await expect(radios.nth(1)).toHaveCSS('background-color', accents[os][scheme]);
+                await expect(radios.nth(0)).not.toBeChecked();
+                await expect(group.getByText('Alex Morgan')).toBeVisible();
+                await expect(group.getByText(/^Example Client CA · Expires .*2027$/)).toBeVisible();
+                await expect(page.getByRole('button', { name: 'Sign in' })).toHaveCSS('background-color', accents[os][scheme]);
+                expect((await box(page.getByRole('button', { name: 'Sign in' }))).height).toBe(want.button);
+                await common(page);
+                await shoot(page, `choose-certificate-several-${os}-${scheme}`);
+            });
+
+            test(`on ${os} in ${scheme} Waiting for a certificate is as designed`, async ({ mount, page }) => {
+                await open(page, mount, os, scheme, { view: idle, providers: [certificateEntry], certificates: several });
+                await page.getByRole('button', { name: 'Continue' }).click();
+                await page.getByRole('button', { name: 'Sign in' }).click();
+
+                await expect(page.getByRole('heading', { level: 1, name: 'Signing in with your certificate' })).toBeVisible();
+                await expect(page.getByRole('status')).toHaveText('Checking the certificate with ILM…');
+                await expect(page.getByRole('button')).toHaveText(['Cancel']);
+                await expect(page.getByRole('button', { name: 'Cancel' })).toHaveCSS('color', accents[os][scheme]);
+                await common(page);
+                await shoot(page, `waiting-certificate-${os}-${scheme}`);
+            });
+
+            test(`on ${os} in ${scheme} the certificate error is shown under the one certificate`, async ({ mount, page }) => {
+                await open(page, mount, os, scheme, {
+                    view: idle,
+                    providers: [certificateEntry],
+                    certificates: [alex],
+                    refuseCertificate: 'ILM does not know this certificate. It must be your sign-in certificate in ILM.',
+                });
+                await page.getByRole('button', { name: 'Continue' }).click();
+
+                await expect(page.getByRole('alert')).toHaveText(
+                    'ILM does not know this certificate. It must be your sign-in certificate in ILM.',
+                );
+                await expect(page.getByRole('radio')).toHaveCount(1);
+                await expect(page.getByRole('radio')).toBeChecked();
+                await expect(page.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+                await common(page);
+                await shoot(page, `certificate-error-${os}-${scheme}`);
+            });
+        }
+
         test(`on ${os} in ${scheme} the Connect error is as designed`, async ({ mount, page }) => {
             await open(page, mount, os, scheme, { view: failed });
 
@@ -201,4 +289,55 @@ test('a refused address is shown under the field and the person can try again', 
     await expect(page.getByRole('alert')).toHaveText('The address must start with https://');
     await page.getByRole('textbox', { name: 'ILM address' }).fill('ilm.example.org');
     await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('the keyboard alone chooses a certificate, signs in and cancels', async ({ mount, page }) => {
+    await open(page, mount, 'linux', 'light', {
+        view: { ...idle, address: null },
+        providers: [...providers, certificateEntry],
+        certificates: several,
+    });
+    await keyboardReady(page);
+    await page.keyboard.type('ilm.example.com');
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('button', { name: 'Company SSO' })).toBeFocused();
+    for (let step = 0; step < 3; step++) {
+        await page.keyboard.press('Tab');
+    }
+    await expect(page.getByRole('button', { name: 'Certificate on this computer' })).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Choose a certificate' })).toBeVisible();
+    const radios = page.getByRole('radio');
+    await expect(radios.nth(1)).toBeChecked();
+    await page.keyboard.press('Tab');
+    await expect(radios.nth(1)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(radios.nth(2)).toBeChecked();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Signing in with your certificate' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cancel' })).toBeFocused();
+    await page.keyboard.press('Space');
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Choose a certificate' })).toBeVisible();
+});
+
+test('Back from the list of certificates returns to Choose provider', async ({ mount, page }) => {
+    await open(page, mount, 'linux', 'light', { view: idle, providers: [...providers, certificateEntry], certificates: several });
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByRole('button', { name: 'Certificate on this computer' }).click();
+    await page.getByRole('button', { name: 'Back' }).click();
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Choose how to sign in' })).toBeVisible();
+});
+
+test('a single certificate on this computer is used without asking', async ({ mount, page }) => {
+    await open(page, mount, 'linux', 'light', { view: idle, providers: [certificateEntry], certificates: [alex] });
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Signing in with your certificate' })).toBeVisible();
 });

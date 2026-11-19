@@ -107,23 +107,33 @@ pub async fn profile(
             log::warn!("ILM at {ilm} could not be reached for the profile");
             IlmError::Unreachable
         })?;
-    match response.status() {
-        StatusCode::UNAUTHORIZED => {
-            log::warn!("ILM at {ilm} refused the access token");
-            Err(IlmError::Unauthorized)
-        }
-        status if !status.is_success() => {
-            log::warn!("ILM at {ilm} answered the profile request with {status}");
-            Err(IlmError::Unexpected(status.as_u16()))
-        }
-        _ => {
-            let profile = response.json::<Profile>().await.map_err(|_| {
-                log::warn!("ILM at {ilm} sent a profile this application cannot read");
-                IlmError::Malformed
-            })?;
-            Ok(Person::from(profile))
-        }
+    if response.status() == StatusCode::UNAUTHORIZED {
+        log::warn!("ILM at {ilm} refused the access token");
+        return Err(IlmError::Unauthorized);
     }
+    read_profile(ilm, response).await
+}
+
+/// The profile request without a token, for a client that proves the person with a certificate.
+pub(crate) fn profile_request(client: &Client, ilm: &IlmUrl) -> reqwest::RequestBuilder {
+    client.get(profile_address(ilm))
+}
+
+/// Reads the answer to a profile request that was not a 401.
+pub(crate) async fn read_profile(
+    ilm: &IlmUrl,
+    response: reqwest::Response,
+) -> Result<Person, IlmError> {
+    let status = response.status();
+    if !status.is_success() {
+        log::warn!("ILM at {ilm} answered the profile request with {status}");
+        return Err(IlmError::Unexpected(status.as_u16()));
+    }
+    let profile = response.json::<Profile>().await.map_err(|_| {
+        log::warn!("ILM at {ilm} sent a profile this application cannot read");
+        IlmError::Malformed
+    })?;
+    Ok(Person::from(profile))
 }
 
 #[cfg(test)]

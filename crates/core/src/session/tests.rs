@@ -12,15 +12,47 @@ use super::*;
 use crate::http::client_for_tests;
 use crate::oauth::token::RefreshToken;
 
-struct TestSettings(Mutex<Connection>);
+pub(super) struct TestSettings {
+    pub(super) connection: Mutex<Connection>,
+    /// Saving the remembered certificate fails while this is set.
+    pub(super) broken: AtomicBool,
+}
+
+impl TestSettings {
+    pub(super) fn new(connection: Connection) -> Self {
+        Self {
+            connection: Mutex::new(connection),
+            broken: AtomicBool::new(false),
+        }
+    }
+}
 
 impl ConnectionSettings for TestSettings {
     fn connection(&self) -> Connection {
-        self.0.lock().unwrap().clone()
+        self.connection.lock().unwrap().clone()
     }
 
     fn save_address(&self, address: &IlmUrl) -> Result<(), String> {
-        self.0.lock().unwrap().address = Some(address.clone());
+        self.connection.lock().unwrap().address = Some(address.clone());
+        Ok(())
+    }
+
+    fn save_certificate(&self, _: &IlmUrl, fingerprint: &Fingerprint) -> Result<(), String> {
+        if self.broken.load(Ordering::SeqCst) {
+            return Err("the settings file is read-only".to_owned());
+        }
+        self.connection.lock().unwrap().certificate = Some(*fingerprint);
+        Ok(())
+    }
+
+    fn forget_certificate(&self, failed: Option<&Fingerprint>) -> Result<(), String> {
+        if self.broken.load(Ordering::SeqCst) {
+            return Err("the settings file is read-only".to_owned());
+        }
+        let mut connection = self.connection.lock().unwrap();
+        if failed.is_none_or(|failed| connection.certificate.as_ref() == Some(failed)) {
+            connection.certificate = None;
+        }
         Ok(())
     }
 }
@@ -57,25 +89,38 @@ impl RefreshStore for TestStore {
     }
 }
 
-struct World {
-    ilm: MockServer,
+pub(super) struct World {
+    pub(super) ilm: MockServer,
     idp: MockServer,
     store: Arc<TestStore>,
-    settings: Arc<TestSettings>,
+    pub(super) settings: Arc<TestSettings>,
     views: Arc<Mutex<Vec<SessionView>>>,
-    session: Session,
+    pub(super) session: Session,
 }
 
 impl World {
-    async fn new() -> Self {
+    pub(super) async fn new() -> Self {
         Self::publishing(&[("Corporate", Some("app"))]).await
     }
 
-    async fn publishing(providers: &[(&str, Option<&str>)]) -> Self {
+    /// The same world, whose session also offers the certificates of `identities`.
+    pub(super) fn with_identities(mut self, identities: impl IdentityStore + 'static) -> Self {
+        let recorded = self.views.clone();
+        self.session = Session::new(
+            client_for_tests(),
+            self.settings.clone(),
+            self.store.clone(),
+            move |view| recorded.lock().unwrap().push(view.clone()),
+        )
+        .with_identities(Arc::new(identities));
+        self
+    }
+
+    pub(super) async fn publishing(providers: &[(&str, Option<&str>)]) -> Self {
         let ilm = MockServer::start().await;
         let idp = MockServer::start().await;
         let store = Arc::new(TestStore::default());
-        let settings = Arc::new(TestSettings(Mutex::new(Connection::default())));
+        let settings = Arc::new(TestSettings::new(Connection::default()));
         let views = Arc::new(Mutex::new(Vec::new()));
         let recorded = views.clone();
         let session = Session::new(
@@ -106,7 +151,7 @@ impl World {
 
     async fn at_address() -> Self {
         let world = Self::new().await;
-        world.settings.0.lock().unwrap().address = Some(world.address());
+        world.settings.connection.lock().unwrap().address = Some(world.address());
         world
     }
 
@@ -269,7 +314,7 @@ fn browser_answering(
     }
 }
 
-fn signed_out(world: &World, problem: Option<&str>) -> SessionView {
+pub(super) fn signed_out(world: &World, problem: Option<&str>) -> SessionView {
     SessionView::SignedOut {
         address: Some(world.ilm.uri()),
         locked: false,
@@ -341,12 +386,12 @@ async fn policy_names_the_provider_to_use_and_an_unknown_name_leaves_the_choice(
     let both = world.session.connect(&world.ilm.uri()).await.unwrap();
     assert_eq!(names(both), ["First", "Second"]);
 
-    world.settings.0.lock().unwrap().provider = Some("Second".into());
+    world.settings.connection.lock().unwrap().provider = Some("Second".into());
     let chosen = world.session.connect(&world.ilm.uri()).await.unwrap();
     assert_eq!(chosen.len(), 1);
     assert_eq!(chosen[0].name, "Second");
 
-    world.settings.0.lock().unwrap().provider = Some("Nobody".into());
+    world.settings.connection.lock().unwrap().provider = Some("Nobody".into());
     let unknown = world.session.connect(&world.ilm.uri()).await.unwrap();
     assert_eq!(unknown.len(), 2);
 }
@@ -354,7 +399,7 @@ async fn policy_names_the_provider_to_use_and_an_unknown_name_leaves_the_choice(
 #[tokio::test]
 async fn a_locked_address_is_used_whatever_is_typed() {
     let world = World::at_address().await;
-    world.settings.0.lock().unwrap().locked = true;
+    world.settings.connection.lock().unwrap().locked = true;
 
     let choices = world.session.connect("https://other.example.com").await;
 
@@ -377,12 +422,14 @@ async fn a_full_sign_in_ends_signed_in_with_the_person_and_keeps_only_the_refres
             username: "jdoe".into(),
         },
         allowed_listings: vec!["certificates".into()],
+        certificate: None,
     };
     assert_eq!(view, expected);
     assert_eq!(world.session.view(), expected);
     let views = world.views.lock().unwrap().clone();
     assert!(views.contains(&SessionView::SigningIn {
-        provider: "Corporate".into()
+        provider: "Corporate".into(),
+        method: SignInKind::Browser
     }));
     let item = world.store.load(&world.address()).unwrap().unwrap();
     assert_eq!(item.refresh_token.as_str(), "r1");
@@ -1152,7 +1199,7 @@ async fn a_sign_out_during_the_exchange_is_not_undone() {
     .await;
 }
 
-static LOG: Mutex<Vec<String>> = Mutex::new(Vec::new());
+pub(super) static LOG: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 struct Capture;
 
@@ -1172,7 +1219,7 @@ impl log::Log for Capture {
     fn flush(&self) {}
 }
 
-fn capture_logs() {
+pub(super) fn capture_logs() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
         log::set_logger(&Capture).unwrap();
