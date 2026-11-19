@@ -789,6 +789,9 @@ impl Session {
             _ = self.delete_item(&ilm).await;
             return self.view();
         }
+        if let Origin::Browser { .. } = origin {
+            _ = self.forget_certificate();
+        }
         log::info!("signed in to {ilm}");
         self.publish()
     }

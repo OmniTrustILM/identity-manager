@@ -930,6 +930,18 @@ async fn a_sign_in_without_a_refresh_token_replaces_the_saved_one() {
 }
 
 #[tokio::test]
+async fn a_browser_sign_in_forgets_the_remembered_certificate() {
+    let world = World::new().await;
+    world.settings.connection.lock().unwrap().certificate = Some(Fingerprint::of(b"earlier"));
+    world.code_grant("a1", None, 3600).await;
+    world.profile_for("a1").await;
+
+    assert!(is_signed_in(&world.sign_in().await));
+
+    assert_eq!(world.settings.connection().certificate, None);
+}
+
+#[tokio::test]
 async fn a_rotated_refresh_token_the_store_cannot_save_is_used_from_memory() {
     let world = World::new().await;
     world.code_grant("a1", Some("r1"), 30).await;
