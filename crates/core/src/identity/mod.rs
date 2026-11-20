@@ -157,6 +157,7 @@ pub enum Rejection {
     Expired,
     NotForClientAuth,
     UnsupportedKey,
+    KeyUnreachable,
 }
 
 impl fmt::Display for Rejection {
@@ -167,6 +168,7 @@ impl fmt::Display for Rejection {
             Self::Expired => "has expired",
             Self::NotForClientAuth => "is not for client authentication",
             Self::UnsupportedKey => "has a key that is not RSA 2048 or more, P-256 or P-384",
+            Self::KeyUnreachable => "has a key that cannot be used without asking",
         })
     }
 }

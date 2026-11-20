@@ -209,6 +209,20 @@ pub fn describe(der: &[u8], location: KeyLocation, now: SystemTime) -> Option<Lo
     })
 }
 
+/// Marks the listed certificates whose key the store cannot hand over without asking the person: they are
+/// shown, but not offered for sign-in. A certificate that already cannot sign in keeps its first reason.
+#[cfg(any(windows, test))]
+pub(crate) fn mark_unreachable(listed: &mut [LocalCertificate], unreachable: &[Fingerprint]) {
+    for certificate in listed
+        .iter_mut()
+        .filter(|certificate| unreachable.contains(&certificate.fingerprint))
+    {
+        if certificate.sign_in.is_ok() {
+            certificate.sign_in = Err(Rejection::KeyUnreachable);
+        }
+    }
+}
+
 /// Describes each certificate of `items` with where its key is, in list order: by name, then the latest expiry,
 /// then fingerprint. A certificate that cannot be parsed is skipped with a debug log.
 pub fn describe_all<'a>(

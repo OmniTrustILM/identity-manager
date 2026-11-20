@@ -240,7 +240,7 @@ fn the_system_store_can_be_asked() {
 mod listing {
     use super::super::certificate::{
         KeyAlgorithm, KeyLocation, LocalCertificate, LocalCertificateView, Use, describe,
-        describe_all,
+        describe_all, mark_unreachable,
     };
     use super::*;
 
@@ -310,6 +310,18 @@ mod listing {
             ["a.example.com", "b.example.com", "jane@example.com"]
         );
         assert!(described(Issue::client("a")).alternative_names.is_empty());
+    }
+
+    #[test]
+    fn a_certificate_whose_key_cannot_be_reached_is_listed_without_sign_in() {
+        let reachable = described(Issue::client("Reachable"));
+        let unreachable = described(Issue::client("Unreachable"));
+        let expired = described(Issue::client("Expired").valid((2020, 1, 1), (2021, 1, 1)));
+        let mut listed = vec![reachable.clone(), unreachable.clone(), expired.clone()];
+        mark_unreachable(&mut listed, &[unreachable.fingerprint, expired.fingerprint]);
+        assert_eq!(listed[0].sign_in, Ok(()));
+        assert_eq!(listed[1].sign_in, Err(Rejection::KeyUnreachable));
+        assert_eq!(listed[2].sign_in, Err(Rejection::Expired));
     }
 
     #[test]

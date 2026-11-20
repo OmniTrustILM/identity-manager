@@ -9,7 +9,7 @@ use rustls::{SignatureAlgorithm, SignatureScheme};
 use rustls_cng::signer::CngSigningKey;
 use rustls_cng::store::{CertStore, CertStoreType};
 
-use super::certificate::{KeyLocation, describe_all, read_logged};
+use super::certificate::{KeyLocation, describe_all, mark_unreachable, read_logged};
 use super::{
     ClientIdentity, Fingerprint, IdentityStore, KeyProviders, LocalCertificate, StoreUnreadable,
     signing_refused, usable,
@@ -22,24 +22,41 @@ pub struct PersonalStore {
 impl IdentityStore for PersonalStore {
     fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
         read_logged("the personal certificate store", || {
-            let found = certificates()?;
-            let located: Vec<(&[u8], KeyLocation)> = found
-                .iter()
-                .map(|(der, _)| (der.as_slice(), self.location(der)))
-                .collect();
-            Ok(describe_all(located, SystemTime::now()))
+            let all = all_certificates()?;
+            let mut located = Vec::new();
+            let mut unreachable = Vec::new();
+            for (der, context) in &all {
+                let provider = self.providers.provider_name(der);
+                if context.acquire_key(true).is_err() {
+                    let Some(name) = &provider else {
+                        continue;
+                    };
+                    log::debug!(
+                        "certificate {} has its key with {name}, which cannot be reached silently",
+                        Fingerprint::of(der)
+                    );
+                    unreachable.push(Fingerprint::of(der));
+                }
+                located.push((der.as_slice(), location(der, provider)));
+            }
+            let mut listed = describe_all(located, SystemTime::now());
+            mark_unreachable(&mut listed, &unreachable);
+            Ok(listed)
         })
     }
 
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity> {
-        let found = match certificates() {
+        let found = match all_certificates() {
             Ok(found) => found,
             Err(error) => {
                 log::warn!("cannot read the personal certificate store: {error}");
                 return None;
             }
         };
-        let found = usable(found, SystemTime::now())
+        let reachable = found
+            .into_iter()
+            .filter(|(_, context)| context.acquire_key(true).is_ok());
+        let found = usable(reachable, SystemTime::now())
             .into_iter()
             .find(|found| found.assessed.candidate.fingerprint == *fingerprint)?;
         let context = found.item;
@@ -59,23 +76,21 @@ impl IdentityStore for PersonalStore {
     }
 }
 
-impl PersonalStore {
-    /// Where the key of the certificate with this DER is kept, as far as the provider lookup tells.
-    fn location(&self, der: &[u8]) -> KeyLocation {
-        let Some(name) = self.providers.provider_name(der) else {
-            return KeyLocation::Unknown;
-        };
-        log::debug!(
-            "certificate {} has its key with {name}",
-            Fingerprint::of(der)
-        );
-        KeyLocation::from_windows_provider(&name)
-    }
+/// Where the key of the certificate with this DER is kept, as far as the provider lookup tells.
+fn location(der: &[u8], provider: Option<String>) -> KeyLocation {
+    let Some(name) = provider else {
+        return KeyLocation::Unknown;
+    };
+    log::debug!(
+        "certificate {} has its key with {name}",
+        Fingerprint::of(der)
+    );
+    KeyLocation::from_windows_provider(&name)
 }
 
-/// The certificates of `CurrentUser\My` that have a private key, with the DER of each. The key is looked up
-/// silently, so nothing asks the person for a PIN.
-fn certificates() -> Result<Vec<(Vec<u8>, rustls_cng::cert::CertContext)>, StoreUnreadable> {
+/// Every certificate of `CurrentUser\My`, with its DER. Which of them have a key is decided by the caller: a key
+/// that a silent lookup finds, or a key the store names a provider for.
+fn all_certificates() -> Result<Vec<(Vec<u8>, rustls_cng::cert::CertContext)>, StoreUnreadable> {
     let store = CertStore::open(CertStoreType::CurrentUser, "My")
         .map_err(|error| StoreUnreadable(format!("cannot open the store: {error}")))?;
     let all = store
@@ -83,7 +98,6 @@ fn certificates() -> Result<Vec<(Vec<u8>, rustls_cng::cert::CertContext)>, Store
         .map_err(|error| StoreUnreadable(format!("cannot list the store: {error}")))?;
     Ok(all
         .into_iter()
-        .filter(|context| context.acquire_key(true).is_ok())
         .map(|context| (context.as_der().to_vec(), context))
         .collect())
 }

@@ -49,6 +49,7 @@ export const strings = {
         'has expired': 'Expired',
         'is not valid yet': 'Not valid yet',
         'cannot be parsed': 'Cannot be read',
+        'has a key that cannot be used without asking': 'Its key cannot be used without asking',
     } as Record<string, string>,
     otherSignInProblem: (problem: string) => `This certificate ${problem}`,
     privateKeyGroupTitle: 'Private key',
