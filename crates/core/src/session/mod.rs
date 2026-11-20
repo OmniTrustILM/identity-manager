@@ -203,6 +203,8 @@ pub enum SignInAgain {
 pub enum CallError {
     SignedOut,
     Unreachable,
+    /// The caller's `proceed` said no, so nothing was sent.
+    Withdrawn,
 }
 
 impl std::fmt::Display for CallError {
@@ -210,6 +212,7 @@ impl std::fmt::Display for CallError {
         f.write_str(match self {
             CallError::SignedOut => "You are not signed in.",
             CallError::Unreachable => "ILM or the identity provider cannot be reached.",
+            CallError::Withdrawn => "The request was not sent.",
         })
     }
 }
@@ -537,7 +540,9 @@ impl Session {
     fn fail(&self, problem: impl Into<String>) -> SessionView {
         let problem = problem.into();
         log::warn!("{problem}");
-        self.set(State::signed_out(Some(problem)))
+        *lock(&self.state) = State::signed_out(Some(problem));
+        self.signed_out();
+        self.publish()
     }
 
     /// Like `fail`, but only while the person is still signed out: a sign-in made meanwhile is left alone.
@@ -753,7 +758,7 @@ impl Session {
             }
             Ok(response) => read_profile(&ilm, response).await,
             Err(CallError::SignedOut) => return self.view(),
-            Err(CallError::Unreachable) => Err(IlmError::Unreachable),
+            Err(CallError::Unreachable | CallError::Withdrawn) => Err(IlmError::Unreachable),
         };
         let before = self.view();
         if let State::SignedIn(active) = &mut *lock(&self.state)
@@ -1216,15 +1221,18 @@ impl Session {
         &self,
         build: impl Fn(&Client, &IlmUrl) -> RequestBuilder + Sync,
     ) -> Result<Response, CallError> {
-        self.call_ilm_as(None, build).await
+        self.call_ilm_as(None, None, build).await
     }
 
     /// Like `call_ilm`; with `expected`, only as that sign-in, so a request is never sent as one that replaced it.
+    /// `proceed` is asked just before each send, the one after a renewal included; when it says no, nothing is sent.
     pub(super) async fn call_ilm_as(
         &self,
         expected: Option<&Arc<()>>,
+        proceed: Option<&(dyn Fn() -> bool + Sync)>,
         build: impl Fn(&Client, &IlmUrl) -> RequestBuilder + Sync,
     ) -> Result<Response, CallError> {
+        let allowed = || proceed.is_none_or(|proceed| proceed());
         let (ilm, certificate, id) = match &*lock(&self.state) {
             State::SignedIn(active) if expected.is_none_or(|id| Arc::ptr_eq(id, &active.id)) => (
                 active.ilm.clone(),
@@ -1234,15 +1242,24 @@ impl Session {
             _ => return Err(CallError::SignedOut),
         };
         if let Some(certificate) = certificate {
+            if !allowed() {
+                return Err(CallError::Withdrawn);
+            }
             return self.call_with_certificate(&build, &ilm, &certificate).await;
         }
         let token = self.token_of(&ilm, &id, None).await?;
+        if !allowed() {
+            return Err(CallError::Withdrawn);
+        }
         let response = self.send(&build, &ilm, &token).await?;
         if response.status() != StatusCode::UNAUTHORIZED {
             return Ok(response);
         }
         log::info!("ILM refused the access token; renewing it once");
         let token = self.token_of(&ilm, &id, Some(&token)).await?;
+        if !allowed() {
+            return Err(CallError::Withdrawn);
+        }
         self.send(&build, &ilm, &token).await
     }
 

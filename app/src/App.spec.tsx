@@ -499,7 +499,7 @@ test('unreachable, the Certificates section shows the kept answer of ILM and Syn
                 case 'session':
                     return { state: 'unreachable', address: 'https://ilm.example.com', problem: 'The connection timed out.' };
                 case 'ilm_status':
-                    return inventory({ status: { state: 'offline', since: 1_000, reason: 'ILM cannot be reached.' } });
+                    return inventory({ status: { state: 'offline', since: 1_000, reason: 'ILM cannot be reached.', unreachable: true } });
                 case 'local_certificates':
                     return [];
                 default:

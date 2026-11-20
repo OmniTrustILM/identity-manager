@@ -198,7 +198,7 @@ test('while ILM is checked the header says so and Sync now is off', async ({ mou
 
 test('offline says ILM cannot be reached and keeps the last answers', async ({ mount, page }) => {
     await open(page, mount, 'macos', 'dark', 1000, list, {
-        inventory: known({ status: { state: 'offline', since: Date.now() - 3600_000, reason: 'down' } }),
+        inventory: known({ status: { state: 'offline', since: Date.now() - 3600_000, reason: 'down', unreachable: true } }),
     });
 
     await expect(page.getByText(/^Cannot reach ILM\. Shown as of /)).toBeVisible();
@@ -321,7 +321,7 @@ const waiting = (os: Platform, scheme: Scheme, refuse?: string) =>
                 refuse={refuse}
                 certificates={list}
                 inventory={inventory({
-                    status: { state: 'offline', since: Date.now() - 3600_000, reason: 'ILM cannot be reached.' },
+                    status: { state: 'offline', since: Date.now() - 3600_000, reason: 'ILM cannot be reached.', unreachable: true },
                     matches: {
                         [list[0]?.fingerprint ?? '']: ilmCertificate('CLIENT1', { raProfile: { uuid: 'ra', name: 'Client certificates' } }),
                     },

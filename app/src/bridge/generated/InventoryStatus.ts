@@ -11,4 +11,8 @@ checkedAt: number, } | { "state": "offline",
 /**
  * When the snapshot was taken, milliseconds since 1970 (UTC).
  */
-since: number | null, reason: string, };
+since: number | null, reason: string, 
+/**
+ * Whether ILM could not be reached, as opposed to answering in a way that was not expected.
+ */
+unreachable: boolean, };

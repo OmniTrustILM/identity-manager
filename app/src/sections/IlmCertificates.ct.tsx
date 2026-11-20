@@ -188,7 +188,10 @@ test('an error shows a plain message and Try again asks again', async ({ mount, 
 
 test('offline shows the first page that was kept, with a note, and search and paging are off', async ({ mount, page }) => {
     await open(page, mount, 'macos', 'dark', {
-        inventory: inventory({ status: { state: 'offline', since: Date.now() - 3600_000, reason: 'down' }, firstPage: first }),
+        inventory: inventory({
+            status: { state: 'offline', since: Date.now() - 3600_000, reason: 'down', unreachable: true },
+            firstPage: first,
+        }),
     });
 
     await expect(page.getByText(/^Search and paging need ILM\. Showing the first page from /)).toBeVisible();

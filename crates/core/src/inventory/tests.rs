@@ -439,7 +439,8 @@ async fn an_unreachable_ilm_keeps_the_snapshot_and_says_since_when() {
         status,
         Status::Offline {
             since: Some(checked_at),
-            reason: UNREACHABLE.to_owned()
+            reason: UNREACHABLE.to_owned(),
+            unreachable: true
         }
     );
     assert_eq!(setup.inventory.snapshot().unwrap().checked_at, checked_at);
@@ -458,7 +459,8 @@ async fn an_unreachable_ilm_without_a_snapshot_is_offline_since_never() {
         status,
         Status::Offline {
             since: None,
-            reason: UNREACHABLE.to_owned()
+            reason: UNREACHABLE.to_owned(),
+            unreachable: true
         }
     );
     assert!(setup.inventory.snapshot().is_none());
@@ -484,7 +486,8 @@ async fn an_unexpected_answer_is_offline_with_its_reason_and_keeps_the_snapshot(
         status,
         Status::Offline {
             since: Some(before.checked_at),
-            reason: UNEXPECTED.to_owned()
+            reason: UNEXPECTED.to_owned(),
+            unreachable: false
         }
     );
     assert_eq!(setup.inventory.snapshot().unwrap(), before);
@@ -822,7 +825,8 @@ async fn a_restart_takes_the_cache_and_shows_it_offline_until_a_check_succeeds()
         restarted.status(),
         Status::Offline {
             since: Some(kept.checked_at),
-            reason: NOT_CHECKED_YET.to_owned()
+            reason: NOT_CHECKED_YET.to_owned(),
+            unreachable: false
         }
     );
     let status = restarted
@@ -953,7 +957,8 @@ async fn an_unreachable_start_takes_the_cache_of_its_address_and_shows_it_offlin
         inventory.status(),
         Status::Offline {
             since: Some(1_000),
-            reason: UNREACHABLE.to_owned()
+            reason: UNREACHABLE.to_owned(),
+            unreachable: true
         }
     );
 }
@@ -1037,10 +1042,11 @@ fn the_status_has_the_shape_the_interface_reads() {
     assert_eq!(
         serde_json::to_value(Status::Offline {
             since: None,
-            reason: "x".into()
+            reason: "x".into(),
+            unreachable: false
         })
         .unwrap(),
-        json!({ "state": "offline", "since": null, "reason": "x" })
+        json!({ "state": "offline", "since": null, "reason": "x", "unreachable": false })
     );
 }
 

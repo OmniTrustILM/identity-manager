@@ -1,5 +1,6 @@
 //! Keeps a sign-in alive and the inventory current: each check of the sign-in is followed by one of the inventory.
-//! The sign-in is checked as often as the setting says, and every minute while ILM cannot be reached.
+//! The sign-in is checked as often as the setting says, and every minute while ILM cannot be reached, whether the
+//! sign-in or the inventory found out.
 
 use std::future::Future;
 use std::sync::Arc;
@@ -19,6 +20,8 @@ pub trait Checks: Send + Sync {
     /// How often a signed-in session is checked; read at each tick.
     fn interval(&self) -> Duration;
     fn inventory(&self, trigger: Trigger) -> impl Future<Output = ()> + Send;
+    /// Whether the last check of the inventory could not reach ILM.
+    fn inventory_unreachable(&self) -> bool;
 }
 
 /// Whether ILM could not be reached the last time.
@@ -33,16 +36,19 @@ fn unreachable(view: &SessionView) -> bool {
     )
 }
 
-/// One check of a signed-in session, or one more try of a saved sign-in that could not be renewed; while the
-/// person is signed in, the inventory is checked after it.
+/// One `renew`; while the person is signed in, the inventory is checked after it.
 pub async fn refresh(checks: &impl Checks, trigger: Trigger) {
-    let view = match checks.view() {
+    if matches!(renew(checks).await, SessionView::SignedIn { .. }) {
+        checks.inventory(trigger).await;
+    }
+}
+
+/// One check of a signed-in session, or one more try of a saved sign-in that could not be renewed; the view after.
+pub async fn renew(checks: &impl Checks) -> SessionView {
+    match checks.view() {
         SessionView::SignedIn { .. } => checks.check().await,
         SessionView::Unreachable { .. } => checks.retry().await,
-        _ => return,
-    };
-    if matches!(view, SessionView::SignedIn { .. }) {
-        checks.inventory(trigger).await;
+        view => view,
     }
 }
 
@@ -54,8 +60,10 @@ pub async fn run<C: Checks>(checks: Arc<C>) {
     loop {
         ticker.tick().await;
         let view = checks.view();
+        let signed_in = matches!(view, SessionView::SignedIn { .. });
         if unreachable(&view)
-            || (matches!(view, SessionView::SignedIn { .. }) && last.elapsed() >= checks.interval())
+            || (signed_in
+                && (checks.inventory_unreachable() || last.elapsed() >= checks.interval()))
         {
             refresh(&*checks, Trigger::Interval).await;
             last = Instant::now();
@@ -67,13 +75,14 @@ pub async fn run<C: Checks>(checks: Arc<C>) {
 mod tests {
     use super::*;
     use std::sync::Mutex;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     struct Scripted {
         view: Mutex<SessionView>,
         checks: AtomicUsize,
         retries: AtomicUsize,
         minutes: AtomicUsize,
+        inventory_down: AtomicBool,
         /// What was asked, in order.
         calls: Mutex<Vec<String>>,
     }
@@ -85,6 +94,7 @@ mod tests {
                 checks: AtomicUsize::new(0),
                 retries: AtomicUsize::new(0),
                 minutes: AtomicUsize::new(15),
+                inventory_down: AtomicBool::new(false),
                 calls: Mutex::default(),
             })
         }
@@ -127,6 +137,10 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push(format!("inventory {trigger}"));
+        }
+
+        fn inventory_unreachable(&self) -> bool {
+            self.inventory_down.load(Ordering::SeqCst)
         }
     }
 
@@ -194,6 +208,21 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
+    async fn a_signed_in_session_whose_inventory_could_not_reach_ilm_is_checked_every_minute() {
+        let scripted = started(signed_in(false)).await;
+        scripted.inventory_down.store(true, Ordering::SeqCst);
+
+        for _ in 0..3 {
+            pass(Duration::from_secs(60)).await;
+        }
+        assert_eq!(scripted.counts(), (3, 0));
+
+        scripted.inventory_down.store(false, Ordering::SeqCst);
+        pass(Duration::from_secs(60)).await;
+        assert_eq!(scripted.counts(), (3, 0));
+    }
+
+    #[tokio::test(start_paused = true)]
     async fn a_saved_sign_in_that_could_not_be_renewed_is_retried_every_minute() {
         let scripted = started(unreachable_at_start()).await;
 
@@ -216,6 +245,32 @@ mod tests {
         refresh(&*scripted, Trigger::Start).await;
 
         assert_eq!(scripted.counts(), (1, 1));
+    }
+
+    #[tokio::test]
+    async fn renewing_returns_the_view_after_a_check_a_retry_or_nothing() {
+        let scripted = Scripted::new(signed_in(false));
+        assert!(matches!(
+            renew(&*scripted).await,
+            SessionView::SignedIn { .. }
+        ));
+        scripted.set(unreachable_at_start());
+        assert!(matches!(
+            renew(&*scripted).await,
+            SessionView::Unreachable { .. }
+        ));
+        scripted.set(SessionView::Starting);
+        assert!(matches!(renew(&*scripted).await, SessionView::Starting));
+
+        assert_eq!(scripted.counts(), (1, 1));
+        assert!(
+            scripted
+                .calls
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|call| call != "inventory start")
+        );
     }
 
     #[tokio::test]

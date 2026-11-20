@@ -11,11 +11,11 @@ use im_core::identity::{
     EmptyStore, Fingerprint, IdentityStore, KeyProviders, LocalCertificateView, StoreUnreadable,
     system_store,
 };
-use im_core::inventory::{IlmPageView, Inventory, InventoryView, Trigger};
+use im_core::inventory::{IlmPageView, Inventory, InventoryView, Status, Trigger};
 use im_core::session::{Session, SessionView};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
-use crate::keep_alive::Checks;
+use crate::keep_alive::{Checks, renew};
 use crate::lock::Guard;
 use crate::settings::Settings;
 
@@ -155,6 +155,7 @@ impl<R: Runtime> Ilm<R> {
         if self.session.signed_in_as().is_none() {
             return Ok(());
         }
+        self.inventory.adopt(&self.session);
         let local = self.local_fingerprints().await?;
         self.working(self.inventory.check(&self.session, trigger, &local))
             .await;
@@ -194,7 +195,9 @@ impl<R: Runtime> Ilm<R> {
 
     async fn sync(&self) -> Result<InventoryView, String> {
         self.unlocked()?;
-        self.check_inventory(Trigger::SyncNow).await?;
+        if matches!(renew(self).await, SessionView::SignedIn { .. }) {
+            self.check_inventory(Trigger::SyncNow).await?;
+        }
         self.unlocked()?;
         Ok(self.view())
     }
@@ -235,6 +238,16 @@ impl<R: Runtime> Checks for Ilm<R> {
         if let Err(error) = self.check_inventory(trigger).await {
             log::warn!("ILM is not checked: {error}");
         }
+    }
+
+    fn inventory_unreachable(&self) -> bool {
+        matches!(
+            self.inventory.status(),
+            Status::Offline {
+                unreachable: true,
+                ..
+            }
+        )
     }
 }
 

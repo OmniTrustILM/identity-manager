@@ -268,7 +268,7 @@ test('a failing page keeps the page that was shown and offers Try again', async 
 test('offline shows the first page that was kept, with a note, and search and paging are off', async () => {
     answer(() => page([ilmCertificate('Online')]));
     const kept = page([ilmCertificate('Kept')], { totalItems: 90, totalPages: 2 });
-    await render(inventory({ status: { state: 'offline', since: now - 60_000, reason: 'down' }, firstPage: kept }));
+    await render(inventory({ status: { state: 'offline', since: now - 60_000, reason: 'down', unreachable: true }, firstPage: kept }));
 
     expect(asked).toEqual([]);
     expect(container.textContent).toContain(strings.ilmOffline(now - 60_000));
@@ -279,9 +279,51 @@ test('offline shows the first page that was kept, with a note, and search and pa
     expect(totals.at(-1)).toBe(90);
 });
 
+test('after an answer that was not expected the page is still read and searched', async () => {
+    answer(() => page([ilmCertificate('Live')]));
+    await render(inventory({ status: { state: 'offline', since: now - 60_000, reason: 'odd', unreachable: false } }));
+
+    expect(asked).toEqual([{ page: 1, search: null }]);
+    expect(container.textContent).not.toContain('Search and paging need ILM.');
+    expect(search().disabled).toBe(false);
+});
+
+test('the kept first page replaces a search that was typed or pending', async () => {
+    answer(() => page([ilmCertificate('Live')]));
+    await render();
+    await type('abc');
+    await advance(500);
+    await type('abcd');
+    expect(search().value).toBe('abcd');
+    const requests = asked.length;
+
+    await render(
+        inventory({
+            status: { state: 'offline', since: now, reason: 'down', unreachable: true },
+            firstPage: page([ilmCertificate('Kept')]),
+        }),
+    );
+    await advance(1000);
+
+    expect(search().value).toBe('');
+    expect(asked).toHaveLength(requests);
+    expect(options().map((option) => option.getAttribute('aria-label')?.split(',')[0])).toEqual(['Kept']);
+});
+
+test('a time from an earlier day shows its date, and one from today does not', async () => {
+    answer(() => page([]));
+    const earlier = now - 3 * 86_400_000;
+    const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(earlier);
+    await render(inventory({ status: { state: 'offline', since: earlier, reason: 'down', unreachable: true }, firstPage: null }));
+    expect(container.textContent).toContain(date);
+
+    await render(inventory({ status: { state: 'offline', since: now - 60_000, reason: 'down', unreachable: true }, firstPage: null }));
+    expect(container.textContent).not.toContain(date);
+});
+
 test('offline without a kept page only says what needs ILM, not that nothing was found', async () => {
     answer(() => page([]));
-    await render(inventory({ status: { state: 'offline', since: null, reason: 'down' }, firstPage: null }));
+    await render(inventory({ status: { state: 'offline', since: null, reason: 'down', unreachable: true }, firstPage: null }));
 
     expect(container.textContent).toContain('Search and paging need ILM.');
     expect(container.textContent).not.toContain('Showing the first page');
@@ -290,7 +332,7 @@ test('offline without a kept page only says what needs ILM, not that nothing was
 
 test('an empty kept page says nothing was found', async () => {
     answer(() => page([]));
-    await render(inventory({ status: { state: 'offline', since: null, reason: 'down' }, firstPage: page([]) }));
+    await render(inventory({ status: { state: 'offline', since: null, reason: 'down', unreachable: true }, firstPage: page([]) }));
 
     expect(container.textContent).toContain(strings.noIlmCertificates);
 });
@@ -314,7 +356,7 @@ test('a page after the first that deletions in ILM emptied still offers Previous
 
 test('when ILM comes back the page is read again, and a change of status does not read it again by itself', async () => {
     answer(() => page([ilmCertificate('Live')]));
-    await render(inventory({ status: { state: 'offline', since: null, reason: 'down' }, firstPage: null }));
+    await render(inventory({ status: { state: 'offline', since: null, reason: 'down', unreachable: true }, firstPage: null }));
     expect(asked).toHaveLength(0);
 
     await render(inventory());

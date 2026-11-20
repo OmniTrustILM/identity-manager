@@ -640,6 +640,24 @@ async fn a_start_refused_by_the_provider_runs_the_sign_out_hook() {
 }
 
 #[tokio::test]
+async fn a_failed_sign_in_runs_the_sign_out_hook() {
+    let world = World::new().await;
+    *lock(&world.session.state) = State::SignedOut {
+        problem: None,
+        again: Some(Again::Certificate),
+    };
+    let ran = Arc::new(AtomicBool::new(false));
+    let seen = ran.clone();
+    world
+        .session
+        .on_signed_out(move || seen.store(true, Ordering::SeqCst));
+
+    world.session.sign_in_again(browser("the-code")).await;
+
+    assert!(ran.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
 async fn a_start_that_cannot_reach_the_provider_keeps_the_item_and_says_so() {
     let world = World::at_address().await;
     world.put_item("r1");

@@ -103,6 +103,8 @@ pub enum Status {
         #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
         since: Option<i64>,
         reason: String,
+        /// Whether ILM could not be reached, as opposed to answering in a way that was not expected.
+        unreachable: bool,
     },
 }
 
@@ -133,7 +135,7 @@ impl From<CallError> for Failure {
     fn from(error: CallError) -> Self {
         match error {
             CallError::SignedOut => Failure::SignedOut,
-            CallError::Unreachable => Failure::Unreachable,
+            CallError::Unreachable | CallError::Withdrawn => Failure::Unreachable,
         }
     }
 }
@@ -276,6 +278,7 @@ impl Inventory {
             held.status = Status::Offline {
                 since: Some(snapshot.checked_at),
                 reason: UNREACHABLE.to_owned(),
+                unreachable: true,
             };
             held.snapshot = Some(snapshot);
             held.bound = Some((ilm.clone(), username));
@@ -294,6 +297,7 @@ impl Inventory {
             held.status = Status::Offline {
                 since: Some(snapshot.checked_at),
                 reason: NOT_CHECKED_YET.to_owned(),
+                unreachable: false,
             };
             held.snapshot = Some(snapshot);
         }
@@ -357,10 +361,10 @@ impl Inventory {
                 self.keep(&who, epoch, found.snapshot);
             }
             Err(Failure::SignedOut) => log::debug!("ILM was not checked: the sign-in ended"),
-            Err(Failure::Unreachable) => self.offline(epoch, UNREACHABLE),
+            Err(Failure::Unreachable) => self.offline(epoch, UNREACHABLE, true),
             Err(error) => {
                 log::warn!("the check of ILM failed: {error}");
-                self.offline(epoch, UNEXPECTED);
+                self.offline(epoch, UNEXPECTED, false);
             }
         }
         Some(Asked::new(&who, local))
@@ -383,7 +387,7 @@ impl Inventory {
         held.snapshot = Some(snapshot);
     }
 
-    fn offline(&self, epoch: u64, reason: &str) {
+    fn offline(&self, epoch: u64, reason: &str, unreachable: bool) {
         let mut held = held(&self.held);
         if held.epoch != epoch {
             return;
@@ -392,6 +396,7 @@ impl Inventory {
         held.status = Status::Offline {
             since: held.snapshot.as_ref().map(|snapshot| snapshot.checked_at),
             reason: reason.to_owned(),
+            unreachable,
         };
     }
 

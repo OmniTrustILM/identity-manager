@@ -138,7 +138,7 @@ impl Change {
     async fn make_if(
         &self,
         fingerprint: &str,
-        proceed: impl Fn() -> bool,
+        proceed: impl Fn() -> bool + Sync,
     ) -> Result<(), ChangeError> {
         self.world
             .session
@@ -295,6 +295,35 @@ async fn nothing_is_sent_when_the_caller_withdraws_before_ilm_is_changed() {
 
     assert_eq!(result, Err(ChangeError::Withdrawn));
     assert_eq!(change.updates().await, 0);
+}
+
+#[tokio::test]
+async fn nothing_is_sent_again_when_the_caller_withdraws_while_the_token_is_renewed() {
+    let change = Change::new().await;
+    change
+        .world
+        .grant(
+            "refresh_token",
+            ResponseTemplate::new(200).set_body_json(json!({
+                "access_token": "renewed",
+                "refresh_token": "refresh",
+                "expires_in": 3600,
+                "token_type": "Bearer",
+            })),
+            None,
+        )
+        .await;
+    change.answer_update(ResponseTemplate::new(401)).await;
+    let asked = std::sync::atomic::AtomicUsize::new(0);
+
+    let result = change
+        .make_if(&change.jane.fingerprint().to_string(), || {
+            asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0
+        })
+        .await;
+
+    assert_eq!(result, Err(ChangeError::Withdrawn));
+    assert_eq!(change.updates().await, 1);
 }
 
 #[tokio::test]

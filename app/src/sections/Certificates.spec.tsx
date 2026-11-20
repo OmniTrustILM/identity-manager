@@ -388,7 +388,9 @@ test('rows show what ILM knows with an icon and short text, and the header count
 });
 
 test('a first check that failed without a snapshot shows no ILM line and no count', async () => {
-    withInventory(inventory({ status: { state: 'offline', since: null, reason: 'down' }, checkedAt: null, checked: [] }));
+    withInventory(
+        inventory({ status: { state: 'offline', since: null, reason: 'down', unreachable: true }, checkedAt: null, checked: [] }),
+    );
     await render();
 
     expect(options()[0]?.getAttribute('aria-label')).toBe('CLIENT1, Client authentication, Keychain, Expires in 212 days');
@@ -449,7 +451,9 @@ test('before ILM status is known the local list stands alone', async () => {
 });
 
 test('offline says so, with the time of the snapshot or without it', async () => {
-    withInventory(inventory({ status: { state: 'offline', since: now - 60_000, reason: 'down' }, matches: { 'FP:one': managed } }));
+    withInventory(
+        inventory({ status: { state: 'offline', since: now - 60_000, reason: 'down', unreachable: true }, matches: { 'FP:one': managed } }),
+    );
     await render();
 
     expect(text()).toContain(strings.cannotReachIlmSince(now - 60_000));
@@ -457,7 +461,9 @@ test('offline says so, with the time of the snapshot or without it', async () =>
     await act(async () => root.unmount());
     root = createRoot(container);
 
-    withInventory(inventory({ status: { state: 'offline', since: null, reason: 'down' }, checkedAt: null, checked: [] }));
+    withInventory(
+        inventory({ status: { state: 'offline', since: null, reason: 'down', unreachable: true }, checkedAt: null, checked: [] }),
+    );
     await render();
 
     expect(text()).toContain('Cannot reach ILM.');
@@ -485,7 +491,9 @@ test('while a check runs the line says so and Sync now is off; otherwise it asks
 });
 
 test('while the saved sign-in waits for ILM Sync now is off and the kept answer shows', async () => {
-    withInventory(inventory({ matches: { 'FP:one': managed }, status: { state: 'offline', since: now, reason: 'down' } }));
+    withInventory(
+        inventory({ matches: { 'FP:one': managed }, status: { state: 'offline', since: now, reason: 'down', unreachable: true } }),
+    );
     await act(async () =>
         root.render(
             <AppInfoContext.Provider value={{ name: 'Identity Manager', version: '1', platform: 'macos' }}>
@@ -605,7 +613,7 @@ test.each([
     ['is not issued', () => inventory({ matches: { 'FP:one': ilmCertificate('X', { state: 'revoked' }) } })],
     ['is archived', () => inventory({ matches: { 'FP:one': ilmCertificate('X', { archived: true }) } })],
     ['is already the sign-in certificate', () => ({ ...eligible(), signIn: 'FP:one' })],
-    ['cannot be reached', () => ({ ...eligible(), status: { state: 'offline', since: now, reason: 'down' } as const })],
+    ['cannot be reached', () => ({ ...eligible(), status: { state: 'offline', since: now, reason: 'down', unreachable: true } as const })],
 ])('there is no button when the certificate %s', async (_name, current) => {
     withInventory(current());
     await render();

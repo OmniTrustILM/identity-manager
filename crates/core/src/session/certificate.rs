@@ -91,6 +91,7 @@ impl From<CallError> for ChangeError {
         match error {
             CallError::SignedOut => ChangeError::SignedOut,
             CallError::Unreachable => ChangeError::Offline,
+            CallError::Withdrawn => ChangeError::Withdrawn,
         }
     }
 }
@@ -211,12 +212,12 @@ impl Session {
     /// certificate must be the one the latest check of `inventory` matched, issued and not archived, and able to
     /// sign in here. The person's names, email and description are read again and sent back unchanged. With a
     /// certificate sign-in the remembered certificate and the client follow the new one in the same step; a
-    /// check follows. `proceed` is asked just before ILM is changed; when it says no, nothing is sent.
+    /// check follows. `proceed` is asked just before each time ILM is asked to change it; when it says no, nothing is sent.
     pub async fn make_sign_in_certificate(
         &self,
         inventory: &Inventory,
         fingerprint: &str,
-        proceed: impl Fn() -> bool,
+        proceed: impl Fn() -> bool + Sync,
     ) -> Result<(), ChangeError> {
         let requested = self.departing()?.id;
         let _changing = self.changing.lock().await;
@@ -252,7 +253,7 @@ impl Session {
             return Err(ChangeError::CannotSignIn);
         }
         let response = self
-            .call_ilm_as(Some(&departing.id), profile_request)
+            .call_ilm_as(Some(&departing.id), None, profile_request)
             .await?;
         let person = read_profile(&who.ilm, response)
             .await
@@ -267,11 +268,8 @@ impl Session {
             return Err(ChangeError::AlreadySignIn);
         }
         let replacement = self.prepare_switch(&departing, fingerprint).await?;
-        if !proceed() {
-            return Err(ChangeError::Withdrawn);
-        }
         let response = self
-            .call_ilm_as(Some(&departing.id), |client, ilm| {
+            .call_ilm_as(Some(&departing.id), Some(&proceed), |client, ilm| {
                 update_request(client, ilm, &person, &matched.uuid)
             })
             .await?;

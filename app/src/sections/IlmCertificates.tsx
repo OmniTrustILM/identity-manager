@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { type IlmCertificateView, type IlmPageView, ilmCertificates, type InventoryView } from '../bridge';
 import { ArchivedIcon, LaptopIcon, MonitorIcon, SearchIcon } from '../design-system/icons';
 import { strings } from '../strings';
@@ -176,7 +176,7 @@ export function IlmCertificates({
     system,
     onTotal,
 }: Readonly<{ inventory: InventoryView; local: ReadonlySet<string>; system: System; onTotal: (total: number | null) => void }>) {
-    const offline = inventory.status.state === 'offline';
+    const offline = inventory.status.state === 'offline' && inventory.status.unreachable;
     const since = inventory.status.state === 'offline' ? inventory.status.since : null;
     const cached = inventory.firstPage;
     const checkedAt = inventory.checkedAt;
@@ -188,6 +188,12 @@ export function IlmCertificates({
     const [result, setResult] = useState<Result>({ page: null, error: null, loading: true });
     const latest = useRef(0);
     const pause = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const stopPause = useCallback(() => {
+        if (pause.current !== null) {
+            clearTimeout(pause.current);
+            pause.current = null;
+        }
+    }, []);
 
     // Each request carries a number; an answer to an older one is dropped. A new check of ILM asks again.
     // biome-ignore lint/correctness/useExhaustiveDependencies: `retry` and `checkedAt` only repeat the request.
@@ -210,9 +216,13 @@ export function IlmCertificates({
 
     useEffect(() => {
         if (offline) {
+            stopPause();
+            setText('');
+            setQuery('');
+            setPage(1);
             setResult({ page: cached, error: null, loading: false });
         }
-    }, [offline, cached]);
+    }, [offline, cached, stopPause]);
 
     useEffect(
         () => () => {
@@ -230,10 +240,7 @@ export function IlmCertificates({
     }, [total, onTotal]);
 
     const commit = (value: string) => {
-        if (pause.current !== null) {
-            clearTimeout(pause.current);
-            pause.current = null;
-        }
+        stopPause();
         const next = value.trim();
         if (next !== query) {
             setQuery(next);
@@ -266,9 +273,7 @@ export function IlmCertificates({
                     onChange={(event) => {
                         const value = event.target.value;
                         setText(value);
-                        if (pause.current !== null) {
-                            clearTimeout(pause.current);
-                        }
+                        stopPause();
                         pause.current = setTimeout(() => commit(value), searchPause);
                     }}
                     onKeyDown={(event) => event.key === 'Enter' && commit(text)}

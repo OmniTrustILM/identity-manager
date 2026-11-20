@@ -1,4 +1,8 @@
-const time = (at: number) => new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(at));
+const time = (at: number) => {
+    const when = new Date(at);
+    const today = when.toDateString() === new Date().toDateString();
+    return new Intl.DateTimeFormat(undefined, today ? { timeStyle: 'short' } : { dateStyle: 'medium', timeStyle: 'short' }).format(when);
+};
 
 export const strings = {
     navigation: 'Sections',
