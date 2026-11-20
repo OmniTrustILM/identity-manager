@@ -98,7 +98,7 @@ impl Drop for Gate {
     }
 }
 
-/// A store that finds the certificate but whose key refuses to sign, as when the person chose Deny.
+/// A store that finds the certificates but whose key for `person` refuses to sign, as when the person chose Deny.
 struct DeniedStore {
     inner: StandInStore,
     person: TestIdentity,
@@ -114,9 +114,11 @@ impl IdentityStore for DeniedStore {
     }
 
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity> {
-        self.inner
-            .open(fingerprint)
-            .map(|_| self.person.denied_identity())
+        let opened = self.inner.open(fingerprint)?;
+        if *fingerprint == self.person.fingerprint() {
+            return Some(self.person.denied_identity());
+        }
+        Some(opened)
     }
 }
 
@@ -1496,5 +1498,36 @@ async fn a_second_change_queued_in_one_sign_in_switches_the_client_too() {
     assert_eq!(
         world.server.requests().last().unwrap().fingerprint,
         Some(mike.fingerprint())
+    );
+}
+
+#[tokio::test]
+async fn a_certificate_whose_key_refuses_to_sign_changes_nothing_in_ilm() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let store = DeniedStore {
+        inner: StandInStore::new(vec![jane.clone(), john.clone()]),
+        person: john.clone(),
+    };
+    let world = CertWorld::start(&ca, ClientCerts::Required, &jane, store).await;
+    world.sign_in(&jane).await;
+    let folder = tempfile::tempdir().unwrap();
+    let inventory = Inventory::new(folder.path());
+    inventory.seed(matched(&john));
+
+    let done = world
+        .session
+        .make_sign_in_certificate(&inventory, &john.fingerprint().to_string(), || true)
+        .await;
+
+    assert_eq!(done, Err(crate::session::ChangeError::CannotSignIn));
+    assert_eq!(world.remembered(), Some(jane.fingerprint()));
+    assert_eq!(world.session.view(), world.signed_in(&jane));
+    assert!(
+        world
+            .server
+            .requests()
+            .iter()
+            .all(|seen| seen.method != "PUT")
     );
 }

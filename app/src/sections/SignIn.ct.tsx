@@ -236,10 +236,10 @@ for (const os of ['macos', 'windows', 'linux'] as const) {
                     'border-top-color',
                     os === 'macos'
                         ? scheme === 'light'
-                            ? 'rgb(255, 59, 48)'
-                            : 'rgb(255, 69, 58)'
+                            ? 'rgb(200, 16, 28)'
+                            : 'rgb(255, 130, 121)'
                         : scheme === 'light'
-                          ? 'rgb(196, 43, 28)'
+                          ? 'rgb(189, 38, 25)'
                           : 'rgb(255, 153, 164)',
                 );
             }

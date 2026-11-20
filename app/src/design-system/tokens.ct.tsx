@@ -152,3 +152,53 @@ for (const os of systems) {
         });
     }
 }
+
+for (const os of systems) {
+    for (const scheme of schemes) {
+        test(`${os} ${scheme} fine and bad text keep 4.5:1 on the surface and on hovered and current rows`, async ({ page, mount }) => {
+            await page.emulateMedia({ colorScheme: scheme });
+            await page.evaluate((system) => {
+                document.documentElement.dataset.os = system;
+            }, os);
+            await mount(<div />);
+
+            const worst = await page.evaluate(() => {
+                const root = getComputedStyle(document.documentElement);
+                const read = (name: string) => {
+                    const probe = document.createElement('i');
+                    probe.style.color = root.getPropertyValue(`--im-color-${name}`);
+                    document.body.append(probe);
+                    const [r = 0, g = 0, b = 0, a = 1] = (getComputedStyle(probe).color.match(/[\d.]+/g) ?? []).map(Number);
+                    probe.remove();
+                    return { rgb: [r, g, b], a };
+                };
+                const luminance = (rgb: number[]) => {
+                    const [r = 0, g = 0, b = 0] = rgb.map((value) => {
+                        const channel = value / 255;
+                        return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+                    });
+                    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                };
+                const surface = read('surface').rgb;
+                const backgrounds = ['surface', 'row-hover', 'row-current'].map((name) => {
+                    const { rgb, a } = read(name);
+                    return rgb.map((value, index) => value * a + (surface[index] ?? 0) * (1 - a));
+                });
+                const ratios: Record<string, number> = {};
+                for (const name of ['status-fine', 'status-bad']) {
+                    const text = luminance(read(name).rgb);
+                    ratios[name] = Math.min(
+                        ...backgrounds.map((background) => {
+                            const other = luminance(background);
+                            return (Math.max(text, other) + 0.05) / (Math.min(text, other) + 0.05);
+                        }),
+                    );
+                }
+                return ratios;
+            });
+
+            expect(worst['status-fine']).toBeGreaterThanOrEqual(4.5);
+            expect(worst['status-bad']).toBeGreaterThanOrEqual(4.5);
+        });
+    }
+}

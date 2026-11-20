@@ -22621,21 +22621,21 @@
       "type": "color",
       "value": [
         {
-          "value": "#FF3B30",
+          "value": "#C8101C",
           "theme": {
             "os": "macos",
             "mode": "light"
           }
         },
         {
-          "value": "#FF453A",
+          "value": "#FF8279",
           "theme": {
             "os": "macos",
             "mode": "dark"
           }
         },
         {
-          "value": "#C42B1C",
+          "value": "#BD2619",
           "theme": {
             "os": "windows",
             "mode": "light"
@@ -22649,14 +22649,14 @@
           }
         },
         {
-          "value": "#C01C28",
+          "value": "#B81A26",
           "theme": {
             "os": "linux",
             "mode": "light"
           }
         },
         {
-          "value": "#FF7B63",
+          "value": "#FF8A75",
           "theme": {
             "os": "linux",
             "mode": "dark"

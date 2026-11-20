@@ -45,8 +45,8 @@ const surfaces: Record<'macos' | 'windows', Record<Scheme, string>> = {
     windows: { light: 'rgb(251, 251, 251)', dark: 'rgb(39, 39, 39)' },
 };
 const bad: Record<'macos' | 'windows', Record<Scheme, string>> = {
-    macos: { light: 'rgb(255, 59, 48)', dark: 'rgb(255, 69, 58)' },
-    windows: { light: 'rgb(196, 43, 28)', dark: 'rgb(255, 153, 164)' },
+    macos: { light: 'rgb(200, 16, 28)', dark: 'rgb(255, 130, 121)' },
+    windows: { light: 'rgb(189, 38, 25)', dark: 'rgb(255, 153, 164)' },
 };
 
 async function open(

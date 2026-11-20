@@ -267,7 +267,9 @@ impl Session {
         if old.is_some_and(|held| held.uuid == matched.uuid || held.fingerprint == fingerprint) {
             return Err(ChangeError::AlreadySignIn);
         }
-        let replacement = self.prepare_switch(&departing, fingerprint).await?;
+        let replacement = self
+            .prepare_switch(&who.ilm, &departing, fingerprint)
+            .await?;
         let response = self
             .call_ilm_as(Some(&departing.id), Some(&proceed), |client, ilm| {
                 update_request(client, ilm, &person, &matched.uuid)
@@ -318,10 +320,12 @@ impl Session {
         }
     }
 
-    /// Opens `fingerprint` before ILM is asked, so a certificate that cannot be opened changes nothing; with a
-    /// certificate sign-in it also builds the client for it.
+    /// Opens `fingerprint` and presents it to ILM in a handshake before ILM is asked to change anything, so a
+    /// certificate that cannot be opened or presented changes nothing; with a certificate sign-in it also keeps
+    /// the client for it. Any HTTP answer will do: ILM does not know the certificate as the sign-in one yet.
     async fn prepare_switch(
         &self,
+        ilm: &IlmUrl,
         departing: &Departing,
         fingerprint: Fingerprint,
     ) -> Result<Option<(Client, Option<SystemTime>)>, ChangeError> {
@@ -329,13 +333,24 @@ impl Session {
             .in_identities(move |store| store.open(&fingerprint))
             .await
             .ok_or(ChangeError::CannotSignIn)?;
-        if departing.generation.is_none() {
-            return Ok(None);
-        }
         let not_after = identity::assess(identity.chain()[0].as_ref(), SystemTime::now())
             .ok()
             .map(|found| found.candidate.not_after);
         let (client, _) = (self.certificate_client)(identity);
+        if let Err(error) = profile_request(&client, ilm).send().await {
+            let kind = if error.is_timeout() {
+                "timeout"
+            } else if error.is_connect() {
+                "connect"
+            } else {
+                "other"
+            };
+            log::info!("the new sign-in certificate could not be presented to ILM ({kind})");
+            return Err(ChangeError::CannotSignIn);
+        }
+        if departing.generation.is_none() {
+            return Ok(None);
+        }
         Ok(Some((client, not_after)))
     }
 

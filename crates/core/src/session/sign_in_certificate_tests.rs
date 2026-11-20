@@ -10,6 +10,7 @@ use wiremock::{Mock, ResponseTemplate};
 
 use super::tests::{LOG, World, capture_logs};
 use super::{ChangeError, ConnectionSettings, SessionView};
+use crate::http::client_for_tests;
 use crate::identity::testing::{Issue, StandInStore, TestCa, TestIdentity};
 use crate::identity::{
     ClientIdentity, Fingerprint, IdentityStore, LocalCertificate, StoreUnreadable,
@@ -63,7 +64,10 @@ impl Change {
     }
 
     async fn on(overrides: Value, jane: TestIdentity, store: impl IdentityStore + 'static) -> Self {
-        let world = World::new().await.with_identities(store);
+        let mut world = World::new().await.with_identities(store);
+        world.session = world
+            .session
+            .with_certificate_client(Box::new(|_| (client_for_tests(), Default::default())));
         world.code_grant("access", Some("refresh"), 3600).await;
         Mock::given(method("GET"))
             .and(path(PROFILE))
@@ -340,6 +344,21 @@ async fn a_provider_sign_in_refuses_a_certificate_this_computer_cannot_open() {
 }
 
 #[tokio::test]
+async fn a_provider_sign_in_refuses_a_certificate_that_cannot_be_presented_to_ilm() {
+    let mut change = Change::new().await;
+    change.world.session = change.world.session.with_certificate_client(Box::new(|_| {
+        let unreachable = reqwest::Client::builder().https_only(true).build().unwrap();
+        (unreachable, Default::default())
+    }));
+    change
+        .answer_update(ResponseTemplate::new(200).set_body_json(profile()))
+        .await;
+
+    assert_eq!(change.make().await, Err(ChangeError::CannotSignIn));
+    assert_eq!(change.updates().await, 0);
+}
+
+#[tokio::test]
 async fn a_403_says_ilm_does_not_allow_it() {
     let change = Change::new().await;
     change.answer_update(ResponseTemplate::new(403)).await;
@@ -512,7 +531,7 @@ async fn two_changes_at_once_do_not_interleave() {
         .map(|request| request.method.to_string())
         .skip(before)
         .collect();
-    assert_eq!(profile_calls[..2], ["GET", "PUT"]);
+    assert_eq!(profile_calls[..3], ["GET", "GET", "PUT"]);
 }
 
 #[tokio::test]

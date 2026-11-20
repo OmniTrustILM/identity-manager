@@ -1,5 +1,5 @@
 {
-  "version": "2.14",
+  "version": "2.22",
   "children": [
     {
       "type": "frame",
@@ -4740,7 +4740,7 @@
       "type": "color",
       "value": [
         {
-          "value": "#34C759",
+          "value": "#1A7431",
           "theme": {
             "os": "macos",
             "mode": "light"
@@ -4754,7 +4754,7 @@
           }
         },
         {
-          "value": "#0F7B0F",
+          "value": "#0D720D",
           "theme": {
             "os": "windows",
             "mode": "light"
@@ -4768,7 +4768,7 @@
           }
         },
         {
-          "value": "#26A269",
+          "value": "#136C3B",
           "theme": {
             "os": "linux",
             "mode": "light"
@@ -4881,21 +4881,21 @@
       "type": "color",
       "value": [
         {
-          "value": "#FF3B30",
+          "value": "#C8101C",
           "theme": {
             "os": "macos",
             "mode": "light"
           }
         },
         {
-          "value": "#FF453A",
+          "value": "#FF8279",
           "theme": {
             "os": "macos",
             "mode": "dark"
           }
         },
         {
-          "value": "#C42B1C",
+          "value": "#BD2619",
           "theme": {
             "os": "windows",
             "mode": "light"
@@ -4909,14 +4909,14 @@
           }
         },
         {
-          "value": "#C01C28",
+          "value": "#B81A26",
           "theme": {
             "os": "linux",
             "mode": "light"
           }
         },
         {
-          "value": "#FF7B63",
+          "value": "#FF8A75",
           "theme": {
             "os": "linux",
             "mode": "dark"

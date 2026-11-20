@@ -36,8 +36,8 @@ const surfaces: Record<'macos' | 'windows', Record<Scheme, string>> = {
     windows: { light: 'rgb(251, 251, 251)', dark: 'rgb(39, 39, 39)' },
 };
 const bad: Record<'macos' | 'windows', Record<Scheme, string>> = {
-    macos: { light: 'rgb(255, 59, 48)', dark: 'rgb(255, 69, 58)' },
-    windows: { light: 'rgb(196, 43, 28)', dark: 'rgb(255, 153, 164)' },
+    macos: { light: 'rgb(200, 16, 28)', dark: 'rgb(255, 130, 121)' },
+    windows: { light: 'rgb(189, 38, 25)', dark: 'rgb(255, 153, 164)' },
 };
 
 async function open(
@@ -142,8 +142,8 @@ const known = (over: Parameters<typeof inventory>[0] = {}) =>
         ...over,
     });
 const fine: Record<'macos' | 'windows', Record<Scheme, string>> = {
-    macos: { light: 'rgb(52, 199, 89)', dark: 'rgb(48, 209, 88)' },
-    windows: { light: 'rgb(15, 123, 15)', dark: 'rgb(108, 203, 95)' },
+    macos: { light: 'rgb(26, 116, 49)', dark: 'rgb(48, 209, 88)' },
+    windows: { light: 'rgb(13, 114, 13)', dark: 'rgb(108, 203, 95)' },
 };
 
 for (const os of ['macos', 'windows'] as const) {
