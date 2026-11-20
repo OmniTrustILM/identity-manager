@@ -90,7 +90,7 @@ function List({
                         here ? strings.onThisComputer(system) : null,
                         certificate.archived ? strings.archived : null,
                     ]
-                        .filter((part) => part)
+                        .filter(Boolean)
                         .join(', ');
                     return (
                         <div

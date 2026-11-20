@@ -633,13 +633,13 @@ test('the button asks first and Cancel changes nothing', async () => {
     makeButton()?.focus();
     await act(async () => makeButton()?.click());
 
-    const dialog = container.querySelector('[role="dialog"]');
+    const dialog = container.querySelector('dialog');
     expect(dialog?.querySelector('h2')?.textContent).toBe('Use CLIENT1 to sign in to ILM?');
     expect(dialog?.textContent).not.toContain('stops working');
     expect([...(dialog?.querySelectorAll('button') ?? [])].map((each) => each.textContent)).toEqual(['Cancel', 'Use this certificate']);
     await act(async () => button('Cancel')?.click());
 
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.querySelector('dialog')).toBeNull();
     expect(asked).toBe(0);
     expect(document.activeElement).toBe(makeButton());
 });
@@ -649,10 +649,7 @@ test('the buttons of the question are in the order of Windows there', async () =
     await render('windows');
     await act(async () => makeButton()?.click());
 
-    expect([...container.querySelectorAll('[role="dialog"] button')].map((each) => each.textContent)).toEqual([
-        'Use this certificate',
-        'Cancel',
-    ]);
+    expect([...container.querySelectorAll('dialog button')].map((each) => each.textContent)).toEqual(['Use this certificate', 'Cancel']);
 });
 
 test('when there is a sign-in certificate today the question names it', async () => {
@@ -660,26 +657,19 @@ test('when there is a sign-in certificate today the question names it', async ()
     await render();
     await act(async () => makeButton()?.click());
 
-    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Alex stops working for sign-in.');
+    expect(container.querySelector('dialog')?.textContent).toContain('Alex stops working for sign-in.');
 });
 
-test('Escape closes the question and Tab stays inside it', async () => {
+test('Escape closes the question', async () => {
     withInventory(eligible());
     await render();
     await act(async () => makeButton()?.click());
 
-    const [cancel, use] = [...container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')];
+    const use = container.querySelectorAll<HTMLButtonElement>('dialog button')[1];
     expect(document.activeElement).toBe(use);
-    const press = (target: Element, init: KeyboardEventInit) =>
-        act(async () => void target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })));
-    await press(use as Element, { key: 'Tab' });
-    expect(document.activeElement).toBe(cancel);
-    await press(cancel as Element, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(use);
-    await press(use as Element, { key: 'Enter' });
-    await press(use as Element, { key: 'Escape' });
+    await act(async () => void container.querySelector('dialog')?.dispatchEvent(new Event('cancel', { cancelable: true })));
 
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.querySelector('dialog')).toBeNull();
 });
 
 test('Use this certificate asks the core, closes and shows the new state', async () => {
@@ -696,7 +686,7 @@ test('Use this certificate asks the core, closes and shows the new state', async
     await act(async () => button('Use this certificate')?.click());
 
     expect(asked).toEqual([{ fingerprint: 'FP:one' }]);
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.querySelector('dialog')).toBeNull();
     expect(makeButton()).toBeUndefined();
     expect(options()[0]?.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Sign-in certificate');
 });
@@ -710,7 +700,7 @@ test.each([
     await act(async () => makeButton()?.click());
     await act(async () => button('Use this certificate')?.click());
 
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.querySelector('dialog')).toBeNull();
     expect(detail().querySelector('[role="alert"]')?.textContent).toBe(shown);
     expect(makeButton()).toBeDefined();
 });

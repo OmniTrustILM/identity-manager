@@ -329,6 +329,21 @@ async fn checks_at_once_for_other_certificates_each_ask_ilm() {
 }
 
 #[tokio::test]
+async fn what_ilm_returned_but_could_not_be_read_is_not_called_missing() {
+    let setup = Setup::new().await;
+    let known = certificate("u-1", &print(1), true);
+    setup
+        .ilm_answers(vec![known, json!({ "displayName": "no uuid" })], vec![])
+        .await;
+
+    setup.check(&[print(1), print(2)]).await;
+
+    let snapshot = setup.inventory.snapshot().unwrap();
+    assert_eq!(snapshot.checked, [print(1)]);
+    assert_eq!(snapshot.matches.len(), 1);
+}
+
+#[tokio::test]
 async fn every_page_of_the_fingerprint_search_is_read() {
     let setup = Setup::new().await;
     setup.profile(&["certificates"]).await;
@@ -577,11 +592,32 @@ async fn a_live_page_needs_the_listing_and_is_not_kept() {
         .mount(&setup.world.ilm)
         .await;
 
-    let found = Inventory::page(session, 3, Some("web")).await.unwrap();
+    let found = setup.inventory.page(session, 3, Some("web")).await.unwrap();
 
     assert_eq!(found.certificates[0].uuid, "u-9");
     assert!(setup.inventory.snapshot().is_none());
     assert_eq!(setup.requests("POST", SEARCH).await.len(), 1);
+}
+
+#[tokio::test]
+async fn a_page_follows_the_listing_of_the_latest_check_not_of_the_session() {
+    let setup = Setup::new().await;
+    setup.profile(&["keys"]).await;
+    let session = &setup.world.session;
+    session.check().await;
+    let mut snapshot = empty_snapshot();
+    snapshot.listed = true;
+    setup.inventory.seed(snapshot);
+    setup
+        .mock("POST", SEARCH)
+        .respond_with(page(vec![certificate("u-9", &print(9), false)], 1))
+        .expect(1)
+        .mount(&setup.world.ilm)
+        .await;
+
+    let found = setup.inventory.page(session, 1, None).await.unwrap();
+
+    assert_eq!(found.certificates[0].uuid, "u-9");
 }
 
 #[tokio::test]
@@ -593,7 +629,7 @@ async fn a_page_is_refused_when_the_listing_is_missing() {
     setup.profile(&["keys"]).await;
     session.check().await;
     assert_eq!(
-        Inventory::page(session, 1, None).await.unwrap_err(),
+        setup.inventory.page(session, 1, None).await.unwrap_err(),
         Failure::NotAllowed
     );
 }
@@ -924,9 +960,9 @@ async fn an_unreachable_start_takes_the_cache_of_its_address_and_shows_it_offlin
 
 #[tokio::test]
 async fn a_live_page_while_unreachable_says_so() {
-    let (world, _folder, _inventory) = unreachable_with_cache(None, "jdoe").await;
+    let (world, _folder, inventory) = unreachable_with_cache(None, "jdoe").await;
 
-    let result = Inventory::page(&world.session, 1, None).await;
+    let result = inventory.page(&world.session, 1, None).await;
 
     assert_eq!(result.unwrap_err(), Failure::Unreachable);
 }

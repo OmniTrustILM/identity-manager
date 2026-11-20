@@ -135,6 +135,11 @@ pub struct InventoryView {
     pub first_page: Option<IlmPageView>,
 }
 
+/// Whether the person may list certificates: what the latest check read, else what the session knows.
+pub fn listed_by(snapshot: Option<&Snapshot>, session_lists: bool) -> bool {
+    snapshot.map_or(session_lists, |snapshot| snapshot.listed)
+}
+
 impl InventoryView {
     /// `listed` is what the session knows, used while there is no snapshot.
     pub fn new(status: Status, snapshot: Option<&Snapshot>, checking: bool, listed: bool) -> Self {
@@ -142,7 +147,7 @@ impl InventoryView {
             status,
             checking,
             checked_at: snapshot.map(|snapshot| snapshot.checked_at),
-            listed: snapshot.map_or(listed, |snapshot| snapshot.listed),
+            listed: listed_by(snapshot, listed),
             checked: snapshot.map_or_else(Vec::new, |snapshot| {
                 snapshot.checked.iter().map(ToString::to_string).collect()
             }),
@@ -214,6 +219,7 @@ mod tests {
             page_number: 1,
             total_pages: 1,
             total_items: 1,
+            skipped: 0,
         };
         let view = InventoryView::new(
             Status::Fresh { checked_at: 5 },

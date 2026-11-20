@@ -125,6 +125,9 @@ pub struct CertificatePage {
     pub page_number: u32,
     pub total_pages: u32,
     pub total_items: u64,
+    /// How many items of this page could not be read and are left out.
+    #[serde(default)]
+    pub skipped: u32,
 }
 
 #[derive(Deserialize)]
@@ -360,6 +363,7 @@ pub async fn read_page(response: Response) -> Result<CertificatePage, IlmError> 
         log::warn!("ILM sent a certificate page this application cannot read");
         IlmError::Malformed
     })?;
+    let mut skipped = 0;
     let certificates = page
         .certificates
         .into_iter()
@@ -376,6 +380,7 @@ pub async fn read_page(response: Response) -> Result<CertificatePage, IlmError> 
                 Ok(certificate) => Some(certificate),
                 Err(reason) => {
                     log::debug!("Skipped ILM certificate {uuid}: {reason}");
+                    skipped += 1;
                     None
                 }
             }
@@ -386,6 +391,7 @@ pub async fn read_page(response: Response) -> Result<CertificatePage, IlmError> 
         page_number: page.page_number,
         total_pages: page.total_pages,
         total_items: page.total_items,
+        skipped,
     })
 }
 
@@ -720,6 +726,7 @@ mod tests {
             (page.page_number, page.total_pages, page.total_items),
             (1, 7, 321)
         );
+        assert_eq!(page.skipped, 2);
     }
 
     #[tokio::test]

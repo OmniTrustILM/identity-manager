@@ -310,6 +310,8 @@ declare global {
     interface Window {
         /** The requests the In ILM view made, as "<page>|<search>". */
         ilmRequests?: string[];
+        /** The requests of the In ILM view that were answered, as "<page>|<search>". */
+        ilmAnswered?: string[];
     }
 }
 
@@ -318,7 +320,10 @@ function ilmAnswer(pages: CertificatesProps['pages'], delays: CertificatesProps[
     window.ilmRequests = [...(window.ilmRequests ?? []), key];
     const found = pages?.[key] ?? pages?.['*'];
     const answer = Array.isArray(found) ? (found.length > 1 ? found.shift() : found[0]) : found;
-    const settle = () => (answer && 'error' in answer ? Promise.reject(answer.error) : answer);
+    const settle = () => {
+        window.ilmAnswered = [...(window.ilmAnswered ?? []), key];
+        return answer && 'error' in answer ? Promise.reject(answer.error) : answer;
+    };
     const wait = delays?.[key];
     return wait ? new Promise((resolve) => setTimeout(resolve, wait)).then(settle) : settle();
 }
@@ -335,6 +340,7 @@ export function CertificatesStory({
 }: CertificatesProps) {
     useMemo(() => {
         window.ilmRequests = [];
+        window.ilmAnswered = [];
         mockIPC(
             (command, args) => {
                 switch (command) {

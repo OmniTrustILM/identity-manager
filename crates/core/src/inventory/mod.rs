@@ -5,6 +5,7 @@ mod cache;
 mod tests;
 mod view;
 
+use view::listed_by;
 pub use view::{IlmCertificateView, IlmPageView, IlmRaProfileView, InventoryView};
 
 use std::collections::{HashMap, HashSet};
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::identity::Fingerprint;
 use crate::ilm::IlmUrl;
 use crate::ilm::actions::{self, MAX_UUIDS, Outcome};
-use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, Search};
+use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, MATCH_LIMIT, Search};
 use crate::ilm::profile::{IlmError, SignInCertificate, profile_request, read_profile};
 use crate::session::{CallError, Session, SignedInAs};
 
@@ -396,6 +397,7 @@ impl Inventory {
 
     /// One page of ILM's list, as it is now. It is not kept.
     pub async fn page(
+        &self,
         session: &Session,
         page_number: u32,
         search: Option<&str>,
@@ -403,10 +405,10 @@ impl Inventory {
         if session.unreachable_at().is_some() {
             return Err(Failure::Unreachable);
         }
-        if !session
+        let session_lists = session
             .signed_in_as()
-            .is_some_and(|who| who.lists_certificates())
-        {
+            .is_some_and(|who| who.lists_certificates());
+        if !listed_by(self.snapshot().as_ref(), session_lists) {
             return Err(Failure::NotAllowed);
         }
         read_search(session, &Search::page(page_number, search)).await
@@ -450,10 +452,12 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
             actions: "not asked",
         });
     }
-    for search in Search::matching(&unique) {
+    for (chunk, search) in unique.chunks(MATCH_LIMIT).zip(Search::matching(&unique)) {
+        let mut skipped = 0;
         let mut number = 1;
         loop {
             let page = read_search(session, &search.at_page(number)).await?;
+            skipped += page.skipped;
             for certificate in page.certificates {
                 let Some(fingerprint) =
                     certificate.fingerprint.filter(|print| seen.contains(print))
@@ -473,8 +477,21 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
             }
             number += 1;
         }
+        if skipped == 0 {
+            snapshot.checked.extend_from_slice(chunk);
+        } else {
+            log::warn!(
+                "{skipped} certificates of ILM could not be read: what was not matched is not judged"
+            );
+            let found = &snapshot.matches;
+            let matched: Vec<Fingerprint> = chunk
+                .iter()
+                .filter(|print| found.contains_key(print))
+                .copied()
+                .collect();
+            snapshot.checked.extend(matched);
+        }
     }
-    snapshot.checked = unique.clone();
     let first_page = read_search(session, &Search::page(1, None)).await?;
     let mut uuids: Vec<String> = snapshot
         .matches

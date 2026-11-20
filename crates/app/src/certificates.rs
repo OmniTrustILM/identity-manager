@@ -184,7 +184,10 @@ impl<R: Runtime> Ilm<R> {
 
     async fn page(&self, number: u32, search: Option<String>) -> Result<IlmPageView, String> {
         self.unlocked()?;
-        let page = Inventory::page(&self.session, number, search.as_deref()).await;
+        let page = self
+            .inventory
+            .page(&self.session, number, search.as_deref())
+            .await;
         self.unlocked()?;
         Ok((&page.map_err(|error| error.to_string())?).into())
     }

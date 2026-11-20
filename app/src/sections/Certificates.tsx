@@ -55,8 +55,15 @@ const ilmWord = (match: Match) => {
 };
 
 function IlmLine({ match }: Readonly<{ match: Match }>) {
-    const Icon = match?.raProfile ? ManagedIcon : match ? InIlmIcon : NotInIlmIcon;
-    const tone = match?.raProfile ? 'text-fine' : match ? 'text-secondary' : 'text-tertiary';
+    let Icon = NotInIlmIcon;
+    let tone = 'text-tertiary';
+    if (match?.raProfile) {
+        Icon = ManagedIcon;
+        tone = 'text-fine';
+    } else if (match) {
+        Icon = InIlmIcon;
+        tone = 'text-secondary';
+    }
     return (
         <span
             title={match?.raProfile ? strings.managedThrough(match.raProfile.name) : undefined}
@@ -278,7 +285,7 @@ function List({
                         known ? ilmWord(match) : null,
                         signIn ? strings.signInCertificate : null,
                     ]
-                        .filter((part) => part)
+                        .filter(Boolean)
                         .join(', ');
                     return (
                         <div

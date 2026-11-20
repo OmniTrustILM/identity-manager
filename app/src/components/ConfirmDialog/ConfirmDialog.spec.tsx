@@ -27,8 +27,8 @@ const render = (busy: boolean) =>
         ),
     );
 const cancel = () => [...container.querySelectorAll('button')].find((each) => each.textContent === 'Cancel') as HTMLButtonElement;
-const pressEscape = () =>
-    act(async () => void cancel().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+const dialog = () => container.querySelector('dialog') as HTMLDialogElement;
+const pressEscape = () => act(async () => void dialog().dispatchEvent(new Event('cancel', { bubbles: false, cancelable: true })));
 
 test('Cancel and Escape withdraw the question', async () => {
     await render(false);
@@ -45,4 +45,26 @@ test('while the confirmed request runs Cancel is off and Escape does nothing', a
 
     expect(cancel().disabled).toBe(true);
     expect(cancelled).toBe(0);
+});
+
+test('Escape is taken over from the browser, which would close the dialog by itself', async () => {
+    await render(false);
+    const event = new Event('cancel', { cancelable: true });
+    await act(async () => void dialog().dispatchEvent(event));
+
+    expect(event.defaultPrevented).toBe(true);
+});
+
+test('the dialog is modal and the confirming button has the focus', async () => {
+    await render(false);
+
+    expect(dialog().open).toBe(true);
+    expect(document.activeElement?.textContent).toBe('Use');
+});
+
+test('while busy the focus stays in the dialog', async () => {
+    await render(false);
+    await render(true);
+
+    expect(document.activeElement).toBe(dialog());
 });

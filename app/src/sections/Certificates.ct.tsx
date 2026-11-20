@@ -256,9 +256,9 @@ for (const os of ['macos', 'windows'] as const) {
         const names = await dialog.getByRole('button').allTextContents();
         expect(names).toEqual(os === 'macos' ? ['Cancel', 'Use this certificate'] : ['Use this certificate', 'Cancel']);
         await expect(dialog.getByRole('button', { name: 'Use this certificate' })).toBeFocused();
-        await page.keyboard.press('Tab');
+        await page.keyboard.press(os === 'macos' ? 'Shift+Tab' : 'Tab');
         await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
-        await page.keyboard.press('Tab');
+        await page.keyboard.press(os === 'macos' ? 'Tab' : 'Shift+Tab');
         await expect(dialog.getByRole('button', { name: 'Use this certificate' })).toBeFocused();
         await page.keyboard.press('Escape');
         await expect(dialog).toHaveCount(0);

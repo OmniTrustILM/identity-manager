@@ -171,7 +171,7 @@ test('an answer to an older page is dropped', async ({ mount, page }) => {
     await box.press('Enter');
 
     await expect(page.getByRole('option')).toHaveCount(1);
-    await page.waitForTimeout(1200);
+    await expect.poll(() => page.evaluate(() => window.ilmAnswered)).toContain('2|');
     await expect(page.getByRole('option')).toHaveCount(1);
     await expect(page.getByRole('option', { name: /^api-gateway-01/ })).toBeVisible();
 });
