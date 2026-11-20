@@ -4,6 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { AppInfoContext } from '../app-info';
+import { IlmWaitingContext } from '../ilm-waiting';
 import { ilmCertificate, inventory as checkedInventory } from '../../playwright/ilm';
 import type { InventoryView, LocalCertificateView, Platform } from '../bridge';
 import { strings } from '../strings';
@@ -481,6 +482,22 @@ test('while a check runs the line says so and Sync now is off; otherwise it asks
 
     expect(syncs).toBe(1);
     expect(text()).toContain('3 on this Mac, 1 of them in ILM');
+});
+
+test('while the saved sign-in waits for ILM Sync now is off and the kept answer shows', async () => {
+    withInventory(inventory({ matches: { 'FP:one': managed }, status: { state: 'offline', since: now, reason: 'down' } }));
+    await act(async () =>
+        root.render(
+            <AppInfoContext.Provider value={{ name: 'Identity Manager', version: '1', platform: 'macos' }}>
+                <IlmWaitingContext.Provider value>
+                    <Certificates />
+                </IlmWaitingContext.Provider>
+            </AppInfoContext.Provider>,
+        ),
+    );
+
+    expect(button('Sync now')?.disabled).toBe(true);
+    expect(options()[0]?.getAttribute('aria-label')).toContain('Managed by ILM');
 });
 
 test('a Sync now that fails says why under the header and the next successful sync clears it', async () => {

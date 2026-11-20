@@ -867,6 +867,97 @@ async fn an_unreadable_cache_is_not_a_problem() {
     assert!(matches!(status, Status::Fresh { .. }));
 }
 
+fn empty_snapshot() -> Snapshot {
+    Snapshot {
+        checked_at: 1_000,
+        listed: true,
+        checked: Vec::new(),
+        matches: HashMap::new(),
+        sign_in: None,
+        first_page: None,
+        allowed: HashMap::new(),
+    }
+}
+
+/// A world whose saved sign-in cannot be renewed, with a cache of `username` at `address` in a folder.
+async fn unreachable_with_cache(
+    address: Option<&str>,
+    username: &str,
+) -> (World, TempDir, Inventory) {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world
+        .grant("refresh_token", ResponseTemplate::new(503), None)
+        .await;
+    let folder = tempfile::tempdir().unwrap();
+    let ilm = address.map_or_else(|| world.address(), IlmUrl::for_tests);
+    cache::write(
+        &folder.path().join(cache::FILE),
+        &ilm,
+        username,
+        &empty_snapshot(),
+    )
+    .unwrap();
+    assert!(matches!(
+        world.session.start().await,
+        SessionView::Unreachable { .. }
+    ));
+    let inventory = Inventory::new(folder.path());
+    (world, folder, inventory)
+}
+
+#[tokio::test]
+async fn an_unreachable_start_takes_the_cache_of_its_address_and_shows_it_offline() {
+    let (world, _folder, inventory) = unreachable_with_cache(None, "jdoe").await;
+
+    inventory.adopt(&world.session);
+
+    assert_eq!(inventory.snapshot().unwrap(), empty_snapshot());
+    assert_eq!(
+        inventory.status(),
+        Status::Offline {
+            since: Some(1_000),
+            reason: UNREACHABLE.to_owned()
+        }
+    );
+}
+
+#[tokio::test]
+async fn a_live_page_while_unreachable_says_so() {
+    let (world, _folder, _inventory) = unreachable_with_cache(None, "jdoe").await;
+
+    let result = Inventory::page(&world.session, 1, None).await;
+
+    assert_eq!(result.unwrap_err(), Failure::Unreachable);
+}
+
+#[tokio::test]
+async fn an_unreachable_start_deletes_the_cache_of_another_address() {
+    let (world, folder, inventory) =
+        unreachable_with_cache(Some("https://other.example.com"), "jdoe").await;
+
+    inventory.adopt(&world.session);
+
+    assert!(inventory.snapshot().is_none());
+    assert_eq!(inventory.status(), Status::Never);
+    assert!(!folder.path().join(cache::FILE).exists());
+}
+
+#[tokio::test]
+async fn a_sign_in_of_another_username_drops_the_cache_taken_while_unreachable() {
+    let (world, _folder, inventory) = unreachable_with_cache(None, "someone-else").await;
+    inventory.adopt(&world.session);
+    assert!(inventory.snapshot().is_some());
+    world.code_grant("access", None, 3600).await;
+    world.profile_for("access").await;
+    world.sign_in().await;
+
+    inventory.adopt(&world.session);
+
+    assert!(inventory.snapshot().is_none());
+    assert_eq!(inventory.status(), Status::Never);
+}
+
 #[tokio::test]
 async fn adopting_without_a_sign_in_or_a_cache_does_nothing() {
     let world = World::new().await;

@@ -150,13 +150,13 @@ impl World {
         world
     }
 
-    async fn at_address() -> Self {
+    pub(crate) async fn at_address() -> Self {
         let world = Self::new().await;
         world.settings.connection.lock().unwrap().address = Some(world.address());
         world
     }
 
-    fn address(&self) -> IlmUrl {
+    pub(crate) fn address(&self) -> IlmUrl {
         IlmUrl::for_tests(&self.ilm.uri())
     }
 
@@ -207,7 +207,7 @@ impl World {
             .await;
     }
 
-    async fn grant(&self, kind: &str, response: ResponseTemplate, times: Option<u64>) {
+    pub(crate) async fn grant(&self, kind: &str, response: ResponseTemplate, times: Option<u64>) {
         let mock = Mock::given(method("POST"))
             .and(path("/token"))
             .and(body_string_contains(format!("grant_type={kind}")))
@@ -266,7 +266,7 @@ impl World {
             .collect()
     }
 
-    fn put_item(&self, refresh: &str) {
+    pub(crate) fn put_item(&self, refresh: &str) {
         self.store
             .save(&Item {
                 ilm: self.address(),

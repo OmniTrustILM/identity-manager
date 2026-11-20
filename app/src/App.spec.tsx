@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { App } from './App';
 import type { SessionView } from './bridge';
+import { inventory } from '../playwright/ilm';
 import { strings } from './strings';
 
 const info = {
@@ -475,13 +476,45 @@ test('unlocking in the main window brings back the shell', async () => {
     expect(container.querySelector('nav')).not.toBeNull();
 });
 
-test('unreachable, the main window shows the address and the problem', async () => {
+test('unreachable, the main window shows the shell under the banner with the address and the problem', async () => {
     mainWith(() => ({ state: 'unreachable', address: 'https://ilm.example.com', problem: 'The connection timed out.' }));
 
     await render(<App />);
 
-    expect(container.querySelector('h1')?.textContent).toBe(strings.unreachableTitle);
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe('The connection timed out.');
+    const banner = container.querySelector(`section[aria-label="${strings.connection}"]`);
+    expect(banner?.textContent).toContain(strings.cannotReachIlm);
+    expect(banner?.textContent).toContain('https://ilm.example.com');
+    expect(banner?.textContent).toContain('The connection timed out.');
+    expect(container.querySelector('nav')).not.toBeNull();
+    expect([...container.querySelectorAll('nav button')].map((entry) => entry.textContent)).toContain(strings.certificates);
+});
+
+test('unreachable, the Certificates section shows the kept answer of ILM and Sync now is off', async () => {
+    mockWindows('main');
+    mockIPC(
+        (command) => {
+            switch (command) {
+                case 'app_info':
+                    return info;
+                case 'session':
+                    return { state: 'unreachable', address: 'https://ilm.example.com', problem: 'The connection timed out.' };
+                case 'ilm_status':
+                    return inventory({ status: { state: 'offline', since: 1_000, reason: 'ILM cannot be reached.' } });
+                case 'local_certificates':
+                    return [];
+                default:
+                    return undefined;
+            }
+        },
+        { shouldMockEvents: true },
+    );
+    await render(<App />);
+
+    await act(async () => (container.querySelectorAll<HTMLButtonElement>('nav button')[1] as HTMLButtonElement).click());
+
+    expect(container.querySelector('output')?.textContent).toContain(strings.cannotReachIlmSince(1_000));
+    const sync = container.querySelector<HTMLButtonElement>(`button[aria-label="${strings.syncNow}"]`);
+    expect(sync?.disabled).toBe(true);
 });
 
 test('locked, the Settings window shows Unlock without asking', async () => {

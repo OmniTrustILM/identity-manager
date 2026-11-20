@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/experimental-ct-react';
 import type { Locator, Page } from '@playwright/test';
 import { keyboardReady } from '../../playwright/focus';
 import { ilmCertificate, inventory } from '../../playwright/ilm';
-import { CertificatesStory } from '../../playwright/stories';
+import { CertificatesStory, UnreachableStory } from '../../playwright/stories';
 import type { LocalCertificateView, Platform } from '../bridge';
 
 type Scheme = 'light' | 'dark';
@@ -306,4 +306,55 @@ test('the sync button spins only while checking', async ({ mount, page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
 
     await expect(page.getByRole('button', { name: 'Sync now' }).locator('svg')).toHaveCSS('animation-name', 'spin');
+});
+
+const waiting = (os: Platform, scheme: Scheme, refuse?: string) =>
+    async function mountWaiting({ mount, page }: { mount: (component: React.ReactElement) => Promise<Locator>; page: Page }) {
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+        await page.evaluate((system) => {
+            document.documentElement.dataset.os = system;
+        }, os);
+        await page.setViewportSize({ width: 1000, height: 600 });
+        await mount(
+            <UnreachableStory
+                platform={os}
+                refuse={refuse}
+                certificates={list}
+                inventory={inventory({
+                    status: { state: 'offline', since: Date.now() - 3600_000, reason: 'ILM cannot be reached.' },
+                    matches: {
+                        [list[0]?.fingerprint ?? '']: ilmCertificate('CLIENT1', { raProfile: { uuid: 'ra', name: 'Client certificates' } }),
+                    },
+                    checked: list.map((each) => each.fingerprint),
+                })}
+            />,
+        );
+        await page.getByRole('button', { name: 'Certificates' }).click();
+        await page.getByRole('option').first().waitFor();
+    };
+
+for (const os of ['macos', 'windows'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+        test(`on ${os} in ${scheme} a sign-in that waits for ILM shows the banner over the kept answer`, async ({ mount, page }) => {
+            await waiting(os, scheme)({ mount, page });
+
+            const banner = page.getByRole('region', { name: 'Connection' });
+            await expect(banner).toContainText('Cannot reach ILM.');
+            await expect(banner).toContainText('https://ilm.example.com');
+            await expect(banner).toContainText('The identity provider cannot be reached.');
+            await expect(page.getByText(/^Cannot reach ILM\. Shown as of /)).toBeVisible();
+            await expect(page.getByRole('option', { name: /Managed by ILM/ })).toBeVisible();
+            await expect(page.getByRole('button', { name: 'Sync now' })).toBeDisabled();
+            await expect(page.getByRole('button', { name: 'Make this my sign-in certificate' })).toHaveCount(0);
+            await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+        });
+    }
+}
+
+test('Sign out in the banner announces a refusal', async ({ mount, page }) => {
+    await waiting('windows', 'light', 'Unlock Identity Manager first.')({ mount, page });
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('Unlock Identity Manager first.');
 });

@@ -252,10 +252,32 @@ impl Inventory {
     }
 
     /// Takes the cache file of the person who is signed in, when it is theirs; it shows as offline until a check
-    /// succeeds. A file of anyone else is deleted.
+    /// succeeds. A file of anyone else is deleted. While a saved sign-in cannot be renewed, the person is not
+    /// known yet: the file is taken when it is for that address, and dropped again when the sign-in turns out to be
+    /// of another person.
     pub fn adopt(&self, session: &Session) {
         if let Some(who) = session.signed_in_as() {
             self.adopt_for(&who);
+        } else if let Some(ilm) = session.unreachable_at() {
+            self.adopt_unreachable(&ilm);
+        }
+    }
+
+    fn adopt_unreachable(&self, ilm: &IlmUrl) {
+        let mut held = held(&self.held);
+        if held.bound.as_ref().is_some_and(|(bound, _)| bound == ilm) {
+            return;
+        }
+        held.snapshot = None;
+        held.status = Status::Never;
+        held.bound = None;
+        if let Some((username, snapshot)) = cache::read_at(&self.cache, ilm) {
+            held.status = Status::Offline {
+                since: Some(snapshot.checked_at),
+                reason: UNREACHABLE.to_owned(),
+            };
+            held.snapshot = Some(snapshot);
+            held.bound = Some((ilm.clone(), username));
         }
     }
 
@@ -378,6 +400,9 @@ impl Inventory {
         page_number: u32,
         search: Option<&str>,
     ) -> Result<CertificatePage, Failure> {
+        if session.unreachable_at().is_some() {
+            return Err(Failure::Unreachable);
+        }
         if !session
             .signed_in_as()
             .is_some_and(|who| who.lists_certificates())

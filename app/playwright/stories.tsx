@@ -13,6 +13,7 @@ import type {
     SessionView,
     SettingsView,
 } from '../src/bridge';
+import { IlmWaitingContext } from '../src/ilm-waiting';
 import { LockNote } from '../src/components/Switch/LockNote';
 import { Select } from '../src/components/Switch/Select';
 import { Shell } from '../src/components/Shell/Shell';
@@ -20,10 +21,10 @@ import { Switch } from '../src/components/Switch/Switch';
 import { TraySummary } from '../src/components/TraySummary/TraySummary';
 import { OverviewIcon, SettingsIcon } from '../src/design-system/icons';
 import type { Section } from '../src/sections';
-import { sections as realSections, settingsSection } from '../src/sections';
+import { sections as realSections, settingsSection, visibleSections } from '../src/sections';
 import { Certificates } from '../src/sections/Certificates';
 import { Settings } from '../src/sections/Settings';
-import { SignIn, Unreachable } from '../src/sections/SignIn';
+import { SignIn, UnreachableBanner } from '../src/sections/SignIn';
 import { Unlock } from '../src/sections/Unlock';
 
 const First = () => <p>First content</p>;
@@ -241,16 +242,50 @@ export function SignInStory({
     );
 }
 
-type UnreachableProps = StoryProps & Readonly<{ refuse?: string }>;
+type UnreachableProps = StoryProps &
+    Readonly<{
+        refuse?: string;
+        certificates: LocalCertificateView[];
+        /** What ILM was last known to say; null when nothing was kept. */
+        inventory: InventoryView | null;
+    }>;
 
-/** The sign-in that waits for ILM, against a stand-in for Sign out. */
-export function UnreachableStory({ platform, refuse }: UnreachableProps) {
+/** The shell of a saved sign-in that waits for ILM: the banner with Sign out, over the sections with the kept answer. */
+export function UnreachableStory({ platform, refuse, certificates, inventory }: UnreachableProps) {
     useMemo(() => {
-        mockIPC(() => (refuse ? Promise.reject(refuse) : undefined));
-    }, [refuse]);
+        mockIPC(
+            (command) => {
+                switch (command) {
+                    case 'local_certificates':
+                        return certificates;
+                    case 'ilm_status':
+                        return inventory;
+                    case 'sign_out':
+                        return refuse ? Promise.reject(refuse) : undefined;
+                    default:
+                        return undefined;
+                }
+            },
+            { shouldMockEvents: true },
+        );
+    }, [certificates, inventory, refuse]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
-            <Unreachable view={{ state: 'unreachable', address: 'https://ilm.example.com', problem: 'ILM cannot be reached.' }} />
+            <IlmWaitingContext.Provider value>
+                <Shell
+                    sections={visibleSections([], platform)}
+                    bottom={settingsSection(platform)}
+                    banner={
+                        <UnreachableBanner
+                            view={{
+                                state: 'unreachable',
+                                address: 'https://ilm.example.com',
+                                problem: 'The identity provider cannot be reached.',
+                            }}
+                        />
+                    }
+                />
+            </IlmWaitingContext.Provider>
         </AppInfoContext.Provider>
     );
 }

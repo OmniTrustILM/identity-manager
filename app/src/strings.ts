@@ -156,7 +156,6 @@ export const strings = {
     signInAgain: 'Sign in again',
     signInEnded: 'Your sign-in has ended.',
     signedOutTitle: 'Signed out',
-    unreachableTitle: 'Cannot reach your ILM',
     summarySignedIn: (host: string, name: string) => `Signed in to ${host} as ${name}`,
     summaryUnreachable: (host: string) => `Cannot reach ${host}`,
     security: 'Security',

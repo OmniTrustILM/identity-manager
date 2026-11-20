@@ -305,7 +305,9 @@ pub async fn sign_in_again<R: Runtime>(app: AppHandle<R>) -> Result<Vec<Provider
 mod tests {
     use super::*;
     use crate::lock::{Availability, Confirmation, ScriptedAuthenticator, ScriptedState};
-    use im_core::session::PersonView;
+    use im_core::ilm::IlmUrl;
+    use im_core::oauth::token::RefreshToken;
+    use im_core::session::{ConnectionSettings, Item, PersonView};
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc::{Receiver, channel};
@@ -334,6 +336,11 @@ mod tests {
     }
 
     fn fixture(mode: Mode) -> Fixture {
+        fixture_with(mode, None)
+    }
+
+    /// A fixture whose settings have a saved sign-in at `saved`, with an ILM answer kept for it.
+    fn fixture_with(mode: Mode, saved: Option<&IlmUrl>) -> Fixture {
         let folder = tempfile::tempdir().unwrap();
         let app = mock_builder()
             .invoke_handler(tauri::generate_handler![
@@ -367,6 +374,29 @@ mod tests {
             crate::settings::SystemEffects::new(app.handle(), false),
             false,
         ));
+        let store = Arc::new(MemoryStore::default());
+        if let Some(address) = saved {
+            settings.save_address(address).unwrap();
+            store
+                .save(&Item {
+                    ilm: address.clone(),
+                    issuer: "https://idp.invalid".to_owned(),
+                    client_id: "app".to_owned(),
+                    resource: None,
+                    refresh_token: RefreshToken::new("saved"),
+                })
+                .unwrap();
+            std::fs::write(
+                folder.path().join("ilm-cache.json"),
+                serde_json::json!({
+                    "version": 1, "ilm": address.as_str(), "username": "ada", "checkedAt": 5,
+                    "listed": true, "checked": [], "matches": {}, "signIn": null,
+                    "firstPage": null, "allowed": {}
+                })
+                .to_string(),
+            )
+            .unwrap();
+        }
         let browser = Arc::new(Browser::default());
         let state = Arc::new(ScriptedState::default());
         state.set(Some(false), Some(Duration::ZERO));
@@ -376,7 +406,7 @@ mod tests {
             app.handle(),
             mode,
             settings,
-            Arc::new(MemoryStore::default()),
+            store,
             Arc::new(browser.clone()),
             Box::new(crate::notice::Silent),
             Guard::new(
@@ -491,6 +521,41 @@ mod tests {
         assert_eq!(
             check.call("session", serde_json::json!({})).unwrap()["state"],
             "starting"
+        );
+    }
+
+    #[test]
+    fn a_start_that_cannot_reach_ilm_shows_the_kept_answer_once_unlocked() {
+        let address = IlmUrl::parse("ilm.invalid").unwrap();
+        let fixture = fixture_with(Mode::SelfCheck, Some(&address));
+        let view = tauri::async_runtime::block_on(async {
+            let started = fixture.app.state::<SignIn>().session.start().await;
+            ilm(fixture.app.handle()).start().await;
+            started
+        });
+        assert!(matches!(view, SessionView::Unreachable { .. }), "{view:?}");
+        refused_as_locked(
+            fixture.call("ilm_status", serde_json::json!({})),
+            "ilm_status",
+        );
+        fixture.prompt.queue(Confirmation::Confirmed);
+        fixture.call("unlock", serde_json::json!({})).unwrap();
+
+        let shown = fixture.call("ilm_status", serde_json::json!({})).unwrap();
+
+        assert_eq!(shown["checkedAt"], 5);
+        assert_eq!(shown["listed"], true);
+        assert_eq!(shown["status"]["state"], "offline");
+        assert_eq!(shown["status"]["reason"], "ILM cannot be reached.");
+        let page = fixture.call(
+            "ilm_certificates",
+            serde_json::json!({ "page": 1, "search": null }),
+        );
+        assert!(page.unwrap_err().contains("ILM cannot be reached."));
+        assert!(
+            fixture
+                .call("local_certificates", serde_json::json!({}))
+                .is_ok()
         );
     }
 

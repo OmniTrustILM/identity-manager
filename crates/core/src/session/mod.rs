@@ -455,6 +455,15 @@ impl Session {
         }
     }
 
+    /// The address of ILM while a saved sign-in cannot be renewed because ILM or the identity provider cannot be
+    /// reached.
+    pub fn unreachable_at(&self) -> Option<IlmUrl> {
+        match &*lock(&self.state) {
+            State::Unreachable { ilm, .. } => Some(ilm.clone()),
+            _ => None,
+        }
+    }
+
     /// The certificates of the person the sign-in can offer; by default there are none.
     #[must_use]
     pub fn with_identities(mut self, identities: Arc<dyn IdentityStore>) -> Self {

@@ -218,3 +218,17 @@ test('stays where it is when the pending request cannot be read', async () => {
 
     expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
 });
+
+test('a banner shows above the section and the section stays usable', async () => {
+    await act(async () =>
+        root.render(
+            <AppInfoContext.Provider value={info}>
+                <Shell sections={[other]} banner={<p>Waiting for ILM</p>} />
+            </AppInfoContext.Provider>,
+        ),
+    );
+
+    expect(container.textContent).toContain('Waiting for ILM');
+    expect(container.textContent).toContain('Other content');
+    expect(container.querySelector('nav')).not.toBeNull();
+});

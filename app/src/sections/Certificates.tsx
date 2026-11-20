@@ -11,6 +11,7 @@ import {
 } from '../bridge';
 import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
 import { InIlmIcon, ManagedIcon, NotInIlmIcon, OfflineIcon, SignInKeyIcon, SyncIcon } from '../design-system/icons';
+import { useIlmWaiting } from '../ilm-waiting';
 import { strings } from '../strings';
 import { useInventory } from '../useInventory';
 import { arrowTarget, codeLabel, Field, FingerprintGroup, Group, status, validationTone } from './certificateParts';
@@ -339,6 +340,8 @@ function Views({ view, onChoose, system }: Readonly<{ view: View; onChoose: (vie
 
 function SyncLine({ inventory, onSync }: Readonly<{ inventory: InventoryView; onSync: () => void }>) {
     const { checking } = inventory;
+    const waiting = useIlmWaiting();
+    const stopped = checking || waiting;
     const stateOf = inventory.status;
     let note: string | null = null;
     if (checking) {
@@ -357,7 +360,7 @@ function SyncLine({ inventory, onSync }: Readonly<{ inventory: InventoryView; on
                 type="button"
                 aria-label={strings.syncNow}
                 title={strings.syncNow}
-                disabled={checking}
+                disabled={stopped}
                 onClick={onSync}
                 className="flex size-control items-center justify-center rounded-control border border-button-edge bg-button text-primary disabled:opacity-disabled"
             >

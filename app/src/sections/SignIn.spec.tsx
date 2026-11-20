@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 import type { CertificateChoice, ProviderChoice, SessionView } from '../bridge';
 import { strings } from '../strings';
-import { SignIn, Unreachable } from './SignIn';
+import { SignIn, UnreachableBanner } from './SignIn';
 
 type Waiting = Extract<SessionView, { state: 'signingIn' }>;
 type Idle = Extract<SessionView, { state: 'signedOut' }>;
@@ -557,20 +557,21 @@ test('Back from a choice that was asked for returns to the ended sign-in', async
 });
 
 const unreachable = { state: 'unreachable', address: 'https://ilm.example.com', problem: 'The connection timed out.' } as const;
-const renderUnreachable = () => act(async () => root.render(<Unreachable view={unreachable} />));
+const renderUnreachable = () => act(async () => root.render(<UnreachableBanner view={unreachable} />));
 
-test('unreachable shows the address and the problem, with Sign out as the way out, focused', async () => {
+test('the banner says ILM cannot be reached with the address and the problem, and offers Sign out', async () => {
     await renderUnreachable();
 
-    expect(heading()).toBe(strings.unreachableTitle);
-    expect(container.textContent).toContain('https://ilm.example.com');
-    expect(alerts()).toEqual(['The connection timed out.']);
+    const banner = container.querySelector(`section[aria-label="${strings.connection}"]`);
+    expect(banner?.textContent).toContain(strings.cannotReachIlm);
+    expect(banner?.textContent).toContain('https://ilm.example.com');
+    expect(banner?.textContent).toContain('The connection timed out.');
+    expect(container.querySelector('h1')).toBeNull();
+    expect(alerts()).toEqual([]);
     expect(buttons().map((candidate) => candidate.textContent)).toEqual([strings.signOut]);
-    expect(document.activeElement).toBe(button(strings.signOut));
-    expect(button(strings.signOut).classList.contains('text-accent')).toBe(true);
 });
 
-test('Sign out from unreachable asks the application to sign out', async () => {
+test('Sign out from the banner asks the application to sign out', async () => {
     bridge(() => idle);
     await renderUnreachable();
 
@@ -579,7 +580,7 @@ test('Sign out from unreachable asks the application to sign out', async () => {
     expect(commands()).toEqual(['sign_out']);
 });
 
-test('Sign out from unreachable shows why it was refused', async () => {
+test('Sign out from the banner shows why it was refused', async () => {
     bridge(() => Promise.reject('Unlock Identity Manager first.'));
     await renderUnreachable();
 

@@ -55,6 +55,20 @@ pub(super) fn write(
 /// The snapshot in the file, when it belongs to `username` at `ilm`. A file of someone else, of another
 /// address, of an unknown version or one that cannot be read is deleted.
 pub(super) fn read(path: &Path, ilm: &IlmUrl, username: &str) -> Option<Snapshot> {
+    read_stored(path, |stored| {
+        stored.ilm == ilm.as_str() && stored.username == username
+    })
+    .map(|stored| stored.snapshot)
+}
+
+/// The username and the snapshot in the file, when it belongs to someone at `ilm`. A file of another address, of
+/// an unknown version or one that cannot be read is deleted.
+pub(super) fn read_at(path: &Path, ilm: &IlmUrl) -> Option<(String, Snapshot)> {
+    read_stored(path, |stored| stored.ilm == ilm.as_str())
+        .map(|stored| (stored.username, stored.snapshot))
+}
+
+fn read_stored(path: &Path, wanted: impl FnOnce(&Stored) -> bool) -> Option<Stored> {
     let bytes = match std::fs::read(path) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return None,
@@ -82,12 +96,12 @@ pub(super) fn read(path: &Path, ilm: &IlmUrl, username: &str) -> Option<Snapshot
         delete(path);
         return None;
     };
-    if stored.ilm != ilm.as_str() || stored.username != username {
+    if !wanted(&stored) {
         log::info!("the ILM cache belongs to another sign-in; it is deleted");
         delete(path);
         return None;
     }
-    Some(stored.snapshot)
+    Some(stored)
 }
 
 /// Removes the file and any half-written copy of it; a missing file is fine.
