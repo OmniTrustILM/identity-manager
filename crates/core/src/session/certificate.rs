@@ -15,7 +15,11 @@ use super::{
 use crate::identity::certificate::epoch_millis;
 use crate::identity::{self, Fingerprint, IdentityStore, is_signing_refused};
 use crate::ilm::IlmUrl;
-use crate::ilm::profile::{IlmError, profile_request, read_profile};
+use crate::ilm::certificates::State as IlmState;
+use crate::ilm::profile::{
+    IlmError, SignInCertificate, profile_request, read_profile, read_rejection, update_request,
+};
+use crate::inventory::{Inventory, Trigger};
 use crate::session::ProviderChoice;
 use crate::settings::SignInMethod;
 
@@ -31,6 +35,73 @@ const KEY_REFUSED: &str = "The system did not allow the use of this certificate'
 const GONE: &str = "The certificate you signed in with cannot be found, has expired or cannot be opened on this computer.";
 const EXPIRED: &str = "The certificate you signed in with has expired.";
 const NOT_ON_COMPUTER: &str = "This certificate is not on this computer.";
+
+/// Why a certificate did not become the person's sign-in certificate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChangeError {
+    SignedOut,
+    /// ILM cannot be reached, or the last check could not reach it.
+    Offline,
+    NotInIlm,
+    NotIssued,
+    Archived,
+    /// The certificate is not on this computer or cannot sign in here.
+    CannotSignIn,
+    AlreadySignIn,
+    /// ILM answered 403.
+    NotAllowed,
+    /// ILM answered 400 or 422 with these messages.
+    Rejected(Vec<String>),
+    Unexpected(u16),
+    Malformed,
+    /// The caller withdrew before ILM was asked to change anything.
+    Withdrawn,
+}
+
+impl std::fmt::Display for ChangeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChangeError::SignedOut => CallError::SignedOut.fmt(f),
+            ChangeError::Offline => f.write_str("ILM cannot be reached."),
+            ChangeError::NotInIlm => f.write_str("ILM does not know this certificate."),
+            ChangeError::NotIssued => f.write_str("ILM has not issued this certificate."),
+            ChangeError::Archived => f.write_str("This certificate is archived in ILM."),
+            ChangeError::CannotSignIn => {
+                f.write_str("This certificate cannot sign in on this computer.")
+            }
+            ChangeError::AlreadySignIn => f.write_str("This is already your sign-in certificate."),
+            ChangeError::NotAllowed => f.write_str("ILM does not allow this."),
+            ChangeError::Rejected(messages) if messages.is_empty() => {
+                f.write_str("ILM did not accept the change.")
+            }
+            ChangeError::Rejected(messages) => f.write_str(&messages.join(" ")),
+            ChangeError::Unexpected(status) => write!(f, "ILM answered with an error ({status})."),
+            ChangeError::Withdrawn => f.write_str("The change was not made."),
+            ChangeError::Malformed => {
+                f.write_str("ILM answered in a way this application does not understand.")
+            }
+        }
+    }
+}
+
+impl Error for ChangeError {}
+
+impl From<CallError> for ChangeError {
+    fn from(error: CallError) -> Self {
+        match error {
+            CallError::SignedOut => ChangeError::SignedOut,
+            CallError::Unreachable => ChangeError::Offline,
+            CallError::Withdrawn => ChangeError::Withdrawn,
+        }
+    }
+}
+
+/// The sign-in a change of the sign-in certificate started from.
+struct Departing {
+    id: Arc<()>,
+    /// The generation of a certificate sign-in; none with a provider.
+    generation: Option<Arc<()>>,
+}
 
 pub(super) fn certificate_choice() -> ProviderChoice {
     ProviderChoice {
@@ -135,6 +206,206 @@ impl Session {
             view = self.certificate_sign_in(&ilm, fingerprint, Some(&cancel)) => view,
             () = cancel.notified() => self.view(),
         }
+    }
+
+    /// Makes the certificate of this computer with `fingerprint` the person's sign-in certificate in ILM. The
+    /// certificate must be the one the latest check of `inventory` matched, issued and not archived, and able to
+    /// sign in here. The person's names, email and description are read again and sent back unchanged. With a
+    /// certificate sign-in the remembered certificate and the client follow the new one in the same step; a
+    /// check follows. `proceed` is asked just before each time ILM is asked to change it; when it says no, nothing is sent.
+    pub async fn make_sign_in_certificate(
+        &self,
+        inventory: &Inventory,
+        fingerprint: &str,
+        proceed: impl Fn() -> bool + Sync,
+    ) -> Result<(), ChangeError> {
+        let requested = self.departing()?.id;
+        let _changing = self.changing.lock().await;
+        let departing = self.departing()?;
+        if !Arc::ptr_eq(&departing.id, &requested) {
+            return Err(ChangeError::SignedOut);
+        }
+        let who = self.signed_in_as().ok_or(ChangeError::SignedOut)?;
+        if matches!(inventory.status(), crate::inventory::Status::Offline { .. }) {
+            return Err(ChangeError::Offline);
+        }
+        let fingerprint = fingerprint
+            .parse::<Fingerprint>()
+            .map_err(|_| ChangeError::NotInIlm)?;
+        let matched = inventory
+            .snapshot()
+            .and_then(|snapshot| snapshot.matches.get(&fingerprint).cloned())
+            .ok_or(ChangeError::NotInIlm)?;
+        if matched.state != IlmState::Issued {
+            return Err(ChangeError::NotIssued);
+        }
+        if matched.archived {
+            return Err(ChangeError::Archived);
+        }
+        let local = self
+            .in_identities(|store| store.certificates())
+            .await
+            .unwrap_or_default();
+        if !local
+            .iter()
+            .any(|found| found.fingerprint == fingerprint && found.sign_in.is_ok())
+        {
+            return Err(ChangeError::CannotSignIn);
+        }
+        let response = self
+            .call_ilm_as(Some(&departing.id), None, profile_request)
+            .await?;
+        let person = read_profile(&who.ilm, response)
+            .await
+            .map_err(|error| match error {
+                IlmError::Unreachable => ChangeError::Offline,
+                IlmError::Unexpected(status) => ChangeError::Unexpected(status),
+                IlmError::Unauthorized => ChangeError::SignedOut,
+                IlmError::Malformed => ChangeError::Malformed,
+            })?;
+        let old = person.sign_in.as_ref();
+        if old.is_some_and(|held| held.uuid == matched.uuid || held.fingerprint == fingerprint) {
+            return Err(ChangeError::AlreadySignIn);
+        }
+        let replacement = self
+            .prepare_switch(&who.ilm, &departing, fingerprint)
+            .await?;
+        let response = self
+            .call_ilm_as(Some(&departing.id), Some(&proceed), |client, ilm| {
+                update_request(client, ilm, &person, &matched.uuid)
+            })
+            .await?;
+        match response.status() {
+            status if status.is_success() => {}
+            StatusCode::FORBIDDEN => return Err(ChangeError::NotAllowed),
+            StatusCode::BAD_REQUEST | StatusCode::UNPROCESSABLE_ENTITY => {
+                return Err(ChangeError::Rejected(read_rejection(response).await));
+            }
+            status => {
+                log::warn!("ILM answered the sign-in certificate change with {status}");
+                return Err(ChangeError::Unexpected(status.as_u16()));
+            }
+        }
+        log::info!(
+            "sign-in certificate changed from {} to {}",
+            old.map_or_else(|| "none".to_owned(), |held| held.fingerprint.short()),
+            fingerprint.short()
+        );
+        self.switch(
+            &who.ilm,
+            departing,
+            replacement,
+            SignInCertificate {
+                uuid: matched.uuid.clone(),
+                fingerprint,
+            },
+        )
+        .await;
+        let locals: Vec<Fingerprint> = local.iter().map(|found| found.fingerprint).collect();
+        inventory.check(self, Trigger::Action, &locals).await;
+        Ok(())
+    }
+
+    /// Notes the sign-in the change starts from, so a later sign-in is never changed with what was read for it.
+    fn departing(&self) -> Result<Departing, ChangeError> {
+        match &*lock(&self.state) {
+            State::SignedIn(active) => Ok(Departing {
+                id: active.id.clone(),
+                generation: match &active.credential {
+                    Credential::Certificate { generation, .. } => Some(generation.clone()),
+                    Credential::OAuth(_) => None,
+                },
+            }),
+            _ => Err(ChangeError::SignedOut),
+        }
+    }
+
+    /// Opens `fingerprint` and presents it to ILM in a handshake before ILM is asked to change anything, so a
+    /// certificate that cannot be opened or presented changes nothing; with a certificate sign-in it also keeps
+    /// the client for it. Any HTTP answer will do, as ILM does not know the certificate as the sign-in one yet,
+    /// provided the handshake offered it.
+    async fn prepare_switch(
+        &self,
+        ilm: &IlmUrl,
+        departing: &Departing,
+        fingerprint: Fingerprint,
+    ) -> Result<Option<(Client, Option<SystemTime>)>, ChangeError> {
+        let identity = self
+            .in_identities(move |store| store.open(&fingerprint))
+            .await
+            .ok_or(ChangeError::CannotSignIn)?;
+        let not_after = identity::assess(identity.chain()[0].as_ref(), SystemTime::now())
+            .ok()
+            .map(|found| found.candidate.not_after);
+        let (client, asked) = (self.certificate_client)(identity);
+        if let Err(error) = profile_request(&client, ilm).send().await {
+            let kind = if error.is_timeout() {
+                "timeout"
+            } else if error.is_connect() {
+                "connect"
+            } else {
+                "other"
+            };
+            log::info!("the new sign-in certificate could not be presented to ILM ({kind})");
+            return Err(ChangeError::CannotSignIn);
+        }
+        if !asked.offered() {
+            log::info!("the new sign-in certificate was not presented to ILM");
+            return Err(ChangeError::CannotSignIn);
+        }
+        if departing.generation.is_none() {
+            return Ok(None);
+        }
+        Ok(Some((client, not_after)))
+    }
+
+    /// ILM now knows the person by `certificate`: a certificate sign-in remembers it and presents it from now on.
+    async fn switch(
+        &self,
+        ilm: &IlmUrl,
+        departing: Departing,
+        replacement: Option<(Client, Option<SystemTime>)>,
+        certificate: SignInCertificate,
+    ) {
+        let _renewing = self.renewing.lock().await;
+        let switched = {
+            let mut state = lock(&self.state);
+            match &mut *state {
+                State::SignedIn(active) if Arc::ptr_eq(&active.id, &departing.id) => {
+                    active.person.sign_in = Some(certificate.clone());
+                    match (&mut active.credential, replacement, departing.generation) {
+                        (
+                            Credential::Certificate {
+                                fingerprint,
+                                client,
+                                generation,
+                                not_after,
+                            },
+                            Some((new_client, new_end)),
+                            Some(old),
+                        ) if Arc::ptr_eq(generation, &old) => {
+                            *fingerprint = certificate.fingerprint;
+                            *client = new_client;
+                            *generation = Arc::new(());
+                            *not_after = new_end;
+                            true
+                        }
+                        _ => false,
+                    }
+                }
+                _ => false,
+            }
+        };
+        if !switched {
+            return;
+        }
+        if let Err(error) = self
+            .settings
+            .save_certificate(ilm, &certificate.fingerprint)
+        {
+            log::warn!("the certificate could not be remembered for the next start: {error}");
+        }
+        self.publish();
     }
 
     /// At start: signs in again with the certificate of the last sign-in, when this computer still has it.
@@ -305,6 +576,7 @@ impl Session {
         if ended {
             log::warn!("{problem}");
             _ = self.forget_certificate_if(fingerprint);
+            self.signed_out();
             self.publish();
         }
     }

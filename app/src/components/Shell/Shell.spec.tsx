@@ -102,6 +102,7 @@ const settingsView = {
     logLevel: { value: 'info', locked: false },
     requireUnlock: { value: true, locked: false },
     lockAfterIdle: { value: null, locked: false },
+    checkEvery: { value: 15, locked: false },
     unlock: 'unsupported',
 };
 const settingsEntry = () => container.querySelector('nav > div button') as HTMLElement | null;
@@ -216,4 +217,18 @@ test('stays where it is when the pending request cannot be read', async () => {
     await render(sections, 'windows', settingsSection('windows'));
 
     expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
+});
+
+test('a banner shows above the section and the section stays usable', async () => {
+    await act(async () =>
+        root.render(
+            <AppInfoContext.Provider value={info}>
+                <Shell sections={[other]} banner={<p>Waiting for ILM</p>} />
+            </AppInfoContext.Provider>,
+        ),
+    );
+
+    expect(container.textContent).toContain('Waiting for ILM');
+    expect(container.textContent).toContain('Other content');
+    expect(container.querySelector('nav')).not.toBeNull();
 });

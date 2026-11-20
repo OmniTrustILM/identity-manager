@@ -124,6 +124,19 @@ impl Settings {
         view
     }
 
+    /// The folder the settings file is in.
+    pub fn folder(&self) -> &std::path::Path {
+        self.person_file
+            .parent()
+            .unwrap_or(std::path::Path::new(""))
+    }
+
+    /// How often ILM is checked now; a change takes effect at the next read.
+    pub fn check_interval(&self) -> std::time::Duration {
+        let (policy, person) = self.layers();
+        settings::check_interval(&policy, &person)
+    }
+
     pub fn change(&self, change: Change) -> Result<SettingsView, String> {
         let _saving = self.saving.lock().unwrap_or_else(PoisonError::into_inner);
         let (policy, mut person) = self.layers();

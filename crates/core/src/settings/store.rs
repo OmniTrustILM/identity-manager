@@ -1,12 +1,12 @@
 //! The person's settings file: tolerant to read, atomic to write.
 
 use std::fs;
-use std::io;
-use std::path::Path;
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::{IdleMinutes, Layer, LogLevel, RememberedCertificate};
+use super::{CheckMinutes, IdleMinutes, Layer, LogLevel, RememberedCertificate};
 use crate::ilm::IlmUrl;
 
 const START_AT_LOGIN: &str = "startAtLogin";
@@ -14,6 +14,7 @@ const LOG_LEVEL: &str = "logLevel";
 const ILM_URL: &str = "ilmUrl";
 const REQUIRE_UNLOCK: &str = "requireUnlock";
 const LOCK_AFTER_IDLE: &str = "lockAfterIdle";
+const CHECK_EVERY: &str = "checkEvery";
 const SIGN_IN_CERTIFICATE: &str = "signInCertificate";
 
 /// Reads the person's layer; a missing, unreadable or malformed file gives an empty layer
@@ -57,6 +58,7 @@ fn parse(entries: Map<String, Value>) -> Layer {
             LOCK_AFTER_IDLE => {
                 layer.lock_after_idle = value.as_i64().and_then(IdleMinutes::new);
             }
+            CHECK_EVERY => layer.check_every = value.as_i64().and_then(CheckMinutes::option),
             SIGN_IN_CERTIFICATE => {
                 layer.sign_in_certificate = remembered_certificate(&value);
             }
@@ -68,6 +70,7 @@ fn parse(entries: Map<String, Value>) -> Layer {
             ILM_URL => layer.ilm_url.is_some(),
             REQUIRE_UNLOCK => layer.require_unlock.is_some(),
             LOCK_AFTER_IDLE => layer.lock_after_idle.is_some(),
+            CHECK_EVERY => layer.check_every.is_some(),
             SIGN_IN_CERTIFICATE => layer.sign_in_certificate.is_some(),
             _ => continue,
         };
@@ -97,6 +100,9 @@ pub fn save(path: &Path, layer: &Layer) -> io::Result<()> {
     if let Some(value) = layer.lock_after_idle {
         entries.insert(LOCK_AFTER_IDLE.into(), Value::from(value.get()));
     }
+    if let Some(value) = layer.check_every {
+        entries.insert(CHECK_EVERY.into(), Value::from(value.get()));
+    }
     if let Some(value) = &layer.sign_in_certificate {
         entries.insert(
             SIGN_IN_CERTIFICATE.into(),
@@ -106,18 +112,35 @@ pub fn save(path: &Path, layer: &Layer) -> io::Result<()> {
             }),
         );
     }
-    let text = serde_json::to_string_pretty(&entries)?;
+    write_atomically(path, &serde_json::to_string_pretty(&entries)?)
+}
 
+/// The file `write_atomically` writes before it replaces `path`.
+pub fn temporary_path(path: &Path) -> PathBuf {
+    let mut temporary = path.as_os_str().to_owned();
+    temporary.push(".tmp");
+    PathBuf::from(temporary)
+}
+
+/// Writes `text` to `path`, creating the folder if needed; the file is replaced atomically and, on Unix, readable
+/// by its owner only.
+pub fn write_atomically(path: &Path, text: &str) -> io::Result<()> {
     if let Some(folder) = path.parent() {
         fs::create_dir_all(folder)?;
     }
-    let mut temporary = path.as_os_str().to_owned();
-    temporary.push(".tmp");
-    let temporary = Path::new(&temporary);
-    fs::write(temporary, text)?;
-    fs::rename(temporary, path).inspect_err(|_| {
-        let _ = fs::remove_file(temporary);
-    })
+    let temporary = temporary_path(path);
+    let _ = fs::remove_file(&temporary);
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options
+        .open(&temporary)
+        .and_then(|mut file| file.write_all(text.as_bytes()))
+        .and_then(|()| fs::rename(&temporary, path))
+        .inspect_err(|_| {
+            let _ = fs::remove_file(&temporary);
+        })
 }
 
 #[cfg(test)]
@@ -133,6 +156,7 @@ mod tests {
             ilm_url: Some(IlmUrl::parse("ilm.example.com").unwrap()),
             require_unlock: Some(false),
             lock_after_idle: IdleMinutes::new(15),
+            check_every: CheckMinutes::option(30),
             sign_in_provider: None,
             sign_in_method: None,
             sign_in_certificate: Some(remembered()),
@@ -180,6 +204,7 @@ mod tests {
                 "ilmUrl": "https://ilm.example.com",
                 "requireUnlock": false,
                 "lockAfterIdle": 15,
+                "checkEvery": 30,
                 "signInCertificate": {
                     "ilm": "https://ilm.example.com",
                     "fingerprint": Fingerprint::of(b"certificate").to_string()
@@ -236,6 +261,22 @@ mod tests {
         }
         fs::write(&path, r#"{"requireUnlock":"yes"}"#).unwrap();
         assert_eq!(load(&path), Layer::default());
+    }
+
+    #[test]
+    fn check_every_is_read_only_for_the_offered_minutes() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        for minutes in [5, 15, 30, 60] {
+            fs::write(&path, format!(r#"{{"checkEvery":{minutes}}}"#)).unwrap();
+            assert_eq!(load(&path).check_every, CheckMinutes::option(minutes));
+        }
+        for invalid in [
+            "0", "4", "10", "90", "1440", "-5", "15.5", r#""15""#, "null",
+        ] {
+            fs::write(&path, format!(r#"{{"checkEvery":{invalid}}}"#)).unwrap();
+            assert_eq!(load(&path), Layer::default(), "{invalid}");
+        }
     }
 
     #[test]
@@ -318,5 +359,19 @@ mod tests {
         fs::create_dir(&path).unwrap();
         assert!(save(&path, &person()).is_err());
         assert!(!dir.path().join("settings.json.tmp").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_file_is_readable_by_its_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+
+        write_atomically(&path, "{}").unwrap();
+        write_atomically(&path, "{}").unwrap();
+
+        let mode = fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
     }
 }

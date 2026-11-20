@@ -2,10 +2,14 @@
 
 use std::fmt;
 
-use reqwest::{Client, StatusCode};
-use serde::Deserialize;
+use std::str::FromStr;
+
+use reqwest::{Client, RequestBuilder, StatusCode};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use super::IlmUrl;
+use crate::identity::Fingerprint;
 use crate::token::AccessToken;
 
 /// Why ILM could not tell who the person is.
@@ -39,11 +43,23 @@ pub struct ResourceActions {
     pub actions: Vec<String>,
 }
 
+/// The certificate ILM knows the person by.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignInCertificate {
+    pub uuid: String,
+    pub fingerprint: Fingerprint,
+}
+
 /// The signed-in person and their permissions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Person {
     pub username: String,
     pub display_name: String,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+    pub email: Option<String>,
+    pub description: Option<String>,
+    pub sign_in: Option<SignInCertificate>,
     pub allowed_listings: Vec<String>,
     pub allowed_actions: Vec<ResourceActions>,
 }
@@ -54,7 +70,16 @@ struct Profile {
     username: String,
     first_name: Option<String>,
     last_name: Option<String>,
+    email: Option<String>,
+    description: Option<String>,
+    certificate: Option<ProfileCertificate>,
     permissions: Permissions,
+}
+
+#[derive(Deserialize)]
+struct ProfileCertificate {
+    uuid: String,
+    fingerprint: String,
 }
 
 #[derive(Deserialize)]
@@ -67,7 +92,7 @@ struct Permissions {
 
 impl From<Profile> for Person {
     fn from(profile: Profile) -> Self {
-        let name = [profile.first_name, profile.last_name]
+        let name = [profile.first_name.as_ref(), profile.last_name.as_ref()]
             .into_iter()
             .flatten()
             .map(|part| part.trim().to_string())
@@ -82,6 +107,16 @@ impl From<Profile> for Person {
         Person {
             username: profile.username,
             display_name,
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            email: profile.email,
+            description: profile.description,
+            sign_in: profile.certificate.and_then(|certificate| {
+                Some(SignInCertificate {
+                    fingerprint: Fingerprint::from_str(&certificate.fingerprint).ok()?,
+                    uuid: certificate.uuid,
+                })
+            }),
             allowed_listings: profile.permissions.allowed_listings,
             allowed_actions: profile.permissions.allowed_actions,
         }
@@ -134,6 +169,44 @@ pub(crate) async fn read_profile(
         IlmError::Malformed
     })?;
     Ok(Person::from(profile))
+}
+
+/// The request that makes the certificate `certificate_uuid` the person's sign-in certificate. ILM replaces the
+/// names, email and description with what it is sent, so the person's own are sent back unchanged.
+pub fn update_request(
+    client: &Client,
+    ilm: &IlmUrl,
+    person: &Person,
+    certificate_uuid: &str,
+) -> RequestBuilder {
+    client.put(profile_address(ilm)).json(&json!({
+        "firstName": person.first_name,
+        "lastName": person.last_name,
+        "email": person.email,
+        "description": person.description,
+        "certificateUuid": certificate_uuid,
+    }))
+}
+
+/// The messages ILM gives for a request it refused, in plain words; none when the answer holds no text. ILM
+/// sends a message, a list of messages or an object holding either; the text is for the person, never the log.
+pub(crate) async fn read_rejection(response: reqwest::Response) -> Vec<String> {
+    let body = response.json::<serde_json::Value>().await;
+    body.map(|body| messages(&body)).unwrap_or_default()
+}
+
+fn messages(body: &serde_json::Value) -> Vec<String> {
+    use serde_json::Value;
+    match body {
+        Value::String(text) => vec![text.clone()],
+        Value::Array(items) => items.iter().flat_map(messages).collect(),
+        Value::Object(fields) => ["message", "messages", "errors"]
+            .into_iter()
+            .filter_map(|key| fields.get(key))
+            .flat_map(messages)
+            .collect(),
+        _ => Vec::new(),
+    }
 }
 
 #[cfg(test)]
@@ -191,6 +264,69 @@ mod tests {
         assert_eq!(person.allowed_actions[0].actions, ["list", "detail"]);
     }
 
+    const PRINT: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+
+    #[tokio::test]
+    async fn the_details_and_the_sign_in_certificate_are_read() {
+        let mut body = fixture();
+        body["description"] = json!("Works in finance");
+        body["certificate"] = json!({ "uuid": "c-1", "fingerprint": PRINT });
+        let person = ask(ResponseTemplate::new(200).set_body_json(body))
+            .await
+            .unwrap();
+        assert_eq!(person.first_name.as_deref(), Some("Jane"));
+        assert_eq!(person.last_name.as_deref(), Some("Doe"));
+        assert_eq!(person.email.as_deref(), Some("jane@example.com"));
+        assert_eq!(person.description.as_deref(), Some("Works in finance"));
+        let sign_in = person.sign_in.unwrap();
+        assert_eq!(sign_in.uuid, "c-1");
+        assert_eq!(sign_in.fingerprint, PRINT.parse().unwrap());
+    }
+
+    #[tokio::test]
+    async fn without_a_usable_certificate_there_is_no_sign_in_certificate() {
+        let person = ask(ResponseTemplate::new(200).set_body_json(fixture()))
+            .await
+            .unwrap();
+        assert_eq!(person.sign_in, None);
+        assert_eq!(person.description, None);
+        let mut body = fixture();
+        body["certificate"] = json!({ "uuid": "c-1", "fingerprint": "not hex" });
+        let person = ask(ResponseTemplate::new(200).set_body_json(body))
+            .await
+            .unwrap();
+        assert_eq!(person.sign_in, None);
+    }
+
+    #[tokio::test]
+    async fn the_update_sends_the_details_back_with_the_certificate() {
+        let mut body = fixture();
+        body["description"] = json!("Works in finance");
+        let person = ask(ResponseTemplate::new(200).set_body_json(body))
+            .await
+            .unwrap();
+        let server = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .and(path("/api/v1/auth/profile"))
+            .and(wiremock::matchers::body_json(json!({
+                "firstName": "Jane",
+                "lastName": "Doe",
+                "email": "jane@example.com",
+                "description": "Works in finance",
+                "certificateUuid": "c-9"
+            })))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let ilm = IlmUrl::for_tests(&server.uri());
+        let response = update_request(&client_for_tests(), &ilm, &person, "c-9")
+            .send()
+            .await
+            .unwrap();
+        assert!(response.status().is_success());
+    }
+
     #[tokio::test]
     async fn without_a_name_the_user_name_is_shown() {
         let mut body = fixture();
@@ -246,5 +382,17 @@ mod tests {
         ] {
             assert!(error.to_string().ends_with('.'));
         }
+    }
+
+    #[test]
+    fn rejection_messages_are_read_from_each_shape_ilm_uses() {
+        assert_eq!(messages(&json!("One.")), ["One."]);
+        assert_eq!(messages(&json!(["One.", "Two."])), ["One.", "Two."]);
+        assert_eq!(messages(&json!({ "message": ["One."] })), ["One."]);
+        assert_eq!(
+            messages(&json!({ "message": "One.", "errors": ["Two."], "status": 422 })),
+            ["One.", "Two."]
+        );
+        assert!(messages(&json!({ "status": 422 })).is_empty());
     }
 }

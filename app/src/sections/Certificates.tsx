@@ -1,30 +1,27 @@
-import { type KeyboardEvent, type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppInfo } from '../app-info';
-import { type KeyAlgorithm, type LocalCertificateView, localCertificates, type Use } from '../bridge';
+import {
+    type IlmCertificateView,
+    type InventoryView,
+    type KeyAlgorithm,
+    type LocalCertificateView,
+    localCertificates,
+    makeSignInCertificate,
+    type Use,
+} from '../bridge';
+import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
+import { InIlmIcon, ManagedIcon, NotInIlmIcon, OfflineIcon, SignInKeyIcon, SyncIcon } from '../design-system/icons';
+import { useIlmWaiting } from '../ilm-waiting';
 import { strings } from '../strings';
+import { useInventory } from '../useInventory';
+import { arrowTarget, codeLabel, Field, FingerprintGroup, Group, status, validationTone } from './certificateParts';
+import { IlmCertificates } from './IlmCertificates';
 
 /** At most one request this often when the window comes back; the request the first answer needs is not delayed. */
 const refreshEvery = 2000;
-const fingerprintLineBytes = 16;
-const dayMs = 24 * 60 * 60 * 1000;
 
 type State = { kind: 'loading' } | { kind: 'ready'; items: LocalCertificateView[] } | { kind: 'error'; message: string };
-
-const startOfDay = (time: number) => new Date(time).setHours(0, 0, 0, 0);
-
-function status(certificate: LocalCertificateView, now: number): { text: string; expired: boolean } {
-    if (certificate.notAfter <= now) {
-        return { text: strings.expiredOn(strings.date(certificate.notAfter)), expired: true };
-    }
-    if (certificate.notBefore > now) {
-        return { text: strings.validFromDate(strings.date(certificate.notBefore)), expired: false };
-    }
-    const days = Math.round((startOfDay(certificate.notAfter) - startOfDay(now)) / dayMs);
-    if (days === 0) {
-        return { text: strings.expiresToday, expired: false };
-    }
-    return { text: days === 1 ? strings.expiresTomorrow : strings.expiresInDays(days), expired: false };
-}
+type System = 'macos' | 'windows';
 
 const useLabel = (use: Use) => (use.kind === 'other' ? use.value : strings.useLabels[use.kind]);
 const uses = (certificate: LocalCertificateView) =>
@@ -43,40 +40,157 @@ function algorithm(key: KeyAlgorithm): string {
     }
 }
 
+type Match = IlmCertificateView | undefined;
+
+/** Whether the last check looked this certificate up in ILM, so that having no match means it is not there. */
+const lookedUp = (inventory: InventoryView | null, fingerprint: string) =>
+    inventory?.listed === true && inventory.checked.includes(fingerprint);
+
+/** What ILM knows of a local certificate, in two or three words; none before the first check. */
+const ilmWord = (match: Match) => {
+    if (!match) {
+        return strings.notInIlm;
+    }
+    return match.raProfile ? strings.managedByIlm : strings.inIlm;
+};
+
+function IlmLine({ match }: Readonly<{ match: Match }>) {
+    let Icon = NotInIlmIcon;
+    let tone = 'text-tertiary';
+    if (match?.raProfile) {
+        Icon = ManagedIcon;
+        tone = 'text-fine';
+    } else if (match) {
+        Icon = InIlmIcon;
+        tone = 'text-secondary';
+    }
+    return (
+        <span
+            title={match?.raProfile ? strings.managedThrough(match.raProfile.name) : undefined}
+            className={`flex items-center gap-s1 text-caption ${tone}`}
+        >
+            <Icon aria-hidden className="size-[13px] shrink-0" />
+            {ilmWord(match)}
+        </span>
+    );
+}
+
+function SignInMark() {
+    return (
+        <span role="img" aria-label={strings.signInCertificate} title={strings.signInCertificate} className="text-accent">
+            <SignInKeyIcon aria-hidden className="size-icon shrink-0" />
+        </span>
+    );
+}
+
 const signInProblem = (problem: string) => strings.signInProblems[problem] ?? strings.otherSignInProblem(problem);
 
-function fingerprintLines(fingerprint: string): string[] {
-    const bytes = fingerprint.split(':');
-    const lines: string[] = [];
-    for (let at = 0; at < bytes.length; at += fingerprintLineBytes) {
-        lines.push(bytes.slice(at, at + fingerprintLineBytes).join(':'));
+const primaryButton = 'h-button self-start rounded-control bg-accent px-s3 text-body text-on-accent';
+
+/** The button that makes a certificate ILM knows the person's sign-in certificate, after a question. */
+function SignInAction({
+    certificate,
+    match,
+    inventory,
+    system,
+    apply,
+}: Readonly<{
+    certificate: LocalCertificateView;
+    match: Match;
+    inventory: InventoryView;
+    system: System;
+    apply: (view: InventoryView) => void;
+}>) {
+    const [confirming, setConfirming] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [problem, setProblem] = useState<string | null>(null);
+    const allowed =
+        match?.state === 'issued' &&
+        !match.archived &&
+        certificate.canSignIn &&
+        inventory.status.state !== 'offline' &&
+        inventory.signIn !== certificate.fingerprint;
+    if (!allowed) {
+        return null;
     }
-    return lines;
-}
+    const current = inventory.signIn === null ? null : (inventory.matches[inventory.signIn]?.name ?? strings.currentSignInCertificate);
 
-function Group({ title, children }: Readonly<{ title: string; children: ReactNode }>) {
-    const id = useId();
+    const confirm = () => {
+        setBusy(true);
+        setProblem(null);
+        makeSignInCertificate(certificate.fingerprint)
+            .then(apply, (error) => setProblem(String(error) || strings.signInChangeFailed))
+            .finally(() => {
+                setBusy(false);
+                setConfirming(false);
+            });
+    };
+
     return (
-        <section aria-labelledby={id} className="flex flex-col gap-s2">
-            <h3 id={id} className="text-caption font-semibold text-secondary">
-                {title}
-            </h3>
-            <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-x-s3 gap-y-s2 text-body">{children}</dl>
-        </section>
+        <div className="flex flex-col gap-s2">
+            <button tabIndex={0} type="button" onClick={() => setConfirming(true)} className={primaryButton}>
+                {strings.makeSignInCertificate}
+            </button>
+            {problem !== null && (
+                <p role="alert" className="text-caption text-bad">
+                    {problem}
+                </p>
+            )}
+            {confirming && (
+                <ConfirmDialog
+                    title={strings.signInQuestion(certificate.name)}
+                    confirmLabel={strings.useThisCertificate}
+                    busy={busy}
+                    macos={system === 'macos'}
+                    onConfirm={confirm}
+                    onCancel={() => setConfirming(false)}
+                >
+                    {current !== null && strings.stopsWorking(current)}
+                </ConfirmDialog>
+            )}
+        </div>
     );
 }
 
-function Field({ label, children, bad = false }: Readonly<{ label: string; children: ReactNode; bad?: boolean }>) {
+function IlmGroup({ match, signIn }: Readonly<{ match: Match; signIn: boolean }>) {
+    if (!match) {
+        return (
+            <Group title={strings.inIlmGroupTitle}>
+                <Field label={strings.stateRow}>{strings.notInIlm}</Field>
+            </Group>
+        );
+    }
     return (
-        <>
-            <dt className="text-secondary">{label}</dt>
-            <dd className={`break-all ${bad ? 'text-bad' : 'text-primary'}`}>{children}</dd>
-        </>
+        <Group title={strings.inIlmGroupTitle}>
+            <Field label={strings.stateRow}>{codeLabel(match.state)}</Field>
+            <Field label={strings.validationRow} tone={validationTone(match.validationStatus)}>
+                {codeLabel(match.validationStatus)}
+            </Field>
+            <Field label={strings.managementRow}>
+                {match.raProfile ? strings.managedThrough(match.raProfile.name) : strings.inIlmNotManaged}
+            </Field>
+            {match.owner !== null && <Field label={strings.ownerRow}>{match.owner}</Field>}
+            {signIn && <Field label={strings.signInRow}>{strings.yourSignInCertificate}</Field>}
+        </Group>
     );
 }
 
-function Detail({ certificate, now }: Readonly<{ certificate: LocalCertificateView; now: number }>) {
+function Detail({
+    certificate,
+    now,
+    inventory,
+    system,
+    apply,
+}: Readonly<{
+    certificate: LocalCertificateView;
+    now: number;
+    inventory: InventoryView | null;
+    system: System;
+    apply: (view: InventoryView) => void;
+}>) {
     const state = status(certificate, now);
+    const known = lookedUp(inventory, certificate.fingerprint);
+    const match = inventory?.matches[certificate.fingerprint];
     return (
         <section aria-labelledby="certificate-title" className="flex min-w-0 flex-col gap-s4">
             <header className="flex flex-col gap-s1">
@@ -91,6 +205,7 @@ function Detail({ certificate, now }: Readonly<{ certificate: LocalCertificateVi
                 <Field label={strings.issuer}>{certificate.issuerName}</Field>
                 <Field label={strings.serial}>{certificate.serial}</Field>
             </Group>
+            {known && <IlmGroup match={match} signIn={inventory?.signIn === certificate.fingerprint} />}
             <Group title={strings.useGroupTitle}>
                 <Field label={strings.allowedFor}>{uses(certificate)}</Field>
                 <dt className="text-secondary">{strings.signInRow}</dt>
@@ -108,16 +223,17 @@ function Detail({ certificate, now }: Readonly<{ certificate: LocalCertificateVi
                     <Field label={strings.alternativeNames}>{certificate.alternativeNames.join(', ')}</Field>
                 )}
             </Group>
-            <section className="flex flex-col gap-s2">
-                <h3 className="text-caption font-semibold text-secondary">{strings.fingerprintTitle}</h3>
-                <p data-fingerprint className="select-text font-mono text-caption text-primary">
-                    {fingerprintLines(certificate.fingerprint).map((line) => (
-                        <span key={line} className="block">
-                            {line}
-                        </span>
-                    ))}
-                </p>
-            </section>
+            <FingerprintGroup fingerprint={certificate.fingerprint} />
+            {known && inventory && (
+                <SignInAction
+                    key={certificate.fingerprint}
+                    certificate={certificate}
+                    match={match}
+                    inventory={inventory}
+                    system={system}
+                    apply={apply}
+                />
+            )}
         </section>
     );
 }
@@ -128,13 +244,19 @@ function List({
     items,
     selected,
     now,
+    inventory,
     onSelect,
-}: Readonly<{ items: LocalCertificateView[]; selected: number; now: number; onSelect: (index: number) => void }>) {
+}: Readonly<{
+    items: LocalCertificateView[];
+    selected: number;
+    now: number;
+    inventory: InventoryView | null;
+    onSelect: (index: number) => void;
+}>) {
     const rows = useRef<(HTMLDivElement | null)[]>([]);
 
     const move = (event: KeyboardEvent, index: number) => {
-        const last = items.length - 1;
-        const target = { ArrowDown: Math.min(index + 1, last), ArrowUp: Math.max(index - 1, 0), Home: 0, End: last }[event.key];
+        const target = arrowTarget(event.key, index, items.length - 1);
         if (target !== undefined) {
             event.preventDefault();
             onSelect(target);
@@ -152,6 +274,19 @@ function List({
             <div role="listbox" aria-label={strings.certificatesListLabel} className="flex flex-col">
                 {items.map((certificate, index) => {
                     const state = status(certificate, now);
+                    const match = inventory?.matches[certificate.fingerprint];
+                    const known = lookedUp(inventory, certificate.fingerprint);
+                    const signIn = known && inventory?.signIn === certificate.fingerprint;
+                    const label = [
+                        certificate.name,
+                        uses(certificate),
+                        strings.locationLabels[certificate.location],
+                        state.text,
+                        known ? ilmWord(match) : null,
+                        signIn ? strings.signInCertificate : null,
+                    ]
+                        .filter(Boolean)
+                        .join(', ');
                     return (
                         <div
                             key={certificate.fingerprint}
@@ -161,17 +296,23 @@ function List({
                             role="option"
                             tabIndex={index === selected ? 0 : -1}
                             aria-selected={index === selected}
-                            aria-label={`${certificate.name}, ${uses(certificate)}, ${strings.locationLabels[certificate.location]}, ${state.text}`}
+                            aria-label={label}
                             onClick={() => onSelect(index)}
                             onKeyDown={(event) => move(event, index)}
                             className={`${columns} cursor-default rounded-control py-s2 hover:bg-row-hover aria-selected:bg-row-current motion-safe:transition-colors`}
                         >
                             <span className="flex min-w-0 flex-col">
-                                <span className="text-body text-primary">{certificate.name}</span>
+                                <span className="flex items-center gap-s1 text-body text-primary">
+                                    {certificate.name}
+                                    {signIn && <SignInMark />}
+                                </span>
                                 <span className="text-caption text-secondary">{uses(certificate)}</span>
                             </span>
                             <span className="text-body text-secondary">{strings.locationLabels[certificate.location]}</span>
-                            <span className={`text-body ${state.expired ? 'text-bad' : 'text-secondary'}`}>{state.text}</span>
+                            <div className="flex flex-col">
+                                <span className={`text-body ${state.expired ? 'text-bad' : 'text-secondary'}`}>{state.text}</span>
+                                {known && <IlmLine match={match} />}
+                            </div>
                         </div>
                     );
                 })}
@@ -180,10 +321,68 @@ function List({
     );
 }
 
+function Views({ view, onChoose, system }: Readonly<{ view: View; onChoose: (view: View) => void; system: System }>) {
+    const choices: [View, string][] = [
+        ['local', strings.onThisComputer(system)],
+        ['ilm', strings.inIlm],
+    ];
+    return (
+        <fieldset className="flex shrink-0 gap-s1 rounded-control border border-button-edge bg-button p-s1">
+            <legend className="sr-only">{strings.viewLabel}</legend>
+            {choices.map(([id, label]) => (
+                <button
+                    tabIndex={0}
+                    key={id}
+                    type="button"
+                    aria-pressed={view === id}
+                    onClick={() => onChoose(id)}
+                    className="h-control rounded-control px-s3 text-body text-secondary aria-pressed:bg-surface aria-pressed:text-primary"
+                >
+                    {label}
+                </button>
+            ))}
+        </fieldset>
+    );
+}
+
+function SyncLine({ inventory, onSync }: Readonly<{ inventory: InventoryView; onSync: () => void }>) {
+    const { checking } = inventory;
+    const waiting = useIlmWaiting();
+    const stopped = checking || waiting;
+    const stateOf = inventory.status;
+    let note: string | null = null;
+    if (checking) {
+        note = strings.checkingIlm;
+    } else if (stateOf.state === 'fresh') {
+        note = strings.checkedWithIlm(stateOf.checkedAt);
+    } else if (stateOf.state === 'offline') {
+        note = stateOf.since === null ? strings.cannotReachIlm : strings.cannotReachIlmSince(stateOf.since);
+    }
+    return (
+        <p className="flex items-center gap-s2 text-caption text-secondary">
+            {!checking && stateOf.state === 'offline' && <OfflineIcon aria-hidden className="size-icon shrink-0" />}
+            {note !== null && <output>{note}</output>}
+            <button
+                tabIndex={0}
+                type="button"
+                aria-label={strings.syncNow}
+                title={strings.syncNow}
+                disabled={stopped}
+                onClick={onSync}
+                className="flex size-control items-center justify-center rounded-control border border-button-edge bg-button text-primary disabled:opacity-disabled"
+            >
+                <SyncIcon aria-hidden className={`size-icon ${checking ? 'motion-safe:animate-spin' : ''}`} />
+            </button>
+        </p>
+    );
+}
+
+type View = 'local' | 'ilm';
+
 /** The person's certificates that have a private key on this computer, with the detail of the selected one. */
 export function Certificates() {
     const { platform } = useAppInfo();
-    const system = platform === 'macos' ? 'macos' : 'windows';
+    const system: System = platform === 'macos' ? 'macos' : 'windows';
     const [state, setState] = useState<State>({ kind: 'loading' });
     const [chosen, setChosen] = useState<string | null>(null);
     const latest = useRef(0);
@@ -236,23 +435,50 @@ export function Certificates() {
         };
     }, [request]);
 
+    const { inventory, syncError, sync, apply } = useInventory();
+    const [view, setView] = useState<View>('local');
+    const [ilmTotal, setIlmTotal] = useState<number | null>(null);
+
     const items = state.kind === 'ready' ? state.items : [];
     const found = items.findIndex((certificate) => certificate.fingerprint === chosen);
     const selected = Math.max(found, 0);
     const now = Date.now();
+    const listed = inventory?.listed === true;
+    const known = listed && inventory.checkedAt !== null;
+    const showing = listed ? view : 'local';
+    const local = useMemo(() => new Set(items.map((certificate) => certificate.fingerprint)), [items]);
+    const inIlm = items.filter((certificate) => inventory?.matches[certificate.fingerprint]).length;
+
+    let subline: string | null = null;
+    if (showing === 'ilm') {
+        subline = ilmTotal === null ? null : strings.certificatesInIlmCount(ilmTotal);
+    } else if (state.kind === 'ready') {
+        subline = known ? strings.certificatesInIlm(items.length, inIlm, system) : strings.certificatesOnThisComputer(items.length, system);
+    }
 
     return (
         <div className="@container flex flex-col gap-s4">
-            <header>
-                <h1 className="text-large-title font-semibold text-primary">{strings.certificates}</h1>
-                {state.kind === 'ready' && (
-                    <p className="text-body text-secondary">{strings.certificatesOnThisComputer(items.length, system)}</p>
-                )}
+            <header className="flex items-start justify-between gap-s4">
+                <div className="flex min-w-0 flex-col gap-s1">
+                    <h1 className="text-large-title font-semibold text-primary">{strings.certificates}</h1>
+                    {subline !== null && <p className="text-body text-secondary">{subline}</p>}
+                    {listed && inventory && <SyncLine inventory={inventory} onSync={sync} />}
+                    {syncError !== null && (
+                        <p role="alert" className="text-caption text-bad">
+                            {syncError}
+                        </p>
+                    )}
+                </div>
+                {listed && <Views view={showing} onChoose={setView} system={system} />}
             </header>
-            {state.kind === 'error' && (
+            {showing === 'ilm' && inventory && (
+                <IlmCertificates inventory={inventory} local={local} system={system} onTotal={setIlmTotal} />
+            )}
+            {showing === 'local' && state.kind === 'error' && (
                 <div role="alert" className="flex flex-col items-start gap-s3 text-body text-bad">
                     <p>{state.message}</p>
                     <button
+                        tabIndex={0}
                         type="button"
                         onClick={request}
                         className="h-control rounded-control border border-button-edge bg-button px-s3 text-body text-primary"
@@ -261,21 +487,24 @@ export function Certificates() {
                     </button>
                 </div>
             )}
-            {state.kind === 'ready' && items.length === 0 && (
+            {showing === 'local' && state.kind === 'ready' && items.length === 0 && (
                 <p className="text-body text-secondary">{strings.noLocalCertificates(system)}</p>
             )}
-            {state.kind === 'ready' && items.length > 0 && (
+            {showing === 'local' && state.kind === 'ready' && items.length > 0 && (
                 <div className="flex flex-col gap-s5 @3xl:flex-row">
                     <div className="min-w-0 flex-[3]">
                         <List
                             items={items}
                             selected={selected}
                             now={now}
+                            inventory={inventory}
                             onSelect={(index) => setChosen(items[index]?.fingerprint ?? null)}
                         />
                     </div>
                     <div className="min-w-0 flex-[2] border-t border-separator pt-s4 @3xl:border-t-0 @3xl:border-l @3xl:pt-0 @3xl:pl-s5">
-                        {items[selected] && <Detail certificate={items[selected]} now={now} />}
+                        {items[selected] && (
+                            <Detail certificate={items[selected]} now={now} inventory={inventory} system={system} apply={apply} />
+                        )}
                     </div>
                 </div>
             )}

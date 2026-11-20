@@ -90,6 +90,20 @@ mod tests {
     }
 
     #[test]
+    fn check_interval_numbers_reach_the_layer() {
+        for (value, expected) in [
+            ("30", Some(30)),
+            ("1440", Some(1440)),
+            ("1", None),
+            (r#""30""#, None),
+        ] {
+            let json = format!(r#"{{"CheckInterval": {value}}}"#);
+            let layer = to_layer(&parse_json(json.as_bytes(), "test"), "test");
+            assert_eq!(layer.check_every.map(|m| m.get()), expected, "{value}");
+        }
+    }
+
+    #[test]
     fn the_example_policy_file_parses_to_its_documented_values() {
         let bytes = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -109,5 +123,6 @@ mod tests {
         );
         assert_eq!(layer.require_unlock, Some(true));
         assert_eq!(layer.lock_after_idle, crate::settings::IdleMinutes::new(15));
+        assert_eq!(layer.check_every.map(|m| m.get()), Some(30));
     }
 }

@@ -208,6 +208,17 @@ curl -i --cert unknown.pem --key unknown.key https://ilm.example.com/api/v1/auth
 If the gateway does not request a certificate, Identity Manager tells the person that the gateway is not set up for
 certificate sign-in. If it requests one but does not pass it on, ILM answers status 401.
 
+### Make a certificate your sign-in certificate
+
+You can change your sign-in certificate from the application:
+
+1. Open Certificates and select a certificate on this computer that ILM has issued and that can sign in.
+2. Choose "Make this my sign-in certificate" and confirm.
+
+ILM records the certificate as your sign-in certificate, and the previous one no longer works for sign-in. If you are
+signed in with a certificate, Identity Manager switches to the new one at once. If you are signed in with OAuth,
+nothing else changes.
+
 ## What the application stores
 
 After sign-in Identity Manager keeps the refresh token in the protected storage of the system, in one item together

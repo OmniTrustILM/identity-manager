@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { expect, test } from '@playwright/experimental-ct-react';
 import type { Locator, Page } from '@playwright/test';
 import { keyboardReady } from '../../playwright/focus';
-import { SignInStory, UnreachableStory } from '../../playwright/stories';
+import { SignInStory } from '../../playwright/stories';
 import type { CertificateChoice, Platform, ProviderChoice, SessionView } from '../bridge';
 
 type Scheme = 'light' | 'dark';
@@ -236,10 +236,10 @@ for (const os of ['macos', 'windows', 'linux'] as const) {
                     'border-top-color',
                     os === 'macos'
                         ? scheme === 'light'
-                            ? 'rgb(255, 59, 48)'
-                            : 'rgb(255, 69, 58)'
+                            ? 'rgb(200, 16, 28)'
+                            : 'rgb(255, 130, 121)'
                         : scheme === 'light'
-                          ? 'rgb(196, 43, 28)'
+                          ? 'rgb(189, 38, 25)'
                           : 'rgb(255, 153, 164)',
                 );
             }
@@ -373,19 +373,6 @@ test('a refusal of Sign in again is announced', async ({ mount, page }) => {
     await open(page, mount, 'linux', 'light', { view: ended, refuse: 'Unlock Identity Manager first.' });
 
     await page.getByRole('button', { name: 'Sign in again' }).click();
-
-    await expect(page.getByRole('alert')).toHaveText('Unlock Identity Manager first.');
-});
-
-test('an unreachable sign-in offers Sign out, focused, and announces a refusal', async ({ mount, page }) => {
-    await page.setViewportSize(sizes.linux);
-    await mount(<UnreachableStory platform="linux" refuse="Unlock Identity Manager first." />);
-
-    await expect(page.getByRole('heading', { name: 'Cannot reach your ILM' })).toBeVisible();
-    const out = page.getByRole('button', { name: 'Sign out' });
-    await expect(out).toBeFocused();
-
-    await out.click();
 
     await expect(page.getByRole('alert')).toHaveText('Unlock Identity Manager first.');
 });

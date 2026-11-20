@@ -104,7 +104,11 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             session::sign_out,
             session::unlock,
             session::sign_in_again,
-            certificates::local_certificates
+            certificates::local_certificates,
+            certificates::ilm_status,
+            certificates::ilm_certificates,
+            certificates::sync_now,
+            certificates::make_sign_in_certificate
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)

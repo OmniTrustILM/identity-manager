@@ -4,6 +4,8 @@ import { AppInfoContext } from '../src/app-info';
 import type {
     CertificateChoice,
     Change,
+    IlmPageView,
+    InventoryView,
     LocalCertificateView,
     LogLevel,
     Platform,
@@ -11,6 +13,7 @@ import type {
     SessionView,
     SettingsView,
 } from '../src/bridge';
+import { IlmWaitingContext } from '../src/ilm-waiting';
 import { LockNote } from '../src/components/Switch/LockNote';
 import { Select } from '../src/components/Switch/Select';
 import { Shell } from '../src/components/Shell/Shell';
@@ -18,10 +21,10 @@ import { Switch } from '../src/components/Switch/Switch';
 import { TraySummary } from '../src/components/TraySummary/TraySummary';
 import { OverviewIcon, SettingsIcon } from '../src/design-system/icons';
 import type { Section } from '../src/sections';
-import { sections as realSections, settingsSection } from '../src/sections';
+import { sections as realSections, settingsSection, visibleSections } from '../src/sections';
 import { Certificates } from '../src/sections/Certificates';
 import { Settings } from '../src/sections/Settings';
-import { SignIn, Unreachable } from '../src/sections/SignIn';
+import { SignIn, UnreachableBanner } from '../src/sections/SignIn';
 import { Unlock } from '../src/sections/Unlock';
 
 const First = () => <p>First content</p>;
@@ -239,29 +242,125 @@ export function SignInStory({
     );
 }
 
-type UnreachableProps = StoryProps & Readonly<{ refuse?: string }>;
+type UnreachableProps = StoryProps &
+    Readonly<{
+        refuse?: string;
+        certificates: LocalCertificateView[];
+        /** What ILM was last known to say; null when nothing was kept. */
+        inventory: InventoryView | null;
+    }>;
 
-/** The sign-in that waits for ILM, against a stand-in for Sign out. */
-export function UnreachableStory({ platform, refuse }: UnreachableProps) {
+/** The shell of a saved sign-in that waits for ILM: the banner with Sign out, over the sections with the kept answer. */
+export function UnreachableStory({ platform, refuse, certificates, inventory }: UnreachableProps) {
     useMemo(() => {
-        mockIPC(() => (refuse ? Promise.reject(refuse) : undefined));
-    }, [refuse]);
+        mockIPC(
+            (command) => {
+                switch (command) {
+                    case 'local_certificates':
+                        return certificates;
+                    case 'ilm_status':
+                        return inventory;
+                    case 'sign_out':
+                        return refuse ? Promise.reject(refuse) : undefined;
+                    default:
+                        return undefined;
+                }
+            },
+            { shouldMockEvents: true },
+        );
+    }, [certificates, inventory, refuse]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
-            <Unreachable view={{ state: 'unreachable', address: 'https://ilm.example.com', problem: 'ILM cannot be reached.' }} />
+            <IlmWaitingContext.Provider value>
+                <Shell
+                    sections={visibleSections([], platform)}
+                    bottom={settingsSection(platform)}
+                    banner={
+                        <UnreachableBanner
+                            view={{
+                                state: 'unreachable',
+                                address: 'https://ilm.example.com',
+                                problem: 'The identity provider cannot be reached.',
+                            }}
+                        />
+                    }
+                />
+            </IlmWaitingContext.Provider>
         </AppInfoContext.Provider>
     );
 }
 
-/** The Certificates section against a stand-in for its command, in a window of the given width. */
+/** What ILM answers for a page: the page, or a refusal; a list is used up one answer at a time, the last one stays. */
+export type IlmAnswer = IlmPageView | { error: string };
+type CertificatesProps = StoryProps &
+    Readonly<{
+        certificates: LocalCertificateView[];
+        width?: number;
+        /** What ILM is known to say; null while it is not known. */
+        inventory?: InventoryView | null;
+        /** The answers of the In ILM view by "<page>|<search>"; "*" answers any other request. */
+        pages?: Record<string, IlmAnswer | IlmAnswer[]>;
+        /** Milliseconds an answer to a request takes, by the same keys. */
+        delays?: Record<string, number>;
+        /** Rejects the sign-in certificate change with this reason. */
+        refuseSignIn?: string;
+    }>;
+
+declare global {
+    interface Window {
+        /** The requests the In ILM view made, as "<page>|<search>". */
+        ilmRequests?: string[];
+        /** The requests of the In ILM view that were answered, as "<page>|<search>". */
+        ilmAnswered?: string[];
+    }
+}
+
+function ilmAnswer(pages: CertificatesProps['pages'], delays: CertificatesProps['delays'], args: { page: number; search: string | null }) {
+    const key = `${args.page}|${args.search ?? ''}`;
+    window.ilmRequests = [...(window.ilmRequests ?? []), key];
+    const found = pages?.[key] ?? pages?.['*'];
+    const answer = Array.isArray(found) ? (found.length > 1 ? found.shift() : found[0]) : found;
+    const settle = () => {
+        window.ilmAnswered = [...(window.ilmAnswered ?? []), key];
+        return answer && 'error' in answer ? Promise.reject(answer.error) : answer;
+    };
+    const wait = delays?.[key];
+    return wait ? new Promise((resolve) => setTimeout(resolve, wait)).then(settle) : settle();
+}
+
+/** The Certificates section against a stand-in for its commands, in a window of the given width. */
 export function CertificatesStory({
     platform,
     certificates,
     width = 1000,
-}: StoryProps & Readonly<{ certificates: LocalCertificateView[]; width?: number }>) {
+    inventory = null,
+    pages,
+    delays,
+    refuseSignIn,
+}: CertificatesProps) {
     useMemo(() => {
-        mockIPC((command) => (command === 'local_certificates' ? certificates : undefined));
-    }, [certificates]);
+        window.ilmRequests = [];
+        window.ilmAnswered = [];
+        mockIPC(
+            (command, args) => {
+                switch (command) {
+                    case 'local_certificates':
+                        return certificates;
+                    case 'ilm_status':
+                        return inventory;
+                    case 'ilm_certificates':
+                        return ilmAnswer(pages, delays, args as { page: number; search: string | null });
+                    case 'make_sign_in_certificate':
+                        return refuseSignIn
+                            ? Promise.reject(refuseSignIn)
+                            : inventory && { ...inventory, signIn: (args as { fingerprint: string }).fingerprint };
+                    default:
+                        return undefined;
+                }
+            },
+            { shouldMockEvents: true },
+        );
+    }, [certificates, inventory, pages, delays, refuseSignIn]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <main className="bg-surface p-s5" style={{ width }}>

@@ -156,10 +156,9 @@ function Ended({ view, onChoose }: Readonly<{ view: Idle; onChoose: (providers: 
     );
 }
 
-/** The saved sign-in is kept while ILM cannot be reached; the person is told where and why, and can sign out. */
-export function Unreachable({ view }: Readonly<{ view: Extract<SessionView, { state: 'unreachable' }> }>) {
+/** The saved sign-in is kept while ILM cannot be reached; the banner tells where and why, and the person can sign out. */
+export function UnreachableBanner({ view }: Readonly<{ view: Extract<SessionView, { state: 'unreachable' }> }>) {
     const problemId = useId();
-    const first = useFirstFocus<HTMLButtonElement>();
     const [error, setError] = useState<string | null>(null);
 
     const leave = () => {
@@ -168,14 +167,27 @@ export function Unreachable({ view }: Readonly<{ view: Extract<SessionView, { st
     };
 
     return (
-        <Step title={strings.unreachableTitle} hint={view.address}>
-            <div className="flex flex-col gap-s3">
-                <Problem id={problemId}>{error ?? view.problem}</Problem>
-                <button ref={first} type="button" tabIndex={0} aria-describedby={problemId} onClick={leave} className={plain}>
-                    {strings.signOut}
-                </button>
+        <section aria-label={strings.connection} className="flex items-center gap-s3 border-b border-separator bg-card px-s5 py-s3">
+            <div className="flex min-w-0 flex-1 flex-col gap-s1">
+                <p className="flex items-center gap-s2 text-body text-primary">
+                    <ProblemIcon aria-hidden className="size-icon shrink-0 text-bad" />
+                    <span className="font-semibold">{strings.cannotReachIlm}</span>
+                </p>
+                <p className="text-caption text-secondary">{view.address}</p>
+                <p id={problemId} role={error ? 'alert' : undefined} className={`text-caption ${error ? 'text-bad' : 'text-secondary'}`}>
+                    {error ?? view.problem}
+                </p>
             </div>
-        </Step>
+            <button
+                type="button"
+                tabIndex={0}
+                aria-describedby={problemId}
+                onClick={leave}
+                className="h-control shrink-0 rounded-control border border-button-edge bg-button px-s3 text-body text-primary"
+            >
+                {strings.signOut}
+            </button>
+        </section>
     );
 }
 

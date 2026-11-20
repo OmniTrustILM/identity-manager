@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { AppInfoContext, useAppInfo } from './app-info';
 import { type AppInfo, getAppInfo, type Platform, reportReady, windowLabel } from './bridge';
 import { Shell } from './components/Shell/Shell';
+import { IlmWaitingContext } from './ilm-waiting';
 import { TraySummary } from './components/TraySummary/TraySummary';
 import { settingsSection, visibleSections } from './sections';
 import { Settings } from './sections/Settings';
-import { SignIn, Unreachable } from './sections/SignIn';
+import { SignIn, UnreachableBanner } from './sections/SignIn';
 import { Unlock } from './sections/Unlock';
 import { useSession } from './session';
 import { strings } from './strings';
@@ -24,7 +25,15 @@ function Main({ platform }: Readonly<{ platform: Platform }>) {
         case 'signingIn':
             return <SignIn view={view} />;
         case 'unreachable':
-            return <Unreachable view={view} />;
+            return (
+                <IlmWaitingContext.Provider value>
+                    <Shell
+                        sections={visibleSections([], platform)}
+                        bottom={settingsSection(platform)}
+                        banner={<UnreachableBanner view={view} />}
+                    />
+                </IlmWaitingContext.Provider>
+            );
         case 'locked':
             return <Unlock automatic />;
         default:
