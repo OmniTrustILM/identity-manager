@@ -65,6 +65,8 @@ pub struct Issue {
     pub dns_names: Vec<String>,
     /// E-mail addresses for the subject alternative name extension.
     pub emails: Vec<String>,
+    /// User principal names for the subject alternative name extension.
+    pub principal_names: Vec<String>,
 }
 
 impl Issue {
@@ -78,6 +80,7 @@ impl Issue {
             key: KeyAlg::P256,
             dns_names: Vec::new(),
             emails: Vec::new(),
+            principal_names: Vec::new(),
         }
     }
 
@@ -97,6 +100,14 @@ impl Issue {
     pub fn emails(self, emails: &[&str]) -> Self {
         let emails = emails.iter().map(|email| (*email).to_owned()).collect();
         Self { emails, ..self }
+    }
+
+    pub fn principal_names(self, names: &[&str]) -> Self {
+        let principal_names = names.iter().map(|name| (*name).to_owned()).collect();
+        Self {
+            principal_names,
+            ..self
+        }
     }
 
     pub fn dns_names(self, dns_names: &[&str]) -> Self {
@@ -234,6 +245,12 @@ impl TestCa {
         for email in issue.emails {
             let email = Ia5String::try_from(email).expect("an e-mail address");
             params.subject_alt_names.push(SanType::Rfc822Name(email));
+        }
+        for name in issue.principal_names {
+            params.subject_alt_names.push(SanType::OtherName((
+                vec![1, 3, 6, 1, 4, 1, 311, 20, 2, 3],
+                name.into(),
+            )));
         }
         params.distinguished_name = DistinguishedName::new();
         if issue.name.is_empty() {

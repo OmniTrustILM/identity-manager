@@ -4,6 +4,7 @@ use std::net::IpAddr;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
+use x509_parser::der_parser::asn1_rs::Any;
 use x509_parser::der_parser::oid;
 use x509_parser::extensions::GeneralName;
 use x509_parser::prelude::{FromDer, X509Certificate};
@@ -179,9 +180,12 @@ impl From<&LocalCertificate> for LocalCertificateView {
 
 /// Milliseconds since 1970 (UTC), as the interface counts time.
 pub(crate) fn epoch_millis(time: SystemTime) -> i64 {
-    time.duration_since(UNIX_EPOCH).map_or(0, |after| {
-        i64::try_from(after.as_millis()).unwrap_or(i64::MAX)
-    })
+    match time.duration_since(UNIX_EPOCH) {
+        Ok(after) => i64::try_from(after.as_millis()).unwrap_or(i64::MAX),
+        Err(before) => {
+            i64::try_from(before.duration().as_millis()).map_or(i64::MIN, |millis| -millis)
+        }
+    }
 }
 
 /// Describes one certificate, or `None` when `der` cannot be parsed.
@@ -253,7 +257,12 @@ pub fn read_logged(
 }
 
 fn instant(seconds: i64) -> SystemTime {
-    UNIX_EPOCH + Duration::from_secs(seconds.max(0) as u64)
+    let distance = Duration::from_secs(seconds.unsigned_abs());
+    if seconds < 0 {
+        UNIX_EPOCH - distance
+    } else {
+        UNIX_EPOCH + distance
+    }
 }
 
 /// Uppercase hex pairs with colons, without the leading zero bytes that only keep the number positive.
@@ -303,9 +312,19 @@ fn alternative_names(cert: &X509Certificate<'_>) -> Vec<String> {
                 Some((*text).to_owned())
             }
             GeneralName::IPAddress(bytes) => ip_address(bytes),
+            GeneralName::OtherName(kind, value) if *kind == oid!(1.3.6.1.4.1.311.20.2.3) => {
+                principal_name(value)
+            }
             _ => None,
         })
         .collect()
+}
+
+/// The user principal name of a Windows sign-in certificate: a UTF-8 string inside an explicit tag.
+fn principal_name(value: &[u8]) -> Option<String> {
+    let (_, tagged) = Any::from_der(value).ok()?;
+    let (_, name) = <&str>::from_der(tagged.data).ok()?;
+    Some(name.to_owned())
 }
 
 fn ip_address(bytes: &[u8]) -> Option<String> {

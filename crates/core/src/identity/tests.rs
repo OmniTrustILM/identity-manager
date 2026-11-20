@@ -313,6 +313,25 @@ mod listing {
     }
 
     #[test]
+    fn a_user_principal_name_is_an_alternative_name() {
+        let found = described(Issue::client("a").principal_names(&["jane@corp.example"]));
+        assert_eq!(found.alternative_names, ["jane@corp.example"]);
+    }
+
+    #[test]
+    fn a_validity_before_1970_is_kept() {
+        let found = described(Issue::client("a").valid((1960, 1, 1), (2099, 1, 1)));
+        assert_eq!(
+            found.not_before,
+            UNIX_EPOCH - Duration::from_secs(315_619_200)
+        );
+        assert_eq!(
+            LocalCertificateView::from(&found).not_before,
+            -315_619_200_000
+        );
+    }
+
+    #[test]
     fn the_key_algorithm_comes_from_the_certificate() {
         let key = |alg| described(Issue::client("a").key(alg)).key;
         let ec = |curve: &str| KeyAlgorithm::Ec {
