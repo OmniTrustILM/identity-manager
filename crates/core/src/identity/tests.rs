@@ -615,7 +615,7 @@ mod listing {
     #[test]
     fn the_empty_store_lists_nothing_and_no_provider_knows_a_key() {
         assert_eq!(EmptyStore.certificates(), Ok(Vec::new()));
-        assert_eq!(NoProviders.provider_name(b"der"), None);
+        assert_eq!(NoProviders.provider_names(&[b"one", b"two"]), [None, None]);
     }
 
     #[test]

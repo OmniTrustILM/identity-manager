@@ -23,10 +23,11 @@ impl IdentityStore for PersonalStore {
     fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
         read_logged("the personal certificate store", || {
             let all = all_certificates()?;
+            let ders: Vec<&[u8]> = all.iter().map(|(der, _)| der.as_slice()).collect();
+            let providers = self.providers.provider_names(&ders);
             let mut located = Vec::new();
             let mut unreachable = Vec::new();
-            for (der, context) in &all {
-                let provider = self.providers.provider_name(der);
+            for ((der, context), provider) in all.iter().zip(providers) {
                 if context.acquire_key(true).is_err() {
                     let Some(name) = &provider else {
                         continue;

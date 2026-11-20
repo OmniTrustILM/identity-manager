@@ -19,32 +19,19 @@ use windows::core::{Error, Result, w};
 pub struct WindowsKeyProviders;
 
 impl KeyProviders for WindowsKeyProviders {
-    fn provider_name(&self, der: &[u8]) -> Option<String> {
-        match lookup(der) {
-            Ok(name) => {
-                log::debug!(
-                    "key provider of certificate {}: {}",
-                    Fingerprint::of(der),
-                    name.as_deref().unwrap_or("none")
-                );
-                name
-            }
+    fn provider_names(&self, ders: &[&[u8]]) -> Vec<Option<String>> {
+        let store = match Store::open_personal() {
+            Ok(store) => store,
             Err(error) => {
                 log::warn!(
-                    "key provider of certificate {} not read: Windows error {:#010x}",
-                    Fingerprint::of(der),
+                    "key providers not read: Windows error {:#010x}",
                     error.code().0
                 );
-                None
+                return vec![None; ders.len()];
             }
-        }
+        };
+        ders.iter().map(|der| store.provider_name(der)).collect()
     }
-}
-
-fn lookup(der: &[u8]) -> Result<Option<String>> {
-    let store = Store::open_personal()?;
-    let given = Context::from_der(der)?;
-    store.find(&given)?.provider_name()
 }
 
 /// An open certificate store, closed when dropped.
@@ -64,6 +51,29 @@ impl Store {
             )
         }?;
         Ok(Self(handle))
+    }
+
+    /// The provider of the key of the certificate with this DER, as the store's copy of it names.
+    fn provider_name(&self, der: &[u8]) -> Option<String> {
+        let found = Context::from_der(der).and_then(|given| self.find(&given)?.provider_name());
+        match found {
+            Ok(name) => {
+                log::debug!(
+                    "key provider of certificate {}: {}",
+                    Fingerprint::of(der),
+                    name.as_deref().unwrap_or("none")
+                );
+                name
+            }
+            Err(error) => {
+                log::warn!(
+                    "key provider of certificate {} not read: Windows error {:#010x}",
+                    Fingerprint::of(der),
+                    error.code().0
+                );
+                None
+            }
+        }
     }
 
     /// The copy of `given` that the store holds.

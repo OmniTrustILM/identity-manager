@@ -435,16 +435,17 @@ impl IdentityStore for EmptyStore {
 
 /// Where the key of a certificate is kept, where the store itself cannot tell.
 pub trait KeyProviders: Send + Sync {
-    /// The name of the key storage provider of the certificate with this DER, when it is known.
-    fn provider_name(&self, der: &[u8]) -> Option<String>;
+    /// The name of the key storage provider of each certificate with these DERs, in the same order, when it
+    /// is known.
+    fn provider_names(&self, ders: &[&[u8]]) -> Vec<Option<String>>;
 }
 
 /// No lookup: every key location the store cannot tell is unknown.
 pub struct NoProviders;
 
 impl KeyProviders for NoProviders {
-    fn provider_name(&self, _der: &[u8]) -> Option<String> {
-        None
+    fn provider_names(&self, ders: &[&[u8]]) -> Vec<Option<String>> {
+        vec![None; ders.len()]
     }
 }
 
