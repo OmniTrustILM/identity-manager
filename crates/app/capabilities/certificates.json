@@ -1,0 +1,7 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "certificates",
+    "description": "The main window may list the certificates on this computer.",
+    "windows": ["main"],
+    "permissions": ["allow-local-certificates"]
+}

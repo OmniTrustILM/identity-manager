@@ -18,7 +18,9 @@ use crate::identity::Candidate as FoundCertificate;
 use crate::identity::testing::{
     ClientCerts, Issue, StandInStore, TestCa, TestIdentity, TestServer,
 };
-use crate::identity::{ClientIdentity, Fingerprint, IdentityStore};
+use crate::identity::{
+    ClientIdentity, Fingerprint, IdentityStore, LocalCertificate, StoreUnreadable,
+};
 use crate::ilm::IlmUrl;
 use crate::oauth::token::RefreshToken;
 use crate::settings::SignInMethod;
@@ -100,6 +102,10 @@ struct DeniedStore {
 }
 
 impl IdentityStore for DeniedStore {
+    fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
+        self.inner.certificates()
+    }
+
     fn candidates(&self) -> Vec<FoundCertificate> {
         self.inner.candidates()
     }
@@ -1049,6 +1055,42 @@ async fn the_log_of_a_certificate_flow_holds_no_key_body_or_identity() {
             "the log holds secret number {index}"
         );
     }
+}
+
+#[test]
+fn a_listing_logs_its_size_and_its_trouble_and_no_certificate() {
+    use crate::identity::certificate::{KeyLocation, describe_all, read_logged};
+    capture_logs();
+    let holder = TestCa::new().issue(Issue::client("Listed Holder"));
+    let items: [(&[u8], KeyLocation); 2] = [
+        (b"junk", KeyLocation::Unknown),
+        (holder.leaf().as_ref(), KeyLocation::Keychain),
+    ];
+    let read = read_logged("the test store", || {
+        Ok(describe_all(items, SystemTime::now()))
+    });
+    assert_eq!(read.unwrap().len(), 1);
+    let failed = read_logged("the broken store", || {
+        Err(StoreUnreadable("denied".to_owned()))
+    });
+    assert!(failed.is_err());
+
+    let log = LOG.lock().unwrap().join("\n");
+    assert!(log.contains("DEBUG: certificate "), "{log}");
+    assert!(
+        log.contains("INFO: certificates read: 1 in the test store, "),
+        "{log}"
+    );
+    assert!(
+        log.contains("WARN: cannot read the broken store: denied"),
+        "{log}"
+    );
+    let der = STANDARD.encode(holder.leaf().as_ref());
+    assert!(!log.contains(der.as_str()), "the log holds the certificate");
+    assert!(
+        !log.contains("Listed Holder"),
+        "the log holds the holder's name"
+    );
 }
 
 #[tokio::test]

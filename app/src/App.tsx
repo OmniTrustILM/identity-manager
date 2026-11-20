@@ -19,7 +19,7 @@ function Main({ platform }: Readonly<{ platform: Platform }>) {
     }
     switch (view?.state) {
         case 'signedIn':
-            return <Shell sections={visibleSections(view.allowedListings)} bottom={settingsSection(platform)} />;
+            return <Shell sections={visibleSections(view.allowedListings, platform)} bottom={settingsSection(platform)} />;
         case 'signedOut':
         case 'signingIn':
             return <SignIn view={view} />;

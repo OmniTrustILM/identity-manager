@@ -10,6 +10,7 @@ import {
     getSession,
     getSettings,
     hideSummary,
+    localCertificates,
     onOpenSection,
     onSignInChoices,
     onSessionChanged,
@@ -175,6 +176,25 @@ describe('bridge', () => {
 
         await expect(certificates()).resolves.toEqual([choice]);
         expect(calls).toEqual(['certificates']);
+    });
+
+    it('localCertificates returns the certificates of the person', async () => {
+        const calls: string[] = [];
+        mockIPC((command) => {
+            calls.push(command);
+            return [];
+        });
+
+        await expect(localCertificates()).resolves.toEqual([]);
+        expect(calls).toEqual(['local_certificates']);
+    });
+
+    it('localCertificates rejects with the reason the command gives', async () => {
+        mockIPC(() => {
+            throw 'locked';
+        });
+
+        await expect(localCertificates()).rejects.toBe('locked');
     });
 
     it('signInWithCertificate passes the fingerprint and returns the view', async () => {

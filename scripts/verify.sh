@@ -195,30 +195,37 @@ make_test_identity() {
     )
 }
 
-# Prints the hash of the leaf in $1 as the DER bytes: SHA-256 for the test, SHA-1 for the Windows thumbprint.
-leaf_digest() {
-    local digest=$1 dir=$2
-    openssl x509 -in "$dir/leaf.pem" -outform DER | openssl dgst "-$digest" -r | cut -d' ' -f1
+# Prints the hash of the certificate $2 (leaf or ca) in the directory $3 as the DER bytes: SHA-256 for the test,
+# SHA-1 for the Windows thumbprint.
+certificate_digest() {
+    local digest=$1 name=$2 dir=$3
+    openssl x509 -in "$dir/$name.pem" -outform DER | openssl dgst "-$digest" -r | cut -d' ' -f1
 }
 
 # The cleanups run from an EXIT trap, so they read globals.
 remove_test_keychain() {
+    if [[ -n "$saved_default" ]]; then
+        security default-keychain -d user -s "$saved_default" || true
+    fi
     if [[ ${#saved_keychains[@]} -gt 0 ]]; then
         security list-keychains -d user -s "${saved_keychains[@]}" || true
     fi
     security delete-keychain "$keychain" || true
+    security delete-keychain "$other_keychain" || true
     rm -rf "$dir"
 }
 
 remove_test_certificate() {
     # shellcheck disable=SC2016 # PowerShell expands the variable
-    IM_THUMBPRINT="$thumbprint" pwsh -NoProfile -Command \
-        'Remove-Item "Cert:\CurrentUser\My\$env:IM_THUMBPRINT" -DeleteKey -ErrorAction SilentlyContinue' || true
+    IM_THUMBPRINT="$thumbprint" IM_CA_THUMBPRINT="$ca_thumbprint" pwsh -NoProfile -Command \
+        'Remove-Item "Cert:\CurrentUser\My\$env:IM_THUMBPRINT" -DeleteKey -ErrorAction SilentlyContinue;
+         Remove-Item "Cert:\CurrentUser\My\$env:IM_CA_THUMBPRINT" -ErrorAction SilentlyContinue' || true
     rm -rf "$dir"
 }
 
-# Puts a throwaway client certificate into the user store of the runner, lists and signs with it through the
-# real readers, and removes it. The store is the real one, so this runs on CI runners only. Linux has no store.
+# Puts a throwaway client certificate, and its CA as a certificate without a key, into the user store of the runner,
+# lists and signs with the client certificate through the real readers, checks that the CA is not listed, and removes
+# both. The store is the real one, so this runs on CI runners only. Linux has no store.
 identity_system() {
     [[ -n "${CI:-}" ]] || { echo "identity-system writes to the certificate store of the system and runs on CI runners only (CI is not set)" >&2; exit 1; }
     local password test_name ca_pem
@@ -228,8 +235,12 @@ identity_system() {
     case "$(uname -s)" in
         Darwin)
             keychain="$dir/identity-test.keychain-db"
+            other_keychain="$dir/identity-other.keychain-db"
             test_name=identity::macos::tests::system_store_lists_and_signs
             saved_keychains=()
+            saved_default=$(security default-keychain -d user)
+            saved_default=${saved_default#*\"}
+            saved_default=${saved_default%\"*}
             while IFS= read -r line; do
                 line=${line#*\"}
                 saved_keychains+=("${line%\"*}")
@@ -238,24 +249,46 @@ identity_system() {
             security create-keychain -p "$password" "$keychain"
             security set-keychain-settings -lut 3600 "$keychain"
             security unlock-keychain -p "$password" "$keychain"
-            security list-keychains -d user -s "$keychain" "${saved_keychains[@]}"
+            # A second identity in a keychain that is on the search list but not the default must not be read.
+            mkdir "$dir/other"
+            make_test_identity "$dir/other" "$password"
+            security create-keychain -p "$password" "$other_keychain"
+            security set-keychain-settings -lut 3600 "$other_keychain"
+            security unlock-keychain -p "$password" "$other_keychain"
+            security list-keychains -d user -s "$keychain" "$other_keychain" "${saved_keychains[@]}"
+            security default-keychain -d user -s "$keychain"
             security import "$dir/identity.p12" -k "$keychain" -P "$password" -A -f pkcs12
+            security import "$dir/ca.pem" -k "$keychain" -f openssl
+            security import "$dir/other/identity.p12" -k "$other_keychain" -P "$password" -A -f pkcs12
             security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+            security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$other_keychain" > /dev/null
+            elsewhere=$(certificate_digest sha256 leaf "$dir/other")
             ;;
         MINGW* | MSYS* | CYGWIN*)
-            thumbprint=$(leaf_digest sha1 "$dir")
+            thumbprint=$(certificate_digest sha1 leaf "$dir")
+            ca_thumbprint=$(certificate_digest sha1 ca "$dir")
             test_name=identity::windows::tests::system_store_lists_and_signs
             trap remove_test_certificate EXIT
-            # shellcheck disable=SC2016 # PowerShell expands the variables
-            IM_PFX=$(cygpath -w "$dir/identity.p12") IM_PASSWORD="$password" pwsh -NoProfile -Command \
-                'Import-PfxCertificate -FilePath $env:IM_PFX -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $env:IM_PASSWORD -AsPlainText -Force) | Out-Null'
+            # The software key storage provider is the one the key provider test expects.
+            MSYS2_ARG_CONV_EXCL='*' certutil -user -csp "Microsoft Software Key Storage Provider" \
+                -p "$password" -importpfx "$(cygpath -w "$dir/identity.p12")" NoExport
+            # shellcheck disable=SC2016 # PowerShell expands the variable
+            IM_CA=$(cygpath -w "$dir/ca.pem") pwsh -NoProfile -Command \
+                'Import-Certificate -FilePath $env:IM_CA -CertStoreLocation Cert:\CurrentUser\My | Out-Null'
             ;;
         *) echo "identity-system has no certificate store to test on $(uname -s)" >&2; exit 1 ;;
     esac
     ca_pem=$dir/ca.pem
     [[ "$(uname -s)" == Darwin ]] || ca_pem=$(cygpath -w "$ca_pem")
-    IM_IDENTITY_FINGERPRINT=$(leaf_digest sha256 "$dir") IM_IDENTITY_CA=$ca_pem \
+    IM_IDENTITY_FINGERPRINT=$(certificate_digest sha256 leaf "$dir") \
+        IM_IDENTITY_KEYLESS_FINGERPRINT=$(certificate_digest sha256 ca "$dir") IM_IDENTITY_CA=$ca_pem \
+        IM_IDENTITY_ELSEWHERE_FINGERPRINT=${elsewhere:-} \
         cargo test -p im-core --locked -- --ignored "$test_name"
+    if [[ "$(uname -s)" != Darwin ]]; then
+        build_interface
+        IM_IDENTITY_FINGERPRINT=$(certificate_digest sha256 leaf "$dir") \
+            cargo test -p identity-manager --locked key_provider -- --ignored
+    fi
 }
 
 case "${1:-}" in

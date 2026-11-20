@@ -1,4 +1,5 @@
-//! The login keychain: identities (certificate and key) of the person, signed with through `SecKey`.
+//! The default keychain and smart cards: identities (certificate and key) of the person, signed with through
+//! `SecKey`.
 
 use std::fmt;
 use std::sync::Arc;
@@ -12,11 +13,14 @@ use security_framework::certificate::SecCertificate;
 use security_framework::identity::SecIdentity;
 use security_framework::item::{ItemClass, ItemSearchOptions, Limit, Reference, SearchResult};
 use security_framework::key::{Algorithm, SecKey};
+use security_framework::os::macos::keychain::SecKeychain;
 use security_framework::policy::SecPolicy;
 use security_framework::trust::SecTrust;
 
+use super::certificate::{KeyLocation, describe_all, read_logged};
 use super::{
-    Candidate, ClientIdentity, Fingerprint, IdentityStore, KeyKind, signing_refused, usable,
+    ClientIdentity, Fingerprint, IdentityStore, KeyKind, LocalCertificate, StoreUnreadable,
+    signing_refused, usable,
 };
 
 const ERR_SEC_ITEM_NOT_FOUND: i32 = -25300;
@@ -24,17 +28,34 @@ const ERR_SEC_ITEM_NOT_FOUND: i32 = -25300;
 pub struct KeychainStore;
 
 impl IdentityStore for KeychainStore {
-    fn candidates(&self) -> Vec<Candidate> {
-        usable(identities(), SystemTime::now())
-            .into_iter()
-            .map(|found| found.assessed.candidate)
-            .collect()
+    fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
+        read_logged("the keychain", || {
+            let identities = identities()?;
+            Ok(describe_all(
+                identities
+                    .iter()
+                    .map(|(der, location, _)| (der.as_slice(), *location)),
+                SystemTime::now(),
+            ))
+        })
     }
 
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity> {
-        let found = usable(identities(), SystemTime::now())
-            .into_iter()
-            .find(|found| found.assessed.candidate.fingerprint == *fingerprint)?;
+        let identities = match identities() {
+            Ok(identities) => identities,
+            Err(error) => {
+                log::warn!("cannot read the keychain: {error}");
+                return None;
+            }
+        };
+        let found = usable(
+            identities
+                .into_iter()
+                .map(|(der, _, identity)| (der, identity)),
+            SystemTime::now(),
+        )
+        .into_iter()
+        .find(|found| found.assessed.candidate.fingerprint == *fingerprint)?;
         let key = match found.item.private_key() {
             Ok(key) => key,
             Err(error) => {
@@ -51,27 +72,55 @@ impl IdentityStore for KeychainStore {
     }
 }
 
-/// The identities of the default keychain search list with the DER of their certificate.
-fn identities() -> Vec<(Vec<u8>, SecIdentity)> {
-    let results = ItemSearchOptions::new()
+/// The identities of the default keychain (keys in the keychain) and of the smart cards, with the DER of their
+/// certificate and where the key is, each certificate once. No other keychain is searched, so not the System
+/// keychain. Smart cards that cannot be read leave the keychain's list intact.
+fn identities() -> Result<Vec<(Vec<u8>, KeyLocation, SecIdentity)>, StoreUnreadable> {
+    let default = SecKeychain::default()
+        .map_err(|error| StoreUnreadable(format!("no default keychain: {error}")))?;
+    let mut found = search(
+        ItemSearchOptions::new().keychains(&[default]),
+        KeyLocation::Keychain,
+    )?;
+    let cards = search(
+        ItemSearchOptions::new().access_group_token(),
+        KeyLocation::SmartCard,
+    )
+    .unwrap_or_else(|error| {
+        log::warn!("cannot read the smart cards: {error}");
+        Vec::new()
+    });
+    for card in cards {
+        if !found.iter().any(|(der, _, _)| *der == card.0) {
+            found.push(card);
+        }
+    }
+    Ok(found)
+}
+
+/// The identities one search finds. Nothing found is not a failure.
+fn search(
+    options: &mut ItemSearchOptions,
+    location: KeyLocation,
+) -> Result<Vec<(Vec<u8>, KeyLocation, SecIdentity)>, StoreUnreadable> {
+    let results = options
         .class(ItemClass::identity())
         .load_refs(true)
         .limit(Limit::All)
         .search();
     match results {
-        Ok(results) => results
+        Ok(results) => Ok(results
             .into_iter()
             .filter_map(|result| match result {
                 SearchResult::Ref(Reference::Identity(identity)) => Some(identity),
                 _ => None,
             })
-            .filter_map(|identity| Some((identity.certificate().ok()?.to_der(), identity)))
-            .collect(),
-        Err(error) if error.code() == ERR_SEC_ITEM_NOT_FOUND => Vec::new(),
-        Err(error) => {
-            log::warn!("cannot read the keychain: {error}");
-            Vec::new()
-        }
+            .filter_map(|identity| {
+                Some((identity.certificate().ok()?.to_der(), location, identity))
+            })
+            .collect()),
+        Err(error) if error.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(Vec::new()),
+        Err(error) => Err(StoreUnreadable(error.to_string())),
     }
 }
 

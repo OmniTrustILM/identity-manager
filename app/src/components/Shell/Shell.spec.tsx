@@ -58,7 +58,7 @@ test('the overview shows the product name and version', async () => {
 });
 
 test('selecting a section shows its content and marks it current', async () => {
-    await render([...sections, other]);
+    await render([sections[0] as Section, other]);
 
     await act(async () => (entries()[1] as HTMLElement).click());
 
