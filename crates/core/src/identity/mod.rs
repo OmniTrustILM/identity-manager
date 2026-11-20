@@ -1,5 +1,7 @@
-//! The certificates of the person that can sign in to ILM, and their private keys, which stay in the system store.
+//! The certificates of the person with a private key, those that can sign in to ILM, and the keys, which stay in
+//! the system store.
 
+pub mod certificate;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(test)]
@@ -7,6 +9,8 @@ pub(crate) mod testing;
 pub mod tls;
 #[cfg(windows)]
 mod windows;
+
+pub use certificate::{KeyAlgorithm, KeyLocation, LocalCertificate, LocalCertificateView, Use};
 
 use std::error::Error;
 use std::fmt;
@@ -365,10 +369,50 @@ fn is_refusal(error: &(dyn Error + 'static)) -> bool {
         .is_some_and(|inner| is_signing_refused(inner))
 }
 
+/// The store could not be read; the reason is for the log, not for the screen.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoreUnreadable(pub String);
+
+impl fmt::Display for StoreUnreadable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl Error for StoreUnreadable {}
+
 /// The certificates of the person in the system store and their keys.
 pub trait IdentityStore: Send + Sync {
+    /// The certificates with a private key, by name, then the latest expiry, then fingerprint. Reading never uses
+    /// a private key.
+    fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable>;
+
     /// The certificates that can sign in (see [`assess`]), the latest expiry first.
-    fn candidates(&self) -> Vec<Candidate>;
+    fn candidates(&self) -> Vec<Candidate> {
+        let listed = match self.certificates() {
+            Ok(listed) => listed,
+            Err(error) => {
+                log::warn!("no certificates to sign in with: {error}");
+                return Vec::new();
+            }
+        };
+        let mut candidates: Vec<Candidate> = listed
+            .into_iter()
+            .filter(|found| found.sign_in.is_ok())
+            .map(|found| Candidate {
+                fingerprint: found.fingerprint,
+                subject: found.name,
+                issuer: found.issuer,
+                not_after: found.not_after,
+            })
+            .collect();
+        candidates.sort_by(|a, b| {
+            b.not_after
+                .cmp(&a.not_after)
+                .then_with(|| a.fingerprint.cmp(&b.fingerprint))
+        });
+        candidates
+    }
 
     /// The certificate with `fingerprint`, ready to sign, when the store has it and it can still sign in.
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity>;
@@ -378,8 +422,8 @@ pub trait IdentityStore: Send + Sync {
 pub struct EmptyStore;
 
 impl IdentityStore for EmptyStore {
-    fn candidates(&self) -> Vec<Candidate> {
-        Vec::new()
+    fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
+        Ok(Vec::new())
     }
 
     fn open(&self, _fingerprint: &Fingerprint) -> Option<ClientIdentity> {
@@ -387,13 +431,29 @@ impl IdentityStore for EmptyStore {
     }
 }
 
-/// The store of this system: the login keychain on macOS, the personal store of the current user on Windows,
-/// none on Linux.
-pub fn system_store() -> Arc<dyn IdentityStore> {
+/// Where the key of a certificate is kept, where the store itself cannot tell.
+pub trait KeyProviders: Send + Sync {
+    /// The name of the key storage provider of the certificate with this DER, when it is known.
+    fn provider_name(&self, der: &[u8]) -> Option<String>;
+}
+
+/// No lookup: every key location the store cannot tell is unknown.
+pub struct NoProviders;
+
+impl KeyProviders for NoProviders {
+    fn provider_name(&self, _der: &[u8]) -> Option<String> {
+        None
+    }
+}
+
+/// The store of this system: the default keychain and smart cards on macOS, the personal store of the current
+/// user on Windows, none on Linux. `providers` names the key providers on Windows and is not used elsewhere.
+#[cfg_attr(not(windows), allow(unused_variables))]
+pub fn system_store(providers: Arc<dyn KeyProviders>) -> Arc<dyn IdentityStore> {
     #[cfg(target_os = "macos")]
     return Arc::new(macos::KeychainStore);
     #[cfg(windows)]
-    return Arc::new(windows::PersonalStore);
+    return Arc::new(windows::PersonalStore { providers });
     #[cfg(not(any(target_os = "macos", windows)))]
     return Arc::new(EmptyStore);
 }

@@ -3,7 +3,7 @@
 use std::error::Error;
 use std::io;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 use reqwest::{Client, RequestBuilder, Response, StatusCode};
 use tokio::sync::Notify;
@@ -12,6 +12,7 @@ use super::{
     Active, Again, CONNECT_FIRST, CallError, CertificateCall, CertificateChoice, Connection,
     Credential, Session, SessionView, SignInKind, State, is_current, lock,
 };
+use crate::identity::certificate::epoch_millis;
 use crate::identity::{self, Fingerprint, IdentityStore, is_signing_refused};
 use crate::ilm::IlmUrl;
 use crate::ilm::profile::{IlmError, profile_request, read_profile};
@@ -36,12 +37,6 @@ pub(super) fn certificate_choice() -> ProviderChoice {
         id: CERTIFICATE_ID.to_owned(),
         name: CERTIFICATE_NAME.to_owned(),
     }
-}
-
-fn epoch_millis(time: SystemTime) -> i64 {
-    time.duration_since(UNIX_EPOCH).map_or(0, |after| {
-        i64::try_from(after.as_millis()).unwrap_or(i64::MAX)
-    })
 }
 
 /// What to tell the person when the request was refused, or none when ILM could not be reached. A connection that

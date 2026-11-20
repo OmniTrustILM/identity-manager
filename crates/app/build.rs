@@ -36,6 +36,7 @@ fn main() {
                 "sign_out",
                 "unlock",
                 "sign_in_again",
+                "local_certificates",
             ])),
     )
     .expect("the Tauri build failed");

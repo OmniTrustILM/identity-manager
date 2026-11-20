@@ -1,7 +1,10 @@
 mod bridge;
+mod certificates;
 mod color_scheme;
 mod dock;
 mod keep_alive;
+#[cfg(windows)]
+mod key_provider;
 mod lock;
 #[cfg(any(windows, test))]
 mod main_window;
@@ -100,7 +103,8 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             session::cancel_sign_in,
             session::sign_out,
             session::unlock,
-            session::sign_in_again
+            session::sign_in_again,
+            certificates::local_certificates
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)

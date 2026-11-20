@@ -3,10 +3,11 @@
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
+use rcgen::string::Ia5String;
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa,
     Issuer, KeyPair, PKCS_ECDSA_P256_SHA256, PKCS_ECDSA_P384_SHA384, PKCS_ECDSA_P521_SHA512,
-    PKCS_RSA_SHA256, RsaKeySize, date_time_ymd,
+    PKCS_ED25519, PKCS_RSA_SHA256, RsaKeySize, SanType, date_time_ymd,
 };
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
@@ -17,7 +18,10 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tokio_rustls::TlsAcceptor;
 
-use super::{Candidate, ClientIdentity, Fingerprint, IdentityStore, usable};
+use super::certificate::{KeyLocation, describe_all};
+use super::{
+    ClientIdentity, Fingerprint, IdentityStore, LocalCertificate, StoreUnreadable, usable,
+};
 
 /// A calendar date as year, month, day.
 pub type Date = (i32, u8, u8);
@@ -26,6 +30,13 @@ pub type Date = (i32, u8, u8);
 pub enum Usage {
     ClientAuth,
     ServerAuth,
+    ClientAndServerAuth,
+    CodeSigning,
+    EmailProtection,
+    TimeStamping,
+    OcspSigning,
+    /// An extended key usage that has no name, 1.2.3.4.
+    Unnamed,
     Any,
     /// No extended key usage extension.
     Unrestricted,
@@ -37,6 +48,8 @@ pub enum KeyAlg {
     P384,
     P521,
     Rsa2048,
+    Rsa3072,
+    Ed25519,
 }
 
 /// What a certificate issued by [`TestCa`] looks like.
@@ -50,6 +63,8 @@ pub struct Issue {
     pub key: KeyAlg,
     /// Names for the subject alternative name extension.
     pub dns_names: Vec<String>,
+    /// E-mail addresses for the subject alternative name extension.
+    pub emails: Vec<String>,
 }
 
 impl Issue {
@@ -62,6 +77,7 @@ impl Issue {
             not_after: (2099, 1, 1),
             key: KeyAlg::P256,
             dns_names: Vec::new(),
+            emails: Vec::new(),
         }
     }
 
@@ -76,6 +92,16 @@ impl Issue {
 
     pub fn usage(self, usage: Usage) -> Self {
         Self { usage, ..self }
+    }
+
+    pub fn emails(self, emails: &[&str]) -> Self {
+        let emails = emails.iter().map(|email| (*email).to_owned()).collect();
+        Self { emails, ..self }
+    }
+
+    pub fn dns_names(self, dns_names: &[&str]) -> Self {
+        let dns_names = dns_names.iter().map(|name| (*name).to_owned()).collect();
+        Self { dns_names, ..self }
     }
 
     pub fn key(self, key: KeyAlg) -> Self {
@@ -200,9 +226,15 @@ impl TestCa {
             KeyAlg::P384 => KeyPair::generate_for(&PKCS_ECDSA_P384_SHA384),
             KeyAlg::P521 => KeyPair::generate_for(&PKCS_ECDSA_P521_SHA512),
             KeyAlg::Rsa2048 => KeyPair::generate_rsa_for(&PKCS_RSA_SHA256, RsaKeySize::_2048),
+            KeyAlg::Rsa3072 => KeyPair::generate_rsa_for(&PKCS_RSA_SHA256, RsaKeySize::_3072),
+            KeyAlg::Ed25519 => KeyPair::generate_for(&PKCS_ED25519),
         }
         .expect("a key pair");
         let mut params = CertificateParams::new(issue.dns_names).expect("valid names");
+        for email in issue.emails {
+            let email = Ia5String::try_from(email).expect("an e-mail address");
+            params.subject_alt_names.push(SanType::Rfc822Name(email));
+        }
         params.distinguished_name = DistinguishedName::new();
         if issue.name.is_empty() {
             params
@@ -216,15 +248,21 @@ impl TestCa {
         params.not_before =
             date_time_ymd(issue.not_before.0, issue.not_before.1, issue.not_before.2);
         params.not_after = date_time_ymd(issue.not_after.0, issue.not_after.1, issue.not_after.2);
-        match issue.usage {
-            Usage::ClientAuth => {
-                params.insert_extended_key_usage(ExtendedKeyUsagePurpose::ClientAuth)
-            }
-            Usage::ServerAuth => {
-                params.insert_extended_key_usage(ExtendedKeyUsagePurpose::ServerAuth)
-            }
-            Usage::Any => params.insert_extended_key_usage(ExtendedKeyUsagePurpose::Any),
-            Usage::Unrestricted => {}
+        use ExtendedKeyUsagePurpose as Purpose;
+        let purposes: &[Purpose] = match issue.usage {
+            Usage::ClientAuth => &[Purpose::ClientAuth],
+            Usage::ServerAuth => &[Purpose::ServerAuth],
+            Usage::ClientAndServerAuth => &[Purpose::ServerAuth, Purpose::ClientAuth],
+            Usage::CodeSigning => &[Purpose::CodeSigning],
+            Usage::EmailProtection => &[Purpose::EmailProtection],
+            Usage::TimeStamping => &[Purpose::TimeStamping],
+            Usage::OcspSigning => &[Purpose::OcspSigning],
+            Usage::Unnamed => &[Purpose::Other(vec![1, 2, 3, 4])],
+            Usage::Any => &[Purpose::Any],
+            Usage::Unrestricted => &[],
+        };
+        for purpose in purposes {
+            params.insert_extended_key_usage(purpose.clone());
         }
         let issuer = Issuer::from_params(&self.params, &self.key);
         let leaf = params.signed_by(&key_pair, &issuer).expect("a certificate");
@@ -245,6 +283,7 @@ impl TestCa {
 pub struct StandInStore {
     identities: Vec<TestIdentity>,
     now: SystemTime,
+    location: KeyLocation,
 }
 
 impl StandInStore {
@@ -252,12 +291,18 @@ impl StandInStore {
         Self {
             identities,
             now: SystemTime::now(),
+            location: KeyLocation::Unknown,
         }
     }
 
     /// The same store with another idea of the time, to judge validity.
     pub fn at(self, now: SystemTime) -> Self {
         Self { now, ..self }
+    }
+
+    /// The same store with the private keys somewhere else.
+    pub fn located(self, location: KeyLocation) -> Self {
+        Self { location, ..self }
     }
 
     fn usable(&self) -> Vec<super::Usable<&TestIdentity>> {
@@ -271,11 +316,13 @@ impl StandInStore {
 }
 
 impl IdentityStore for StandInStore {
-    fn candidates(&self) -> Vec<Candidate> {
-        self.usable()
-            .into_iter()
-            .map(|found| found.assessed.candidate)
-            .collect()
+    fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
+        Ok(describe_all(
+            self.identities
+                .iter()
+                .map(|identity| (identity.leaf().as_ref(), self.location)),
+            self.now,
+        ))
     }
 
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity> {
@@ -479,14 +526,33 @@ fn profile_json() -> String {
 }
 
 /// The check of the ignored test of each system: the store holds the certificate named by
-/// `IM_IDENTITY_FINGERPRINT`, lists it as a candidate, opens it, signs with its key and completes a handshake
-/// with a server that requires a certificate issued by the CA in the PEM file `IM_IDENTITY_CA`.
+/// `IM_IDENTITY_FINGERPRINT` and a CA certificate without a key named by `IM_IDENTITY_KEYLESS_FINGERPRINT`, lists the
+/// first (and not the second) as a certificate that can sign in and as a candidate, opens it, signs with
+/// its key and completes a handshake with a server that requires a certificate issued by the CA in the PEM file `IM_IDENTITY_CA`.
 #[cfg(any(target_os = "macos", windows))]
 pub async fn check_system_store(store: &dyn IdentityStore) {
     let expected: Fingerprint = std::env::var("IM_IDENTITY_FINGERPRINT")
         .expect("IM_IDENTITY_FINGERPRINT names the certificate in the store")
         .parse()
         .expect("IM_IDENTITY_FINGERPRINT is a fingerprint");
+    let listed = store.certificates().expect("the store is readable");
+    let found = listed
+        .iter()
+        .find(|certificate| certificate.fingerprint == expected)
+        .expect("the store lists the certificate it signs with");
+    assert_eq!(found.sign_in, Ok(()));
+    #[cfg(target_os = "macos")]
+    assert_eq!(found.location, KeyLocation::Keychain);
+    let keyless: Fingerprint = std::env::var("IM_IDENTITY_KEYLESS_FINGERPRINT")
+        .expect("IM_IDENTITY_KEYLESS_FINGERPRINT names the certificate without a key")
+        .parse()
+        .expect("IM_IDENTITY_KEYLESS_FINGERPRINT is a fingerprint");
+    assert!(
+        listed
+            .iter()
+            .all(|certificate| certificate.fingerprint != keyless),
+        "the store lists a certificate that has no private key"
+    );
     let candidates = store.candidates();
     assert!(
         candidates.iter().any(|c| c.fingerprint == expected),

@@ -169,8 +169,9 @@ whether ILM accepts it when the person signs in. This part is for the administra
 
 ### What the certificate needs
 
-- A private key in the certificate store of the person: the login keychain on macOS, the CurrentUser personal store
-  on Windows. Linux is not supported yet.
+- A private key in the certificate store of the person. On macOS, Identity Manager reads the login (default)
+  keychain and smart cards, not the System keychain. On Windows, it reads the personal store of the current user
+  (`CurrentUser\My`) and lists the certificates that have a private key. Linux is not supported yet.
 - `clientAuth` in the extended key usage, when the certificate has an extended key usage.
 - An RSA key of 2048 bits or more, or an ECDSA key on P-256 or P-384.
 - A validity period that has started and not ended.

@@ -602,6 +602,41 @@ mod tests {
     }
 
     #[test]
+    fn the_certificates_capability_grants_only_listing_to_the_main_window() {
+        let file = include_str!("../capabilities/certificates.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["windows"], serde_json::json!(["main"]));
+        assert!(parsed.get("platforms").is_none());
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!(["allow-local-certificates"])
+        );
+    }
+
+    #[test]
+    fn only_the_main_window_may_list_the_certificates() {
+        for label in ["main", "summary", "settings"] {
+            let answer = call_in(
+                label,
+                LOCAL_ORIGIN,
+                "local_certificates",
+                serde_json::json!({}),
+            );
+            assert_eq!(
+                refused_by_capabilities(&answer),
+                label != "main",
+                "{label}: {answer:?}"
+            );
+        }
+        let answer = call_from(
+            "https://example.com",
+            "local_certificates",
+            serde_json::json!({}),
+        );
+        assert!(refused_by_capabilities(&answer), "{answer:?}");
+    }
+
+    #[test]
     fn the_settings_window_session_capability_is_for_macos_and_grants_only_two_commands_and_event_listening()
      {
         let file = include_str!("../capabilities/settings-window-session.json");

@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import { openSettings, type Platform } from './bridge';
-import { type Icon, OverviewIcon, SettingsIcon } from './design-system/icons';
+import { CertificateIcon, type Icon, OverviewIcon, SettingsIcon } from './design-system/icons';
+import { Certificates } from './sections/Certificates';
 import { Overview } from './sections/Overview';
 import { Settings } from './sections/Settings';
 import { strings } from './strings';
@@ -12,14 +13,19 @@ export interface Section {
     Component: ComponentType;
     /** Shown only when this holds for the listings the person may use; a section without a rule is always shown. */
     visibleWhen?: (listings: string[]) => boolean;
+    /** Shown only on these platforms; a section without the list is shown on all. */
+    platforms?: Platform[];
     /** Opens the section somewhere else instead of showing `Component` as a page. */
     open?: () => void;
 }
 
-export const sections: Section[] = [{ id: 'overview', label: strings.overview, icon: OverviewIcon, Component: Overview }];
+export const sections: Section[] = [
+    { id: 'overview', label: strings.overview, icon: OverviewIcon, Component: Overview },
+    { id: 'certificates', label: strings.certificates, icon: CertificateIcon, Component: Certificates, platforms: ['macos', 'windows'] },
+];
 
-export function visibleSections(listings: string[], candidates: Section[] = sections): Section[] {
-    return candidates.filter((section) => section.visibleWhen?.(listings) ?? true);
+export function visibleSections(listings: string[], platform: Platform, candidates: Section[] = sections): Section[] {
+    return candidates.filter((section) => (section.platforms?.includes(platform) ?? true) && (section.visibleWhen?.(listings) ?? true));
 }
 
 const settings = (label: string): Section => ({ id: 'settings', label, icon: SettingsIcon, Component: Settings });

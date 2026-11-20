@@ -9,20 +9,37 @@ use rustls::{SignatureAlgorithm, SignatureScheme};
 use rustls_cng::signer::CngSigningKey;
 use rustls_cng::store::{CertStore, CertStoreType};
 
-use super::{Candidate, ClientIdentity, Fingerprint, IdentityStore, signing_refused, usable};
+use super::certificate::{KeyLocation, describe_all, read_logged};
+use super::{
+    ClientIdentity, Fingerprint, IdentityStore, KeyProviders, LocalCertificate, StoreUnreadable,
+    signing_refused, usable,
+};
 
-pub struct PersonalStore;
+pub struct PersonalStore {
+    pub providers: Arc<dyn KeyProviders>,
+}
 
 impl IdentityStore for PersonalStore {
-    fn candidates(&self) -> Vec<Candidate> {
-        usable(certificates(), SystemTime::now())
-            .into_iter()
-            .map(|found| found.assessed.candidate)
-            .collect()
+    fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
+        read_logged("the personal certificate store", || {
+            let found = certificates()?;
+            let located: Vec<(&[u8], KeyLocation)> = found
+                .iter()
+                .map(|(der, _)| (der.as_slice(), self.location(der)))
+                .collect();
+            Ok(describe_all(located, SystemTime::now()))
+        })
     }
 
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity> {
-        let found = usable(certificates(), SystemTime::now())
+        let found = match certificates() {
+            Ok(found) => found,
+            Err(error) => {
+                log::warn!("cannot read the personal certificate store: {error}");
+                return None;
+            }
+        };
+        let found = usable(found, SystemTime::now())
             .into_iter()
             .find(|found| found.assessed.candidate.fingerprint == *fingerprint)?;
         let context = found.item;
@@ -42,26 +59,33 @@ impl IdentityStore for PersonalStore {
     }
 }
 
-/// The certificates of `CurrentUser\My` that have a private key, with the DER of each.
-fn certificates() -> Vec<(Vec<u8>, rustls_cng::cert::CertContext)> {
-    let store = match CertStore::open(CertStoreType::CurrentUser, "My") {
-        Ok(store) => store,
-        Err(error) => {
-            log::warn!("cannot open the personal certificate store: {error}");
-            return Vec::new();
-        }
-    };
-    let all = match store.find_all() {
-        Ok(all) => all,
-        Err(error) => {
-            log::warn!("cannot read the personal certificate store: {error}");
-            return Vec::new();
-        }
-    };
-    all.into_iter()
+impl PersonalStore {
+    /// Where the key of the certificate with this DER is kept, as far as the provider lookup tells.
+    fn location(&self, der: &[u8]) -> KeyLocation {
+        let Some(name) = self.providers.provider_name(der) else {
+            return KeyLocation::Unknown;
+        };
+        log::debug!(
+            "certificate {} has its key with {name}",
+            Fingerprint::of(der)
+        );
+        KeyLocation::from_windows_provider(&name)
+    }
+}
+
+/// The certificates of `CurrentUser\My` that have a private key, with the DER of each. The key is looked up
+/// silently, so nothing asks the person for a PIN.
+fn certificates() -> Result<Vec<(Vec<u8>, rustls_cng::cert::CertContext)>, StoreUnreadable> {
+    let store = CertStore::open(CertStoreType::CurrentUser, "My")
+        .map_err(|error| StoreUnreadable(format!("cannot open the store: {error}")))?;
+    let all = store
+        .find_all()
+        .map_err(|error| StoreUnreadable(format!("cannot list the store: {error}")))?;
+    Ok(all
+        .into_iter()
         .filter(|context| context.acquire_key(true).is_ok())
         .map(|context| (context.as_der().to_vec(), context))
-        .collect()
+        .collect())
 }
 
 /// A CNG key whose refusals are reported as [`super::SigningRefused`].
@@ -103,6 +127,9 @@ mod tests {
     #[tokio::test]
     #[ignore = "reads the real certificate store; runs in the system-store job only"]
     async fn system_store_lists_and_signs() {
-        super::super::testing::check_system_store(&PersonalStore).await;
+        let store = PersonalStore {
+            providers: Arc::new(super::super::NoProviders),
+        };
+        super::super::testing::check_system_store(&store).await;
     }
 }

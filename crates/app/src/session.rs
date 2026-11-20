@@ -1,7 +1,6 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use im_core::identity::{EmptyStore, IdentityStore, system_store};
 use im_core::session::{
     CertificateChoice, KeyringStore, MemoryStore, ProviderChoice, RefreshStore, Session,
     SessionView, SignInAgain,
@@ -11,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
+use crate::certificates::{Local, system_identities};
 use crate::keep_alive;
 use crate::lock::{self, Guard, Surface};
 use crate::notice::{Notices, Notifier};
@@ -82,7 +82,8 @@ pub struct SignIn {
 }
 
 /// Builds the session, tells the windows about each change of it, hidden while the application is locked,
-/// and, outside self-check mode, renews a stored sign-in in the background and keeps it checked.
+/// and, outside self-check mode, renews a stored sign-in in the background and keeps it checked. Sign-in and
+/// the Certificates section read the same store.
 pub fn manage<R: Runtime>(
     app: &AppHandle<R>,
     mode: Mode,
@@ -92,6 +93,7 @@ pub fn manage<R: Runtime>(
     notifier: Box<dyn Notifier>,
     guard: Guard,
 ) {
+    let identities = system_identities();
     let notices = Notices::new(notifier, AppInfo::current().platform);
     let guard = Arc::new(guard);
     let views = guard.clone();
@@ -100,7 +102,7 @@ pub fn manage<R: Runtime>(
             views.publish(view);
             notices.view(view);
         })
-        .with_identities(identities()),
+        .with_identities(identities.clone()),
     );
     let session_for_timers = session.clone();
     app.manage(SignIn {
@@ -109,6 +111,7 @@ pub fn manage<R: Runtime>(
         guard: guard.clone(),
     });
     app.manage(guard.clone());
+    app.manage(Local(identities));
     tauri::async_runtime::spawn({
         let guard = guard.clone();
         async move {
@@ -137,15 +140,6 @@ pub fn protected_store() -> Arc<dyn RefreshStore> {
             log::warn!("the protected storage is unavailable, the sign-in is not kept: {error}");
             Arc::new(MemoryStore::default())
         }
-    }
-}
-
-/// The certificates of this computer. Unit tests see none, so they never reach the real store.
-fn identities() -> Arc<dyn IdentityStore> {
-    if cfg!(test) {
-        Arc::new(EmptyStore)
-    } else {
-        system_store()
     }
 }
 
@@ -336,7 +330,8 @@ mod tests {
                 unlock,
                 sign_in_again,
                 crate::settings::settings,
-                crate::settings::set_setting
+                crate::settings::set_setting,
+                crate::certificates::local_certificates
             ])
             .build(mock_context(noop_assets()))
             .expect("the mock app builds");
@@ -609,6 +604,24 @@ mod tests {
             Err(error) => assert!(error.contains(LOCKED), "{command}: {error}"),
             Ok(value) => panic!("{command} was not refused: {value}"),
         }
+    }
+
+    #[test]
+    fn the_certificates_are_not_listed_while_locked() {
+        let fixture = fixture(Mode::SelfCheck);
+        assert_eq!(
+            fixture
+                .call("local_certificates", serde_json::json!({}))
+                .unwrap(),
+            serde_json::json!([])
+        );
+
+        fixture.lock();
+
+        refused_as_locked(
+            fixture.call("local_certificates", serde_json::json!({})),
+            "local_certificates",
+        );
     }
 
     #[test]

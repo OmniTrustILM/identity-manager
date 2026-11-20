@@ -1,7 +1,16 @@
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { useMemo, useState } from 'react';
 import { AppInfoContext } from '../src/app-info';
-import type { CertificateChoice, Change, LogLevel, Platform, ProviderChoice, SessionView, SettingsView } from '../src/bridge';
+import type {
+    CertificateChoice,
+    Change,
+    LocalCertificateView,
+    LogLevel,
+    Platform,
+    ProviderChoice,
+    SessionView,
+    SettingsView,
+} from '../src/bridge';
 import { LockNote } from '../src/components/Switch/LockNote';
 import { Select } from '../src/components/Switch/Select';
 import { Shell } from '../src/components/Shell/Shell';
@@ -10,6 +19,7 @@ import { TraySummary } from '../src/components/TraySummary/TraySummary';
 import { OverviewIcon, SettingsIcon } from '../src/design-system/icons';
 import type { Section } from '../src/sections';
 import { sections as realSections, settingsSection } from '../src/sections';
+import { Certificates } from '../src/sections/Certificates';
 import { Settings } from '../src/sections/Settings';
 import { SignIn, Unreachable } from '../src/sections/SignIn';
 import { Unlock } from '../src/sections/Unlock';
@@ -239,6 +249,24 @@ export function UnreachableStory({ platform, refuse }: UnreachableProps) {
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <Unreachable view={{ state: 'unreachable', address: 'https://ilm.example.com', problem: 'ILM cannot be reached.' }} />
+        </AppInfoContext.Provider>
+    );
+}
+
+/** The Certificates section against a stand-in for its command, in a window of the given width. */
+export function CertificatesStory({
+    platform,
+    certificates,
+    width = 1000,
+}: StoryProps & Readonly<{ certificates: LocalCertificateView[]; width?: number }>) {
+    useMemo(() => {
+        mockIPC((command) => (command === 'local_certificates' ? certificates : undefined));
+    }, [certificates]);
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            <main className="bg-surface p-s5" style={{ width }}>
+                <Certificates />
+            </main>
         </AppInfoContext.Provider>
     );
 }
