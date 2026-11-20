@@ -15,13 +15,29 @@ use rustls_platform_verifier::Verifier;
 
 use super::ClientIdentity;
 
-/// Whether a server has asked for a client certificate on a connection of the client it belongs to.
+/// Whether a server has asked for a client certificate on a connection of the client it belongs to, and whether
+/// the certificate was then actually offered to it.
 #[derive(Clone, Default)]
-pub struct CertificateAsked(Arc<AtomicBool>);
+pub struct CertificateAsked {
+    asked: Arc<AtomicBool>,
+    offered: Arc<AtomicBool>,
+}
 
 impl CertificateAsked {
     pub fn get(&self) -> bool {
-        self.0.load(Ordering::SeqCst)
+        self.asked.load(Ordering::SeqCst)
+    }
+
+    pub fn offered(&self) -> bool {
+        self.offered.load(Ordering::SeqCst)
+    }
+
+    #[cfg(test)]
+    pub fn offered_for_tests() -> Self {
+        let flags = Self::default();
+        flags.asked.store(true, Ordering::SeqCst);
+        flags.offered.store(true, Ordering::SeqCst);
+        flags
     }
 }
 
@@ -51,12 +67,13 @@ impl ResolvesClientCert for OfferIdentity {
         _root_hint_subjects: &[&[u8]],
         sigschemes: &[SignatureScheme],
     ) -> Option<Arc<CertifiedKey>> {
-        self.asked.0.store(true, Ordering::SeqCst);
+        self.asked.asked.store(true, Ordering::SeqCst);
         let key = self.identity.signing_key();
         if key.choose_scheme(sigschemes).is_none() {
             log::warn!("the server accepts no signature scheme the certificate's key supports");
             return None;
         }
+        self.asked.offered.store(true, Ordering::SeqCst);
         Some(Arc::new(CertifiedKey::new(
             self.identity.chain().to_vec(),
             key,
@@ -134,6 +151,7 @@ mod tests {
         assert_eq!(get_profile(&client, &server).await.unwrap(), 200);
 
         assert!(asked.get());
+        assert!(asked.offered());
         let seen = server.requests();
         assert_eq!(seen.len(), 1);
         assert_eq!(seen[0].fingerprint, Some(person.fingerprint()));
@@ -180,6 +198,7 @@ mod tests {
         assert_eq!(get_profile(&client, &server).await.unwrap(), 401);
 
         assert!(!asked.get());
+        assert!(!asked.offered());
         assert_eq!(server.requests()[0].fingerprint, None);
     }
 

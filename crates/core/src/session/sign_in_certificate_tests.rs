@@ -12,6 +12,7 @@ use super::tests::{LOG, World, capture_logs};
 use super::{ChangeError, ConnectionSettings, SessionView};
 use crate::http::client_for_tests;
 use crate::identity::testing::{Issue, StandInStore, TestCa, TestIdentity};
+use crate::identity::tls::CertificateAsked;
 use crate::identity::{
     ClientIdentity, Fingerprint, IdentityStore, LocalCertificate, StoreUnreadable,
 };
@@ -65,9 +66,9 @@ impl Change {
 
     async fn on(overrides: Value, jane: TestIdentity, store: impl IdentityStore + 'static) -> Self {
         let mut world = World::new().await.with_identities(store);
-        world.session = world
-            .session
-            .with_certificate_client(Box::new(|_| (client_for_tests(), Default::default())));
+        world.session = world.session.with_certificate_client(Box::new(|_| {
+            (client_for_tests(), CertificateAsked::offered_for_tests())
+        }));
         world.code_grant("access", Some("refresh"), 3600).await;
         Mock::given(method("GET"))
             .and(path(PROFILE))

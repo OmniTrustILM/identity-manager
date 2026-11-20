@@ -322,7 +322,8 @@ impl Session {
 
     /// Opens `fingerprint` and presents it to ILM in a handshake before ILM is asked to change anything, so a
     /// certificate that cannot be opened or presented changes nothing; with a certificate sign-in it also keeps
-    /// the client for it. Any HTTP answer will do: ILM does not know the certificate as the sign-in one yet.
+    /// the client for it. Any HTTP answer will do, as ILM does not know the certificate as the sign-in one yet,
+    /// provided the handshake offered it.
     async fn prepare_switch(
         &self,
         ilm: &IlmUrl,
@@ -336,7 +337,7 @@ impl Session {
         let not_after = identity::assess(identity.chain()[0].as_ref(), SystemTime::now())
             .ok()
             .map(|found| found.candidate.not_after);
-        let (client, _) = (self.certificate_client)(identity);
+        let (client, asked) = (self.certificate_client)(identity);
         if let Err(error) = profile_request(&client, ilm).send().await {
             let kind = if error.is_timeout() {
                 "timeout"
@@ -346,6 +347,10 @@ impl Session {
                 "other"
             };
             log::info!("the new sign-in certificate could not be presented to ILM ({kind})");
+            return Err(ChangeError::CannotSignIn);
+        }
+        if !asked.offered() {
+            log::info!("the new sign-in certificate was not presented to ILM");
             return Err(ChangeError::CannotSignIn);
         }
         if departing.generation.is_none() {

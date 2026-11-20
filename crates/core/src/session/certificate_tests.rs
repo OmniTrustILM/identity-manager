@@ -19,6 +19,7 @@ use crate::identity::Candidate as FoundCertificate;
 use crate::identity::testing::{
     ClientCerts, Issue, StandInStore, TestCa, TestIdentity, TestServer,
 };
+use crate::identity::tls::CertificateAsked;
 use crate::identity::{
     ClientIdentity, Fingerprint, IdentityStore, LocalCertificate, StoreUnreadable,
 };
@@ -1434,6 +1435,45 @@ async fn a_certificate_the_computer_cannot_open_changes_nothing_in_ilm() {
     let (jane, john) = two_certificates(&ca);
     let world = CertWorld::of(&ca, &jane).await;
     world.sign_in(&jane).await;
+    let folder = tempfile::tempdir().unwrap();
+    let inventory = Inventory::new(folder.path());
+    inventory.seed(matched(&john));
+
+    let done = world
+        .session
+        .make_sign_in_certificate(&inventory, &john.fingerprint().to_string(), || true)
+        .await;
+
+    assert_eq!(done, Err(crate::session::ChangeError::CannotSignIn));
+    assert_eq!(world.remembered(), Some(jane.fingerprint()));
+    assert!(
+        world
+            .server
+            .requests()
+            .iter()
+            .all(|seen| seen.method != "PUT")
+    );
+}
+
+#[tokio::test]
+async fn a_change_whose_handshake_did_not_offer_the_certificate_changes_nothing_in_ilm() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let mut world = CertWorld::start(
+        &ca,
+        ClientCerts::Required,
+        &jane,
+        StandInStore::new(vec![jane.clone(), john.clone()]),
+    )
+    .await;
+    world.sign_in(&jane).await;
+    let root = ca.der().clone();
+    world.session = world
+        .session
+        .with_certificate_client(Box::new(move |identity| {
+            let (client, _) = client_with_identity_trusting(&root, identity);
+            (client, CertificateAsked::default())
+        }));
     let folder = tempfile::tempdir().unwrap();
     let inventory = Inventory::new(folder.path());
     inventory.seed(matched(&john));
