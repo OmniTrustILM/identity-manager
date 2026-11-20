@@ -62,6 +62,8 @@ function SettingsWindow() {
             <div ref={content}>
                 <Settings />
             </div>
+            {/* The title bar is drawn over the content, so its strip moves the window whatever Settings shows. */}
+            <div data-tauri-drag-region className="fixed inset-x-0 top-0 h-titlebar" />
         </div>
     );
 }

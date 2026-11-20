@@ -89,6 +89,7 @@ test('a pane that goes away is forgotten and does not come back by itself', asyn
     await render();
     await render([panes[0], panes[1] as Pane]);
     expect(panel()?.textContent).toBe('General content');
+    expect(localStorage.getItem('settings-pane')).toBe('general');
 
     await render();
     expect(panel()?.textContent).toBe('General content');

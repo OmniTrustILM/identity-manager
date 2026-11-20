@@ -186,7 +186,7 @@ function AddressRow({ address, locked, readOnly }: Readonly<AddressRowProps>) {
 
 export function Settings() {
     const { platform } = useAppInfo();
-    const { view: session } = useSession();
+    const { view: session, failed: sessionFailed } = useSession();
     const [view, setView] = useState<SettingsView | null>(null);
     const [loadFailed, setLoadFailed] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<Change['key'], string>>>({});
@@ -221,9 +221,14 @@ export function Settings() {
         return <Unlock automatic={false} />;
     }
     if (loadFailed) {
-        return <p role="alert">{strings.settingsLoadError}</p>;
+        return (
+            <p role="alert" className="in-data-[os=macos]:p-s4 in-data-[os=macos]:pt-titlebar">
+                {strings.settingsLoadError}
+            </p>
+        );
     }
-    if (!view) {
+    // The macOS tabs wait for the session too, or the Connection tab would be missing and its remembered choice lost.
+    if (!view || (platform === 'macos' && !session && !sessionFailed)) {
         return null;
     }
 

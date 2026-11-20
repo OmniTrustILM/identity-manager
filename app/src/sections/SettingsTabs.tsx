@@ -35,9 +35,12 @@ export function SettingsTabs({ panes }: Readonly<{ panes: [Pane, ...Pane[]] }>) 
     const id = useId();
     const current = panes.find((pane) => pane.id === chosen) ?? panes[0];
     // A pane that went away, such as Connection after signing out, is forgotten, so it does not come back by itself.
-    if (chosen !== null && chosen !== current.id) {
-        setChosen(current.id);
-    }
+    useEffect(() => {
+        if (chosen !== null && chosen !== current.id) {
+            setChosen(current.id);
+            remember(current.id);
+        }
+    }, [chosen, current.id]);
 
     const title = current.title;
     useEffect(() => {

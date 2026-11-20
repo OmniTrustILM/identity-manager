@@ -711,6 +711,38 @@ test('while the application is locked the window shows Unlock, not the settings'
     expect(container.textContent).not.toContain(strings.startAtLogin);
 });
 
+test('on macOS the tabs wait for the session, so a remembered Connection tab is restored', async () => {
+    localStorage.setItem('settings-pane', 'connection');
+    let answer: (session: SessionView) => void = () => undefined;
+    const session = new Promise<SessionView>((resolve) => {
+        answer = resolve;
+    });
+    bridge((command) => (command === 'session' ? session : open));
+
+    await render('macos');
+    expect(container.querySelector('[role="tablist"]')).toBeNull();
+
+    await act(async () => answer(signedIn));
+    expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(strings.connection);
+    expect(address().value).toBe(signedIn.address);
+});
+
+test('on macOS the tabs show when the session cannot be read', async () => {
+    bridge((command) => (command === 'session' ? Promise.reject('unavailable') : open));
+
+    await render('macos');
+
+    expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(strings.general);
+});
+
+test('on macOS the load error leaves room for the title bar', async () => {
+    bridge((command) => (command === 'settings' ? Promise.reject('unavailable') : signedOut));
+
+    await render('macos');
+
+    expect(container.querySelector('[role="alert"]')?.className).toContain('pt-titlebar');
+});
+
 test('Settings returns when the session is unlocked', async () => {
     connected(open, { state: 'locked' });
     await render('macos');

@@ -242,6 +242,7 @@ test('the settings window shows Settings as its root, without the shell, and rep
     expect(container.querySelector('select')?.disabled).toBe(true);
     expect(reports).toEqual([]);
     expect(document.documentElement.style.overscrollBehavior).toBe('none');
+    expect(container.querySelector('div[data-tauri-drag-region]:not([role])')?.className).toContain('h-titlebar');
 
     await act(async () => sizes.resize(412.3));
     await act(async () => sizes.resize(0));
