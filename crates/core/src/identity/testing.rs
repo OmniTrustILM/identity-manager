@@ -546,6 +546,31 @@ fn profile_json() -> String {
 /// `IM_IDENTITY_FINGERPRINT` and a CA certificate without a key named by `IM_IDENTITY_KEYLESS_FINGERPRINT`, lists the
 /// first (and not the second) as a certificate that can sign in and as a candidate, opens it, signs with
 /// its key and completes a handshake with a server that requires a certificate issued by the CA in the PEM file `IM_IDENTITY_CA`.
+/// An identity in a keychain on the search list that is not the default one, named by
+/// `IM_IDENTITY_ELSEWHERE_FINGERPRINT`, is neither listed, nor offered for sign-in, nor opened.
+#[cfg(target_os = "macos")]
+fn check_other_keychain_left_out(
+    store: &dyn IdentityStore,
+    listed: &[LocalCertificate],
+    candidates: &[super::Candidate],
+) {
+    let elsewhere: Fingerprint = std::env::var("IM_IDENTITY_ELSEWHERE_FINGERPRINT")
+        .expect("IM_IDENTITY_ELSEWHERE_FINGERPRINT names the identity in another keychain")
+        .parse()
+        .expect("IM_IDENTITY_ELSEWHERE_FINGERPRINT is a fingerprint");
+    assert!(
+        listed
+            .iter()
+            .all(|certificate| certificate.fingerprint != elsewhere),
+        "the store lists an identity from a keychain that is not the default one"
+    );
+    assert!(
+        candidates.iter().all(|c| c.fingerprint != elsewhere),
+        "sign-in offers an identity from a keychain that is not the default one"
+    );
+    assert!(store.open(&elsewhere).is_none());
+}
+
 #[cfg(any(target_os = "macos", windows))]
 pub async fn check_system_store(store: &dyn IdentityStore) {
     let expected: Fingerprint = std::env::var("IM_IDENTITY_FINGERPRINT")
@@ -576,6 +601,8 @@ pub async fn check_system_store(store: &dyn IdentityStore) {
         "the store lists {} certificates, none with the expected fingerprint",
         candidates.len()
     );
+    #[cfg(target_os = "macos")]
+    check_other_keychain_left_out(store, &listed, &candidates);
     let identity = store.open(&expected).expect("the certificate opens");
     assert_eq!(identity.fingerprint(), Some(expected));
     let offered = [

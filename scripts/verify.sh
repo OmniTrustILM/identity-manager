@@ -211,6 +211,7 @@ remove_test_keychain() {
         security list-keychains -d user -s "${saved_keychains[@]}" || true
     fi
     security delete-keychain "$keychain" || true
+    security delete-keychain "$other_keychain" || true
     rm -rf "$dir"
 }
 
@@ -234,6 +235,7 @@ identity_system() {
     case "$(uname -s)" in
         Darwin)
             keychain="$dir/identity-test.keychain-db"
+            other_keychain="$dir/identity-other.keychain-db"
             test_name=identity::macos::tests::system_store_lists_and_signs
             saved_keychains=()
             saved_default=$(security default-keychain -d user)
@@ -247,11 +249,20 @@ identity_system() {
             security create-keychain -p "$password" "$keychain"
             security set-keychain-settings -lut 3600 "$keychain"
             security unlock-keychain -p "$password" "$keychain"
-            security list-keychains -d user -s "$keychain" "${saved_keychains[@]}"
+            # A second identity in a keychain that is on the search list but not the default must not be read.
+            mkdir "$dir/other"
+            make_test_identity "$dir/other" "$password"
+            security create-keychain -p "$password" "$other_keychain"
+            security set-keychain-settings -lut 3600 "$other_keychain"
+            security unlock-keychain -p "$password" "$other_keychain"
+            security list-keychains -d user -s "$keychain" "$other_keychain" "${saved_keychains[@]}"
             security default-keychain -d user -s "$keychain"
             security import "$dir/identity.p12" -k "$keychain" -P "$password" -A -f pkcs12
             security import "$dir/ca.pem" -k "$keychain" -f openssl
+            security import "$dir/other/identity.p12" -k "$other_keychain" -P "$password" -A -f pkcs12
             security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+            security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$other_keychain" > /dev/null
+            elsewhere=$(certificate_digest sha256 leaf "$dir/other")
             ;;
         MINGW* | MSYS* | CYGWIN*)
             thumbprint=$(certificate_digest sha1 leaf "$dir")
@@ -271,6 +282,7 @@ identity_system() {
     [[ "$(uname -s)" == Darwin ]] || ca_pem=$(cygpath -w "$ca_pem")
     IM_IDENTITY_FINGERPRINT=$(certificate_digest sha256 leaf "$dir") \
         IM_IDENTITY_KEYLESS_FINGERPRINT=$(certificate_digest sha256 ca "$dir") IM_IDENTITY_CA=$ca_pem \
+        IM_IDENTITY_ELSEWHERE_FINGERPRINT=${elsewhere:-} \
         cargo test -p im-core --locked -- --ignored "$test_name"
     if [[ "$(uname -s)" != Darwin ]]; then
         build_interface
