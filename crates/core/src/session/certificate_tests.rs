@@ -1086,9 +1086,11 @@ fn a_listing_logs_its_size_and_its_trouble_and_no_certificate() {
         "{log}"
     );
     let der = STANDARD.encode(holder.leaf().as_ref());
-    for secret in [der.as_str(), "Listed Holder"] {
-        assert!(!log.contains(secret), "the log holds {secret}");
-    }
+    assert!(!log.contains(der.as_str()), "the log holds the certificate");
+    assert!(
+        !log.contains("Listed Holder"),
+        "the log holds the holder's name"
+    );
 }
 
 #[tokio::test]
