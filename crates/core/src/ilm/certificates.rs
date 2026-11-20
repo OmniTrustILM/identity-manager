@@ -327,6 +327,14 @@ impl Search {
             .collect()
     }
 
+    /// The same search for page `page_number`.
+    pub fn at_page(&self, page_number: u32) -> Self {
+        Self {
+            page_number,
+            ..self.clone()
+        }
+    }
+
     pub fn request(&self, client: &Client, ilm: &IlmUrl) -> RequestBuilder {
         client
             .post(format!("{}/v1/certificates", ilm.api()))

@@ -7,6 +7,7 @@ const secondary = 'h-button rounded-control border border-button-edge bg-button 
 /**
  * A question over the page with a confirming and a cancelling button, in the order of the system:
  * Cancel first on macOS, the confirming button first on Windows. Escape cancels; Tab stays inside.
+ * While busy the question can no longer be withdrawn, so Cancel is off and Escape does nothing.
  */
 export function ConfirmDialog({
     title,
@@ -39,7 +40,9 @@ export function ConfirmDialog({
     const keys = (event: KeyboardEvent) => {
         if (event.key === 'Escape') {
             event.preventDefault();
-            onCancel();
+            if (!busy) {
+                onCancel();
+            }
             return;
         }
         if (event.key !== 'Tab') {
@@ -63,7 +66,7 @@ export function ConfirmDialog({
         </button>
     );
     const cancelButton = (
-        <button tabIndex={0} type="button" onClick={onCancel} className={secondary}>
+        <button tabIndex={0} type="button" disabled={busy} onClick={onCancel} className={secondary}>
             {strings.cancel}
         </button>
     );

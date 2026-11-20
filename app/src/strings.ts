@@ -103,6 +103,7 @@ export const strings = {
     noIlmCertificates: 'No certificates found in ILM.',
     ilmOffline: (at: number | null) =>
         at === null ? 'Search and paging need ILM.' : `Search and paging need ILM. Showing the first page from ${time(at)}.`,
+    syncFailed: 'ILM could not be checked.',
     ilmLoadFailed: 'The certificates in ILM could not be read.',
     fingerprintTitle: 'Fingerprint (SHA-256)',
     settings: 'Settings',

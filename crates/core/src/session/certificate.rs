@@ -54,6 +54,8 @@ pub enum ChangeError {
     Rejected(Vec<String>),
     Unexpected(u16),
     Malformed,
+    /// The caller withdrew before ILM was asked to change anything.
+    Withdrawn,
 }
 
 impl std::fmt::Display for ChangeError {
@@ -74,6 +76,7 @@ impl std::fmt::Display for ChangeError {
             }
             ChangeError::Rejected(messages) => f.write_str(&messages.join(" ")),
             ChangeError::Unexpected(status) => write!(f, "ILM answered with an error ({status})."),
+            ChangeError::Withdrawn => f.write_str("The change was not made."),
             ChangeError::Malformed => {
                 f.write_str("ILM answered in a way this application does not understand.")
             }
@@ -208,11 +211,12 @@ impl Session {
     /// certificate must be the one the latest check of `inventory` matched, issued and not archived, and able to
     /// sign in here. The person's names, email and description are read again and sent back unchanged. With a
     /// certificate sign-in the remembered certificate and the client follow the new one in the same step; a
-    /// check follows. A command that refuses while the application is locked does so before it calls this.
+    /// check follows. `proceed` is asked just before ILM is changed; when it says no, nothing is sent.
     pub async fn make_sign_in_certificate(
         &self,
         inventory: &Inventory,
         fingerprint: &str,
+        proceed: impl Fn() -> bool,
     ) -> Result<(), ChangeError> {
         let requested = self.departing()?.id;
         let _changing = self.changing.lock().await;
@@ -263,6 +267,9 @@ impl Session {
             return Err(ChangeError::AlreadySignIn);
         }
         let replacement = self.prepare_switch(&departing, fingerprint).await?;
+        if !proceed() {
+            return Err(ChangeError::Withdrawn);
+        }
         let response = self
             .call_ilm_as(Some(&departing.id), |client, ilm| {
                 update_request(client, ilm, &person, &matched.uuid)
@@ -313,20 +320,20 @@ impl Session {
         }
     }
 
-    /// With a certificate sign-in, builds the client for `fingerprint` before ILM is asked, so a certificate that
-    /// cannot be opened changes nothing.
+    /// Opens `fingerprint` before ILM is asked, so a certificate that cannot be opened changes nothing; with a
+    /// certificate sign-in it also builds the client for it.
     async fn prepare_switch(
         &self,
         departing: &Departing,
         fingerprint: Fingerprint,
     ) -> Result<Option<(Client, Option<SystemTime>)>, ChangeError> {
-        if departing.generation.is_none() {
-            return Ok(None);
-        }
         let identity = self
             .in_identities(move |store| store.open(&fingerprint))
             .await
             .ok_or(ChangeError::CannotSignIn)?;
+        if departing.generation.is_none() {
+            return Ok(None);
+        }
         let not_after = identity::assess(identity.chain()[0].as_ref(), SystemTime::now())
             .ok()
             .map(|found| found.candidate.not_after);

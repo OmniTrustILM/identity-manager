@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::Snapshot;
 use crate::ilm::IlmUrl;
-use crate::settings::store::write_atomically;
+use crate::settings::store::{temporary_path, write_atomically};
 
 pub(super) const FILE: &str = "ilm-cache.json";
 const VERSION: u32 = 1;
@@ -90,8 +90,9 @@ pub(super) fn read(path: &Path, ilm: &IlmUrl, username: &str) -> Option<Snapshot
     Some(stored.snapshot)
 }
 
-/// Removes the file; a missing file is fine.
+/// Removes the file and any half-written copy of it; a missing file is fine.
 pub(super) fn delete(path: &Path) {
+    let _ = std::fs::remove_file(temporary_path(path));
     match std::fs::remove_file(path) {
         Ok(()) => log::info!("the ILM cache is deleted"),
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}

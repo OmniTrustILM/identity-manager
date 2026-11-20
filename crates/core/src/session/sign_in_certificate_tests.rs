@@ -10,8 +10,10 @@ use wiremock::{Mock, ResponseTemplate};
 
 use super::tests::{LOG, World, capture_logs};
 use super::{ChangeError, ConnectionSettings, SessionView};
-use crate::identity::Fingerprint;
 use crate::identity::testing::{Issue, StandInStore, TestCa, TestIdentity};
+use crate::identity::{
+    ClientIdentity, Fingerprint, IdentityStore, LocalCertificate, StoreUnreadable,
+};
 use crate::ilm::certificates::search_text;
 use crate::inventory::{Inventory, Status, Trigger};
 
@@ -52,9 +54,16 @@ impl Change {
     /// ILM's matched certificate takes the fields of `overrides`; the store judges validity at `now`.
     async fn with(overrides: Value, now: SystemTime) -> Self {
         let jane = TestCa::new().issue(Issue::client("Jane"));
-        let world = World::new()
-            .await
-            .with_identities(StandInStore::new(vec![jane.clone()]).at(now));
+        Self::on(
+            overrides,
+            jane.clone(),
+            StandInStore::new(vec![jane]).at(now),
+        )
+        .await
+    }
+
+    async fn on(overrides: Value, jane: TestIdentity, store: impl IdentityStore + 'static) -> Self {
+        let world = World::new().await.with_identities(store);
         world.code_grant("access", Some("refresh"), 3600).await;
         Mock::given(method("GET"))
             .and(path(PROFILE))
@@ -123,9 +132,17 @@ impl Change {
     }
 
     async fn make_of(&self, fingerprint: &str) -> Result<(), ChangeError> {
+        self.make_if(fingerprint, || true).await
+    }
+
+    async fn make_if(
+        &self,
+        fingerprint: &str,
+        proceed: impl Fn() -> bool,
+    ) -> Result<(), ChangeError> {
         self.world
             .session
-            .make_sign_in_certificate(&self.inventory, fingerprint)
+            .make_sign_in_certificate(&self.inventory, fingerprint, proceed)
             .await
     }
 
@@ -250,6 +267,47 @@ async fn a_rejection_with_one_message_or_none_is_said_in_plain_words() {
         change.make().await.unwrap_err().to_string(),
         "ILM did not accept the change."
     );
+}
+
+/// Lists the certificates of `StandInStore` but cannot open any.
+struct Unopenable(StandInStore);
+
+impl IdentityStore for Unopenable {
+    fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
+        self.0.certificates()
+    }
+
+    fn open(&self, _fingerprint: &Fingerprint) -> Option<ClientIdentity> {
+        None
+    }
+}
+
+#[tokio::test]
+async fn nothing_is_sent_when_the_caller_withdraws_before_ilm_is_changed() {
+    let change = Change::new().await;
+    change
+        .answer_update(ResponseTemplate::new(200).set_body_json(profile()))
+        .await;
+
+    let result = change
+        .make_if(&change.jane.fingerprint().to_string(), || false)
+        .await;
+
+    assert_eq!(result, Err(ChangeError::Withdrawn));
+    assert_eq!(change.updates().await, 0);
+}
+
+#[tokio::test]
+async fn a_provider_sign_in_refuses_a_certificate_this_computer_cannot_open() {
+    let jane = TestCa::new().issue(Issue::client("Jane"));
+    let store = Unopenable(StandInStore::new(vec![jane.clone()]));
+    let change = Change::on(json!({}), jane, store).await;
+    change
+        .answer_update(ResponseTemplate::new(200).set_body_json(profile()))
+        .await;
+
+    assert_eq!(change.make().await, Err(ChangeError::CannotSignIn));
+    assert_eq!(change.updates().await, 0);
 }
 
 #[tokio::test]

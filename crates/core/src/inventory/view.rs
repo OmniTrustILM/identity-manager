@@ -121,9 +121,13 @@ pub struct InventoryView {
     /// When the snapshot was taken, milliseconds since 1970 (UTC); none before the first check.
     #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
     pub checked_at: Option<i64>,
-    /// Whether the signed-in person may list certificates in ILM, known before the first check. When not, there are
-    /// no matches and no first page.
+    /// Whether the signed-in person may list certificates in ILM: as the last check found out, else as ILM said
+    /// at sign-in. When not, there are no matches and no first page.
     pub listed: bool,
+    /// The fingerprints of the certificates on this computer that the last check looked up in ILM, as in the local
+    /// list; empty before the first check and when ILM was not searched. A certificate here that is not among
+    /// them was not looked up; one that is among them without a match is not in ILM.
+    pub checked: Vec<String>,
     /// The certificates on this computer that ILM knows, by fingerprint.
     pub matches: HashMap<String, IlmCertificateView>,
     /// The fingerprint of the certificate ILM knows the person by.
@@ -132,12 +136,16 @@ pub struct InventoryView {
 }
 
 impl InventoryView {
+    /// `listed` is what the session knows, used while there is no snapshot.
     pub fn new(status: Status, snapshot: Option<&Snapshot>, checking: bool, listed: bool) -> Self {
         Self {
             status,
             checking,
             checked_at: snapshot.map(|snapshot| snapshot.checked_at),
-            listed,
+            listed: snapshot.map_or(listed, |snapshot| snapshot.listed),
+            checked: snapshot.map_or_else(Vec::new, |snapshot| {
+                snapshot.checked.iter().map(ToString::to_string).collect()
+            }),
             matches: snapshot.map_or_else(HashMap::new, |snapshot| {
                 snapshot
                     .matches
@@ -161,6 +169,7 @@ mod tests {
     use crate::identity::Fingerprint;
     use crate::ilm::certificates::{State, ValidationStatus};
     use crate::ilm::profile::SignInCertificate;
+    use serde_json::json;
 
     fn certificate(fingerprint: Fingerprint) -> IlmCertificate {
         IlmCertificate {
@@ -186,6 +195,8 @@ mod tests {
         let print = Fingerprint::of(b"a");
         Snapshot {
             checked_at: 5,
+            listed: first_page.is_some(),
+            checked: vec![print],
             matches: HashMap::from([(print, certificate(print))]),
             sign_in: Some(SignInCertificate {
                 uuid: "u-1".to_owned(),
@@ -216,6 +227,7 @@ mod tests {
         assert_eq!(json["checking"], true);
         assert_eq!(json["checkedAt"], 5);
         assert_eq!(json["listed"], true);
+        assert_eq!(json["checked"], json!([key]));
         assert_eq!(json["signIn"], key);
         assert_eq!(json["matches"][&key]["state"], "issued");
         assert_eq!(json["matches"][&key]["validationStatus"], "odd");
@@ -232,10 +244,22 @@ mod tests {
     }
 
     #[test]
+    fn the_snapshot_decides_whether_certificates_are_listed_not_the_session() {
+        let listing = snapshot(None);
+        let mut listing = Snapshot {
+            listed: true,
+            ..listing
+        };
+        assert!(InventoryView::new(Status::Never, Some(&listing), false, false).listed);
+        listing.listed = false;
+        assert!(!InventoryView::new(Status::Never, Some(&listing), false, true).listed);
+    }
+
+    #[test]
     fn before_the_first_check_there_is_nothing() {
         let view = InventoryView::new(Status::Never, None, false, true);
         assert!(view.listed);
         assert_eq!(view.checked_at, None);
-        assert!(view.matches.is_empty() && view.sign_in.is_none());
+        assert!(view.matches.is_empty() && view.sign_in.is_none() && view.checked.is_empty());
     }
 }

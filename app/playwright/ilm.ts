@@ -38,6 +38,7 @@ export const inventory = (over: Partial<InventoryView> = {}): InventoryView => (
     checking: false,
     checkedAt,
     listed: true,
+    checked: Object.keys(over.matches ?? {}),
     matches: {},
     signIn: null,
     firstPage: null,

@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { AppInfoContext } from '../app-info';
-import { ilmCertificate, inventory } from '../../playwright/ilm';
+import { ilmCertificate, inventory as checkedInventory } from '../../playwright/ilm';
 import type { InventoryView, LocalCertificateView, Platform } from '../bridge';
 import { strings } from '../strings';
 import { Certificates } from './Certificates';
@@ -355,6 +355,8 @@ const mine = view('CLIENT1', { fingerprint: 'FP:one' });
 const other = view('Alex Novak', { fingerprint: 'FP:two' });
 const managed = ilmCertificate('CLIENT1', { raProfile: { uuid: 'ra', name: 'Client certificates' } });
 const plain = ilmCertificate('Alex');
+const everything = ['FP:one', 'FP:two', 'FP:three'];
+const inventory = (over: Partial<InventoryView> = {}) => checkedInventory({ checked: everything, ...over });
 
 function withInventory(current: InventoryView | null, extra: (command: string, args: unknown) => unknown = () => undefined) {
     answer(
@@ -384,6 +386,27 @@ test('rows show what ILM knows with an icon and short text, and the header count
     expect(text()).toContain('Checked with ILM at');
 });
 
+test('a first check that failed without a snapshot shows no ILM line and no count', async () => {
+    withInventory(inventory({ status: { state: 'offline', since: null, reason: 'down' }, checkedAt: null, checked: [] }));
+    await render();
+
+    expect(options()[0]?.getAttribute('aria-label')).toBe('CLIENT1, Client authentication, Keychain, Expires in 212 days');
+    expect(text()).toContain('3 on this Mac');
+    expect(text()).not.toContain('of them in ILM');
+    expect(text()).not.toContain('Not in ILM');
+});
+
+test('only a certificate the check looked up can be said to be missing from ILM', async () => {
+    withInventory(inventory({ checked: ['FP:one', 'FP:two'], matches: { 'FP:one': managed } }));
+    await render();
+
+    const labels = options().map((option) => option.getAttribute('aria-label'));
+    expect(labels[1]).toBe('Alex Novak, Client authentication, Keychain, Expires in 212 days, Not in ILM');
+    expect(labels[2]).not.toContain('ILM');
+    expect(options()[2]?.querySelector('.text-tertiary')).toBeNull();
+    expect(text()).toContain('3 on this Mac, 1 of them in ILM');
+});
+
 test('the header says PC on Windows', async () => {
     withInventory(inventory());
     await render('windows');
@@ -393,7 +416,7 @@ test('the header says PC on Windows', async () => {
 });
 
 test('before the first check there is no ILM line and no count', async () => {
-    withInventory(inventory({ status: { state: 'never' }, checkedAt: null }));
+    withInventory(inventory({ status: { state: 'never' }, checkedAt: null, checked: [] }));
     await render();
 
     expect(options()[0]?.getAttribute('aria-label')).toBe('CLIENT1, Client authentication, Keychain, Expires in 212 days');
@@ -433,7 +456,7 @@ test('offline says so, with the time of the snapshot or without it', async () =>
     await act(async () => root.unmount());
     root = createRoot(container);
 
-    withInventory(inventory({ status: { state: 'offline', since: null, reason: 'down' }, checkedAt: null }));
+    withInventory(inventory({ status: { state: 'offline', since: null, reason: 'down' }, checkedAt: null, checked: [] }));
     await render();
 
     expect(text()).toContain('Cannot reach ILM.');
@@ -458,6 +481,25 @@ test('while a check runs the line says so and Sync now is off; otherwise it asks
 
     expect(syncs).toBe(1);
     expect(text()).toContain('3 on this Mac, 1 of them in ILM');
+});
+
+test('a Sync now that fails says why under the header and the next successful sync clears it', async () => {
+    let fail = true;
+    withInventory(inventory(), (command) => {
+        if (command === 'sync_now') {
+            return fail ? Promise.reject('The certificate store could not be read.') : inventory();
+        }
+        return undefined;
+    });
+    await render();
+    await act(async () => button('Sync now')?.click());
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('The certificate store could not be read.');
+
+    fail = false;
+    await act(async () => button('Sync now')?.click());
+
+    expect(container.querySelector('[role="alert"]')).toBeNull();
 });
 
 test('a change event reads the status again', async () => {

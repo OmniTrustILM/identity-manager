@@ -54,6 +54,11 @@ impl fmt::Display for Trigger {
 pub struct Snapshot {
     /// Milliseconds since 1970 (UTC).
     pub checked_at: i64,
+    /// Whether ILM let the person list certificates when this was asked.
+    pub listed: bool,
+    /// The fingerprints of the certificates on this computer that were looked up in ILM: one of them without a
+    /// match is not in ILM, one that is not here was not looked up. None when ILM was not searched.
+    pub checked: Vec<Fingerprint>,
     /// The certificates on this computer that ILM knows, by fingerprint.
     pub matches: HashMap<Fingerprint, IlmCertificate>,
     /// The certificate ILM knows the person by.
@@ -158,6 +163,26 @@ pub struct Inventory {
     /// Held for a whole check: a call that arrives meanwhile waits and takes that check's answer.
     running: tokio::sync::Mutex<()>,
     completed: AtomicU64,
+    /// What the latest check asked: whose sign-in and which local certificates.
+    asked: Mutex<Option<Asked>>,
+}
+
+/// The sign-in and the local certificates a check was made for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Asked {
+    ilm: IlmUrl,
+    username: String,
+    local: HashSet<Fingerprint>,
+}
+
+impl Asked {
+    fn new(who: &SignedInAs, local: &[Fingerprint]) -> Self {
+        Self {
+            ilm: who.ilm.clone(),
+            username: who.username.clone(),
+            local: local.iter().copied().collect(),
+        }
+    }
 }
 
 fn held(mutex: &Mutex<Held>) -> MutexGuard<'_, Held> {
@@ -192,6 +217,7 @@ impl Inventory {
             held: Mutex::default(),
             running: tokio::sync::Mutex::new(()),
             completed: AtomicU64::new(0),
+            asked: Mutex::new(None),
         }
     }
 
@@ -253,7 +279,8 @@ impl Inventory {
 
     /// Asks ILM about `local`, the fingerprints of the certificates on this computer, and replaces the snapshot when
     /// every question is answered. A call that arrives during a check waits for it and does not ask again, unless it
-    /// follows an action, whose effect the running check may have missed.
+    /// follows an action, whose effect the running check may have missed, or the running check was for another
+    /// sign-in or other certificates.
     pub async fn check(
         &self,
         session: &Session,
@@ -261,22 +288,33 @@ impl Inventory {
         local: &[Fingerprint],
     ) -> Status {
         let seen = self.completed.load(Ordering::SeqCst);
+        let wanted = session.signed_in_as().map(|who| Asked::new(&who, local));
         let _running = self.running.lock().await;
-        if trigger != Trigger::Action && self.completed.load(Ordering::SeqCst) != seen {
+        if trigger != Trigger::Action
+            && self.completed.load(Ordering::SeqCst) != seen
+            && wanted.is_some()
+            && *self.asked.lock().unwrap_or_else(PoisonError::into_inner) == wanted
+        {
             return self.status();
         }
-        self.run(session, trigger, local).await;
+        let asked = self.run(session, trigger, local).await;
+        *self.asked.lock().unwrap_or_else(PoisonError::into_inner) = asked;
         self.completed.fetch_add(1, Ordering::SeqCst);
         self.status()
     }
 
-    async fn run(&self, session: &Session, trigger: Trigger, local: &[Fingerprint]) {
+    async fn run(
+        &self,
+        session: &Session,
+        trigger: Trigger,
+        local: &[Fingerprint],
+    ) -> Option<Asked> {
+        let epoch = held(&self.held).epoch;
         let Some(who) = session.signed_in_as() else {
             log::debug!("ILM is not checked: nobody is signed in");
-            return;
+            return None;
         };
         self.adopt_for(&who);
-        let epoch = held(&self.held).epoch;
         log::info!("checking ILM ({trigger})");
         let started = Instant::now();
         match collect(session, local).await {
@@ -302,6 +340,7 @@ impl Inventory {
                 self.offline(epoch, UNEXPECTED);
             }
         }
+        Some(Asked::new(&who, local))
     }
 
     /// Keeps `snapshot` unless the sign-in it was asked for has ended meanwhile.
@@ -358,8 +397,14 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
     let response = send(session, profile_request).await?;
     let who = session.signed_in_as().ok_or(Failure::SignedOut)?;
     let person = read_profile(&who.ilm, response).await?;
+    let listed = person
+        .allowed_listings
+        .iter()
+        .any(|name| name == "certificates");
     let mut snapshot = Snapshot {
         checked_at: now(),
+        listed,
+        checked: Vec::new(),
         matches: HashMap::new(),
         sign_in: person.sign_in,
         first_page: None,
@@ -372,10 +417,6 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
             unique.push(*fingerprint);
         }
     }
-    let listed = person
-        .allowed_listings
-        .iter()
-        .any(|name| name == "certificates");
     if !listed {
         log::debug!("certificates are not listed for this person; ILM is not searched");
         return Ok(Found {
@@ -385,20 +426,30 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
         });
     }
     for search in Search::matching(&unique) {
-        for certificate in read_search(session, &search).await?.certificates {
-            let Some(fingerprint) = certificate.fingerprint.filter(|print| seen.contains(print))
-            else {
-                continue;
-            };
-            let better = snapshot
-                .matches
-                .get(&fingerprint)
-                .is_none_or(|known| known.archived && !certificate.archived);
-            if better {
-                snapshot.matches.insert(fingerprint, certificate);
+        let mut number = 1;
+        loop {
+            let page = read_search(session, &search.at_page(number)).await?;
+            for certificate in page.certificates {
+                let Some(fingerprint) =
+                    certificate.fingerprint.filter(|print| seen.contains(print))
+                else {
+                    continue;
+                };
+                let better = snapshot
+                    .matches
+                    .get(&fingerprint)
+                    .is_none_or(|known| known.archived && !certificate.archived);
+                if better {
+                    snapshot.matches.insert(fingerprint, certificate);
+                }
             }
+            if number >= page.total_pages {
+                break;
+            }
+            number += 1;
         }
     }
+    snapshot.checked = unique.clone();
     let first_page = read_search(session, &Search::page(1, None)).await?;
     let mut uuids: Vec<String> = snapshot
         .matches
@@ -409,7 +460,18 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
     uuids.sort();
     uuids.dedup();
     snapshot.first_page = Some(first_page);
-    let actions = allowed_actions(session, &uuids, &mut snapshot.allowed).await?;
+    let actions = match allowed_actions(session, &uuids, &mut snapshot.allowed).await {
+        Ok(actions) => actions,
+        Err(Failure::SignedOut | Failure::Ilm(IlmError::Unauthorized)) => {
+            return Err(Failure::SignedOut);
+        }
+        Err(Failure::Unreachable) => return Err(Failure::Unreachable),
+        Err(error) => {
+            log::warn!("the allowed actions are not available: {error}");
+            snapshot.allowed.clear();
+            "unavailable"
+        }
+    };
     Ok(Found {
         snapshot,
         local: unique.len(),

@@ -135,6 +135,40 @@ function List({
     );
 }
 
+function Pager({
+    shown,
+    count,
+    offline,
+    onPage,
+}: Readonly<{ shown: IlmPageView; count: number; offline: boolean; onPage: (page: number) => void }>) {
+    const from = count > 0 ? (shown.pageNumber - 1) * pageSize + 1 : 0;
+    return (
+        <nav className="flex items-center justify-between border-t border-separator pt-s3">
+            <button
+                tabIndex={0}
+                type="button"
+                disabled={offline || shown.pageNumber <= 1}
+                onClick={() => onPage(shown.pageNumber - 1)}
+                className={pagerButton}
+            >
+                {strings.previous}
+            </button>
+            {count > 0 && (
+                <output className="text-body text-secondary">{strings.pageRange(from, from + count - 1, shown.totalItems)}</output>
+            )}
+            <button
+                tabIndex={0}
+                type="button"
+                disabled={offline || shown.pageNumber >= shown.totalPages}
+                onClick={() => onPage(shown.pageNumber + 1)}
+                className={pagerButton}
+            >
+                {strings.next}
+            </button>
+        </nav>
+    );
+}
+
 /** Everything ILM lists that the person may see, a page at a time, with a search by name; it offers no actions. */
 export function IlmCertificates({
     inventory,
@@ -212,7 +246,6 @@ export function IlmCertificates({
     const selected = Math.max(found, 0);
     const now = Date.now();
     const shown = result.page;
-    const from = shown && items.length > 0 ? (shown.pageNumber - 1) * pageSize + 1 : 0;
 
     return (
         <div className="flex flex-col gap-s4">
@@ -251,8 +284,11 @@ export function IlmCertificates({
                     </button>
                 </div>
             )}
-            {result.error === null && !result.loading && items.length === 0 && (
+            {result.error === null && !result.loading && shown !== null && items.length === 0 && (
                 <p className="text-body text-secondary">{strings.noIlmCertificates}</p>
+            )}
+            {items.length === 0 && shown !== null && shown.pageNumber > 1 && (
+                <Pager shown={shown} count={0} offline={offline} onPage={setPage} />
             )}
             {items.length > 0 && (
                 <div className="flex flex-col gap-s5 @3xl:flex-row">
@@ -265,31 +301,7 @@ export function IlmCertificates({
                             system={system}
                             onSelect={(index) => setChosen(items[index]?.uuid ?? null)}
                         />
-                        {shown && (
-                            <nav className="flex items-center justify-between border-t border-separator pt-s3">
-                                <button
-                                    tabIndex={0}
-                                    type="button"
-                                    disabled={offline || shown.pageNumber <= 1}
-                                    onClick={() => setPage(shown.pageNumber - 1)}
-                                    className={pagerButton}
-                                >
-                                    {strings.previous}
-                                </button>
-                                <output className="text-body text-secondary">
-                                    {strings.pageRange(from, from + items.length - 1, shown.totalItems)}
-                                </output>
-                                <button
-                                    tabIndex={0}
-                                    type="button"
-                                    disabled={offline || shown.pageNumber >= shown.totalPages}
-                                    onClick={() => setPage(shown.pageNumber + 1)}
-                                    className={pagerButton}
-                                >
-                                    {strings.next}
-                                </button>
-                            </nav>
-                        )}
+                        {shown && <Pager shown={shown} count={items.length} offline={offline} onPage={setPage} />}
                     </div>
                     <div className="min-w-0 flex-[2] border-t border-separator pt-s4 @3xl:border-t-0 @3xl:border-l @3xl:pt-0 @3xl:pl-s5">
                         {items[selected] && <Detail certificate={items[selected]} now={now} />}

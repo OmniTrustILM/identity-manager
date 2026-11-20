@@ -1,15 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type InventoryView, ilmStatus, onInventoryChanged, syncNow } from './bridge';
+import { strings } from './strings';
 
 /** What ILM is known to say about this computer; null until it is read, and while the application is locked. */
-export function useInventory(): { inventory: InventoryView | null; sync: () => void; apply: (view: InventoryView) => void } {
+export function useInventory(): {
+    inventory: InventoryView | null;
+    syncError: string | null;
+    sync: () => void;
+    apply: (view: InventoryView) => void;
+} {
     const [inventory, setInventory] = useState<InventoryView | null>(null);
+    const [syncError, setSyncError] = useState<string | null>(null);
     const latest = useRef(0);
 
     const read = useCallback(() => {
         const id = ++latest.current;
         ilmStatus().then(
-            (view) => id === latest.current && setInventory(view ?? null),
+            (view) => {
+                if (id === latest.current) {
+                    setSyncError(null);
+                    setInventory(view ?? null);
+                }
+            },
             () => undefined,
         );
     }, []);
@@ -28,15 +40,16 @@ export function useInventory(): { inventory: InventoryView | null; sync: () => v
 
     const apply = useCallback((view: InventoryView) => {
         latest.current += 1;
+        setSyncError(null);
         setInventory(view);
     }, []);
 
     const sync = useCallback(() => {
         syncNow().then(
             (view) => view && apply(view),
-            () => undefined,
+            (error) => setSyncError(String(error) || strings.syncFailed),
         );
     }, [apply]);
 
-    return { inventory, sync, apply };
+    return { inventory, syncError, sync, apply };
 }

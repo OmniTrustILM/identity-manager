@@ -135,7 +135,12 @@ test('on a narrow window the detail sits below the list', async ({ mount, page }
 
 const managed = ilmCertificate('CLIENT1', { raProfile: { uuid: 'ra', name: 'Client certificates' } });
 const known = (over: Parameters<typeof inventory>[0] = {}) =>
-    inventory({ matches: { [list[0]!.fingerprint]: managed }, signIn: list[0]!.fingerprint, ...over });
+    inventory({
+        checked: list.map((certificate) => certificate.fingerprint),
+        matches: { [list[0]!.fingerprint]: managed },
+        signIn: list[0]!.fingerprint,
+        ...over,
+    });
 const fine: Record<'macos' | 'windows', Record<Scheme, string>> = {
     macos: { light: 'rgb(52, 199, 89)', dark: 'rgb(48, 209, 88)' },
     windows: { light: 'rgb(15, 123, 15)', dark: 'rgb(108, 203, 95)' },

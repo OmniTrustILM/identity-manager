@@ -16,10 +16,16 @@ checking: boolean,
  */
 checkedAt: number | null, 
 /**
- * Whether the signed-in person may list certificates in ILM, known before the first check. When not, there are
- * no matches and no first page.
+ * Whether the signed-in person may list certificates in ILM: as the last check found out, else as ILM said
+ * at sign-in. When not, there are no matches and no first page.
  */
 listed: boolean, 
+/**
+ * The fingerprints of the certificates on this computer that the last check looked up in ILM, as in the local
+ * list; empty before the first check and when ILM was not searched. A certificate here that is not among
+ * them was not looked up; one that is among them without a match is not in ILM.
+ */
+checked: Array<string>, 
 /**
  * The certificates on this computer that ILM knows, by fingerprint.
  */

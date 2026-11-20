@@ -41,6 +41,10 @@ function algorithm(key: KeyAlgorithm): string {
 
 type Match = IlmCertificateView | undefined;
 
+/** Whether the last check looked this certificate up in ILM, so that having no match means it is not there. */
+const lookedUp = (inventory: InventoryView | null, fingerprint: string) =>
+    inventory?.listed === true && inventory.checked.includes(fingerprint);
+
 /** What ILM knows of a local certificate, in two or three words; none before the first check. */
 const ilmWord = (match: Match) => {
     if (!match) {
@@ -177,7 +181,7 @@ function Detail({
     apply: (view: InventoryView) => void;
 }>) {
     const state = status(certificate, now);
-    const known = inventory?.listed === true && inventory.status.state !== 'never';
+    const known = lookedUp(inventory, certificate.fingerprint);
     const match = inventory?.matches[certificate.fingerprint];
     return (
         <section aria-labelledby="certificate-title" className="flex min-w-0 flex-col gap-s4">
@@ -193,7 +197,7 @@ function Detail({
                 <Field label={strings.issuer}>{certificate.issuerName}</Field>
                 <Field label={strings.serial}>{certificate.serial}</Field>
             </Group>
-            {known && <IlmGroup match={match} signIn={inventory.signIn === certificate.fingerprint} />}
+            {known && <IlmGroup match={match} signIn={inventory?.signIn === certificate.fingerprint} />}
             <Group title={strings.useGroupTitle}>
                 <Field label={strings.allowedFor}>{uses(certificate)}</Field>
                 <dt className="text-secondary">{strings.signInRow}</dt>
@@ -242,7 +246,6 @@ function List({
     onSelect: (index: number) => void;
 }>) {
     const rows = useRef<(HTMLDivElement | null)[]>([]);
-    const known = inventory?.listed === true && inventory.status.state !== 'never';
 
     const move = (event: KeyboardEvent, index: number) => {
         const target = arrowTarget(event.key, index, items.length - 1);
@@ -264,6 +267,7 @@ function List({
                 {items.map((certificate, index) => {
                     const state = status(certificate, now);
                     const match = inventory?.matches[certificate.fingerprint];
+                    const known = lookedUp(inventory, certificate.fingerprint);
                     const signIn = known && inventory?.signIn === certificate.fingerprint;
                     const label = [
                         certificate.name,
@@ -421,7 +425,7 @@ export function Certificates() {
         };
     }, [request]);
 
-    const { inventory, sync, apply } = useInventory();
+    const { inventory, syncError, sync, apply } = useInventory();
     const [view, setView] = useState<View>('local');
     const [ilmTotal, setIlmTotal] = useState<number | null>(null);
 
@@ -430,7 +434,7 @@ export function Certificates() {
     const selected = Math.max(found, 0);
     const now = Date.now();
     const listed = inventory?.listed === true;
-    const known = listed && inventory.status.state !== 'never';
+    const known = listed && inventory.checkedAt !== null;
     const showing = listed ? view : 'local';
     const local = useMemo(() => new Set(items.map((certificate) => certificate.fingerprint)), [items]);
     const inIlm = items.filter((certificate) => inventory?.matches[certificate.fingerprint]).length;
@@ -449,6 +453,11 @@ export function Certificates() {
                     <h1 className="text-large-title font-semibold text-primary">{strings.certificates}</h1>
                     {subline !== null && <p className="text-body text-secondary">{subline}</p>}
                     {listed && inventory && <SyncLine inventory={inventory} onSync={sync} />}
+                    {syncError !== null && (
+                        <p role="alert" className="text-caption text-bad">
+                            {syncError}
+                        </p>
+                    )}
                 </div>
                 {listed && <Views view={showing} onChoose={setView} system={system} />}
             </header>

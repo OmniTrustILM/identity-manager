@@ -186,6 +186,8 @@ async fn a_check_keeps_the_matches_the_first_page_and_the_allowed_actions() {
         }
     );
     assert_eq!(status, setup.inventory.status());
+    assert!(snapshot.listed);
+    assert_eq!(snapshot.checked, [print(1), print(2)]);
     assert_eq!(snapshot.matches.len(), 1);
     assert_eq!(snapshot.matches[&print(1)].uuid, "u-1");
     assert!(snapshot.matches[&print(1)].ra_profile.is_some());
@@ -294,6 +296,104 @@ async fn a_check_after_an_action_does_not_take_the_one_already_running() {
     assert!(matches!(first, Status::Fresh { .. }));
     assert!(matches!(second, Status::Fresh { .. }));
     assert_eq!(setup.requests("GET", PROFILE).await.len(), reads + 2);
+}
+
+#[tokio::test]
+async fn checks_at_once_for_other_certificates_each_ask_ilm() {
+    let setup = Setup::new().await;
+    setup
+        .mock("GET", PROFILE)
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(profile(&["certificates"]))
+                .set_delay(Duration::from_millis(300)),
+        )
+        .with_priority(2)
+        .mount(&setup.world.ilm)
+        .await;
+    setup.ilm_answers(vec![], vec![]).await;
+    let reads = setup.requests("GET", PROFILE).await.len();
+
+    let (one, both) = ([print(1)], [print(1), print(2)]);
+    let (_, second) = tokio::join!(setup.check(&one), async {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        setup.check(&both).await
+    });
+
+    assert!(matches!(second, Status::Fresh { .. }));
+    assert_eq!(setup.requests("GET", PROFILE).await.len(), reads + 2);
+    assert_eq!(
+        setup.inventory.snapshot().unwrap().checked,
+        [print(1), print(2)]
+    );
+}
+
+#[tokio::test]
+async fn every_page_of_the_fingerprint_search_is_read() {
+    let setup = Setup::new().await;
+    setup.profile(&["certificates"]).await;
+    let archived = {
+        let mut old = certificate("old", &print(1), false);
+        old["archived"] = json!(true);
+        old
+    };
+    let second_page = |found: Vec<Value>| {
+        ResponseTemplate::new(200).set_body_json(json!({
+            "certificates": found,
+            "pageNumber": 2,
+            "totalPages": 2,
+            "totalItems": 2,
+        }))
+    };
+    setup
+        .mock("POST", SEARCH)
+        .and(body_string_contains("\"pageNumber\":2"))
+        .and(body_string_contains("FINGERPRINT"))
+        .respond_with(second_page(vec![certificate("live", &print(1), true)]))
+        .with_priority(1)
+        .expect(1)
+        .mount(&setup.world.ilm)
+        .await;
+    setup
+        .mock("POST", SEARCH)
+        .and(body_string_contains("FINGERPRINT"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "certificates": [archived],
+            "pageNumber": 1,
+            "totalPages": 2,
+            "totalItems": 2,
+        })))
+        .with_priority(2)
+        .mount(&setup.world.ilm)
+        .await;
+    setup
+        .mock("POST", SEARCH)
+        .respond_with(page(vec![], 0))
+        .mount(&setup.world.ilm)
+        .await;
+    setup
+        .mock("POST", ALLOWED)
+        .respond_with(everything_allowed)
+        .mount(&setup.world.ilm)
+        .await;
+
+    setup.check(&[print(1)]).await;
+
+    assert_eq!(
+        setup.inventory.snapshot().unwrap().matches[&print(1)].uuid,
+        "live"
+    );
+}
+
+#[tokio::test]
+async fn forgetting_also_deletes_a_half_written_cache() {
+    let setup = Setup::new().await;
+    let leftover = setup.folder.path().join("ilm-cache.json.tmp");
+    std::fs::write(&leftover, "{").unwrap();
+
+    setup.inventory.forget();
+
+    assert!(!leftover.exists());
 }
 
 #[tokio::test]
@@ -454,6 +554,8 @@ async fn without_the_listing_ilm_is_not_searched_but_the_profile_is_read() {
 
     assert!(matches!(status, Status::Fresh { .. }));
     let snapshot = setup.inventory.snapshot().unwrap();
+    assert!(!snapshot.listed);
+    assert!(snapshot.checked.is_empty());
     assert!(snapshot.matches.is_empty());
     assert!(snapshot.first_page.is_none());
     assert!(snapshot.allowed.is_empty());
@@ -496,7 +598,9 @@ async fn a_page_is_refused_when_the_listing_is_missing() {
     );
 }
 
-async fn allowed_actions_answered_with(status: u16) -> (Status, Option<Snapshot>, Setup) {
+async fn allowed_actions_answered_with(
+    answer: ResponseTemplate,
+) -> (Status, Option<Snapshot>, Setup) {
     let setup = Setup::new().await;
     let known = certificate("u-1", &print(1), true);
     setup.profile(&["certificates"]).await;
@@ -507,7 +611,7 @@ async fn allowed_actions_answered_with(status: u16) -> (Status, Option<Snapshot>
         .await;
     setup
         .mock("POST", ALLOWED)
-        .respond_with(ResponseTemplate::new(status))
+        .respond_with(answer)
         .expect(1)
         .mount(&setup.world.ilm)
         .await;
@@ -519,7 +623,8 @@ async fn allowed_actions_answered_with(status: u16) -> (Status, Option<Snapshot>
 #[tokio::test]
 async fn an_old_ilm_without_allowed_actions_does_not_fail_the_check() {
     for status in [404, 405] {
-        let (status, snapshot, _setup) = allowed_actions_answered_with(status).await;
+        let (status, snapshot, _setup) =
+            allowed_actions_answered_with(ResponseTemplate::new(status)).await;
         let snapshot = snapshot.unwrap();
         assert!(matches!(status, Status::Fresh { .. }));
         assert!(snapshot.allowed.is_empty());
@@ -529,7 +634,8 @@ async fn an_old_ilm_without_allowed_actions_does_not_fail_the_check() {
 
 #[tokio::test]
 async fn a_refused_allowed_actions_question_does_not_fail_the_check() {
-    let (status, snapshot, _setup) = allowed_actions_answered_with(422).await;
+    let (status, snapshot, _setup) =
+        allowed_actions_answered_with(ResponseTemplate::new(422)).await;
     let snapshot = snapshot.unwrap();
     assert!(matches!(status, Status::Fresh { .. }));
     assert!(snapshot.allowed.is_empty());
@@ -537,16 +643,20 @@ async fn a_refused_allowed_actions_question_does_not_fail_the_check() {
 }
 
 #[tokio::test]
-async fn other_answers_to_allowed_actions_fail_the_check() {
-    let (status, snapshot, _setup) = allowed_actions_answered_with(500).await;
-    assert_eq!(
-        status,
-        Status::Offline {
-            since: None,
-            reason: UNEXPECTED.to_owned()
-        }
-    );
-    assert!(snapshot.is_none());
+async fn a_failing_or_unreadable_allowed_actions_answer_keeps_the_snapshot_without_actions() {
+    let answers = [
+        ResponseTemplate::new(403),
+        ResponseTemplate::new(500),
+        ResponseTemplate::new(200).set_body_string("not json"),
+    ];
+    for answer in answers {
+        let (status, snapshot, _setup) = allowed_actions_answered_with(answer).await;
+        let snapshot = snapshot.unwrap();
+        assert!(matches!(status, Status::Fresh { .. }));
+        assert!(snapshot.allowed.is_empty());
+        assert_eq!(snapshot.matches.len(), 1);
+        assert_eq!(snapshot.first_page.unwrap().certificates.len(), 1);
+    }
 }
 
 #[tokio::test]
@@ -639,9 +749,11 @@ async fn the_cache_is_written_after_a_check_and_holds_only_metadata() {
         keys,
         [
             "allowed",
+            "checked",
             "checkedAt",
             "firstPage",
             "ilm",
+            "listed",
             "matches",
             "signIn",
             "username",

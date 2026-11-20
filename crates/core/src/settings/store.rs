@@ -1,8 +1,8 @@
 //! The person's settings file: tolerant to read, atomic to write.
 
 use std::fs;
-use std::io;
-use std::path::Path;
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
@@ -115,18 +115,32 @@ pub fn save(path: &Path, layer: &Layer) -> io::Result<()> {
     write_atomically(path, &serde_json::to_string_pretty(&entries)?)
 }
 
-/// Writes `text` to `path`, creating the folder if needed; the file is replaced atomically.
+/// The file `write_atomically` writes before it replaces `path`.
+pub fn temporary_path(path: &Path) -> PathBuf {
+    let mut temporary = path.as_os_str().to_owned();
+    temporary.push(".tmp");
+    PathBuf::from(temporary)
+}
+
+/// Writes `text` to `path`, creating the folder if needed; the file is replaced atomically and, on Unix, readable
+/// by its owner only.
 pub fn write_atomically(path: &Path, text: &str) -> io::Result<()> {
     if let Some(folder) = path.parent() {
         fs::create_dir_all(folder)?;
     }
-    let mut temporary = path.as_os_str().to_owned();
-    temporary.push(".tmp");
-    let temporary = Path::new(&temporary);
-    fs::write(temporary, text)?;
-    fs::rename(temporary, path).inspect_err(|_| {
-        let _ = fs::remove_file(temporary);
-    })
+    let temporary = temporary_path(path);
+    let _ = fs::remove_file(&temporary);
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options
+        .open(&temporary)
+        .and_then(|mut file| file.write_all(text.as_bytes()))
+        .and_then(|()| fs::rename(&temporary, path))
+        .inspect_err(|_| {
+            let _ = fs::remove_file(&temporary);
+        })
 }
 
 #[cfg(test)]
@@ -345,5 +359,19 @@ mod tests {
         fs::create_dir(&path).unwrap();
         assert!(save(&path, &person()).is_err());
         assert!(!dir.path().join("settings.json.tmp").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_file_is_readable_by_its_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+
+        write_atomically(&path, "{}").unwrap();
+        write_atomically(&path, "{}").unwrap();
+
+        let mode = fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
     }
 }

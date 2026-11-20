@@ -198,11 +198,12 @@ impl<R: Runtime> Ilm<R> {
 
     async fn make_sign_in_certificate(&self, fingerprint: &str) -> Result<InventoryView, String> {
         self.unlocked()?;
-        let changed = self
-            .working(
-                self.session
-                    .make_sign_in_certificate(&self.inventory, fingerprint),
-            )
+        let changed =
+            self.working(self.session.make_sign_in_certificate(
+                &self.inventory,
+                fingerprint,
+                || !self.guard.is_locked(),
+            ))
             .await;
         self.unlocked()?;
         changed.map_err(|error| error.to_string())?;

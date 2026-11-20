@@ -1371,6 +1371,8 @@ fn matched(person: &TestIdentity) -> Snapshot {
     };
     Snapshot {
         checked_at: 0,
+        listed: true,
+        checked: vec![person.fingerprint()],
         matches: [(person.fingerprint(), certificate)].into(),
         sign_in: None,
         first_page: None,
@@ -1397,7 +1399,7 @@ async fn a_new_sign_in_certificate_is_remembered_and_presented_from_then_on() {
 
     let done = world
         .session
-        .make_sign_in_certificate(&inventory, &john.fingerprint().to_string())
+        .make_sign_in_certificate(&inventory, &john.fingerprint().to_string(), || true)
         .await;
 
     assert_eq!(done, Ok(()));
@@ -1436,7 +1438,7 @@ async fn a_certificate_the_computer_cannot_open_changes_nothing_in_ilm() {
 
     let done = world
         .session
-        .make_sign_in_certificate(&inventory, &john.fingerprint().to_string())
+        .make_sign_in_certificate(&inventory, &john.fingerprint().to_string(), || true)
         .await;
 
     assert_eq!(done, Err(crate::session::ChangeError::CannotSignIn));
@@ -1479,8 +1481,12 @@ async fn a_second_change_queued_in_one_sign_in_switches_the_client_too() {
     );
 
     let (first, second) = tokio::join!(
-        world.session.make_sign_in_certificate(&for_john, &to_john),
-        world.session.make_sign_in_certificate(&for_mike, &to_mike),
+        world
+            .session
+            .make_sign_in_certificate(&for_john, &to_john, || true),
+        world
+            .session
+            .make_sign_in_certificate(&for_mike, &to_mike, || true),
     );
 
     assert_eq!((first, second), (Ok(()), Ok(())));

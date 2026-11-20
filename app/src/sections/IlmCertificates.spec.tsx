@@ -279,13 +279,37 @@ test('offline shows the first page that was kept, with a note, and search and pa
     expect(totals.at(-1)).toBe(90);
 });
 
-test('offline without a kept page says nothing was found, and without a time says only what needs ILM', async () => {
+test('offline without a kept page only says what needs ILM, not that nothing was found', async () => {
     answer(() => page([]));
     await render(inventory({ status: { state: 'offline', since: null, reason: 'down' }, firstPage: null }));
 
     expect(container.textContent).toContain('Search and paging need ILM.');
     expect(container.textContent).not.toContain('Showing the first page');
+    expect(container.textContent).not.toContain(strings.noIlmCertificates);
+});
+
+test('an empty kept page says nothing was found', async () => {
+    answer(() => page([]));
+    await render(inventory({ status: { state: 'offline', since: null, reason: 'down' }, firstPage: page([]) }));
+
     expect(container.textContent).toContain(strings.noIlmCertificates);
+});
+
+test('a page after the first that deletions in ILM emptied still offers Previous', async () => {
+    const replies = [() => twoPages(1), () => page([], { pageNumber: 2, totalPages: 2, totalItems: 50 }), () => twoPages(1)];
+    answer(() => replies.shift()?.() as IlmPageView);
+    await render();
+    await act(async () => button('Next')?.click());
+
+    expect(options()).toHaveLength(0);
+    expect(container.textContent).toContain(strings.noIlmCertificates);
+    expect(button('Previous')?.disabled).toBe(false);
+    expect(button('Next')?.disabled).toBe(true);
+
+    await act(async () => button('Previous')?.click());
+
+    expect(asked.at(-1)?.page).toBe(1);
+    expect(options()).toHaveLength(1);
 });
 
 test('when ILM comes back the page is read again, and a change of status does not read it again by itself', async () => {
