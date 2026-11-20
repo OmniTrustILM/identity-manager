@@ -120,8 +120,30 @@ test.each([
     expect(container.querySelector('main h1')?.textContent).toBe(word);
 });
 
-test('macOS has no Settings entry in the sidebar', () => {
-    expect(settingsSection('macos')).toBeUndefined();
+test('on macOS the Settings… entry opens the Settings window and stays on the current page', async () => {
+    const calls: string[] = [];
+    mockIPC((command) => {
+        calls.push(command);
+    });
+
+    await render(sections, 'macos', settingsSection('macos'));
+
+    expect(settingsEntry()?.textContent).toBe(strings.settingsWindow);
+    await act(async () => settingsEntry()?.click());
+    expect(calls).toEqual(['open_settings']);
+    expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
+    expect(container.querySelector('nav button')?.getAttribute('aria-current')).toBe('page');
+});
+
+test('on macOS a failure to open the Settings window is not thrown', async () => {
+    mockIPC(() => {
+        throw new Error('refused');
+    });
+
+    await render(sections, 'macos', settingsSection('macos'));
+
+    await act(async () => settingsEntry()?.click());
+    expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
 });
 
 /** Answers `pending_section` from a queue, one answer per call, `null` once it is empty. */

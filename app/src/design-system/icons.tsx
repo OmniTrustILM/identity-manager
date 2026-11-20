@@ -1,6 +1,7 @@
 export {
     CircleAlert as ProblemIcon,
     CircleCheck as FineIcon,
+    Globe as ConnectionIcon,
     Info as InfoIcon,
     ChevronsUpDown as SelectIcon,
     LayoutGrid as OverviewIcon,

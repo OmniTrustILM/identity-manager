@@ -1,0 +1,8 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "settings-entry",
+    "description": "On macOS the Settings entry of the main window opens the Settings window, and nothing else.",
+    "windows": ["main"],
+    "platforms": ["macOS"],
+    "permissions": ["allow-open-settings"]
+}

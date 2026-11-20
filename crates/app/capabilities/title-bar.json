@@ -1,0 +1,8 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "title-bar",
+    "description": "On macOS the content covers the title bar of the main window, so its top strip may move the window and zoom it on a double click.",
+    "windows": ["main"],
+    "platforms": ["macOS"],
+    "permissions": ["core:window:allow-start-dragging", "core:window:allow-internal-toggle-maximize"]
+}

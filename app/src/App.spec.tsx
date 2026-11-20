@@ -203,7 +203,36 @@ test('both windows report what they show, the summary with the height of its con
     vi.restoreAllMocks();
 });
 
-test('the settings window shows Settings as its root, without the shell, and reports nothing', async () => {
+/** Stands in for the ResizeObserver jsdom lacks; `resize` calls the observers with the content at a height. */
+function observeSizes() {
+    const observers: { callback: () => void; disconnected: boolean }[] = [];
+    vi.stubGlobal(
+        'ResizeObserver',
+        class {
+            private readonly entry;
+            constructor(callback: () => void) {
+                this.entry = { callback, disconnected: false };
+                observers.push(this.entry);
+            }
+            observe() {}
+            disconnect() {
+                this.entry.disconnected = true;
+            }
+        },
+    );
+    return {
+        observers,
+        resize(height: number) {
+            vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ height } as DOMRect);
+            for (const observer of observers.filter((entry) => !entry.disconnected)) {
+                observer.callback();
+            }
+        },
+    };
+}
+
+test('the settings window shows Settings as its root, without the shell, and reports the height of its content', async () => {
+    const sizes = observeSizes();
     mockBridge(() => info, null, 'settings');
 
     await render(<App />);
@@ -212,6 +241,44 @@ test('the settings window shows Settings as its root, without the shell, and rep
     expect(container.querySelector('h2')?.textContent).toBe(strings.general);
     expect(container.querySelector('select')?.disabled).toBe(true);
     expect(reports).toEqual([]);
+    expect(document.documentElement.style.overscrollBehavior).toBe('none');
+    expect(container.querySelector('div[data-tauri-drag-region]:not([role])')?.className).toContain('h-titlebar');
+
+    await act(async () => sizes.resize(412.3));
+    await act(async () => sizes.resize(0));
+    expect(reports).toEqual([{ ...info, height: 413 }]);
+
+    await act(async () => root.unmount());
+    expect(sizes.observers.every((observer) => observer.disconnected)).toBe(true);
+    root = createRoot(container);
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+});
+
+test('on macOS the main window can be moved by a strip along its top', async () => {
+    mockBridge(() => info);
+
+    await render(<App />);
+
+    const strip = container.querySelector('[data-tauri-drag-region]');
+    expect(strip?.className).toContain('h-titlebar');
+    expect(strip?.childElementCount).toBe(0);
+});
+
+test.each(['windows', 'linux'] as const)('on %s the main window keeps the system title bar and has no drag strip', async (platform) => {
+    mockBridge(() => ({ ...info, platform }));
+
+    await render(<App />);
+
+    expect(container.querySelector('[data-tauri-drag-region]')).toBeNull();
+});
+
+test('the summary has no drag strip', async () => {
+    mockBridge(() => info, null, 'summary');
+
+    await render(<App />);
+
+    expect(container.querySelector('[data-tauri-drag-region]')).toBeNull();
 });
 
 test.each([
@@ -225,12 +292,12 @@ test.each([
     expect(container.querySelector('nav > div button')?.textContent).toBe(word);
 });
 
-test('on macOS the main window has no Settings entry', async () => {
+test('on macOS the main window has a Settings… entry at the bottom of the sidebar', async () => {
     mockBridge(() => info);
 
     await render(<App />);
 
-    expect(container.querySelector('nav > div')).toBeNull();
+    expect(container.querySelector('nav > div button')?.textContent).toBe(strings.settingsWindow);
 });
 
 const mainWith = (session: () => unknown) => mockBridge(() => info, null, 'main', session);

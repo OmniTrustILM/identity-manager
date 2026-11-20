@@ -80,6 +80,7 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
         .manage(summary::HiddenOnFocusLoss::default())
         .manage(self_check::Reports::default())
         .manage(settings_window::PendingSection::default())
+        .manage(settings_window::AwaitingHeight::default())
         .invoke_handler(tauri::generate_handler![
             bridge::app_info,
             bridge::report_ready,
@@ -89,6 +90,7 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             settings::settings,
             settings::set_setting,
             settings_window::pending_section,
+            settings_window::open_settings,
             session::session,
             session::connect,
             session::sign_in,

@@ -1,4 +1,4 @@
-import { mockIPC } from '@tauri-apps/api/mocks';
+import { mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { useMemo, useState } from 'react';
 import { AppInfoContext } from '../src/app-info';
 import type { CertificateChoice, Change, LogLevel, Platform, ProviderChoice, SessionView, SettingsView } from '../src/bridge';
@@ -27,17 +27,26 @@ type StoryProps = Readonly<{ platform: Platform }>;
 
 const useInfo = (platform: Platform) => useMemo(() => ({ name: 'Identity Manager', version: '0.1.0', platform }), [platform]);
 
+/** The shell with two sections; on macOS its Settings… entry says so when it is asked to open the Settings window. */
 export function ShellStory({ platform }: StoryProps) {
-    const bottom = useMemo<Section | undefined>(
+    const [windowOpened, setWindowOpened] = useState(false);
+    const bottom = useMemo<Section>(
         () =>
             platform === 'macos'
-                ? undefined
+                ? {
+                      id: 'settings',
+                      label: 'Settings\u2026',
+                      icon: SettingsIcon,
+                      Component: SettingsStub,
+                      open: () => setWindowOpened(true),
+                  }
                 : { id: 'settings', label: platform === 'linux' ? 'Preferences' : 'Settings', icon: SettingsIcon, Component: SettingsStub },
         [platform],
     );
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <Shell sections={sections} bottom={bottom} />
+            {windowOpened && <p>Settings window opened</p>}
         </AppInfoContext.Provider>
     );
 }
@@ -126,6 +135,7 @@ type SettingsProps = StoryProps & Readonly<{ view: SettingsView; refuse?: string
 export function SettingsStory({ platform, view, refuse, session = signedInView }: SettingsProps) {
     useMemo(() => {
         let current = view;
+        mockWindows(platform === 'macos' ? 'settings' : 'main');
         mockIPC((command, args) => {
             if (command === 'session') {
                 return session;
@@ -142,10 +152,16 @@ export function SettingsStory({ platform, view, refuse, session = signedInView }
             }
             return current;
         });
-    }, [view, refuse, session]);
+    }, [platform, view, refuse, session]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
-            {platform === 'macos' ? <Settings /> : <Shell sections={realSections} bottom={settingsSection(platform)} />}
+            {platform === 'macos' ? (
+                <div className="min-h-screen bg-sidebar">
+                    <Settings />
+                </div>
+            ) : (
+                <Shell sections={realSections} bottom={settingsSection(platform)} />
+            )}
         </AppInfoContext.Provider>
     );
 }

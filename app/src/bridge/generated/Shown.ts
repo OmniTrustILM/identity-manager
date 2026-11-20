@@ -6,6 +6,7 @@ import type { Platform } from "./Platform";
  */
 export type Shown = { name: string, version: string, platform: Platform, 
 /**
- * The natural height of the content in CSS pixels, sent by the tray summary so its window can fit it.
+ * The natural height of the content in CSS pixels, sent by the tray summary and the macOS Settings window so
+ * their windows can fit it.
  */
 height?: number, };

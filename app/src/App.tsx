@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { AppInfoContext } from './app-info';
+import { useEffect, useRef, useState } from 'react';
+import { AppInfoContext, useAppInfo } from './app-info';
 import { type AppInfo, getAppInfo, type Platform, reportReady, windowLabel } from './bridge';
 import { Shell } from './components/Shell/Shell';
 import { TraySummary } from './components/TraySummary/TraySummary';
@@ -32,14 +32,56 @@ function Main({ platform }: Readonly<{ platform: Platform }>) {
     }
 }
 
+/** The macOS Settings window takes the height of its content, so that every group shows without scrolling. */
+function SettingsWindow() {
+    const info = useAppInfo();
+    const content = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        // The window fits its content, so the page has nothing to scroll and should not bounce like it does.
+        document.documentElement.style.overscrollBehavior = 'none';
+    }, []);
+
+    useEffect(() => {
+        const element = content.current;
+        if (!element) {
+            return;
+        }
+        const observer = new ResizeObserver(() => {
+            const height = Math.ceil(element.getBoundingClientRect().height);
+            if (height > 0) {
+                reportReady({ ...info, height }).catch(() => undefined);
+            }
+        });
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [info]);
+
+    return (
+        <div className="min-h-screen bg-sidebar">
+            <div ref={content}>
+                <Settings />
+            </div>
+            {/* The title bar is drawn over the content, so its strip moves the window whatever Settings shows. */}
+            <div data-tauri-drag-region className="fixed inset-x-0 top-0 h-titlebar" />
+        </div>
+    );
+}
+
 function Content({ label, platform }: Readonly<{ label: string; platform: Platform }>) {
     switch (label) {
         case 'summary':
             return <TraySummary />;
         case 'settings':
-            return <Settings />;
+            return <SettingsWindow />;
         default:
-            return <Main platform={platform} />;
+            return (
+                <>
+                    <Main platform={platform} />
+                    {/* The macOS window has no title bar of its own over the content, so its top strip moves it. */}
+                    {platform === 'macos' && <div data-tauri-drag-region className="fixed inset-x-0 top-0 h-titlebar" />}
+                </>
+            );
     }
 }
 
@@ -64,7 +106,7 @@ export function App() {
     }, []);
 
     useEffect(() => {
-        // The summary reports itself, together with the height of its content; Settings is not part of the check.
+        // The summary and the Settings window report themselves, together with the height of their content.
         if (info && windowLabel() === 'main') {
             reportReady(info).catch(() => undefined);
         }

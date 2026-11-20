@@ -13,10 +13,19 @@ interface ShellProps {
 export function Shell({ sections, bottom }: Readonly<ShellProps>) {
     const info = useAppInfo();
     const [current, setCurrent] = useState(sections[0]?.id);
-    const open = [...sections, ...(bottom ? [bottom] : [])].find((section) => section.id === current);
+    const entries = [...sections, ...(bottom ? [bottom] : [])];
+    const open = entries.find((section) => section.id === current);
+    const select = (id: string) => {
+        const entry = entries.find((section) => section.id === id);
+        if (entry?.open) {
+            entry.open();
+        } else {
+            setCurrent(id);
+        }
+    };
 
     useEffect(() => {
-        if (!bottom) {
+        if (!bottom || bottom.open) {
             return;
         }
         // The tray menu asks for the page this way; it is the only section it opens. The request is kept until taken,
@@ -42,10 +51,10 @@ export function Shell({ sections, bottom }: Readonly<ShellProps>) {
                 sections={sections}
                 bottom={bottom}
                 current={current ?? ''}
-                onSelect={setCurrent}
+                onSelect={select}
                 title={info.platform === 'linux' ? info.name : undefined}
             />
-            <main className="flex-1 overflow-auto bg-surface p-s5">{open && <open.Component />}</main>
+            <main className="flex-1 overflow-auto bg-surface p-s5 in-data-[os=macos]:pt-titlebar">{open && <open.Component />}</main>
         </div>
     );
 }

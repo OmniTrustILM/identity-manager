@@ -1,13 +1,14 @@
-import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { useAppInfo } from '../app-info';
 import { type Change, connect, getSettings, type LogLevel, type Platform, setSetting, type SettingsView, signOut } from '../bridge';
-import { InfoIcon } from '../design-system/icons';
+import { ConnectionIcon, InfoIcon, LockIcon, SettingsIcon } from '../design-system/icons';
 import { LockNote } from '../components/Switch/LockNote';
 import { Select } from '../components/Switch/Select';
 import { Switch } from '../components/Switch/Switch';
 import { TextField } from '../components/TextField/TextField';
 import { useSession } from '../session';
 import { strings } from '../strings';
+import { type Pane, SettingsTabs } from './SettingsTabs';
 import { Unlock } from './Unlock';
 
 const logLevels: readonly LogLevel[] = ['error', 'warn', 'info', 'debug'];
@@ -76,7 +77,7 @@ function Group({ title, children }: Readonly<{ title: string; children: ReactNod
     const id = useId();
     return (
         <section aria-labelledby={id} className="flex flex-col gap-s3">
-            <h2 id={id} className="text-title font-semibold">
+            <h2 id={id} className="text-title font-semibold in-data-[os=macos]:sr-only">
                 {title}
             </h2>
             <div className="flex flex-col divide-y divide-separator overflow-hidden rounded-window border border-separator bg-card in-data-[os=windows]:gap-s1 in-data-[os=windows]:overflow-visible in-data-[os=windows]:border-0 in-data-[os=windows]:bg-transparent">
@@ -185,7 +186,7 @@ function AddressRow({ address, locked, readOnly }: Readonly<AddressRowProps>) {
 
 export function Settings() {
     const { platform } = useAppInfo();
-    const { view: session } = useSession();
+    const { view: session, failed: sessionFailed } = useSession();
     const [view, setView] = useState<SettingsView | null>(null);
     const [loadFailed, setLoadFailed] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<Change['key'], string>>>({});
@@ -220,9 +221,14 @@ export function Settings() {
         return <Unlock automatic={false} />;
     }
     if (loadFailed) {
-        return <p role="alert">{strings.settingsLoadError}</p>;
+        return (
+            <p role="alert" className="in-data-[os=macos]:p-s4 in-data-[os=macos]:pt-titlebar">
+                {strings.settingsLoadError}
+            </p>
+        );
     }
-    if (!view) {
+    // The macOS tabs wait for the session too, or the Connection tab would be missing and its remembered choice lost.
+    if (!view || (platform === 'macos' && !session && !sessionFailed)) {
         return null;
     }
 
@@ -264,38 +270,56 @@ export function Settings() {
         }
     };
 
-    return (
-        <div className="flex flex-col gap-s3 in-data-[os=macos]:min-h-screen in-data-[os=macos]:bg-sidebar in-data-[os=macos]:p-s4">
-            {platform !== 'macos' && (
-                <h1 className="text-large-title font-semibold in-data-[os=linux]:-mx-s5 in-data-[os=linux]:-mt-s5 in-data-[os=linux]:mb-s2 in-data-[os=linux]:bg-titlebar in-data-[os=linux]:py-s3 in-data-[os=linux]:text-center in-data-[os=linux]:text-title">
-                    {platform === 'linux' ? strings.preferences : strings.settings}
-                </h1>
-            )}
-            <Group title={strings.general}>
-                <Row
-                    label={strings.startAtLogin}
-                    locked={view.startAtLogin.locked}
-                    error={errors.startAtLogin}
-                    renderControl={(props) => (
-                        <Switch {...props} checked={view.startAtLogin.value} onChange={(value) => change({ key: 'startAtLogin', value })} />
-                    )}
-                />
-                <Row
-                    label={strings.logLevel}
-                    locked={view.logLevel.locked}
-                    error={errors.logLevel}
-                    renderControl={(props) => (
-                        <Select
-                            {...props}
-                            value={view.logLevel.value}
-                            options={logLevels}
-                            onChange={(value) => change({ key: 'logLevel', value })}
-                        />
-                    )}
-                />
-            </Group>
-            {view.unlock !== 'unsupported' && <Security view={view} platform={platform} errors={errors} change={change} />}
-            {session?.state === 'signedIn' && (
+    const panes: [Pane, ...Pane[]] = [
+        {
+            id: 'general',
+            title: strings.general,
+            icon: SettingsIcon,
+            content: (
+                <Group title={strings.general}>
+                    <Row
+                        label={strings.startAtLogin}
+                        locked={view.startAtLogin.locked}
+                        error={errors.startAtLogin}
+                        renderControl={(props) => (
+                            <Switch
+                                {...props}
+                                checked={view.startAtLogin.value}
+                                onChange={(value) => change({ key: 'startAtLogin', value })}
+                            />
+                        )}
+                    />
+                    <Row
+                        label={strings.logLevel}
+                        locked={view.logLevel.locked}
+                        error={errors.logLevel}
+                        renderControl={(props) => (
+                            <Select
+                                {...props}
+                                value={view.logLevel.value}
+                                options={logLevels}
+                                onChange={(value) => change({ key: 'logLevel', value })}
+                            />
+                        )}
+                    />
+                </Group>
+            ),
+        },
+    ];
+    if (view.unlock !== 'unsupported') {
+        panes.push({
+            id: 'security',
+            title: strings.security,
+            icon: LockIcon,
+            content: <Security view={view} platform={platform} errors={errors} change={change} />,
+        });
+    }
+    if (session?.state === 'signedIn') {
+        panes.push({
+            id: 'connection',
+            title: strings.connection,
+            icon: ConnectionIcon,
+            content: (
                 <Group title={strings.connection}>
                     <AddressRow address={session.address} locked={view.ilmUrl.locked} readOnly={platform === 'macos'} />
                     <div className={`flex items-center justify-between gap-s4 ${rowClass}`}>
@@ -315,7 +339,21 @@ export function Settings() {
                         </button>
                     </div>
                 </Group>
-            )}
+            ),
+        });
+    }
+
+    if (platform === 'macos') {
+        return <SettingsTabs panes={panes} />;
+    }
+    return (
+        <div className="flex flex-col gap-s3">
+            <h1 className="text-large-title font-semibold in-data-[os=linux]:-mx-s5 in-data-[os=linux]:-mt-s5 in-data-[os=linux]:mb-s2 in-data-[os=linux]:bg-titlebar in-data-[os=linux]:py-s3 in-data-[os=linux]:text-center in-data-[os=linux]:text-title">
+                {platform === 'linux' ? strings.preferences : strings.settings}
+            </h1>
+            {panes.map((pane) => (
+                <Fragment key={pane.id}>{pane.content}</Fragment>
+            ))}
         </div>
     );
 }

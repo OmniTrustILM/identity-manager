@@ -1,8 +1,15 @@
 {
     "$schema": "../gen/schemas/desktop-schema.json",
     "identifier": "settings-window",
-    "description": "On macOS the Settings window may read and change the settings and nothing else.",
+    "description": "On macOS the Settings window may read and change the settings, report the height of its content, name itself after its pane, be moved by its toolbar and nothing else.",
     "windows": ["settings"],
     "platforms": ["macOS"],
-    "permissions": ["allow-app-info", "allow-settings", "allow-set-setting"]
+    "permissions": [
+        "allow-app-info",
+        "allow-report-ready",
+        "allow-settings",
+        "allow-set-setting",
+        "core:window:allow-set-title",
+        "core:window:allow-start-dragging"
+    ]
 }

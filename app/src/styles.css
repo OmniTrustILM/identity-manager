@@ -49,6 +49,7 @@
     --spacing-sidebar: var(--im-sidebar-width);
     --spacing-tray: var(--im-tray-width);
     --spacing-icon: var(--im-icon-size);
+    --spacing-toolbar-icon: var(--im-toolbar-icon-size);
     --spacing-titlebar: var(--im-titlebar-inset);
     --spacing-select: var(--im-select-width);
     --spacing-form: var(--im-form-width);

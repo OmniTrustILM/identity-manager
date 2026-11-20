@@ -55,6 +55,36 @@ async function open(
     await expect(page.getByRole('switch', { name: 'Start at login' })).toBeVisible();
 }
 
+/** On macOS each group is a pane of the Settings window, opened by its tab; elsewhere every group is on the page. */
+async function openPane(page: Page, os: Platform, name: string) {
+    if (os === 'macos') {
+        await page.getByRole('tab', { name }).click();
+    }
+}
+
+for (const scheme of ['light', 'dark'] as const) {
+    test(`on macos in ${scheme} the toolbar names each pane and the keyboard moves between them`, async ({ mount, page }) => {
+        await open(page, mount, 'macos', scheme, { view: ready });
+        await keyboardReady(page);
+        const tabs = page.getByRole('tab');
+        await expect(tabs).toHaveText(['General', 'Security', 'Connection']);
+        await expect(page.getByRole('tablist')).toHaveAttribute('data-tauri-drag-region', 'deep');
+
+        await page.getByRole('tab', { name: 'General' }).focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByRole('tab', { name: 'Security' })).toBeFocused();
+        await expect(page.getByRole('tabpanel')).toHaveAccessibleName('Security');
+        await expect(page.getByRole('switch', { name: securityLabels.macos })).toBeVisible();
+        await expect(page.getByRole('switch', { name: 'Start at login' })).toHaveCount(0);
+        await page.keyboard.press('End');
+        await expect(page.getByRole('textbox', { name: 'ILM address' })).toBeVisible();
+        if (shots) {
+            mkdirSync(shots, { recursive: true });
+            await page.screenshot({ path: `${shots}/settings-tabs-macos-${scheme}.png` });
+        }
+    });
+}
+
 for (const os of ['macos', 'windows', 'linux'] as const) {
     for (const scheme of ['light', 'dark'] as const) {
         test(`on ${os} in ${scheme} the rows, the lock note and the heading are as designed`, async ({ mount, page }) => {
@@ -66,7 +96,11 @@ for (const os of ['macos', 'windows', 'linux'] as const) {
             await expect(level).toHaveValue('debug');
             await expect(level).toHaveAccessibleDescription('Managed by your organization');
             await expect(page.getByText('Managed by your organization')).toBeVisible();
-            await expect(page.getByRole('heading', { name: 'General' })).toBeVisible();
+            if (os === 'macos') {
+                await expect(page.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
+            } else {
+                await expect(page.getByRole('heading', { name: 'General' })).toBeVisible();
+            }
             const heading = page.getByRole('heading', { level: 1 });
             const word = words[os];
             if (word) {
@@ -135,8 +169,9 @@ for (const os of ['macos', 'windows', 'linux'] as const) {
         test(`on ${os} in ${scheme} the group Connection shows the address, the person and Sign out`, async ({ mount, page }) => {
             await open(page, mount, os, scheme, { view: unlocked });
             await page.setViewportSize(connection(os));
+            await openPane(page, os, 'Connection');
 
-            await expect(page.getByRole('heading', { name: 'Connection' })).toBeVisible();
+            await expect(page.getByRole('heading', { name: 'Connection' })).toBeAttached();
             const address = page.getByRole('textbox', { name: 'ILM address' });
             await expect(address).toHaveValue('ilm.example.com');
             await expect(address).toHaveJSProperty('readOnly', os === 'macos');
@@ -170,6 +205,7 @@ for (const os of ['macos', 'windows'] as const) {
                 session: certificateSession,
             });
             await page.setViewportSize(connection(os));
+            await openPane(page, os, 'Connection');
 
             await expect(page.getByText('Signed in with a certificate')).toBeVisible();
             await expect(page.getByText('3F:A2:9C:01')).toBeVisible();
@@ -227,8 +263,9 @@ for (const os of ['macos', 'windows'] as const) {
         test(`on ${os} in ${scheme} the group Security has its switch and its select by name`, async ({ mount, page }) => {
             await open(page, mount, os, scheme, { view: ready });
             await page.setViewportSize(connection(os));
+            await openPane(page, os, 'Security');
 
-            await expect(page.getByRole('heading', { name: 'Security' })).toBeVisible();
+            await expect(page.getByRole('heading', { name: 'Security' })).toBeAttached();
             await expect(page.getByRole('switch', { name: securityLabels[os] })).toBeChecked();
             const idle = page.getByRole('combobox', { name: 'Lock after inactivity' });
             await expect(idle).toBeEnabled();
@@ -246,15 +283,17 @@ test('on Linux there is no group Security', async ({ mount, page }) => {
 
 test('the keyboard alone turns unlocking off, which disables the time and skips it', async ({ mount, page }) => {
     await open(page, mount, 'macos', 'light', { view: ready });
+    await openPane(page, 'macos', 'Security');
     await keyboardReady(page);
     const unlockSwitch = page.getByRole('switch', { name: securityLabels.macos });
     await unlockSwitch.focus();
 
     await page.keyboard.press('Space');
     await expect(unlockSwitch).not.toBeChecked();
-    await expect(page.getByRole('combobox', { name: 'Lock after inactivity' })).toBeDisabled();
+    const idle = page.getByRole('combobox', { name: 'Lock after inactivity' });
+    await expect(idle).toBeDisabled();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('textbox', { name: 'ILM address' })).toBeFocused();
+    await expect(idle).not.toBeFocused();
 });
 
 test('the keyboard alone reaches the time and chooses it', async ({ mount, page }) => {
@@ -271,6 +310,7 @@ test('the keyboard alone reaches the time and chooses it', async ({ mount, page 
 
 test('a time set by the organization is locked, shown in minutes and says so', async ({ mount, page }) => {
     await open(page, mount, 'macos', 'dark', { view: { ...ready, lockAfterIdle: { value: 7, locked: true } } });
+    await openPane(page, 'macos', 'Security');
 
     const idle = page.getByRole('combobox', { name: 'Lock after inactivity' });
     await expect(idle).toBeDisabled();
@@ -292,6 +332,7 @@ for (const scheme of ['light', 'dark'] as const) {
 
 test('on macOS without a password both rows are disabled and say how to set one', async ({ mount, page }) => {
     await open(page, mount, 'macos', 'light', { view: { ...ready, unlock: 'notSetUp' } });
+    await openPane(page, 'macos', 'Security');
 
     await expect(page.getByRole('switch', { name: securityLabels.macos })).toHaveAccessibleDescription(
         'Set a password for this Mac to lock Identity Manager.',
