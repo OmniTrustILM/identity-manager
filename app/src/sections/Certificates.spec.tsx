@@ -116,15 +116,15 @@ test('the subline says PC on Windows', async () => {
     expect(container.textContent).toContain('1 on this PC');
 });
 
-test('options form a listbox named by certificate, use and status, with one tab stop', async () => {
-    answer(() => [view('First'), view('Second')]);
+test('options form a listbox named by certificate, use, key location and status, with one tab stop', async () => {
+    answer(() => [view('First'), view('Second', { location: 'smartCard' })]);
     await render();
 
     const list = container.querySelector('[role="listbox"]');
     expect(list?.getAttribute('aria-label')).toBe(strings.certificatesListLabel);
     expect(options().map((option) => option.getAttribute('aria-label'))).toEqual([
-        'First, Client authentication, Expires in 212 days',
-        'Second, Client authentication, Expires in 212 days',
+        'First, Client authentication, Keychain, Expires in 212 days',
+        'Second, Client authentication, Smart card, Expires in 212 days',
     ]);
     expect(options().map((option) => option.tabIndex)).toEqual([0, -1]);
 });

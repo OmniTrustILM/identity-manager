@@ -161,7 +161,7 @@ function List({
                             role="option"
                             tabIndex={index === selected ? 0 : -1}
                             aria-selected={index === selected}
-                            aria-label={`${certificate.name}, ${uses(certificate)}, ${state.text}`}
+                            aria-label={`${certificate.name}, ${uses(certificate)}, ${strings.locationLabels[certificate.location]}, ${state.text}`}
                             onClick={() => onSelect(index)}
                             onKeyDown={(event) => move(event, index)}
                             className={`${columns} cursor-default rounded-control py-s2 hover:bg-row-hover aria-selected:bg-row-current motion-safe:transition-colors`}

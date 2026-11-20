@@ -100,8 +100,8 @@ test('the list is a listbox whose options are named by certificate, use and stat
     await open(page, mount, 'windows', 'light');
 
     await expect(page.getByRole('listbox', { name: 'Certificates on this computer' })).toBeVisible();
-    await expect(page.getByRole('option', { name: 'CLIENT1, Client authentication, Expires in 212 days' })).toBeVisible();
-    await expect(page.getByRole('option', { name: /^Build server, Client authentication, Expired/ })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'CLIENT1, Client authentication, Keychain, Expires in 212 days' })).toBeVisible();
+    await expect(page.getByRole('option', { name: /^Build server, Client authentication, Smart card, Expired/ })).toBeVisible();
 });
 
 test('a focused row shows a focus ring', async ({ mount, page }) => {
