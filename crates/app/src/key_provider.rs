@@ -5,6 +5,7 @@ use std::mem::size_of;
 use std::ptr::NonNull;
 
 use im_core::identity::{Fingerprint, KeyProviders};
+use windows::Win32::Foundation::CRYPT_E_NOT_FOUND;
 use windows::Win32::Security::Cryptography::{
     CERT_CONTEXT, CERT_FIND_EXISTING, CERT_KEY_PROV_INFO_PROP_ID, CERT_OPEN_STORE_FLAGS,
     CERT_STORE_PROV_SYSTEM_W, CERT_STORE_READONLY_FLAG, CERT_SYSTEM_STORE_CURRENT_USER,
@@ -112,14 +113,19 @@ impl Context {
     fn provider_name(&self) -> Result<Option<String>> {
         let mut size = 0;
         // SAFETY: without a buffer the call only reports the size; the context is live.
-        unsafe {
+        let sized = unsafe {
             CertGetCertificateContextProperty(
                 self.0.as_ptr(),
                 CERT_KEY_PROV_INFO_PROP_ID,
                 None,
                 &mut size,
             )
-        }?;
+        };
+        match sized {
+            // A certificate without a private key has no provider.
+            Err(error) if error.code() == CRYPT_E_NOT_FOUND => return Ok(None),
+            other => other?,
+        }
         let size_in_bytes = size as usize;
         if size_in_bytes < size_of::<CRYPT_KEY_PROV_INFO>() {
             return Ok(None);
