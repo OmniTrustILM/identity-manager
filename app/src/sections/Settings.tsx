@@ -12,6 +12,7 @@ import { type Pane, SettingsTabs } from './SettingsTabs';
 import { Unlock } from './Unlock';
 
 const logLevels: readonly LogLevel[] = ['error', 'warn', 'info', 'debug'];
+const checkChoices = [5, 15, 30, 60];
 const idleChoices = [null, 5, 15, 30, 60];
 
 const idleKey = (minutes: number | null) => (minutes === null ? 'never' : String(minutes));
@@ -299,6 +300,23 @@ export function Settings() {
                                 value={view.logLevel.value}
                                 options={logLevels}
                                 onChange={(value) => change({ key: 'logLevel', value })}
+                            />
+                        )}
+                    />
+                    <Row
+                        label={strings.checkEvery}
+                        locked={view.checkEvery.locked}
+                        error={errors.checkEvery}
+                        renderControl={(props) => (
+                            <Select
+                                {...props}
+                                value={String(view.checkEvery.value)}
+                                options={(checkChoices.includes(view.checkEvery.value)
+                                    ? checkChoices
+                                    : [...checkChoices, view.checkEvery.value]
+                                ).map(String)}
+                                label={(key) => strings.minutes(Number(key))}
+                                onChange={(key) => change({ key: 'checkEvery', value: Number(key) })}
                             />
                         )}
                     />

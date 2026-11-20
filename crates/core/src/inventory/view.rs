@@ -1,0 +1,241 @@
+//! The inventory as the interface sees it: camelCase, times in milliseconds, no allowed actions.
+
+use std::collections::HashMap;
+
+use serde::Serialize;
+
+use super::{Snapshot, Status};
+use crate::ilm::certificates::{CertificatePage, IlmCertificate};
+
+/// The RA Profile that manages a certificate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename = "IlmRaProfileView")
+)]
+pub struct IlmRaProfileView {
+    pub uuid: String,
+    pub name: String,
+}
+
+/// A certificate in ILM.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct IlmCertificateView {
+    pub uuid: String,
+    pub name: String,
+    pub subject_dn: Option<String>,
+    pub issuer_name: Option<String>,
+    pub serial: Option<String>,
+    /// Milliseconds since 1970 (UTC).
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
+    pub not_before: Option<i64>,
+    /// Milliseconds since 1970 (UTC).
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
+    pub not_after: Option<i64>,
+    /// Uppercase hex pairs separated by colons, as in the local list.
+    pub fingerprint: Option<String>,
+    /// The public key as text, such as "RSA 2048".
+    pub key: Option<String>,
+    /// ILM's code, such as "issued"; a code this application does not know is passed on as it is.
+    pub state: String,
+    /// ILM's code, such as "valid"; a code this application does not know is passed on as it is.
+    pub validation_status: String,
+    pub ra_profile: Option<IlmRaProfileView>,
+    pub owner: Option<String>,
+    pub groups: Vec<String>,
+    pub archived: bool,
+}
+
+impl From<&IlmCertificate> for IlmCertificateView {
+    fn from(found: &IlmCertificate) -> Self {
+        Self {
+            uuid: found.uuid.clone(),
+            name: found.name.clone(),
+            subject_dn: found.subject_dn.clone(),
+            issuer_name: found.issuer_name.clone(),
+            serial: found.serial.clone(),
+            not_before: found.not_before,
+            not_after: found.not_after,
+            fingerprint: found.fingerprint.map(|print| print.to_string()),
+            key: found.key.clone(),
+            state: found.state.code().to_owned(),
+            validation_status: found.validation_status.code().to_owned(),
+            ra_profile: found.ra_profile.as_ref().map(|profile| IlmRaProfileView {
+                uuid: profile.uuid.clone(),
+                name: profile.name.clone(),
+            }),
+            owner: found.owner.clone(),
+            groups: found.groups.clone(),
+            archived: found.archived,
+        }
+    }
+}
+
+/// One page of ILM's list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct IlmPageView {
+    pub certificates: Vec<IlmCertificateView>,
+    /// Starts at 1.
+    pub page_number: u32,
+    pub total_pages: u32,
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number"))]
+    pub total_items: u64,
+}
+
+impl From<&CertificatePage> for IlmPageView {
+    fn from(page: &CertificatePage) -> Self {
+        Self {
+            certificates: page.certificates.iter().map(Into::into).collect(),
+            page_number: page.page_number,
+            total_pages: page.total_pages,
+            total_items: page.total_items,
+        }
+    }
+}
+
+/// What ILM is known to say about the certificates on this computer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct InventoryView {
+    pub status: Status,
+    /// A check is running now.
+    pub checking: bool,
+    /// When the snapshot was taken, milliseconds since 1970 (UTC); none before the first check.
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
+    pub checked_at: Option<i64>,
+    /// Whether the signed-in person may list certificates in ILM, known before the first check. When not, there are
+    /// no matches and no first page.
+    pub listed: bool,
+    /// The certificates on this computer that ILM knows, by fingerprint.
+    pub matches: HashMap<String, IlmCertificateView>,
+    /// The fingerprint of the certificate ILM knows the person by.
+    pub sign_in: Option<String>,
+    pub first_page: Option<IlmPageView>,
+}
+
+impl InventoryView {
+    pub fn new(status: Status, snapshot: Option<&Snapshot>, checking: bool, listed: bool) -> Self {
+        Self {
+            status,
+            checking,
+            checked_at: snapshot.map(|snapshot| snapshot.checked_at),
+            listed,
+            matches: snapshot.map_or_else(HashMap::new, |snapshot| {
+                snapshot
+                    .matches
+                    .iter()
+                    .map(|(print, found)| (print.to_string(), found.into()))
+                    .collect()
+            }),
+            sign_in: snapshot
+                .and_then(|snapshot| snapshot.sign_in.as_ref())
+                .map(|certificate| certificate.fingerprint.to_string()),
+            first_page: snapshot
+                .and_then(|snapshot| snapshot.first_page.as_ref())
+                .map(Into::into),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::identity::Fingerprint;
+    use crate::ilm::certificates::{State, ValidationStatus};
+    use crate::ilm::profile::SignInCertificate;
+
+    fn certificate(fingerprint: Fingerprint) -> IlmCertificate {
+        IlmCertificate {
+            uuid: "u-1".to_owned(),
+            name: "Ada".to_owned(),
+            subject_dn: None,
+            issuer_name: None,
+            serial: None,
+            not_before: Some(1),
+            not_after: Some(2),
+            fingerprint: Some(fingerprint),
+            key: None,
+            state: State::Issued,
+            validation_status: ValidationStatus::Other("odd".to_owned()),
+            ra_profile: None,
+            owner: None,
+            groups: Vec::new(),
+            archived: false,
+        }
+    }
+
+    fn snapshot(first_page: Option<CertificatePage>) -> Snapshot {
+        let print = Fingerprint::of(b"a");
+        Snapshot {
+            checked_at: 5,
+            matches: HashMap::from([(print, certificate(print))]),
+            sign_in: Some(SignInCertificate {
+                uuid: "u-1".to_owned(),
+                fingerprint: print,
+            }),
+            first_page,
+            allowed: HashMap::from([("u-1".to_owned(), vec!["renew".to_owned()])]),
+        }
+    }
+
+    #[test]
+    fn a_snapshot_shows_its_matches_codes_and_sign_in_but_no_actions() {
+        let page = CertificatePage {
+            certificates: vec![certificate(Fingerprint::of(b"b"))],
+            page_number: 1,
+            total_pages: 1,
+            total_items: 1,
+        };
+        let view = InventoryView::new(
+            Status::Fresh { checked_at: 5 },
+            Some(&snapshot(Some(page))),
+            true,
+            true,
+        );
+        let json = serde_json::to_value(&view).unwrap();
+        let key = Fingerprint::of(b"a").to_string();
+
+        assert_eq!(json["checking"], true);
+        assert_eq!(json["checkedAt"], 5);
+        assert_eq!(json["listed"], true);
+        assert_eq!(json["signIn"], key);
+        assert_eq!(json["matches"][&key]["state"], "issued");
+        assert_eq!(json["matches"][&key]["validationStatus"], "odd");
+        assert_eq!(json["matches"][&key]["fingerprint"], key);
+        assert_eq!(json["firstPage"]["totalItems"], 1);
+        assert!(!json.to_string().contains("renew"));
+    }
+
+    #[test]
+    fn without_a_first_page_certificates_are_not_listed() {
+        let view = InventoryView::new(Status::Never, Some(&snapshot(None)), false, false);
+        assert!(!view.listed);
+        assert!(view.first_page.is_none());
+    }
+
+    #[test]
+    fn before_the_first_check_there_is_nothing() {
+        let view = InventoryView::new(Status::Never, None, false, true);
+        assert!(view.listed);
+        assert_eq!(view.checked_at, None);
+        assert!(view.matches.is_empty() && view.sign_in.is_none());
+    }
+}

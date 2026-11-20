@@ -1,8 +1,8 @@
 //! The Windows source: the values of a registry key.
 
 use super::{
-    ILM_URL, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUIRE_UNLOCK, RawMap, SIGN_IN_METHOD,
-    SIGN_IN_PROVIDER, START_AT_LOGIN,
+    CHECK_INTERVAL, ILM_URL, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUIRE_UNLOCK, RawMap,
+    SIGN_IN_METHOD, SIGN_IN_PROVIDER, START_AT_LOGIN,
 };
 #[cfg(windows)]
 use crate::settings::Layer;
@@ -63,7 +63,7 @@ pub enum RegValue {
     Other,
 }
 
-/// `REG_DWORD` 0 and 1 are booleans, other numbers stay integers (`LockAfterIdle` is always a number), `REG_SZ` is text. Value names ignore case, as
+/// `REG_DWORD` 0 and 1 are booleans, other numbers stay integers (`LockAfterIdle` and `CheckInterval` are always numbers), `REG_SZ` is text. Value names ignore case, as
 /// they do in the registry.
 pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> RawMap {
     values
@@ -71,7 +71,7 @@ pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> R
         .map(|(name, value)| {
             let name = known_name(name);
             let value = match value {
-                RegValue::Dword(number) if name == LOCK_AFTER_IDLE => {
+                RegValue::Dword(number) if name == LOCK_AFTER_IDLE || name == CHECK_INTERVAL => {
                     PolicyValue::Int(i64::from(number))
                 }
                 RegValue::Dword(0) => PolicyValue::Bool(false),
@@ -92,6 +92,7 @@ fn known_name(name: String) -> String {
         ILM_URL,
         REQUIRE_UNLOCK,
         LOCK_AFTER_IDLE,
+        CHECK_INTERVAL,
         SIGN_IN_PROVIDER,
         SIGN_IN_METHOD,
     ]
@@ -170,6 +171,17 @@ mod tests {
         }
         let layer = to_layer(&parse(vec![("LockAfterIdle", RegValue::Dword(0))]), "test");
         assert_eq!(layer.lock_after_idle, None);
+    }
+
+    #[test]
+    fn check_interval_is_always_a_number() {
+        for (minutes, expected) in [(5, Some(5)), (45, Some(45)), (1440, Some(1440)), (1, None)] {
+            let layer = to_layer(
+                &parse(vec![("checkinterval", RegValue::Dword(minutes))]),
+                "test",
+            );
+            assert_eq!(layer.check_every.map(|m| m.get()), expected, "{minutes}");
+        }
     }
 
     #[test]

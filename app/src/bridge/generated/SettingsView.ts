@@ -8,6 +8,10 @@ import type { Unlock } from "./Unlock";
  */
 export type SettingsView = { startAtLogin: Entry<boolean>, logLevel: Entry<LogLevel>, ilmUrl: Entry<string | null>, requireUnlock: Entry<boolean>, lockAfterIdle: Entry<number | null>, 
 /**
+ * Minutes between two checks with ILM.
+ */
+checkEvery: Entry<number>, 
+/**
  * What the system can do; the settings do not know it, so `view` says unsupported until the application
  * reads the system.
  */

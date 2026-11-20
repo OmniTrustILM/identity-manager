@@ -151,6 +151,21 @@ mod tests {
     }
 
     #[test]
+    fn check_interval_integers_reach_the_layer() {
+        let plist = |minutes: i64| {
+            format!(
+                r#"<?xml version="1.0"?><plist version="1.0"><dict>
+<key>CheckInterval</key><integer>{minutes}</integer></dict></plist>"#
+            )
+        };
+        for (minutes, expected) in [(30, Some(30)), (1440, Some(1440)), (1, None)] {
+            let layer =
+                crate::policy::to_layer(&parse_plist(plist(minutes).as_bytes(), "test"), "test");
+            assert_eq!(layer.check_every.map(|m| m.get()), expected, "{minutes}");
+        }
+    }
+
+    #[test]
     fn a_plist_integer_is_not_a_bool_for_the_layer() {
         let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
 <key>StartAtLogin</key><integer>1</integer></dict></plist>"#;

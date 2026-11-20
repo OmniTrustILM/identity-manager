@@ -3,9 +3,11 @@
 mod certificate;
 #[cfg(test)]
 mod certificate_tests;
+#[cfg(test)]
+mod sign_in_certificate_tests;
 mod store;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
@@ -26,6 +28,7 @@ use crate::oauth::metadata::{MetadataError, ProviderMetadata, provider_metadata}
 use crate::oauth::token::{TokenError, Tokens, exchange, refresh, revoke};
 use crate::settings::SignInMethod;
 use crate::token::AccessToken;
+pub use certificate::ChangeError;
 use certificate::certificate_choice;
 pub use store::{Item, KeyringStore, MemoryStore, RefreshStore, StoreError};
 
@@ -159,6 +162,23 @@ pub enum SessionView {
         /// The last check could not reach ILM.
         unreachable: bool,
     },
+}
+
+/// Who is signed in to which ILM, and what that person may list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SignedInAs {
+    pub ilm: IlmUrl,
+    pub username: String,
+    pub allowed_listings: Vec<String>,
+}
+
+impl SignedInAs {
+    /// Whether ILM lets the person list its certificates.
+    pub fn lists_certificates(&self) -> bool {
+        self.allowed_listings
+            .iter()
+            .any(|listing| listing == "certificates")
+    }
 }
 
 /// What the person signed in with, kept in memory after the sign-in ended on its own, to repeat it.
@@ -328,8 +348,12 @@ pub struct Session {
     restoring: tokio::sync::Mutex<()>,
     /// Held for a whole check, so an older answer never overwrites a newer one.
     checking: tokio::sync::Mutex<()>,
+    /// Held for a whole change of the sign-in certificate, so two changes do not interleave.
+    changing: tokio::sync::Mutex<()>,
     /// The latest refresh token when the store could not save it.
     unsaved: Mutex<Option<Item>>,
+    /// Runs when a sign-in has ended, whoever ended it, before the view changes.
+    on_signed_out: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 
 /// Whether the browser sign-in `attempt`, or with none the renewal at start, is still the one under way.
@@ -400,7 +424,34 @@ impl Session {
             renewing: tokio::sync::Mutex::new(()),
             restoring: tokio::sync::Mutex::new(()),
             checking: tokio::sync::Mutex::new(()),
+            changing: tokio::sync::Mutex::new(()),
             unsaved: Mutex::new(None),
+            on_signed_out: Mutex::new(None),
+        }
+    }
+
+    /// Runs `hook` whenever a sign-in ends: the person signs out, changes the address, or ILM ends the sign-in.
+    /// A later hook replaces an earlier one.
+    pub fn on_signed_out(&self, hook: impl Fn() + Send + Sync + 'static) {
+        *lock(&self.on_signed_out) = Some(Arc::new(hook));
+    }
+
+    fn signed_out(&self) {
+        let hook = lock(&self.on_signed_out).clone();
+        if let Some(hook) = hook {
+            hook();
+        }
+    }
+
+    /// Who is signed in, or none while nobody is.
+    pub fn signed_in_as(&self) -> Option<SignedInAs> {
+        match &*lock(&self.state) {
+            State::SignedIn(active) => Some(SignedInAs {
+                ilm: active.ilm.clone(),
+                username: active.person.username.clone(),
+                allowed_listings: active.person.allowed_listings.clone(),
+            }),
+            _ => None,
         }
     }
 
@@ -499,10 +550,12 @@ impl Session {
     /// Ends the sign-in the person did not end, so it can be repeated, with `problem`.
     fn end_sign_in(&self, problem: &str, again: Again) -> SessionView {
         log::info!("the sign-in ended: {problem}");
-        self.set(State::SignedOut {
+        *lock(&self.state) = State::SignedOut {
             problem: Some(problem.to_owned()),
             again: Some(again),
-        })
+        };
+        self.signed_out();
+        self.publish()
     }
 
     /// Ends the sign-in `attempt` with `problem`, unless something else has ended it meanwhile.
@@ -538,7 +591,11 @@ impl Session {
             }
             current
         };
-        if current { self.publish() } else { self.view() }
+        if !current {
+            return self.view();
+        }
+        self.signed_out();
+        self.publish()
     }
 
     /// The saved sign-in of the start, or of a retry, is kept: ILM or the identity provider cannot be reached.
@@ -1088,6 +1145,7 @@ impl Session {
             }
             _ => (address, None),
         };
+        self.signed_out();
         let item = match &ilm {
             Some(ilm) => self.load_item(ilm).await.ok().flatten(),
             None => None,
@@ -1149,21 +1207,55 @@ impl Session {
         &self,
         build: impl Fn(&Client, &IlmUrl) -> RequestBuilder + Sync,
     ) -> Result<Response, CallError> {
-        let (ilm, certificate) = match &*lock(&self.state) {
-            State::SignedIn(active) => (active.ilm.clone(), active.credential.certificate()),
+        self.call_ilm_as(None, build).await
+    }
+
+    /// Like `call_ilm`; with `expected`, only as that sign-in, so a request is never sent as one that replaced it.
+    pub(super) async fn call_ilm_as(
+        &self,
+        expected: Option<&Arc<()>>,
+        build: impl Fn(&Client, &IlmUrl) -> RequestBuilder + Sync,
+    ) -> Result<Response, CallError> {
+        let (ilm, certificate, id) = match &*lock(&self.state) {
+            State::SignedIn(active) if expected.is_none_or(|id| Arc::ptr_eq(id, &active.id)) => (
+                active.ilm.clone(),
+                active.credential.certificate(),
+                active.id.clone(),
+            ),
             _ => return Err(CallError::SignedOut),
         };
         if let Some(certificate) = certificate {
             return self.call_with_certificate(&build, &ilm, &certificate).await;
         }
-        let token = self.usable_token(&ilm, None).await?;
+        let token = self.token_of(&ilm, &id, None).await?;
         let response = self.send(&build, &ilm, &token).await?;
         if response.status() != StatusCode::UNAUTHORIZED {
             return Ok(response);
         }
         log::info!("ILM refused the access token; renewing it once");
-        let token = self.usable_token(&ilm, Some(&token)).await?;
+        let token = self.token_of(&ilm, &id, Some(&token)).await?;
         self.send(&build, &ilm, &token).await
+    }
+
+    /// Like `usable_token`, but only while the sign-in `id` lasts: a token of a sign-in that started meanwhile is
+    /// never used for a request of an earlier one.
+    async fn token_of(
+        &self,
+        ilm: &IlmUrl,
+        id: &Arc<()>,
+        refused: Option<&AccessToken>,
+    ) -> Result<AccessToken, CallError> {
+        let token = self.usable_token(ilm, refused).await?;
+        if self.is_sign_in(id) {
+            Ok(token)
+        } else {
+            Err(CallError::SignedOut)
+        }
+    }
+
+    /// Whether the sign-in `id` is the one signed in now.
+    fn is_sign_in(&self, id: &Arc<()>) -> bool {
+        matches!(&*lock(&self.state), State::SignedIn(active) if Arc::ptr_eq(&active.id, id))
     }
 
     async fn send(

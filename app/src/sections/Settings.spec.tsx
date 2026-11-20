@@ -14,6 +14,7 @@ const open: SettingsView = {
     ilmUrl: { value: null, locked: false },
     requireUnlock: { value: true, locked: false },
     lockAfterIdle: { value: null, locked: false },
+    checkEvery: { value: 15, locked: false },
     unlock: 'available',
 };
 const lockedLevel: SettingsView = {
@@ -759,4 +760,50 @@ test('Settings does not ask to unlock by itself', async () => {
     await render('macos');
 
     expect(calls.map((call) => call.command)).not.toContain('unlock');
+});
+
+const checkSelect = () => {
+    const row = [...container.querySelectorAll('label')].find((candidate) => candidate.textContent === strings.checkEvery);
+    return document.getElementById(row?.htmlFor ?? '') as HTMLSelectElement;
+};
+
+test('Check ILM every offers four times and sends the chosen one', async () => {
+    bridge((command, args) => {
+        if (command !== 'set_setting') {
+            return open;
+        }
+        const { key, value } = (args as { change: Change }).change;
+        return { ...open, [key]: { value, locked: false } };
+    });
+    await render('macos');
+
+    expect([...checkSelect().options].map((option) => option.textContent)).toEqual(['5 minutes', '15 minutes', '30 minutes', '60 minutes']);
+    expect(checkSelect().value).toBe('15');
+    expect(checkSelect().disabled).toBe(false);
+
+    await act(async () => {
+        checkSelect().value = '60';
+        checkSelect().dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(calls.at(-1)?.args).toEqual({ change: { key: 'checkEvery', value: 60 } });
+    expect(checkSelect().value).toBe('60');
+});
+
+test('Check ILM every set by the organization is locked and says so', async () => {
+    bridge(() => ({ ...open, checkEvery: { value: 30, locked: true } }));
+
+    await render('macos');
+
+    expect(checkSelect().disabled).toBe(true);
+    expect(checkSelect().value).toBe('30');
+    expect(document.getElementById(checkSelect().getAttribute('aria-describedby') ?? '')?.textContent).toBe(strings.managedByOrganization);
+});
+
+test('a check time of the organization that is not in the list is shown in minutes', async () => {
+    bridge(() => ({ ...open, checkEvery: { value: 120, locked: true } }));
+
+    await render('macos');
+
+    expect([...checkSelect().options].map((option) => option.textContent)).toContain('120 minutes');
+    expect(checkSelect().value).toBe('120');
 });

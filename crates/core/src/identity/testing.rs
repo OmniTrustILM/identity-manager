@@ -1,5 +1,6 @@
 //! Certificates made with rcgen and a store that holds their keys, for tests of this crate.
 
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
@@ -361,6 +362,7 @@ pub enum ClientCerts {
 /// What a [`TestServer`] saw of one request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeenRequest {
+    pub method: String,
     pub path: String,
     /// The leaf the client presented, if any.
     pub fingerprint: Option<Fingerprint>,
@@ -373,6 +375,8 @@ pub struct TestServer {
     port: u16,
     allowed: Arc<Mutex<Fingerprint>>,
     failing: Arc<Mutex<Option<u16>>>,
+    /// Each becomes the allowed leaf, in turn, once a `PUT` is answered.
+    after_update: Arc<Mutex<VecDeque<Fingerprint>>>,
     seen: Arc<Mutex<Vec<SeenRequest>>>,
     task: JoinHandle<()>,
 }
@@ -423,15 +427,18 @@ impl TestServer {
         let permitted = Arc::clone(&allowed);
         let failing = Arc::new(Mutex::new(None));
         let failure = Arc::clone(&failing);
+        let after_update = Arc::new(Mutex::new(VecDeque::new()));
+        let updating = Arc::clone(&after_update);
         let task = tokio::spawn(async move {
             while let Ok((stream, _)) = listener.accept().await {
                 let (acceptor, recorded) = (acceptor.clone(), Arc::clone(&recorded));
                 let permitted = Arc::clone(&permitted);
                 let failure = Arc::clone(&failure);
+                let updating = Arc::clone(&updating);
                 tokio::spawn(async move {
                     // A client that fails the handshake is not recorded.
                     if let Ok(stream) = acceptor.accept(stream).await {
-                        answer(stream, &permitted, &failure, port, &recorded).await;
+                        answer(stream, &permitted, &failure, &updating, port, &recorded).await;
                     }
                 });
             }
@@ -440,6 +447,7 @@ impl TestServer {
             port,
             allowed,
             failing,
+            after_update,
             seen,
             task,
         }
@@ -448,6 +456,15 @@ impl TestServer {
     /// From now on the profile is for `fingerprint` alone.
     pub fn allow(&self, fingerprint: Fingerprint) {
         *self.allowed.lock().expect("the allowed leaf") = fingerprint;
+    }
+
+    /// After a `PUT`, the first not yet answered for an earlier call, the profile is for `fingerprint` alone, as
+    /// when ILM changes the sign-in certificate.
+    pub fn allow_after_update(&self, fingerprint: Fingerprint) {
+        self.after_update
+            .lock()
+            .expect("the update")
+            .push_back(fingerprint);
     }
 
     /// From now on every request is answered with `status`, or as before with none.
@@ -478,8 +495,9 @@ type Connection = tokio_rustls::server::TlsStream<tokio::net::TcpStream>;
 
 async fn answer(
     mut stream: Connection,
-    allowed: &Mutex<Fingerprint>,
+    held: &Mutex<Fingerprint>,
     failing: &Mutex<Option<u16>>,
+    after_update: &Mutex<VecDeque<Fingerprint>>,
     port: u16,
     seen: &Mutex<Vec<SeenRequest>>,
 ) {
@@ -498,21 +516,32 @@ async fn answer(
         }
     }
     let head = String::from_utf8_lossy(&head).to_lowercase();
+    let method = head
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .to_uppercase();
     let path = head
         .split_whitespace()
         .nth(1)
         .unwrap_or_default()
         .to_owned();
     seen.lock().expect("the record").push(SeenRequest {
+        method: method.clone(),
         path,
         fingerprint,
         authorization: head.contains("\r\nauthorization:"),
     });
-    let allowed = *allowed.lock().expect("the allowed leaf");
+    let allowed = *held.lock().expect("the allowed leaf");
     let failing = *failing.lock().expect("the failure");
     let response = if let Some(status) = failing {
         format!("HTTP/1.1 {status} Failure\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
     } else if fingerprint == Some(allowed) {
+        if method == "PUT"
+            && let Some(next) = after_update.lock().expect("the update").pop_front()
+        {
+            *held.lock().expect("the allowed leaf") = next;
+        }
         let body = profile_json();
         format!(
             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",

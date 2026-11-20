@@ -6,5 +6,6 @@ Windows Registry Editor Version 5.00
 "IlmUrl"="https://ilm.example.com"
 "RequireUnlock"=dword:00000001
 "LockAfterIdle"=dword:0000000f
+"CheckInterval"=dword:0000001e
 "SignInProvider"="Corporate"
 "SignInMethod"="oauth"

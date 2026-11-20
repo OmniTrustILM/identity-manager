@@ -1,9 +1,11 @@
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
+import { emit } from '@tauri-apps/api/event';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { AppInfoContext } from '../app-info';
-import type { LocalCertificateView, Platform } from '../bridge';
+import { ilmCertificate, inventory } from '../../playwright/ilm';
+import type { InventoryView, LocalCertificateView, Platform } from '../bridge';
 import { strings } from '../strings';
 import { Certificates } from './Certificates';
 
@@ -50,13 +52,13 @@ afterEach(async () => {
     vi.useRealTimers();
 });
 
-function answer(handler: () => unknown) {
-    mockIPC((command) => {
+function answer(handler: () => unknown, others: (command: string, args: unknown) => unknown = () => undefined) {
+    mockIPC((command, args) => {
         if (command === 'local_certificates') {
             requests += 1;
             return handler();
         }
-        return undefined;
+        return others(command, args);
     });
 }
 
@@ -347,4 +349,325 @@ test('the first certificate shown stays shown when a refresh puts another before
     await focusEvent();
     expect(options()).toHaveLength(3);
     expect(selected()?.textContent).toContain('B');
+});
+
+const mine = view('CLIENT1', { fingerprint: 'FP:one' });
+const other = view('Alex Novak', { fingerprint: 'FP:two' });
+const managed = ilmCertificate('CLIENT1', { raProfile: { uuid: 'ra', name: 'Client certificates' } });
+const plain = ilmCertificate('Alex');
+
+function withInventory(current: InventoryView | null, extra: (command: string, args: unknown) => unknown = () => undefined) {
+    answer(
+        () => [mine, other, view('Build server', { fingerprint: 'FP:three', notAfter: at(-30) })],
+        (command, args) => (command === 'ilm_status' ? current : extra(command, args)),
+    );
+}
+const text = () => container.textContent ?? '';
+const button = (name: string) =>
+    [...container.querySelectorAll<HTMLButtonElement>('button')].find(
+        (candidate) => candidate.textContent === name || candidate.getAttribute('aria-label') === name,
+    );
+
+test('rows show what ILM knows with an icon and short text, and the header counts the ones in ILM', async () => {
+    withInventory(inventory({ matches: { 'FP:one': managed, 'FP:two': plain } }));
+    await render();
+
+    expect(options().map((option) => option.getAttribute('aria-label'))).toEqual([
+        'CLIENT1, Client authentication, Keychain, Expires in 212 days, Managed by ILM',
+        'Alex Novak, Client authentication, Keychain, Expires in 212 days, In ILM',
+        expect.stringMatching(/^Build server, Client authentication, Keychain, Expired .*, Not in ILM$/),
+    ]);
+    expect(options()[0]?.querySelector('[title]')?.getAttribute('title')).toBe('Managed by ILM through Client certificates');
+    expect(options()[0]?.querySelector('.text-fine')?.textContent).toBe('Managed by ILM');
+    expect(options()[2]?.querySelector('.text-tertiary')?.textContent).toBe('Not in ILM');
+    expect(text()).toContain('3 on this Mac, 2 of them in ILM');
+    expect(text()).toContain('Checked with ILM at');
+});
+
+test('the header says PC on Windows', async () => {
+    withInventory(inventory());
+    await render('windows');
+
+    expect(text()).toContain('3 on this PC, 0 of them in ILM');
+    expect(button('On this PC')).toBeDefined();
+});
+
+test('before the first check there is no ILM line and no count', async () => {
+    withInventory(inventory({ status: { state: 'never' }, checkedAt: null }));
+    await render();
+
+    expect(options()[0]?.getAttribute('aria-label')).toBe('CLIENT1, Client authentication, Keychain, Expires in 212 days');
+    expect(text()).toContain('3 on this Mac');
+    expect(text()).not.toContain('of them in ILM');
+    expect(text()).not.toContain('Checked with ILM');
+    expect(text()).not.toContain('Managed by ILM');
+    expect(text()).not.toContain('Not in ILM');
+    expect(button('Sync now')).toBeDefined();
+});
+
+test('without the certificates listing there is no ILM part at all', async () => {
+    withInventory(inventory({ listed: false, matches: { 'FP:one': managed } }));
+    await render();
+
+    expect(text()).not.toContain('Checked with ILM');
+    expect(text()).not.toContain('of them in ILM');
+    expect(text()).not.toContain('Not in ILM');
+    expect(button('Sync now')).toBeUndefined();
+    expect(container.querySelector('fieldset')).toBeNull();
+});
+
+test('before ILM status is known the local list stands alone', async () => {
+    withInventory(null);
+    await render();
+
+    expect(text()).not.toContain('of them in ILM');
+    expect(options()).toHaveLength(3);
+});
+
+test('offline says so, with the time of the snapshot or without it', async () => {
+    withInventory(inventory({ status: { state: 'offline', since: now - 60_000, reason: 'down' }, matches: { 'FP:one': managed } }));
+    await render();
+
+    expect(text()).toContain(strings.cannotReachIlmSince(now - 60_000));
+    expect(options()[0]?.getAttribute('aria-label')).toContain('Managed by ILM');
+    await act(async () => root.unmount());
+    root = createRoot(container);
+
+    withInventory(inventory({ status: { state: 'offline', since: null, reason: 'down' }, checkedAt: null }));
+    await render();
+
+    expect(text()).toContain('Cannot reach ILM.');
+    expect(text()).not.toContain('Shown as of');
+});
+
+test('while a check runs the line says so and Sync now is off; otherwise it asks for a check', async () => {
+    let syncs = 0;
+    withInventory(inventory({ checking: true }));
+    await render();
+    expect(text()).toContain('Checking ILM\u2026');
+    expect(button('Sync now')?.disabled).toBe(true);
+    await act(async () => root.unmount());
+    root = createRoot(container);
+
+    withInventory(inventory(), (command) => {
+        syncs += command === 'sync_now' ? 1 : 0;
+        return command === 'sync_now' ? inventory({ matches: { 'FP:one': managed } }) : undefined;
+    });
+    await render();
+    await act(async () => button('Sync now')?.click());
+
+    expect(syncs).toBe(1);
+    expect(text()).toContain('3 on this Mac, 1 of them in ILM');
+});
+
+test('a change event reads the status again', async () => {
+    let current = inventory();
+    withInventory(null, (command) => (command === 'ilm_status' ? current : undefined));
+    mockIPC(
+        (command, args) => {
+            if (command === 'local_certificates') {
+                return [mine];
+            }
+            return command === 'ilm_status' ? current : args && undefined;
+        },
+        { shouldMockEvents: true },
+    );
+    await render();
+    expect(text()).toContain('1 on this Mac, 0 of them in ILM');
+
+    current = inventory({ matches: { 'FP:one': managed } });
+    await act(async () => emit('inventory-changed'));
+
+    expect(text()).toContain('1 on this Mac, 1 of them in ILM');
+});
+
+test('the status is read only once the window listens for changes', async () => {
+    let listening: (id: number) => void = () => undefined;
+    const commands: string[] = [];
+    mockIPC((command) => {
+        commands.push(command);
+        if (command === 'plugin:event|listen') {
+            return new Promise((resolve) => (listening = resolve));
+        }
+        return command === 'local_certificates' ? [mine] : undefined;
+    });
+
+    await render();
+    expect(commands).not.toContain('ilm_status');
+
+    await act(async () => listening(1));
+
+    expect(commands).toContain('ilm_status');
+});
+
+test('the sign-in certificate is marked with a named key icon, in the list and in the detail', async () => {
+    withInventory(inventory({ matches: { 'FP:one': managed }, signIn: 'FP:one' }));
+    await render();
+
+    const mark = options()[0]?.querySelector('[role="img"]');
+    expect(mark?.getAttribute('aria-label')).toBe('Sign-in certificate');
+    expect(mark?.getAttribute('title')).toBe('Sign-in certificate');
+    expect(options()[0]?.getAttribute('aria-label')).toContain('Sign-in certificate');
+    expect(options()[1]?.querySelector('[role="img"]')).toBeNull();
+    expect(detail().textContent).toContain('Sign inYour sign-in certificate');
+});
+
+test('the detail has an In ILM group for a managed, an unmanaged and an unknown certificate', async () => {
+    withInventory(
+        inventory({ matches: { 'FP:one': managed, 'FP:two': ilmCertificate('Alex', { owner: null, validationStatus: 'expired' }) } }),
+    );
+    await render();
+
+    expect(detail().textContent).toContain(
+        'In ILMStateIssuedValidationValidManagementManaged by ILM through Client certificatesOwneralex.morgan',
+    );
+    expect(detail().querySelector('.text-fine')?.textContent).toBe('Valid');
+    await act(async () => options()[1]?.click());
+    expect(detail().textContent).toContain('In ILMStateIssuedValidationExpiredManagementIn ILM, not managed');
+    expect(detail().textContent).not.toContain('Owner');
+    await act(async () => options()[2]?.click());
+    expect(detail().textContent).toContain('In ILMStateNot in ILM');
+});
+
+test('ILM codes of the states and validation are shown as words', async () => {
+    withInventory(
+        inventory({ matches: { 'FP:one': ilmCertificate('X', { state: 'pending_approval', validationStatus: 'not_checked' }) } }),
+    );
+    await render();
+
+    expect(detail().textContent).toContain('StatePending approvalValidationNot checked');
+});
+
+const eligible = () => inventory({ matches: { 'FP:one': managed } });
+const makeButton = () => button('Make this my sign-in certificate');
+
+test.each([
+    ['matches nothing in ILM', () => inventory()],
+    ['is not issued', () => inventory({ matches: { 'FP:one': ilmCertificate('X', { state: 'revoked' }) } })],
+    ['is archived', () => inventory({ matches: { 'FP:one': ilmCertificate('X', { archived: true }) } })],
+    ['is already the sign-in certificate', () => ({ ...eligible(), signIn: 'FP:one' })],
+    ['cannot be reached', () => ({ ...eligible(), status: { state: 'offline', since: now, reason: 'down' } as const })],
+])('there is no button when the certificate %s', async (_name, current) => {
+    withInventory(current());
+    await render();
+
+    expect(makeButton()).toBeUndefined();
+});
+
+test('there is no button when the certificate cannot sign in locally', async () => {
+    answer(
+        () => [view('CLIENT1', { fingerprint: 'FP:one', canSignIn: false, signInProblem: 'has expired' })],
+        (command) => (command === 'ilm_status' ? eligible() : undefined),
+    );
+    await render();
+
+    expect(makeButton()).toBeUndefined();
+});
+
+test('the button asks first and Cancel changes nothing', async () => {
+    let asked = 0;
+    withInventory(eligible(), (command) => {
+        asked += command === 'make_sign_in_certificate' ? 1 : 0;
+        return undefined;
+    });
+    await render();
+    makeButton()?.focus();
+    await act(async () => makeButton()?.click());
+
+    const dialog = container.querySelector('[role="dialog"]');
+    expect(dialog?.querySelector('h2')?.textContent).toBe('Use CLIENT1 to sign in to ILM?');
+    expect(dialog?.textContent).not.toContain('stops working');
+    expect([...(dialog?.querySelectorAll('button') ?? [])].map((each) => each.textContent)).toEqual(['Cancel', 'Use this certificate']);
+    await act(async () => button('Cancel')?.click());
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(asked).toBe(0);
+    expect(document.activeElement).toBe(makeButton());
+});
+
+test('the buttons of the question are in the order of Windows there', async () => {
+    withInventory(eligible());
+    await render('windows');
+    await act(async () => makeButton()?.click());
+
+    expect([...container.querySelectorAll('[role="dialog"] button')].map((each) => each.textContent)).toEqual([
+        'Use this certificate',
+        'Cancel',
+    ]);
+});
+
+test('when there is a sign-in certificate today the question names it', async () => {
+    withInventory({ ...eligible(), matches: { 'FP:one': managed, 'FP:two': plain }, signIn: 'FP:two' });
+    await render();
+    await act(async () => makeButton()?.click());
+
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Alex stops working for sign-in.');
+});
+
+test('Escape closes the question and Tab stays inside it', async () => {
+    withInventory(eligible());
+    await render();
+    await act(async () => makeButton()?.click());
+
+    const [cancel, use] = [...container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')];
+    expect(document.activeElement).toBe(use);
+    const press = (target: Element, init: KeyboardEventInit) =>
+        act(async () => void target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })));
+    await press(use as Element, { key: 'Tab' });
+    expect(document.activeElement).toBe(cancel);
+    await press(cancel as Element, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(use);
+    await press(use as Element, { key: 'Enter' });
+    await press(use as Element, { key: 'Escape' });
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+});
+
+test('Use this certificate asks the core, closes and shows the new state', async () => {
+    const asked: unknown[] = [];
+    withInventory(eligible(), (command, args) => {
+        if (command === 'make_sign_in_certificate') {
+            asked.push(args);
+            return { ...eligible(), signIn: 'FP:one' };
+        }
+        return undefined;
+    });
+    await render();
+    await act(async () => makeButton()?.click());
+    await act(async () => button('Use this certificate')?.click());
+
+    expect(asked).toEqual([{ fingerprint: 'FP:one' }]);
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(makeButton()).toBeUndefined();
+    expect(options()[0]?.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Sign-in certificate');
+});
+
+test.each([
+    ['ILM does not allow this.', 'ILM does not allow this.'],
+    ['', strings.signInChangeFailed],
+])('an error from ILM (%j) is shown under the button in words', async (reason, shown) => {
+    withInventory(eligible(), (command) => (command === 'make_sign_in_certificate' ? Promise.reject(reason) : undefined));
+    await render();
+    await act(async () => makeButton()?.click());
+    await act(async () => button('Use this certificate')?.click());
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(detail().querySelector('[role="alert"]')?.textContent).toBe(shown);
+    expect(makeButton()).toBeDefined();
+});
+
+test('the segmented control shows only with the listing and switches to the In ILM view', async () => {
+    withInventory(eligible(), (command) =>
+        command === 'ilm_certificates' ? { certificates: [plain], pageNumber: 1, totalPages: 1, totalItems: 1 } : undefined,
+    );
+    await render();
+
+    expect(button('On this Mac')?.getAttribute('aria-pressed')).toBe('true');
+    await act(async () => button('In ILM')?.click());
+
+    expect(button('In ILM')?.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('[role="listbox"]')?.getAttribute('aria-label')).toBe('Certificates in ILM');
+    expect(text()).toContain('1 certificates in ILM');
+    await act(async () => button('On this Mac')?.click());
+    expect(container.querySelector('[role="listbox"]')?.getAttribute('aria-label')).toBe(strings.certificatesListLabel);
 });

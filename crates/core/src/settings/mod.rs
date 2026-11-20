@@ -79,6 +79,47 @@ impl TryFrom<i64> for IdleMinutes {
     }
 }
 
+/// Minutes between two checks with ILM: a whole number from 5 to 1440. The person chooses among
+/// [`CheckMinutes::OPTIONS`]; policy may set any value in the range.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CheckMinutes(u16);
+
+impl CheckMinutes {
+    pub const OPTIONS: [u16; 4] = [5, 15, 30, 60];
+
+    /// Any whole number of minutes from 5 to 1440.
+    pub fn new(minutes: i64) -> Option<Self> {
+        match u16::try_from(minutes) {
+            Ok(minutes @ 5..=1440) => Some(Self(minutes)),
+            _ => None,
+        }
+    }
+
+    /// One of the minutes the person can choose.
+    pub fn option(minutes: i64) -> Option<Self> {
+        Self::new(minutes).filter(|minutes| Self::OPTIONS.contains(&minutes.0))
+    }
+
+    pub fn get(self) -> u16 {
+        self.0
+    }
+}
+
+impl Default for CheckMinutes {
+    fn default() -> Self {
+        Self(DEFAULT_CHECK_EVERY)
+    }
+}
+
+impl<'de> Deserialize<'de> for CheckMinutes {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let minutes = i64::deserialize(deserializer)?;
+        Self::option(minutes).ok_or_else(|| {
+            serde::de::Error::custom(format!("{minutes} is not one of 5, 15, 30 or 60 minutes"))
+        })
+    }
+}
+
 /// The certificate last used to sign in, with the ILM address it signed in to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RememberedCertificate {
@@ -94,6 +135,7 @@ pub struct Layer {
     pub ilm_url: Option<IlmUrl>,
     pub require_unlock: Option<bool>,
     pub lock_after_idle: Option<IdleMinutes>,
+    pub check_every: Option<CheckMinutes>,
     /// Which sign-in provider to use; only policy sets it.
     pub sign_in_provider: Option<String>,
     /// Which way of signing in is allowed; only policy sets it.
@@ -157,6 +199,8 @@ pub struct SettingsView {
     pub ilm_url: Entry<Option<String>>,
     pub require_unlock: Entry<bool>,
     pub lock_after_idle: Entry<Option<u16>>,
+    /// Minutes between two checks with ILM.
+    pub check_every: Entry<u16>,
     /// What the system can do; the settings do not know it, so `view` says unsupported until the application
     /// reads the system.
     pub unlock: Unlock,
@@ -178,6 +222,7 @@ pub enum Change {
     LockAfterIdle(
         #[cfg_attr(any(test, feature = "ts"), ts(as = "Option<u16>"))] Option<IdleMinutes>,
     ),
+    CheckEvery(#[cfg_attr(any(test, feature = "ts"), ts(as = "u16"))] CheckMinutes),
 }
 
 /// A change to a setting that policy fixes.
@@ -194,6 +239,7 @@ impl std::error::Error for Locked {}
 
 const DEFAULT_START_AT_LOGIN: bool = true;
 const DEFAULT_REQUIRE_UNLOCK: bool = true;
+const DEFAULT_CHECK_EVERY: u16 = 15;
 
 fn resolve<T: Copy>(policy: Option<T>, person: Option<T>, default: T) -> (T, Source) {
     match (policy, person) {
@@ -246,6 +292,19 @@ fn lock_after_idle(policy: &Layer, person: &Layer) -> (Option<IdleMinutes>, Sour
     }
 }
 
+fn check_every(policy: &Layer, person: &Layer) -> (CheckMinutes, Source) {
+    resolve(
+        policy.check_every,
+        person.check_every,
+        CheckMinutes::default(),
+    )
+}
+
+/// How often the application checks ILM, policy over the person's choice over the default.
+pub fn check_interval(policy: &Layer, person: &Layer) -> std::time::Duration {
+    std::time::Duration::from_secs(u64::from(check_every(policy, person).0.get()) * 60)
+}
+
 /// Merges the layers: policy over the person's choice over the default.
 pub fn view(policy: &Layer, person: &Layer) -> SettingsView {
     SettingsView {
@@ -259,6 +318,10 @@ pub fn view(policy: &Layer, person: &Layer) -> SettingsView {
         lock_after_idle: entry({
             let (minutes, source) = lock_after_idle(policy, person);
             (minutes.map(IdleMinutes::get), source)
+        }),
+        check_every: entry({
+            let (minutes, source) = check_every(policy, person);
+            (minutes.get(), source)
         }),
         unlock: Unlock::Unsupported,
     }
@@ -305,6 +368,13 @@ pub fn apply(change: Change, policy: &Layer, person: &mut Layer) -> Result<(), L
                 return Err(Locked("Lock after idle"));
             }
             person.lock_after_idle = value;
+        }
+        Change::CheckEvery(value) => {
+            if policy.check_every.is_some() {
+                return Err(Locked("Check ILM every"));
+            }
+            log::info!("the ILM check interval is now {} minutes", value.get());
+            person.check_every = Some(value);
         }
     }
     Ok(())
@@ -707,6 +777,82 @@ mod tests {
     }
 
     #[test]
+    fn check_minutes_accept_five_to_1440_and_the_person_four_of_them() {
+        for (value, accepted) in [
+            (4, false),
+            (5, true),
+            (90, true),
+            (1440, true),
+            (1441, false),
+        ] {
+            assert_eq!(CheckMinutes::new(value).is_some(), accepted, "{value}");
+        }
+        for (value, accepted) in [(5, true), (15, true), (30, true), (60, true), (45, false)] {
+            assert_eq!(CheckMinutes::option(value).is_some(), accepted, "{value}");
+        }
+        assert_eq!(CheckMinutes::default().get(), 15);
+    }
+
+    #[test]
+    fn check_every_defaults_to_fifteen_and_policy_wins() {
+        let view_of = |policy: &Layer, person: &Layer| view(policy, person).check_every;
+        assert_eq!(
+            view_of(&Layer::default(), &Layer::default()),
+            Entry {
+                value: 15,
+                locked: false
+            }
+        );
+        let person = Layer {
+            check_every: CheckMinutes::option(5),
+            ..Layer::default()
+        };
+        assert_eq!(
+            view_of(&Layer::default(), &person),
+            Entry {
+                value: 5,
+                locked: false
+            }
+        );
+        let policy = Layer {
+            check_every: CheckMinutes::new(90),
+            ..Layer::default()
+        };
+        assert_eq!(
+            view_of(&policy, &person),
+            Entry {
+                value: 90,
+                locked: true
+            }
+        );
+        assert_eq!(
+            check_interval(&policy, &person),
+            std::time::Duration::from_secs(90 * 60)
+        );
+        assert_eq!(
+            check_interval(&Layer::default(), &Layer::default()),
+            std::time::Duration::from_secs(15 * 60)
+        );
+    }
+
+    #[test]
+    fn check_every_is_changed_unless_policy_fixes_it() {
+        let mut person = Layer::default();
+        let thirty = CheckMinutes::option(30).unwrap();
+        apply(Change::CheckEvery(thirty), &Layer::default(), &mut person).unwrap();
+        assert_eq!(person.check_every, Some(thirty));
+        let policy = Layer {
+            check_every: CheckMinutes::new(45),
+            ..Layer::default()
+        };
+        let refused = apply(Change::CheckEvery(thirty), &policy, &mut person).unwrap_err();
+        assert_eq!(
+            refused.to_string(),
+            "Check ILM every is managed by your organization."
+        );
+    }
+
+    #[test]
     fn view_serialises_in_camel_case() {
         let json = serde_json::to_value(view(
             &policy_with(false, LogLevel::Debug),
@@ -721,6 +867,7 @@ mod tests {
                 "ilmUrl": { "value": null, "locked": false },
                 "requireUnlock": { "value": true, "locked": false },
                 "lockAfterIdle": { "value": null, "locked": false },
+                "checkEvery": { "value": 15, "locked": false },
                 "unlock": "unsupported",
             })
         );
@@ -749,6 +896,15 @@ mod tests {
         let off: Change =
             serde_json::from_value(json!({ "key": "lockAfterIdle", "value": null })).unwrap();
         assert_eq!(off, Change::LockAfterIdle(None));
+        let every: Change =
+            serde_json::from_value(json!({ "key": "checkEvery", "value": 30 })).unwrap();
+        assert_eq!(every, Change::CheckEvery(CheckMinutes::option(30).unwrap()));
+        for bad in [json!(0), json!(10), json!(1440), json!("15"), json!(null)] {
+            assert!(
+                serde_json::from_value::<Change>(json!({ "key": "checkEvery", "value": bad }))
+                    .is_err()
+            );
+        }
         for bad in [json!(0), json!(1441), json!(-5), json!("20")] {
             assert!(
                 serde_json::from_value::<Change>(json!({ "key": "lockAfterIdle", "value": bad }))

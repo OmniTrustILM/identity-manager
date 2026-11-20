@@ -102,6 +102,7 @@ const settingsView = {
     logLevel: { value: 'info', locked: false },
     requireUnlock: { value: true, locked: false },
     lockAfterIdle: { value: null, locked: false },
+    checkEvery: { value: 15, locked: false },
     unlock: 'unsupported',
 };
 const settingsEntry = () => container.querySelector('nav > div button') as HTMLElement | null;

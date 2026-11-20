@@ -4,6 +4,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { AppInfo } from './generated/AppInfo';
 import type { CertificateChoice } from './generated/CertificateChoice';
 import type { Change } from './generated/Change';
+import type { IlmPageView } from './generated/IlmPageView';
+import type { InventoryView } from './generated/InventoryView';
 import type { LocalCertificateView } from './generated/LocalCertificateView';
 import type { ProviderChoice } from './generated/ProviderChoice';
 import type { Scheme } from './generated/Scheme';
@@ -12,6 +14,10 @@ import type { SettingsView } from './generated/SettingsView';
 import type { Shown } from './generated/Shown';
 
 export type { AppInfo, CertificateChoice, Change, LocalCertificateView, ProviderChoice, Scheme, SessionView, SettingsView, Shown };
+export type { IlmPageView, InventoryView };
+export type { IlmCertificateView } from './generated/IlmCertificateView';
+export type { IlmRaProfileView } from './generated/IlmRaProfileView';
+export type { InventoryStatus } from './generated/InventoryStatus';
 export type { KeyAlgorithm } from './generated/KeyAlgorithm';
 export type { KeyLocation } from './generated/KeyLocation';
 export type { Use } from './generated/Use';
@@ -89,6 +95,31 @@ export function certificates(): Promise<CertificateChoice[]> {
 /** The certificates of the person on this computer that have a private key here; rejects with the reason they cannot be read. */
 export function localCertificates(): Promise<LocalCertificateView[]> {
     return invoke<LocalCertificateView[]>('local_certificates');
+}
+
+/** What ILM is known to say about the certificates on this computer; refused while the application is locked. */
+export function ilmStatus(): Promise<InventoryView> {
+    return invoke<InventoryView>('ilm_status');
+}
+
+/** One page of ILM's certificates (1-based), optionally filtered by name. */
+export function ilmCertificates(page: number, search: string | null): Promise<IlmPageView> {
+    return invoke<IlmPageView>('ilm_certificates', { page, search });
+}
+
+/** Checks ILM now and returns the answer. */
+export function syncNow(): Promise<InventoryView> {
+    return invoke<InventoryView>('sync_now');
+}
+
+/** Makes the certificate with this fingerprint the sign-in certificate in ILM. */
+export function makeSignInCertificate(fingerprint: string): Promise<InventoryView> {
+    return invoke<InventoryView>('make_sign_in_certificate', { fingerprint });
+}
+
+/** Calls the handler, without data, each time the inventory or whether a check runs changes; read it with `ilmStatus`. */
+export function onInventoryChanged(handler: () => void): Promise<() => void> {
+    return listen<null>('inventory-changed', () => handler());
 }
 
 /** Resolves when the ILM has answered for the certificate. */

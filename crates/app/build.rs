@@ -37,6 +37,10 @@ fn main() {
                 "unlock",
                 "sign_in_again",
                 "local_certificates",
+                "ilm_status",
+                "ilm_certificates",
+                "sync_now",
+                "make_sign_in_certificate",
             ])),
     )
     .expect("the Tauri build failed");

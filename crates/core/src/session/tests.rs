@@ -12,7 +12,7 @@ use super::*;
 use crate::http::client_for_tests;
 use crate::oauth::token::RefreshToken;
 
-pub(super) struct TestSettings {
+pub(crate) struct TestSettings {
     pub(super) connection: Mutex<Connection>,
     /// Saving the remembered certificate fails while this is set.
     pub(super) broken: AtomicBool,
@@ -89,17 +89,17 @@ impl RefreshStore for TestStore {
     }
 }
 
-pub(super) struct World {
-    pub(super) ilm: MockServer,
+pub(crate) struct World {
+    pub(crate) ilm: MockServer,
     idp: MockServer,
     store: Arc<TestStore>,
-    pub(super) settings: Arc<TestSettings>,
+    pub(crate) settings: Arc<TestSettings>,
     views: Arc<Mutex<Vec<SessionView>>>,
-    pub(super) session: Session,
+    pub(crate) session: Session,
 }
 
 impl World {
-    pub(super) async fn new() -> Self {
+    pub(crate) async fn new() -> Self {
         Self::publishing(&[("Corporate", Some("app"))]).await
     }
 
@@ -117,7 +117,8 @@ impl World {
     }
 
     pub(super) async fn publishing(providers: &[(&str, Option<&str>)]) -> Self {
-        let ilm = MockServer::start().await;
+        // Not from the pool, so a test can close it by replacing it.
+        let ilm = MockServer::builder().start().await;
         let idp = MockServer::start().await;
         let store = Arc::new(TestStore::default());
         let settings = Arc::new(TestSettings::new(Connection::default()));
@@ -192,7 +193,7 @@ impl World {
             .await;
     }
 
-    async fn profile_for(&self, access: &str) {
+    pub(crate) async fn profile_for(&self, access: &str) {
         Mock::given(method("GET"))
             .and(path("/api/v1/auth/profile"))
             .and(header("authorization", format!("Bearer {access}").as_str()))
@@ -217,7 +218,7 @@ impl World {
         }
     }
 
-    async fn code_grant(&self, access: &str, refresh: Option<&str>, expires_in: u64) {
+    pub(crate) async fn code_grant(&self, access: &str, refresh: Option<&str>, expires_in: u64) {
         self.grant(
             "authorization_code",
             tokens(access, refresh, expires_in),
@@ -243,7 +244,7 @@ impl World {
         }
     }
 
-    async fn sign_in(&self) -> SessionView {
+    pub(crate) async fn sign_in(&self) -> SessionView {
         self.session.connect(&self.ilm.uri()).await.unwrap();
         self.session.sign_in("0", browser("the-code")).await
     }
@@ -620,6 +621,22 @@ async fn a_start_refused_by_the_provider_deletes_the_item() {
         }
     ));
     assert_eq!(world.stored_refresh(), None);
+}
+
+#[tokio::test]
+async fn a_start_refused_by_the_provider_runs_the_sign_out_hook() {
+    let world = World::at_address().await;
+    world.put_item("r1");
+    world.grant("refresh_token", invalid_grant(), None).await;
+    let ran = Arc::new(AtomicBool::new(false));
+    let seen = ran.clone();
+    world
+        .session
+        .on_signed_out(move || seen.store(true, Ordering::SeqCst));
+
+    world.session.start().await;
+
+    assert!(ran.load(Ordering::SeqCst));
 }
 
 #[tokio::test]
@@ -1203,7 +1220,7 @@ async fn a_sign_out_during_the_exchange_is_not_undone() {
     .await;
 }
 
-pub(super) static LOG: Mutex<Vec<String>> = Mutex::new(Vec::new());
+pub(crate) static LOG: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 struct Capture;
 
@@ -1223,7 +1240,7 @@ impl log::Log for Capture {
     fn flush(&self) {}
 }
 
-pub(super) fn capture_logs() {
+pub(crate) fn capture_logs() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
         log::set_logger(&Capture).unwrap();
@@ -1874,6 +1891,45 @@ async fn a_late_refusal_of_an_earlier_sign_in_does_not_end_the_sign_in_made_sinc
         world.session.view(),
         world.ended("ILM did not accept the sign-in.")
     );
+}
+
+#[tokio::test]
+async fn a_retry_after_a_401_is_not_sent_as_a_sign_in_made_meanwhile() {
+    let world = World::new().await;
+    world
+        .grant(
+            "authorization_code",
+            tokens("a1", Some("r1"), 3600),
+            Some(1),
+        )
+        .await;
+    world.code_grant("a2", Some("r2"), 3600).await;
+    world.profile_for("a1").await;
+    world.profile_for("a2").await;
+    world.sign_in().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/things"))
+        .and(header("authorization", "Bearer a1"))
+        .respond_with(ResponseTemplate::new(401).set_delay(std::time::Duration::from_millis(500)))
+        .mount(&world.ilm)
+        .await;
+    world.serve_things(Some("a2")).await;
+
+    let (called, _) = tokio::join!(world.call_things(), async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        world.session.sign_out().await;
+        world.sign_in().await;
+    });
+
+    assert_eq!(called, Err(CallError::SignedOut));
+    assert!(
+        world
+            .requests(&world.ilm, "/api/v1/things")
+            .await
+            .iter()
+            .all(|request| request.headers.get("authorization").unwrap() == "Bearer a1")
+    );
+    assert!(is_signed_in(&world.session.view()));
 }
 
 #[tokio::test]

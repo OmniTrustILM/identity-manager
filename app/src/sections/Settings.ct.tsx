@@ -13,6 +13,7 @@ const view: SettingsView = {
     ilmUrl: { value: null, locked: false },
     requireUnlock: { value: true, locked: false },
     lockAfterIdle: { value: null, locked: false },
+    checkEvery: { value: 15, locked: false },
     unlock: 'unsupported',
 };
 const unlocked: SettingsView = {
@@ -242,7 +243,7 @@ test('the keyboard alone changes the address, and a refused address shows its re
         refuse: 'The address must start with https://',
     });
     await keyboardReady(page);
-    await page.getByRole('combobox', { name: 'Log level' }).focus();
+    await page.getByRole('combobox', { name: 'Check ILM every' }).focus();
 
     await page.keyboard.press('Tab');
     await expect(page.getByRole('textbox', { name: 'ILM address' })).toBeFocused();
@@ -339,3 +340,29 @@ test('on macOS without a password both rows are disabled and say how to set one'
     );
     await expect(page.getByRole('combobox', { name: 'Lock after inactivity' })).toBeDisabled();
 });
+
+for (const scheme of ['light', 'dark'] as const) {
+    test(`in ${scheme} Check ILM every offers four times by name and sends the chosen one`, async ({ mount, page }) => {
+        await open(page, mount, 'macos', scheme, { view: unlocked });
+
+        const every = page.getByRole('combobox', { name: 'Check ILM every' });
+        await expect(every).toBeEnabled();
+        await expect(every).toHaveValue('15');
+        await expect(every.locator('option')).toHaveText(['5 minutes', '15 minutes', '30 minutes', '60 minutes']);
+        await every.selectOption('60');
+        await expect(every).toHaveValue('60');
+    });
+
+    test(`in ${scheme} a check time set by the organization is locked and one outside the list shows its minutes`, async ({
+        mount,
+        page,
+    }) => {
+        await open(page, mount, 'windows', scheme, { view: { ...unlocked, checkEvery: { value: 120, locked: true } } });
+
+        const every = page.getByRole('combobox', { name: 'Check ILM every' });
+        await expect(every).toBeDisabled();
+        await expect(every).toHaveValue('120');
+        await expect(every.locator('option:checked')).toHaveText('120 minutes');
+        await expect(every).toHaveAccessibleDescription('Managed by your organization');
+    });
+}

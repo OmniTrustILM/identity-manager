@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -22,6 +23,8 @@ use crate::identity::{
     ClientIdentity, Fingerprint, IdentityStore, LocalCertificate, StoreUnreadable,
 };
 use crate::ilm::IlmUrl;
+use crate::ilm::certificates::{IlmCertificate, State as IlmState, ValidationStatus};
+use crate::inventory::{Inventory, Snapshot};
 use crate::oauth::token::RefreshToken;
 use crate::settings::SignInMethod;
 
@@ -726,6 +729,24 @@ async fn a_401_signs_out_after_one_request() {
 }
 
 #[tokio::test]
+async fn a_401_runs_the_sign_out_hook() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let world = CertWorld::of(&ca, &jane).await;
+    world.sign_in(&jane).await;
+    let ended = Arc::new(AtomicUsize::new(0));
+    let seen = ended.clone();
+    world.session.on_signed_out(move || {
+        seen.fetch_add(1, Ordering::SeqCst);
+    });
+    world.server.allow(john.fingerprint());
+
+    assert_eq!(world.call_things().await, Err(CallError::SignedOut));
+
+    assert_eq!(ended.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
 async fn a_401_of_an_earlier_sign_in_does_not_end_a_newer_one() {
     let ca = TestCa::new();
     let (jane, john) = two_certificates(&ca);
@@ -1328,4 +1349,146 @@ async fn a_start_with_a_certificate_that_gets_no_useful_answer_keeps_it_and_retr
     assert_eq!(world.remembered(), Some(jane.fingerprint()));
     world.server.fail_with(None);
     assert_eq!(world.session.retry().await, world.signed_in(&jane));
+}
+
+fn matched(person: &TestIdentity) -> Snapshot {
+    let certificate = IlmCertificate {
+        uuid: "u-john".to_owned(),
+        name: "John".to_owned(),
+        subject_dn: None,
+        issuer_name: None,
+        serial: None,
+        not_before: None,
+        not_after: None,
+        fingerprint: Some(person.fingerprint()),
+        key: None,
+        state: IlmState::Issued,
+        validation_status: ValidationStatus::Valid,
+        ra_profile: None,
+        owner: None,
+        groups: Vec::new(),
+        archived: false,
+    };
+    Snapshot {
+        checked_at: 0,
+        matches: [(person.fingerprint(), certificate)].into(),
+        sign_in: None,
+        first_page: None,
+        allowed: Default::default(),
+    }
+}
+
+#[tokio::test]
+async fn a_new_sign_in_certificate_is_remembered_and_presented_from_then_on() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let world = CertWorld::start(
+        &ca,
+        ClientCerts::Required,
+        &jane,
+        StandInStore::new(vec![jane.clone(), john.clone()]),
+    )
+    .await;
+    world.sign_in(&jane).await;
+    world.server.allow_after_update(john.fingerprint());
+    let folder = tempfile::tempdir().unwrap();
+    let inventory = Inventory::new(folder.path());
+    inventory.seed(matched(&john));
+
+    let done = world
+        .session
+        .make_sign_in_certificate(&inventory, &john.fingerprint().to_string())
+        .await;
+
+    assert_eq!(done, Ok(()));
+    assert_eq!(world.remembered(), Some(john.fingerprint()));
+    assert_eq!(world.session.view(), world.signed_in(&john));
+    let seen = world.server.requests();
+    let update = seen.iter().find(|seen| seen.method == "PUT").unwrap();
+    assert_eq!(update.path, "/api/v1/auth/profile");
+    assert_eq!(update.fingerprint, Some(jane.fingerprint()));
+    let after = seen.iter().skip_while(|seen| seen.method != "PUT").skip(1);
+    assert!(
+        after.clone().any(|seen| seen.method == "POST"),
+        "a check ran"
+    );
+    assert!(
+        after
+            .into_iter()
+            .all(|seen| seen.fingerprint == Some(john.fingerprint()))
+    );
+    assert_eq!(world.call_things().await, Ok(200));
+    assert_eq!(
+        world.server.requests().last().unwrap().fingerprint,
+        Some(john.fingerprint())
+    );
+}
+
+#[tokio::test]
+async fn a_certificate_the_computer_cannot_open_changes_nothing_in_ilm() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let world = CertWorld::of(&ca, &jane).await;
+    world.sign_in(&jane).await;
+    let folder = tempfile::tempdir().unwrap();
+    let inventory = Inventory::new(folder.path());
+    inventory.seed(matched(&john));
+
+    let done = world
+        .session
+        .make_sign_in_certificate(&inventory, &john.fingerprint().to_string())
+        .await;
+
+    assert_eq!(done, Err(crate::session::ChangeError::CannotSignIn));
+    assert_eq!(world.remembered(), Some(jane.fingerprint()));
+    assert!(
+        world
+            .server
+            .requests()
+            .iter()
+            .all(|seen| seen.method != "PUT")
+    );
+}
+
+#[tokio::test]
+async fn a_second_change_queued_in_one_sign_in_switches_the_client_too() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let mike = ca.issue(Issue::client("Mike").valid((2020, 1, 1), (2095, 1, 1)));
+    let world = CertWorld::start(
+        &ca,
+        ClientCerts::Required,
+        &jane,
+        StandInStore::new(vec![jane.clone(), john.clone(), mike.clone()]),
+    )
+    .await;
+    world.sign_in(&jane).await;
+    world.server.allow_after_update(john.fingerprint());
+    world.server.allow_after_update(mike.fingerprint());
+    let (folder, other_folder) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (for_john, for_mike) = (
+        Inventory::new(folder.path()),
+        Inventory::new(other_folder.path()),
+    );
+    for_john.seed(matched(&john));
+    for_mike.seed(matched(&mike));
+
+    let (to_john, to_mike) = (
+        john.fingerprint().to_string(),
+        mike.fingerprint().to_string(),
+    );
+
+    let (first, second) = tokio::join!(
+        world.session.make_sign_in_certificate(&for_john, &to_john),
+        world.session.make_sign_in_certificate(&for_mike, &to_mike),
+    );
+
+    assert_eq!((first, second), (Ok(()), Ok(())));
+    assert_eq!(world.remembered(), Some(mike.fingerprint()));
+    assert_eq!(world.session.view(), world.signed_in(&mike));
+    assert_eq!(world.call_things().await, Ok(200));
+    assert_eq!(
+        world.server.requests().last().unwrap().fingerprint,
+        Some(mike.fingerprint())
+    );
 }

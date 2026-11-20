@@ -4,6 +4,8 @@ import { AppInfoContext } from '../src/app-info';
 import type {
     CertificateChoice,
     Change,
+    IlmPageView,
+    InventoryView,
     LocalCertificateView,
     LogLevel,
     Platform,
@@ -253,15 +255,71 @@ export function UnreachableStory({ platform, refuse }: UnreachableProps) {
     );
 }
 
-/** The Certificates section against a stand-in for its command, in a window of the given width. */
+/** What ILM answers for a page: the page, or a refusal; a list is used up one answer at a time, the last one stays. */
+export type IlmAnswer = IlmPageView | { error: string };
+type CertificatesProps = StoryProps &
+    Readonly<{
+        certificates: LocalCertificateView[];
+        width?: number;
+        /** What ILM is known to say; null while it is not known. */
+        inventory?: InventoryView | null;
+        /** The answers of the In ILM view by "<page>|<search>"; "*" answers any other request. */
+        pages?: Record<string, IlmAnswer | IlmAnswer[]>;
+        /** Milliseconds an answer to a request takes, by the same keys. */
+        delays?: Record<string, number>;
+        /** Rejects the sign-in certificate change with this reason. */
+        refuseSignIn?: string;
+    }>;
+
+declare global {
+    interface Window {
+        /** The requests the In ILM view made, as "<page>|<search>". */
+        ilmRequests?: string[];
+    }
+}
+
+function ilmAnswer(pages: CertificatesProps['pages'], delays: CertificatesProps['delays'], args: { page: number; search: string | null }) {
+    const key = `${args.page}|${args.search ?? ''}`;
+    window.ilmRequests = [...(window.ilmRequests ?? []), key];
+    const found = pages?.[key] ?? pages?.['*'];
+    const answer = Array.isArray(found) ? (found.length > 1 ? found.shift() : found[0]) : found;
+    const settle = () => (answer && 'error' in answer ? Promise.reject(answer.error) : answer);
+    const wait = delays?.[key];
+    return wait ? new Promise((resolve) => setTimeout(resolve, wait)).then(settle) : settle();
+}
+
+/** The Certificates section against a stand-in for its commands, in a window of the given width. */
 export function CertificatesStory({
     platform,
     certificates,
     width = 1000,
-}: StoryProps & Readonly<{ certificates: LocalCertificateView[]; width?: number }>) {
+    inventory = null,
+    pages,
+    delays,
+    refuseSignIn,
+}: CertificatesProps) {
     useMemo(() => {
-        mockIPC((command) => (command === 'local_certificates' ? certificates : undefined));
-    }, [certificates]);
+        window.ilmRequests = [];
+        mockIPC(
+            (command, args) => {
+                switch (command) {
+                    case 'local_certificates':
+                        return certificates;
+                    case 'ilm_status':
+                        return inventory;
+                    case 'ilm_certificates':
+                        return ilmAnswer(pages, delays, args as { page: number; search: string | null });
+                    case 'make_sign_in_certificate':
+                        return refuseSignIn
+                            ? Promise.reject(refuseSignIn)
+                            : inventory && { ...inventory, signIn: (args as { fingerprint: string }).fingerprint };
+                    default:
+                        return undefined;
+                }
+            },
+            { shouldMockEvents: true },
+        );
+    }, [certificates, inventory, pages, delays, refuseSignIn]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <main className="bg-surface p-s5" style={{ width }}>

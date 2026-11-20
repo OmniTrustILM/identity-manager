@@ -12,6 +12,7 @@ the person sees its value but cannot change it.
 | `IlmUrl`       | string                       | none    | The address of your ILM, for example `https://ilm.example.com`. HTTPS only; a path is allowed, a trailing slash, query, fragment or user name is not. |
 | `RequireUnlock` | boolean                    | `true`  | Ask the system to confirm the person after a start with a saved sign-in and after the computer locks. Ignored where the system cannot confirm the person. |
 | `LockAfterIdle` | integer, 1 to 1440         | none    | Also lock after this many minutes without input. Without it there is no idle lock. Has an effect only while `RequireUnlock` is on. |
+| `CheckInterval` | integer, 5 to 1440         | `15`    | How often, in minutes, Identity Manager checks ILM for changes to the certificates on the computer. In Settings the person chooses 5, 15, 30 or 60 minutes ("Check ILM every"); a managed value shows as it is. |
 | `SignInProvider` | string                     | none    | The name of the identity provider to sign in with, as your ILM publishes it. When your ILM does not publish that name, the person chooses. Not shown in Settings. |
 | `SignInMethod` | string: `oauth`, `certificate` | none    | The way of signing in that your organization allows. `oauth` offers only the identity providers; `certificate` offers only a certificate on the computer. Without it both are offered. Not shown in Settings. |
 
@@ -44,7 +45,7 @@ logs a warning. This keeps a file an ordinary user can write from acting as poli
 
 ### Invalid values
 
-A value of the wrong type, an unknown name, an invalid `LogLevel`, an invalid `IlmUrl`, an invalid `SignInMethod`, a `LockAfterIdle` outside 1 to 1440 or an empty `SignInProvider` is ignored with a warning in the log. The key stays
+A value of the wrong type, an unknown name, an invalid `LogLevel`, an invalid `IlmUrl`, an invalid `SignInMethod`, a `LockAfterIdle` outside 1 to 1440, a `CheckInterval` outside 5 to 1440 or an empty `SignInProvider` is ignored with a warning in the log. The key stays
 unlocked, and the other keys of the same source still apply.
 
 ## What the person sees
@@ -62,7 +63,7 @@ The person's own choices are stored in `settings.json` in the application's conf
 | Windows | `%APPDATA%\com.omnitrust.identity-manager\settings.json`                  |
 | Linux   | `~/.config/com.omnitrust.identity-manager/settings.json`                  |
 
-Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `requireUnlock` (boolean) and `lockAfterIdle` (number of minutes). `SignInProvider` and `SignInMethod` have no key here: only policy sets them. The file also keeps `signInCertificate`, the ILM address and the fingerprint of the certificate last used to sign in there; it is used only while that address is the ILM address.
+Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `requireUnlock` (boolean), `lockAfterIdle` (number of minutes) and `checkEvery` (number of minutes). `SignInProvider` and `SignInMethod` have no key here: only policy sets them. The file also keeps `signInCertificate`, the ILM address and the fingerprint of the certificate last used to sign in there; it is used only while that address is the ILM address.
 
 ## Examples
 
@@ -72,4 +73,4 @@ Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `
 - Linux: [policy/policy.json](policy/policy.json); install it as root:
   `sudo install -d -m 0755 /etc/identity-manager && sudo install -m 0644 policy.json /etc/identity-manager/policy.json`.
 
-All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `RequireUnlock` to true, `LockAfterIdle` to 15, `SignInProvider` to `Corporate` and `SignInMethod` to `certificate`.
+All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `RequireUnlock` to true, `LockAfterIdle` to 15, `CheckInterval` to 30, `SignInProvider` to `Corporate` and `SignInMethod` to `oauth`.

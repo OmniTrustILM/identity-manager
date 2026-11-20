@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::sync::Arc;
 
+use im_core::inventory::{Inventory, Trigger};
 use im_core::session::{
     CertificateChoice, KeyringStore, MemoryStore, ProviderChoice, RefreshStore, Session,
     SessionView, SignInAgain,
@@ -10,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
-use crate::certificates::{Local, system_identities};
+use crate::certificates::{Ilm, Local, ilm, system_identities};
 use crate::keep_alive;
 use crate::lock::{self, Guard, Surface};
 use crate::notice::{Notices, Notifier};
@@ -83,7 +84,8 @@ pub struct SignIn {
 
 /// Builds the session, tells the windows about each change of it, hidden while the application is locked,
 /// and, outside self-check mode, renews a stored sign-in in the background and keeps it checked. Sign-in and
-/// the Certificates section read the same store.
+/// the Certificates section read the same store. The answer of ILM about the certificates is kept in a file beside
+/// the settings.
 pub fn manage<R: Runtime>(
     app: &AppHandle<R>,
     mode: Mode,
@@ -104,7 +106,17 @@ pub fn manage<R: Runtime>(
         })
         .with_identities(identities.clone()),
     );
-    let session_for_timers = session.clone();
+    let inventory = Arc::new(Inventory::new(settings.folder()));
+    inventory.attach(&session);
+    let ilm = Arc::new(Ilm::new(
+        app,
+        session.clone(),
+        inventory,
+        guard.clone(),
+        settings.clone(),
+        identities.clone(),
+    ));
+    app.manage(ilm.clone());
     app.manage(SignIn {
         session: session.clone(),
         opener,
@@ -114,17 +126,19 @@ pub fn manage<R: Runtime>(
     app.manage(Local(identities));
     tauri::async_runtime::spawn({
         let guard = guard.clone();
+        let ilm = ilm.clone();
         async move {
             // The lock knows what the system can do before the first view arrives.
             guard.adopt(|| settings.view()).await;
             if mode != Mode::SelfCheck {
                 session.start().await;
+                ilm.start().await;
             }
         }
     });
     if mode != Mode::SelfCheck {
         tauri::async_runtime::spawn(lock::watch(guard));
-        tauri::async_runtime::spawn(keep_alive::run(session_for_timers));
+        tauri::async_runtime::spawn(keep_alive::run(ilm));
     }
 }
 
@@ -199,6 +213,7 @@ pub async fn sign_in<R: Runtime>(
     let view = session
         .sign_in(&provider_id, move |url| opener.open(url))
         .await;
+    ilm(&app).after_sign_in(&view);
     Ok(guard.visible(view))
 }
 
@@ -222,6 +237,7 @@ pub async fn sign_in_with_certificate<R: Runtime>(
 ) -> Result<SessionView, String> {
     let (session, guard) = unlocked(&app)?;
     let view = session.sign_in_with_certificate(&fingerprint).await;
+    ilm(&app).after_sign_in(&view);
     Ok(guard.visible(view))
 }
 
@@ -250,12 +266,10 @@ pub async fn sign_out<R: Runtime>(app: AppHandle<R>) -> Result<SessionView, Stri
 /// whether the sign-in still holds. When it does not, the answer is the reason, and the application stays locked.
 #[tauri::command]
 pub async fn unlock<R: Runtime>(app: AppHandle<R>) -> Result<SessionView, String> {
-    let (session, guard) = {
-        let state = state(&app);
-        (state.session.clone(), state.guard.clone())
-    };
+    let guard = state(&app).guard.clone();
     let view = guard.unlock().await?;
-    tauri::async_runtime::spawn(async move { keep_alive::refresh(&*session).await });
+    let ilm = ilm(&app);
+    tauri::async_runtime::spawn(async move { keep_alive::refresh(&*ilm, Trigger::Start).await });
     Ok(view)
 }
 
@@ -269,7 +283,10 @@ pub async fn begin_sign_in_again<R: Runtime>(
     let opener = state(app).opener.clone();
     crate::show_main_window(app);
     match session.sign_in_again(move |url| opener.open(url)).await {
-        SignInAgain::View(_) => Ok(Vec::new()),
+        SignInAgain::View(view) => {
+            ilm(app).after_sign_in(&view);
+            Ok(Vec::new())
+        }
         SignInAgain::Choose(choices) => {
             if let Err(error) = app.emit_to("main", CHOICES, &choices) {
                 log::warn!("the choice of providers could not be sent to the main window: {error}");
@@ -290,6 +307,7 @@ mod tests {
     use crate::lock::{Availability, Confirmation, ScriptedAuthenticator, ScriptedState};
     use im_core::session::PersonView;
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc::{Receiver, channel};
     use std::time::Duration;
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
@@ -331,7 +349,11 @@ mod tests {
                 sign_in_again,
                 crate::settings::settings,
                 crate::settings::set_setting,
-                crate::certificates::local_certificates
+                crate::certificates::local_certificates,
+                crate::certificates::ilm_status,
+                crate::certificates::ilm_certificates,
+                crate::certificates::sync_now,
+                crate::certificates::make_sign_in_certificate
             ])
             .build(mock_context(noop_assets()))
             .expect("the mock app builds");
@@ -405,6 +427,18 @@ mod tests {
 
         /// Locks the application as a computer lock does while the person is signed in.
         fn lock(&self) {
+            self.sign_in_shown();
+            self.engage_lock();
+            assert!(self.guard().is_locked());
+        }
+
+        fn engage_lock(&self) {
+            self.state.set(Some(true), Some(Duration::from_secs(4242)));
+            self.guard().sample();
+        }
+
+        /// The guard has seen a signed-in view, so a computer lock will lock the application.
+        fn sign_in_shown(&self) {
             let guard = self.guard();
             let settings = self.app.state::<Arc<Settings>>().inner().clone();
             tauri::async_runtime::block_on(guard.adopt(|| settings.view()));
@@ -424,9 +458,6 @@ mod tests {
                 certificate: None,
                 unreachable: false,
             });
-            self.state.set(Some(true), Some(Duration::from_secs(4242)));
-            guard.sample();
-            assert!(guard.is_locked());
         }
 
         fn drain_events(&self) {
@@ -622,6 +653,85 @@ mod tests {
             fixture.call("local_certificates", serde_json::json!({})),
             "local_certificates",
         );
+    }
+
+    #[test]
+    fn the_inventory_commands_refuse_while_locked_and_answer_otherwise() {
+        let fixture = fixture(Mode::SelfCheck);
+        let page = serde_json::json!({ "page": 1, "search": null });
+        let fingerprint = serde_json::json!({ "fingerprint": "00" });
+        let status = fixture.call("ilm_status", serde_json::json!({})).unwrap();
+        assert_eq!(status["status"]["state"], "never");
+        assert_eq!(status["checking"], false);
+        assert_eq!(status["listed"], false);
+        assert!(
+            fixture
+                .call("sync_now", serde_json::json!({}))
+                .is_ok_and(|view| view["status"]["state"] == "never")
+        );
+
+        fixture.lock();
+
+        refused_as_locked(
+            fixture.call("ilm_status", serde_json::json!({})),
+            "ilm_status",
+        );
+        refused_as_locked(fixture.call("ilm_certificates", page), "ilm_certificates");
+        refused_as_locked(fixture.call("sync_now", serde_json::json!({})), "sync_now");
+        refused_as_locked(
+            fixture.call("make_sign_in_certificate", fingerprint),
+            "make_sign_in_certificate",
+        );
+    }
+
+    #[test]
+    fn a_change_that_ends_after_the_lock_came_says_it_is_locked_and_not_why_it_failed() {
+        let fixture = fixture(Mode::SelfCheck);
+        fixture.sign_in_shown();
+        let state = fixture.state.clone();
+        let guard = fixture.guard();
+        let events = AtomicUsize::new(0);
+        fixture.app.listen("inventory-changed", move |_| {
+            if events.fetch_add(1, Ordering::SeqCst) == 1 {
+                state.set(Some(true), Some(Duration::from_secs(4242)));
+                guard.sample();
+            }
+        });
+
+        refused_as_locked(
+            fixture.call(
+                "make_sign_in_certificate",
+                serde_json::json!({ "fingerprint": "00" }),
+            ),
+            "make_sign_in_certificate",
+        );
+    }
+
+    #[test]
+    fn a_check_tells_the_windows_when_it_starts_and_when_it_ends_without_data() {
+        let app = mock_builder()
+            .build(mock_context(noop_assets()))
+            .expect("the mock app builds");
+        manage_for_tests(app.handle());
+        let (sender, events) = channel();
+        app.listen("inventory-changed", move |event| {
+            sender.send(event.payload().to_string()).unwrap();
+        });
+        let ilm = ilm(app.handle());
+
+        let done = tauri::async_runtime::block_on(async {
+            ilm.working(async {
+                assert!(ilm.view().checking);
+                7
+            })
+            .await
+        });
+
+        assert_eq!(done, 7);
+        assert!(!ilm.view().checking);
+        for _ in 0..2 {
+            assert_eq!(events.recv_timeout(Duration::from_secs(5)).unwrap(), "null");
+        }
     }
 
     #[test]

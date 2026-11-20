@@ -66,6 +66,7 @@ function mockBridge(
                     ilmUrl: { value: 'https://ilm.example.com', locked: false },
                     requireUnlock: { value: true, locked: false },
                     lockAfterIdle: { value: null, locked: false },
+                    checkEvery: { value: 15, locked: false },
                     unlock: 'unsupported',
                 };
             }

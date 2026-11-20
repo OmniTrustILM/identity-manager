@@ -602,38 +602,46 @@ mod tests {
     }
 
     #[test]
-    fn the_certificates_capability_grants_only_listing_to_the_main_window() {
+    fn the_certificates_capability_grants_only_the_certificate_commands_to_the_main_window() {
         let file = include_str!("../capabilities/certificates.json");
         let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
         assert_eq!(parsed["windows"], serde_json::json!(["main"]));
         assert!(parsed.get("platforms").is_none());
         assert_eq!(
             capability_permissions(file),
-            serde_json::json!(["allow-local-certificates"])
+            serde_json::json!([
+                "allow-local-certificates",
+                "allow-ilm-status",
+                "allow-ilm-certificates",
+                "allow-sync-now",
+                "allow-make-sign-in-certificate"
+            ])
         );
     }
 
+    const CERTIFICATE_COMMANDS: [(&str, &str); 5] = [
+        ("local_certificates", "{}"),
+        ("ilm_status", "{}"),
+        ("ilm_certificates", r#"{"page":1,"search":null}"#),
+        ("sync_now", "{}"),
+        ("make_sign_in_certificate", r#"{"fingerprint":"00"}"#),
+    ];
+
     #[test]
-    fn only_the_main_window_may_list_the_certificates() {
-        for label in ["main", "summary", "settings"] {
-            let answer = call_in(
-                label,
-                LOCAL_ORIGIN,
-                "local_certificates",
-                serde_json::json!({}),
-            );
-            assert_eq!(
-                refused_by_capabilities(&answer),
-                label != "main",
-                "{label}: {answer:?}"
-            );
+    fn only_the_main_window_may_use_the_certificate_commands() {
+        for (command, body) in CERTIFICATE_COMMANDS {
+            let body: serde_json::Value = serde_json::from_str(body).unwrap();
+            for label in ["main", "summary", "settings"] {
+                let answer = call_in(label, LOCAL_ORIGIN, command, body.clone());
+                assert_eq!(
+                    refused_by_capabilities(&answer),
+                    label != "main",
+                    "{label} {command}: {answer:?}"
+                );
+            }
+            let answer = call_from("https://example.com", command, body);
+            assert!(refused_by_capabilities(&answer), "{command}: {answer:?}");
         }
-        let answer = call_from(
-            "https://example.com",
-            "local_certificates",
-            serde_json::json!({}),
-        );
-        assert!(refused_by_capabilities(&answer), "{answer:?}");
     }
 
     #[test]
