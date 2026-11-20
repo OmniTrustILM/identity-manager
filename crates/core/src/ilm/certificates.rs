@@ -615,7 +615,7 @@ mod tests {
     #[test]
     fn a_page_request_has_the_paging_and_no_filter_without_text() {
         let request =
-            Search::page(3, None).request(&client_for_tests(), &IlmUrl::for_tests("http://x"));
+            Search::page(3, None).request(&client_for_tests(), &IlmUrl::for_tests("https://x"));
         let request = request.build().unwrap();
         assert_eq!(request.url().path(), "/api/v1/certificates");
         let body: Value =

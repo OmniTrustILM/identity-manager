@@ -476,7 +476,7 @@ async fn the_log_of_a_change_holds_the_short_fingerprints_and_no_profile_text() 
         )),
         "{log}"
     );
-    for secret in [
+    for (index, secret) in [
         "Zelda",
         "Unique-Surname",
         "log.holder@example.com",
@@ -485,7 +485,10 @@ async fn the_log_of_a_change_holds_the_short_fingerprints_and_no_profile_text() 
         UUID,
         &change.jane.fingerprint().to_string(),
         &old_sign_in().to_string(),
-    ] {
-        assert!(!log.contains(secret), "the log holds {secret}");
+    ]
+    .iter()
+    .enumerate()
+    {
+        assert!(!log.contains(secret), "forbidden value {index} is logged");
     }
 }

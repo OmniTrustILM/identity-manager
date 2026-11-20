@@ -843,12 +843,15 @@ async fn the_log_of_a_check_holds_no_name_email_or_search_text() {
     assert!(log.contains("checked ILM: 1 on this computer, 1 matched"));
     assert!(log.contains("the ILM cache is written"));
     assert!(log.contains("the ILM cache is deleted"));
-    for secret in [
+    for (index, secret) in [
         "jane.doe@example.com",
         "Jane",
         "name of u-1",
         &search_text(&print(1)),
-    ] {
-        assert!(!log.contains(secret), "{secret}");
+    ]
+    .iter()
+    .enumerate()
+    {
+        assert!(!log.contains(secret), "forbidden value {index} is logged");
     }
 }
