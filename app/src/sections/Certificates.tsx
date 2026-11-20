@@ -194,7 +194,15 @@ export function Certificates() {
         const id = ++latest.current;
         lastAsked.current = Date.now();
         localCertificates().then(
-            (items) => id === latest.current && setState({ kind: 'ready', items }),
+            (items) => {
+                if (id !== latest.current) {
+                    return;
+                }
+                setState({ kind: 'ready', items });
+                setChosen((current) =>
+                    items.some((certificate) => certificate.fingerprint === current) ? current : (items[0]?.fingerprint ?? null),
+                );
+            },
             (error) => id === latest.current && setState({ kind: 'error', message: String(error) || strings.certificatesLoadFailed }),
         );
     }, []);

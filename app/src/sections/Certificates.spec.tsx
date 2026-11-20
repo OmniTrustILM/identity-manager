@@ -333,3 +333,18 @@ test('the selection stays on the same certificate when the list changes, else th
     await focusEvent();
     expect(selected()?.textContent).toContain('Y');
 });
+
+test('the first certificate shown stays shown when a refresh puts another before it', async () => {
+    const replies = [
+        [view('B'), view('C')],
+        [view('A'), view('B'), view('C')],
+    ];
+    answer(() => replies.shift());
+    await render();
+    expect(selected()?.textContent).toContain('B');
+
+    await advance(2000);
+    await focusEvent();
+    expect(options()).toHaveLength(3);
+    expect(selected()?.textContent).toContain('B');
+});
