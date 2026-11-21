@@ -70,6 +70,8 @@ let calls: { command: string; args: unknown }[];
 let shown: string[];
 let choices: unknown;
 let added: unknown;
+/** While set, each read of the certificates waits here until it is answered. */
+let reads: ((items: LocalCertificateView[]) => void)[] | null;
 
 beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -83,6 +85,7 @@ beforeEach(() => {
     shown = [];
     choices = { groups: null, raProfiles: null };
     added = [];
+    reads = null;
     mockIPC(
         (command, args) => {
             calls.push({ command, args });
@@ -90,6 +93,9 @@ beforeEach(() => {
                 case 'overview':
                     return summary === 'refused' ? Promise.reject('locked') : summary;
                 case 'local_certificates':
+                    if (reads) {
+                        return new Promise((resolve) => reads?.push(resolve));
+                    }
                     return certificates === 'refused' ? Promise.reject('unreadable') : certificates;
                 case 'ilm_status':
                     return current;
@@ -246,6 +252,19 @@ test('Add to ILM opens the dialog with every certificate ILM does not know, chec
     const boxes = [...container.querySelectorAll<HTMLInputElement>('dialog input[type="checkbox"]')];
     expect(boxes.map((box) => box.checked)).toEqual([true, true, true]);
     expect(button(strings.addCount(3))).toBeDefined();
+});
+
+test('an older read of the certificates that ends after a newer one is ignored', async () => {
+    reads = [];
+    await render();
+    await act(async () => emit('inventory-changed'));
+    expect(reads).toHaveLength(2);
+
+    await act(async () => reads?.[1]?.([wifi]));
+    await act(async () => reads?.[0]?.(everything));
+    await act(async () => button(strings.addToIlm)?.click());
+
+    expect(container.querySelector('dialog h2')?.textContent).toBe(strings.addTitle(1));
 });
 
 test('the dialog keeps its certificates after the check has made ILM know them', async () => {

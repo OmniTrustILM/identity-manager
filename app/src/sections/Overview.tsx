@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useAppInfo } from '../app-info';
 import {
     type AttentionItemView,
@@ -176,15 +176,18 @@ export function Overview() {
     const summary = useSummary();
     const [local, setLocal] = useState<LocalCertificateView[]>([]);
     const [adding, setAdding] = useState<LocalCertificateView[] | null>(null);
+    const latest = useRef(0);
 
     useEffect(() => {
         // The names of the certificates ILM does not know are read again whenever the inventory changes.
         let current = true;
-        const read = () =>
-            localCertificates().then(
-                (items) => current && setLocal(items),
+        const read = () => {
+            const id = ++latest.current;
+            void localCertificates().then(
+                (items) => current && id === latest.current && setLocal(items),
                 () => undefined,
             );
+        };
         const listening = onInventoryChanged(read).catch(() => undefined);
         void listening.then(read);
         return () => {

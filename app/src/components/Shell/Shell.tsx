@@ -42,7 +42,9 @@ export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
 
     useEffect(() => {
         // The tray summary asks the window to show Overview or one certificate. The request is kept until taken, so a
-        // click made before this listener exists still shows it.
+        // click made before this listener exists still shows it. Once this effect is cleaned up the request is left for
+        // the next one.
+        let live = true;
         const take = () =>
             pendingNavigation()
                 .then((to) => {
@@ -54,13 +56,16 @@ export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
                     }
                 })
                 .catch(() => undefined);
-        const listening = onNavigate(take)
+        const listening = onNavigate(() => live && take())
             .then((stop) => {
-                void take();
+                if (live) {
+                    void take();
+                }
                 return stop;
             })
             .catch(() => () => undefined);
         return () => {
+            live = false;
             void listening.then((stop) => stop());
         };
     }, [hasOverview, showCertificate]);

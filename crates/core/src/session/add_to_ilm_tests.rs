@@ -15,9 +15,11 @@ use super::add_to_ilm::WITHDRAWN;
 use super::tests::{LOG, World, capture_logs};
 use super::{AddOutcome, AddResult, ChangeError, SessionView};
 use crate::http::client_for_tests;
-use crate::identity::Fingerprint;
 use crate::identity::testing::{Issue, StandInStore, TestCa, TestIdentity};
 use crate::identity::tls::CertificateAsked;
+use crate::identity::{
+    ClientIdentity, Fingerprint, IdentityStore, LocalCertificate, StoreUnreadable,
+};
 use crate::ilm::certificates::search_text;
 use crate::ilm::upload::{GroupChoice, RaProfileChoice};
 use crate::inventory::{Inventory, Status, Trigger};
@@ -433,7 +435,8 @@ async fn the_check_after_an_add_counts_only_the_certificates_on_this_computer_no
 }
 
 #[tokio::test]
-async fn a_matched_or_unknown_fingerprint_is_refused_and_nothing_is_sent() {
+async fn a_matched_fingerprint_counts_as_added_and_an_unknown_one_is_refused_without_sending_anything()
+ {
     let adding = Adding::matching(&["Jane"]).await;
     adding.upload_ok().await;
     adding.answer_update(ResponseTemplate::new(200)).await;
@@ -452,13 +455,57 @@ async fn a_matched_or_unknown_fingerprint_is_refused_and_nothing_is_sent() {
             .map(|result| result.outcome.clone())
             .collect::<Vec<_>>(),
         vec![
-            AddOutcome::NotAdded("ILM has this certificate already.".to_owned()),
+            AddOutcome::AlreadyInIlm,
             AddOutcome::NotAdded("This certificate is not on this computer.".to_owned()),
             AddOutcome::NotAdded("This certificate is not on this computer.".to_owned()),
         ]
     );
     assert_eq!(adding.count("POST", UPLOAD).await, 0);
     assert_eq!(adding.count("PATCH", UPLOADED).await, 0);
+}
+
+/// A store of this computer that cannot be read.
+struct UnreadableStore;
+
+impl IdentityStore for UnreadableStore {
+    fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
+        Err(StoreUnreadable("the keychain is locked".to_owned()))
+    }
+
+    fn open(&self, _fingerprint: &Fingerprint) -> Option<ClientIdentity> {
+        None
+    }
+}
+
+#[tokio::test]
+async fn nothing_is_added_when_the_store_of_this_computer_cannot_be_read() {
+    let mut adding = Adding::new().await;
+    adding.upload_ok().await;
+    adding.answer_update(ResponseTemplate::new(200)).await;
+    let searches = adding.count("POST", SEARCH).await;
+    adding.world.session = adding
+        .world
+        .session
+        .with_identities(Arc::new(UnreadableStore));
+    let asked = vec![
+        adding.jane.fingerprint().to_string(),
+        adding.john.fingerprint().to_string(),
+    ];
+
+    let results = adding.add(&asked, None, None).await.unwrap();
+
+    let unreadable =
+        AddOutcome::NotAdded("The certificates on this computer cannot be read.".to_owned());
+    assert_eq!(
+        results
+            .iter()
+            .map(|result| result.outcome.clone())
+            .collect::<Vec<_>>(),
+        vec![unreadable.clone(), unreadable]
+    );
+    assert_eq!(adding.count("POST", UPLOAD).await, 0);
+    assert_eq!(adding.count("PATCH", UPLOADED).await, 0);
+    assert_eq!(adding.count("POST", SEARCH).await, searches);
 }
 
 #[tokio::test]

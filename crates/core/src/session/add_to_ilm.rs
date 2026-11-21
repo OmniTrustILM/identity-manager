@@ -14,7 +14,7 @@ use crate::ilm::upload::{
 use crate::inventory::{Inventory, Status, Trigger};
 
 const NOT_ON_COMPUTER: &str = "This certificate is not on this computer.";
-const MATCHED: &str = "ILM has this certificate already.";
+const UNREADABLE: &str = "The certificates on this computer cannot be read.";
 const NOT_ALLOWED: &str = "ILM does not allow this.";
 const NOT_ACCEPTED: &str = "ILM did not accept the certificate.";
 const UNREACHABLE: &str = "ILM cannot be reached.";
@@ -120,11 +120,11 @@ fn yes_no(chosen: bool) -> &'static str {
 
 impl Session {
     /// Adds the certificates of this computer with `fingerprints` to ILM, one at a time. A certificate must be on
-    /// this computer and not matched by the latest check of `inventory`; its DER is read from the store of this
-    /// computer, never taken from the caller. ILM is asked as the sign-in that asked, and the person in its profile
+    /// this computer; its DER is read from the store of this computer, never taken from the caller. When that
+    /// store cannot be read, every certificate ends as `NotAdded` and nothing is sent. ILM is asked as the sign-in that asked, and the person in its profile
     /// becomes the owner of every certificate. `group` and `ra_profile` are UUIDs from [`Session::add_to_ilm_choices`].
-    /// A check follows when something was added. A certificate ILM already holds (409) ends as `AlreadyInIlm`,
-    /// which counts as added. `proceed` is asked before each certificate and before each time ILM is asked to
+    /// A check follows when something was added. A certificate matched by the latest check of `inventory`, or one
+    /// ILM already holds (409), ends as `AlreadyInIlm`, which counts as added. `proceed` is asked before each certificate and before each time ILM is asked to
     /// change anything; when it says no, nothing more is sent and the certificates left end as `NotAdded`.
     pub async fn add_to_ilm(
         &self,
@@ -162,10 +162,19 @@ impl Session {
             yes_no(group.is_some()),
             yes_no(ra_profile.is_some())
         );
-        let local = self
-            .in_identities(|store| store.certificates())
-            .await
-            .unwrap_or_default();
+        let local = match self.in_identities(|store| store.certificates()).await {
+            Ok(local) => local,
+            Err(error) => {
+                log::warn!("the certificates on this computer cannot be read: {error}");
+                return Ok(fingerprints
+                    .into_iter()
+                    .map(|fingerprint| AddResult {
+                        fingerprint,
+                        outcome: not_added(UNREADABLE),
+                    })
+                    .collect());
+            }
+        };
         let locals: Vec<Fingerprint> = local.iter().map(|found| found.fingerprint).collect();
         let snapshot = inventory.snapshot();
         let mut results = Vec::with_capacity(fingerprints.len());
@@ -178,7 +187,7 @@ impl Session {
                         .as_ref()
                         .is_some_and(|snapshot| snapshot.matches.contains_key(&fingerprint)) =>
                 {
-                    not_added(MATCHED)
+                    AddOutcome::AlreadyInIlm
                 }
                 Ok(fingerprint) => {
                     self.add_one(

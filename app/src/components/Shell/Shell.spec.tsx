@@ -2,7 +2,7 @@ import { emit } from '@tauri-apps/api/event';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { AppInfoContext, useAppInfo } from '../../app-info';
 import type { AppInfo } from '../../bridge';
 import { OverviewIcon } from '../../design-system/icons';
@@ -10,6 +10,19 @@ import { useNavigation } from '../../navigation';
 import { type Section, settingsSection } from '../../sections';
 import { strings } from '../../strings';
 import { Shell } from './Shell';
+
+/** When set, the registration of the navigate listener resolves only once this is released. */
+let registration: Promise<void> | null = null;
+vi.mock('../../bridge', async (original) => {
+    const bridge = await original<typeof import('../../bridge')>();
+    return {
+        ...bridge,
+        onNavigate: (handler: () => void) => {
+            const listening = bridge.onNavigate(handler);
+            return registration ? listening.then((stop) => registration?.then(() => stop) ?? stop) : listening;
+        },
+    };
+});
 
 const info: AppInfo = { name: 'Identity Manager', version: '0.1.0', platform: 'macos' };
 const other: Section = { id: 'other', label: 'Other', icon: OverviewIcon, Component: () => <p>Other content</p> };
@@ -272,6 +285,25 @@ describe('navigation', () => {
         await render(sections);
 
         expect(container.querySelector('main')?.textContent).toBe('Overview content');
+    });
+
+    test('a Shell removed before its listener is registered leaves the request for the next one', async () => {
+        let release = () => {};
+        registration = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        await render(sections);
+        await act(async () => root.render(null));
+        asked.push({ to: 'certificate', fingerprint: 'FP:one' });
+
+        await act(async () => {
+            release();
+            await registration;
+        });
+        registration = null;
+        await render(sections);
+
+        expect(container.querySelector('main')?.textContent).toBe('Certificates content: FP:one');
     });
 
     test('a request for a certificate opens Certificates with that certificate, again for the same one', async () => {
