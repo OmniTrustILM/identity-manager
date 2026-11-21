@@ -97,6 +97,11 @@ impl Shown {
         })
     }
 
+    /// What the tray was last told to show.
+    fn latest(&self) -> Look {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).shown
+    }
+
     /// The new look when the view changes what the tray shows.
     fn update(&self, view: &SessionView) -> Option<Look> {
         self.change(|seen| seen.view = Look::of(view))
@@ -231,7 +236,11 @@ fn apply<R: Runtime>(app: &AppHandle<R>, look: Look) -> tauri::Result<()> {
 fn show<R: Runtime>(app: &AppHandle<R>, look: Look) {
     let handle = app.clone();
     // Menus are built on the main thread only.
+    // Updates may run in another order than they were made, so each applies the latest look.
     let scheduled = app.run_on_main_thread(move || {
+        let look = handle
+            .try_state::<Arc<Shown>>()
+            .map_or(look, |shown| shown.latest());
         if let Err(error) = apply(&handle, look) {
             log::warn!("updating the tray failed: {error}");
         }
@@ -449,6 +458,17 @@ mod tests {
         assert_eq!(shown.attention(true), None);
         assert_eq!(shown.locked(true), None);
         assert_eq!(shown.locked(false), Some(ATTENTION));
+    }
+
+    #[test]
+    fn the_latest_look_is_the_last_one_told_whatever_order_updates_run_in() {
+        let shown = Shown::new();
+        shown.update(&signed_in(false));
+        let attention = shown.attention(true);
+        let locked = shown.locked(true);
+
+        assert_eq!((attention, locked), (Some(ATTENTION), Some(FINE)));
+        assert_eq!(shown.latest(), FINE);
     }
 
     #[test]
