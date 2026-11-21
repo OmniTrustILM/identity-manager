@@ -12,6 +12,10 @@ export type SettingsView = { startAtLogin: Entry<boolean>, logLevel: Entry<LogLe
  */
 checkEvery: Entry<number>, 
 /**
+ * Days before expiry from which a certificate counts as expiring.
+ */
+warnDays: Entry<number>, 
+/**
  * What the system can do; the settings do not know it, so `view` says unsupported until the application
  * reads the system.
  */

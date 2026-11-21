@@ -198,6 +198,7 @@ impl World {
             .and(path("/api/v1/auth/profile"))
             .and(header("authorization", format!("Bearer {access}").as_str()))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "uuid": "u-1",
                 "username": "jdoe",
                 "firstName": "Jane",
                 "lastName": "Doe",
@@ -1341,6 +1342,7 @@ impl World {
             .and(path("/api/v1/auth/profile"))
             .and(header("authorization", format!("Bearer {access}").as_str()))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "uuid": "u-1",
                 "username": "jdoe",
                 "firstName": "Jane",
                 "lastName": "Doe",
@@ -1737,6 +1739,7 @@ async fn signing_out_and_changing_the_address_forget_how_to_sign_in_again() {
 /// The profile of a person other than `jdoe`.
 fn profile_of(username: &str) -> ResponseTemplate {
     ResponseTemplate::new(200).set_body_json(json!({
+        "uuid": "u-1",
         "username": username,
         "firstName": "Other",
         "lastName": "Person",

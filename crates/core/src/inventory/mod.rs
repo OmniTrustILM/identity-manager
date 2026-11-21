@@ -1,12 +1,17 @@
 //! What ILM says about the certificates on this computer: one check, one snapshot, kept in a cache file.
 
 mod cache;
+mod summary;
 #[cfg(test)]
 mod tests;
 mod view;
 
+pub use summary::{Counts, Item, Kind, Summary, summarize};
 use view::listed_by;
-pub use view::{IlmCertificateView, IlmPageView, IlmRaProfileView, InventoryView};
+pub use view::{
+    AddChoicesView, AddResultView, AttentionItemView, CountsView, IlmCertificateView, IlmPageView,
+    IlmRaProfileView, InventoryView, SummaryView,
+};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -18,12 +23,13 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use reqwest::{Client, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 
-use crate::identity::Fingerprint;
+use crate::identity::{Fingerprint, LocalCertificate};
 use crate::ilm::IlmUrl;
 use crate::ilm::actions::{self, MAX_UUIDS, Outcome};
 use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, MATCH_LIMIT, Search};
 use crate::ilm::profile::{IlmError, SignInCertificate, profile_request, read_profile};
 use crate::session::{CallError, Session, SignedInAs};
+use crate::settings::WarnDays;
 
 const UNREACHABLE: &str = "ILM cannot be reached.";
 const UNEXPECTED: &str = "ILM gave an unexpected answer.";
@@ -157,11 +163,45 @@ struct Held {
     status: Status,
     /// Changes whenever the snapshot is dropped, so a check that started before is not kept.
     epoch: u64,
+    /// The certificates on this computer as the latest check or the start read them: no DER.
+    /// None until a check or the start has read them.
+    local: Option<Vec<LocalCertificate>>,
+    days: WarnDays,
+    summary: Option<Summary>,
 }
+
+impl Held {
+    /// Builds the summary again from what is held; none while nobody's sign-in is bound or the certificates on
+    /// this computer are not known yet.
+    fn rebuild(&mut self, zone: Zone) {
+        self.summary = self
+            .bound
+            .as_ref()
+            .and(self.local.as_ref())
+            .map(|local| summarize(local, self.snapshot.as_ref(), self.days, now(), zone));
+        if let Some(summary) = &self.summary {
+            let counts = &summary.counts;
+            log::info!(
+                "summary built: {} valid, {} expiring, {} expired, {} not in ILM, {} need attention",
+                counts.valid,
+                counts.expiring,
+                counts.expired,
+                counts
+                    .not_in_ilm
+                    .map_or_else(|| "unknown".to_owned(), |count| count.to_string()),
+                summary.needing_attention()
+            );
+        }
+    }
+}
+
+/// The local time zone's offset from UTC in seconds, east positive, at an instant in milliseconds since 1970 (UTC).
+pub type Zone = fn(i64) -> i32;
 
 /// The latest answer of ILM about the certificates on this computer, and how it came to be.
 pub struct Inventory {
     cache: PathBuf,
+    zone: Zone,
     held: Mutex<Held>,
     /// Held for a whole check: a call that arrives meanwhile waits and takes that check's answer.
     running: tokio::sync::Mutex<()>,
@@ -213,15 +253,23 @@ struct Found {
 }
 
 impl Inventory {
-    /// `folder` holds the cache file.
+    /// `folder` holds the cache file. The time zone is UTC until [`Inventory::with_zone`] gives another.
     pub fn new(folder: &std::path::Path) -> Self {
         Self {
             cache: folder.join(cache::FILE),
+            zone: |_| 0,
             held: Mutex::default(),
             running: tokio::sync::Mutex::new(()),
             completed: AtomicU64::new(0),
             asked: Mutex::new(None),
         }
+    }
+
+    /// The local time zone the calendar months and days of the summary follow.
+    #[must_use]
+    pub fn with_zone(mut self, zone: Zone) -> Self {
+        self.zone = zone;
+        self
     }
 
     /// Drops the snapshot and the cache file whenever a sign-in of `session` ends.
@@ -235,6 +283,7 @@ impl Inventory {
         let mut held = held(&self.held);
         *held = Held {
             epoch: held.epoch + 1,
+            days: held.days,
             ..Held::default()
         };
         cache::delete(&self.cache);
@@ -246,6 +295,50 @@ impl Inventory {
 
     pub fn snapshot(&self) -> Option<Snapshot> {
         held(&self.held).snapshot.clone()
+    }
+
+    /// How the certificates on this computer stand, as of the latest check, or of the start before the first one;
+    /// none while nobody is signed in.
+    pub fn summary(&self) -> Option<Summary> {
+        held(&self.held).summary.clone()
+    }
+
+    /// Holds `local`, the certificates on this computer, and builds the summary again.
+    pub fn set_local(&self, local: &[LocalCertificate]) {
+        let mut held = held(&self.held);
+        held.local = Some(local.to_vec());
+        held.rebuild(self.zone);
+    }
+
+    /// The fingerprints of the certificates on this computer that `set_local` holds.
+    pub fn local_fingerprints(&self) -> Vec<Fingerprint> {
+        held(&self.held)
+            .local
+            .iter()
+            .flatten()
+            .map(|found| found.fingerprint)
+            .collect()
+    }
+
+    /// The fingerprints of the certificates on this computer that ILM knows, as of the latest answer; none before
+    /// the first one.
+    pub fn matched_fingerprints(&self) -> Vec<Fingerprint> {
+        held(&self.held)
+            .snapshot
+            .iter()
+            .flat_map(|snapshot| snapshot.matches.keys().copied())
+            .collect()
+    }
+
+    /// Sets the warning days and builds the summary again when they changed. ILM is not asked.
+    pub fn configure(&self, days: WarnDays) {
+        let mut held = held(&self.held);
+        if held.days == days {
+            return;
+        }
+        log::info!("the warning before expiry is {} days", days.get());
+        held.days = days;
+        held.rebuild(self.zone);
     }
 
     /// Holds `snapshot` as if a check had found it.
@@ -283,6 +376,7 @@ impl Inventory {
             held.snapshot = Some(snapshot);
             held.bound = Some((ilm.clone(), username));
         }
+        held.rebuild(self.zone);
     }
 
     fn adopt_for(&self, who: &SignedInAs) {
@@ -302,6 +396,20 @@ impl Inventory {
             held.snapshot = Some(snapshot);
         }
         held.bound = Some(key);
+        held.rebuild(self.zone);
+    }
+
+    /// Like [`Inventory::check`], for the certificates `local` as they are described now: they are kept for the
+    /// summary, which is built again from the answer.
+    pub async fn check_local(
+        &self,
+        session: &Session,
+        trigger: Trigger,
+        local: &[LocalCertificate],
+    ) -> Status {
+        held(&self.held).local = Some(local.to_vec());
+        let fingerprints: Vec<Fingerprint> = local.iter().map(|found| found.fingerprint).collect();
+        self.check(session, trigger, &fingerprints).await
     }
 
     /// Asks ILM about `local`, the fingerprints of the certificates on this computer, and replaces the snapshot when
@@ -385,6 +493,7 @@ impl Inventory {
             checked_at: snapshot.checked_at,
         };
         held.snapshot = Some(snapshot);
+        held.rebuild(self.zone);
     }
 
     fn offline(&self, epoch: u64, reason: &str, unreachable: bool) {
@@ -398,6 +507,7 @@ impl Inventory {
             reason: reason.to_owned(),
             unreachable,
         };
+        held.rebuild(self.zone);
     }
 
     /// One page of ILM's list, as it is now. It is not kept.

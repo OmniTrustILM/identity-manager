@@ -10,6 +10,8 @@ use crate::ilm::certificates::search_text;
 use crate::session::SessionView;
 use crate::session::tests::{LOG, World, capture_logs};
 
+mod summary;
+
 const PROFILE: &str = "/api/v1/auth/profile";
 const SEARCH: &str = "/api/v1/certificates";
 const ALLOWED: &str = "/api/v1/resources/certificates/objects/allowed-actions";
@@ -40,6 +42,7 @@ fn page(certificates: Vec<Value>, total: u64) -> ResponseTemplate {
 
 fn profile(listings: &[&str]) -> Value {
     json!({
+        "uuid": "u-1",
         "username": "jdoe",
         "firstName": "Jane",
         "lastName": "Doe",

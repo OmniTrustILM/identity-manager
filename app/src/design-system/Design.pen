@@ -1995,7 +1995,7 @@
         "os": "macos",
         "mode": "light"
       },
-      "width": 720,
+      "width": 880,
       "fill": "$color.sidebar",
       "layout": "vertical",
       "gap": 28,
@@ -2549,6 +2549,165 @@
                   "fontWeight": "normal"
                 }
               ]
+            },
+            {
+              "type": "frame",
+              "id": "rcYrc",
+              "name": "Needs attention",
+              "width": 170,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "mlyxA",
+                  "name": "Tray icon attention 180",
+                  "width": 179.616,
+                  "height": 179.616,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "R20fJv",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M44.39 44.39v-29.39c2.69 0.84 5.17 2.14 7.35 3.83l9.9-9.9c-6.54-5.57-14.99-8.93-24.22-8.93s-17.68 3.36-24.21 8.92l9.9 9.9c2.18-1.68 4.66-2.99 7.35-3.83v29.39h13.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#231f20",
+                      "width": 179.616,
+                      "height": 179.616
+                    },
+                    {
+                      "type": "path",
+                      "id": "sQfs2",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M56.56 23.86c2.73 3.84 4.35 8.51 4.35 13.56 0 12.95-10.54 23.49-23.49 23.49s-23.49-10.54-23.49-23.49c0-5.06 1.62-9.73 4.35-13.56l-9.94-9.94c-5.2 6.43-8.34 14.6-8.34 23.5 0 20.63 16.79 37.42 37.42 37.42s37.42-16.79 37.42-37.42c0-8.9-3.14-17.08-8.35-23.51l-9.94 9.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#231f20",
+                      "width": 179.616,
+                      "height": 179.616
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "ttxAG",
+                      "x": 103.2,
+                      "y": 103.2,
+                      "name": "Badge gap",
+                      "fill": "$color.sidebar",
+                      "width": 86.39999999999999,
+                      "height": 86.39999999999999
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "SjYuu",
+                      "x": 113.28,
+                      "y": 113.28,
+                      "name": "Badge",
+                      "fill": "#231f20",
+                      "width": 66.24,
+                      "height": 66.24
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "dqzrJ",
+                  "name": "Tray icon attention 22",
+                  "width": 22.002959999999998,
+                  "height": 22.002959999999998,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "dkjzp",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M44.39 44.39v-29.39c2.69 0.84 5.17 2.14 7.35 3.83l9.9-9.9c-6.54-5.57-14.99-8.93-24.22-8.93s-17.68 3.36-24.21 8.92l9.9 9.9c2.18-1.68 4.66-2.99 7.35-3.83v29.39h13.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#231f20",
+                      "width": 22.002959999999998,
+                      "height": 22.002959999999998
+                    },
+                    {
+                      "type": "path",
+                      "id": "UfZ9r",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M56.56 23.86c2.73 3.84 4.35 8.51 4.35 13.56 0 12.95-10.54 23.49-23.49 23.49s-23.49-10.54-23.49-23.49c0-5.06 1.62-9.73 4.35-13.56l-9.94-9.94c-5.2 6.43-8.34 14.6-8.34 23.5 0 20.63 16.79 37.42 37.42 37.42s37.42-16.79 37.42-37.42c0-8.9-3.14-17.08-8.35-23.51l-9.94 9.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#231f20",
+                      "width": 22.002959999999998,
+                      "height": 22.002959999999998
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "n13Bn",
+                      "x": 12.642,
+                      "y": 12.642,
+                      "name": "Badge gap",
+                      "fill": "$color.sidebar",
+                      "width": 10.584,
+                      "height": 10.584
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "j6xrQM",
+                      "x": 13.8768,
+                      "y": 13.8768,
+                      "name": "Badge",
+                      "fill": "#231f20",
+                      "width": 8.1144,
+                      "height": 8.1144
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "RfWvy",
+                  "name": "Caption",
+                  "fill": "$color.text-primary",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "XYPzt",
+                  "name": "Hint",
+                  "fill": "$color.text-secondary",
+                  "content": "Large, and at 22 pt",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
             }
           ]
         }
@@ -2564,7 +2723,7 @@
         "os": "macos",
         "mode": "dark"
       },
-      "width": 720,
+      "width": 880,
       "fill": "$color.sidebar",
       "layout": "vertical",
       "gap": 28,
@@ -3118,6 +3277,165 @@
                   "fontWeight": "normal"
                 }
               ]
+            },
+            {
+              "type": "frame",
+              "id": "sZ9w2",
+              "name": "Needs attention",
+              "width": 170,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "f7oLZU",
+                  "name": "Tray icon attention 180",
+                  "width": 179.616,
+                  "height": 179.616,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "c2mo4K",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M44.39 44.39v-29.39c2.69 0.84 5.17 2.14 7.35 3.83l9.9-9.9c-6.54-5.57-14.99-8.93-24.22-8.93s-17.68 3.36-24.21 8.92l9.9 9.9c2.18-1.68 4.66-2.99 7.35-3.83v29.39h13.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#FFFFFF",
+                      "width": 179.616,
+                      "height": 179.616
+                    },
+                    {
+                      "type": "path",
+                      "id": "h3jQI",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M56.56 23.86c2.73 3.84 4.35 8.51 4.35 13.56 0 12.95-10.54 23.49-23.49 23.49s-23.49-10.54-23.49-23.49c0-5.06 1.62-9.73 4.35-13.56l-9.94-9.94c-5.2 6.43-8.34 14.6-8.34 23.5 0 20.63 16.79 37.42 37.42 37.42s37.42-16.79 37.42-37.42c0-8.9-3.14-17.08-8.35-23.51l-9.94 9.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#FFFFFF",
+                      "width": 179.616,
+                      "height": 179.616
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "eIuR7",
+                      "x": 103.2,
+                      "y": 103.2,
+                      "name": "Badge gap",
+                      "fill": "$color.sidebar",
+                      "width": 86.39999999999999,
+                      "height": 86.39999999999999
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "lnMsu",
+                      "x": 113.28,
+                      "y": 113.28,
+                      "name": "Badge",
+                      "fill": "#FFFFFF",
+                      "width": 66.24,
+                      "height": 66.24
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Djb2p",
+                  "name": "Tray icon attention 22",
+                  "width": 22.002959999999998,
+                  "height": 22.002959999999998,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "Fosjr",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M44.39 44.39v-29.39c2.69 0.84 5.17 2.14 7.35 3.83l9.9-9.9c-6.54-5.57-14.99-8.93-24.22-8.93s-17.68 3.36-24.21 8.92l9.9 9.9c2.18-1.68 4.66-2.99 7.35-3.83v29.39h13.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#FFFFFF",
+                      "width": 22.002959999999998,
+                      "height": 22.002959999999998
+                    },
+                    {
+                      "type": "path",
+                      "id": "QB8Zg",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M56.56 23.86c2.73 3.84 4.35 8.51 4.35 13.56 0 12.95-10.54 23.49-23.49 23.49s-23.49-10.54-23.49-23.49c0-5.06 1.62-9.73 4.35-13.56l-9.94-9.94c-5.2 6.43-8.34 14.6-8.34 23.5 0 20.63 16.79 37.42 37.42 37.42s37.42-16.79 37.42-37.42c0-8.9-3.14-17.08-8.35-23.51l-9.94 9.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#FFFFFF",
+                      "width": 22.002959999999998,
+                      "height": 22.002959999999998
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "XZmrt",
+                      "x": 12.642,
+                      "y": 12.642,
+                      "name": "Badge gap",
+                      "fill": "$color.sidebar",
+                      "width": 10.584,
+                      "height": 10.584
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "rtM3K",
+                      "x": 13.8768,
+                      "y": 13.8768,
+                      "name": "Badge",
+                      "fill": "#FFFFFF",
+                      "width": 8.1144,
+                      "height": 8.1144
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "N5yL9",
+                  "name": "Caption",
+                  "fill": "$color.text-primary",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "X3tf5D",
+                  "name": "Hint",
+                  "fill": "$color.text-secondary",
+                  "content": "Large, and at 22 pt",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
             }
           ]
         }
@@ -3133,7 +3451,7 @@
         "os": "windows",
         "mode": "light"
       },
-      "width": 720,
+      "width": 880,
       "fill": "$color.surface",
       "layout": "vertical",
       "gap": 28,
@@ -3687,6 +4005,165 @@
                   "fontWeight": "normal"
                 }
               ]
+            },
+            {
+              "type": "frame",
+              "id": "x7ctgV",
+              "name": "Needs attention",
+              "width": 170,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "wGMUS",
+                  "name": "Tray icon attention 180",
+                  "width": 179.616,
+                  "height": 179.616,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "X0qS0",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M44.39 44.39v-29.39c2.69 0.84 5.17 2.14 7.35 3.83l9.9-9.9c-6.54-5.57-14.99-8.93-24.22-8.93s-17.68 3.36-24.21 8.92l9.9 9.9c2.18-1.68 4.66-2.99 7.35-3.83v29.39h13.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#0073cf",
+                      "width": 179.616,
+                      "height": 179.616
+                    },
+                    {
+                      "type": "path",
+                      "id": "CLQfV",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M56.56 23.86c2.73 3.84 4.35 8.51 4.35 13.56 0 12.95-10.54 23.49-23.49 23.49s-23.49-10.54-23.49-23.49c0-5.06 1.62-9.73 4.35-13.56l-9.94-9.94c-5.2 6.43-8.34 14.6-8.34 23.5 0 20.63 16.79 37.42 37.42 37.42s37.42-16.79 37.42-37.42c0-8.9-3.14-17.08-8.35-23.51l-9.94 9.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#b4b4b4",
+                      "width": 179.616,
+                      "height": 179.616
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "s0tTCI",
+                      "x": 103.2,
+                      "y": 103.2,
+                      "name": "Badge gap",
+                      "fill": "$color.surface",
+                      "width": 86.39999999999999,
+                      "height": 86.39999999999999
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "kpqmH",
+                      "x": 113.28,
+                      "y": 113.28,
+                      "name": "Badge",
+                      "fill": "#ff9500",
+                      "width": 66.24,
+                      "height": 66.24
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "TXkCg",
+                  "name": "Tray icon attention 22",
+                  "width": 22.002959999999998,
+                  "height": 22.002959999999998,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "HxmUw",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M44.39 44.39v-29.39c2.69 0.84 5.17 2.14 7.35 3.83l9.9-9.9c-6.54-5.57-14.99-8.93-24.22-8.93s-17.68 3.36-24.21 8.92l9.9 9.9c2.18-1.68 4.66-2.99 7.35-3.83v29.39h13.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#0073cf",
+                      "width": 22.002959999999998,
+                      "height": 22.002959999999998
+                    },
+                    {
+                      "type": "path",
+                      "id": "CPAuQ",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M56.56 23.86c2.73 3.84 4.35 8.51 4.35 13.56 0 12.95-10.54 23.49-23.49 23.49s-23.49-10.54-23.49-23.49c0-5.06 1.62-9.73 4.35-13.56l-9.94-9.94c-5.2 6.43-8.34 14.6-8.34 23.5 0 20.63 16.79 37.42 37.42 37.42s37.42-16.79 37.42-37.42c0-8.9-3.14-17.08-8.35-23.51l-9.94 9.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#b4b4b4",
+                      "width": 22.002959999999998,
+                      "height": 22.002959999999998
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "fyMwQ",
+                      "x": 12.642,
+                      "y": 12.642,
+                      "name": "Badge gap",
+                      "fill": "$color.surface",
+                      "width": 10.584,
+                      "height": 10.584
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "JojKI",
+                      "x": 13.8768,
+                      "y": 13.8768,
+                      "name": "Badge",
+                      "fill": "#ff9500",
+                      "width": 8.1144,
+                      "height": 8.1144
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "e17Iws",
+                  "name": "Caption",
+                  "fill": "$color.text-primary",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "KtzYt",
+                  "name": "Hint",
+                  "fill": "$color.text-secondary",
+                  "content": "Large, and at 22 pt",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
             }
           ]
         }
@@ -3702,7 +4179,7 @@
         "os": "windows",
         "mode": "dark"
       },
-      "width": 720,
+      "width": 880,
       "fill": "$color.surface",
       "layout": "vertical",
       "gap": 28,
@@ -4248,6 +4725,165 @@
                 {
                   "type": "text",
                   "id": "Thwa3",
+                  "name": "Hint",
+                  "fill": "$color.text-secondary",
+                  "content": "Large, and at 22 pt",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "eWasW",
+              "name": "Needs attention",
+              "width": 170,
+              "layout": "vertical",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "dKjdS",
+                  "name": "Tray icon attention 180",
+                  "width": 179.616,
+                  "height": 179.616,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "UfEh4",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M44.39 44.39v-29.39c2.69 0.84 5.17 2.14 7.35 3.83l9.9-9.9c-6.54-5.57-14.99-8.93-24.22-8.93s-17.68 3.36-24.21 8.92l9.9 9.9c2.18-1.68 4.66-2.99 7.35-3.83v29.39h13.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#0073cf",
+                      "width": 179.616,
+                      "height": 179.616
+                    },
+                    {
+                      "type": "path",
+                      "id": "F8xoQ",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M56.56 23.86c2.73 3.84 4.35 8.51 4.35 13.56 0 12.95-10.54 23.49-23.49 23.49s-23.49-10.54-23.49-23.49c0-5.06 1.62-9.73 4.35-13.56l-9.94-9.94c-5.2 6.43-8.34 14.6-8.34 23.5 0 20.63 16.79 37.42 37.42 37.42s37.42-16.79 37.42-37.42c0-8.9-3.14-17.08-8.35-23.51l-9.94 9.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#b4b4b4",
+                      "width": 179.616,
+                      "height": 179.616
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "ju85L",
+                      "x": 103.2,
+                      "y": 103.2,
+                      "name": "Badge gap",
+                      "fill": "$color.surface",
+                      "width": 86.39999999999999,
+                      "height": 86.39999999999999
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "r742r",
+                      "x": 113.28,
+                      "y": 113.28,
+                      "name": "Badge",
+                      "fill": "#ff9500",
+                      "width": 66.24,
+                      "height": 66.24
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "l12xY",
+                  "name": "Tray icon attention 22",
+                  "width": 22.002959999999998,
+                  "height": 22.002959999999998,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "path",
+                      "id": "n9izAH",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M44.39 44.39v-29.39c2.69 0.84 5.17 2.14 7.35 3.83l9.9-9.9c-6.54-5.57-14.99-8.93-24.22-8.93s-17.68 3.36-24.21 8.92l9.9 9.9c2.18-1.68 4.66-2.99 7.35-3.83v29.39h13.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#0073cf",
+                      "width": 22.002959999999998,
+                      "height": 22.002959999999998
+                    },
+                    {
+                      "type": "path",
+                      "id": "tt9BM",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Mark",
+                      "geometry": "M56.56 23.86c2.73 3.84 4.35 8.51 4.35 13.56 0 12.95-10.54 23.49-23.49 23.49s-23.49-10.54-23.49-23.49c0-5.06 1.62-9.73 4.35-13.56l-9.94-9.94c-5.2 6.43-8.34 14.6-8.34 23.5 0 20.63 16.79 37.42 37.42 37.42s37.42-16.79 37.42-37.42c0-8.9-3.14-17.08-8.35-23.51l-9.94 9.94z",
+                      "viewBox": [
+                        0,
+                        0,
+                        74.84,
+                        74.84
+                      ],
+                      "fill": "#b4b4b4",
+                      "width": 22.002959999999998,
+                      "height": 22.002959999999998
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "iYxot",
+                      "x": 12.642,
+                      "y": 12.642,
+                      "name": "Badge gap",
+                      "fill": "$color.surface",
+                      "width": 10.584,
+                      "height": 10.584
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "A8Ph7p",
+                      "x": 13.8768,
+                      "y": 13.8768,
+                      "name": "Badge",
+                      "fill": "#ff9500",
+                      "width": 8.1144,
+                      "height": 8.1144
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "H9yGVJ",
+                  "name": "Caption",
+                  "fill": "$color.text-primary",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "aKgYW",
                   "name": "Hint",
                   "fill": "$color.text-secondary",
                   "content": "Large, and at 22 pt",
@@ -5779,6 +6415,53 @@
         },
         {
           "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-attention-text": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#C93400",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF9F0A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#9D5D00",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FCE100",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#855D00",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#F8E45C",
           "theme": {
             "os": "linux",
             "mode": "dark"

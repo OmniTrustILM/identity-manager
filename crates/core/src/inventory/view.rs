@@ -4,8 +4,10 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use super::{Snapshot, Status};
+use super::{Counts, Item, Kind, Snapshot, Status, Summary};
 use crate::ilm::certificates::{CertificatePage, IlmCertificate};
+use crate::ilm::upload::{GroupChoice, RaProfileChoice};
+use crate::session::{AddChoices, AddOutcome, AddResult};
 
 /// The RA Profile that manages a certificate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -164,6 +166,196 @@ impl InventoryView {
             first_page: snapshot
                 .and_then(|snapshot| snapshot.first_page.as_ref())
                 .map(Into::into),
+        }
+    }
+}
+
+/// How the add of one certificate ended, as the interface shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct AddResultView {
+    pub fingerprint: String,
+    /// "added", "alreadyInIlm", "addedNotManaged" or "notAdded".
+    pub outcome: String,
+    /// ILM's messages for "addedNotManaged", the reason for "notAdded", else none.
+    pub messages: Vec<String>,
+}
+
+impl From<AddResult> for AddResultView {
+    fn from(result: AddResult) -> Self {
+        let (outcome, messages) = match result.outcome {
+            AddOutcome::Added => ("added", Vec::new()),
+            AddOutcome::AlreadyInIlm => ("alreadyInIlm", Vec::new()),
+            AddOutcome::AddedNotManaged(messages) => ("addedNotManaged", messages),
+            AddOutcome::NotAdded(reason) => ("notAdded", vec![reason]),
+        };
+        Self {
+            fingerprint: result.fingerprint,
+            outcome: outcome.to_owned(),
+            messages,
+        }
+    }
+}
+
+/// What the person may choose a group and an RA Profile from; none when ILM does not let them list it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct AddChoicesView {
+    pub groups: Option<Vec<GroupChoice>>,
+    pub ra_profiles: Option<Vec<RaProfileChoice>>,
+}
+
+impl From<AddChoices> for AddChoicesView {
+    fn from(choices: AddChoices) -> Self {
+        Self {
+            groups: choices.groups,
+            ra_profiles: choices.ra_profiles,
+        }
+    }
+}
+
+/// How many certificates are in each state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename = "SummaryCounts", rename_all = "camelCase")
+)]
+pub struct CountsView {
+    pub valid: u32,
+    pub expiring: u32,
+    pub expired: u32,
+    /// None when certificates are not listed or ILM has not been checked.
+    pub not_in_ilm: Option<u32>,
+}
+
+impl From<Counts> for CountsView {
+    fn from(counts: Counts) -> Self {
+        Self {
+            valid: counts.valid,
+            expiring: counts.expiring,
+            expired: counts.expired,
+            not_in_ilm: counts.not_in_ilm,
+        }
+    }
+}
+
+/// One thing that needs attention; the certificate's fingerprint is as in the local list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(
+        export,
+        tag = "kind",
+        rename_all = "camelCase",
+        rename_all_fields = "camelCase"
+    )
+)]
+pub enum AttentionItemView {
+    Expiring {
+        fingerprint: String,
+        name: String,
+        /// Days left, counting a started day as one.
+        days: u32,
+        /// Milliseconds since 1970 (UTC).
+        #[cfg_attr(any(test, feature = "ts"), ts(type = "number"))]
+        on: i64,
+    },
+    Expired {
+        fingerprint: String,
+        name: String,
+        /// Milliseconds since 1970 (UTC).
+        #[cfg_attr(any(test, feature = "ts"), ts(type = "number"))]
+        on: i64,
+    },
+    Revoked {
+        fingerprint: String,
+        name: String,
+    },
+    /// Certificates on this computer that ILM does not know.
+    NotInIlm {
+        count: u32,
+    },
+}
+
+impl From<&Item> for AttentionItemView {
+    fn from(item: &Item) -> Self {
+        let fingerprint = || {
+            item.fingerprint
+                .map(|print| print.to_string())
+                .unwrap_or_default()
+        };
+        let name = || item.name.clone();
+        match item.kind {
+            Kind::Expiring { days, on } => Self::Expiring {
+                fingerprint: fingerprint(),
+                name: name(),
+                days,
+                on,
+            },
+            Kind::Expired { on } => Self::Expired {
+                fingerprint: fingerprint(),
+                name: name(),
+                on,
+            },
+            Kind::Revoked => Self::Revoked {
+                fingerprint: fingerprint(),
+                name: name(),
+            },
+            Kind::NotInIlm { count } => Self::NotInIlm { count },
+        }
+    }
+}
+
+/// How the certificates on this computer stand.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct SummaryView {
+    /// Milliseconds since 1970 (UTC).
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number"))]
+    pub computed_at: i64,
+    /// When ILM was last checked, milliseconds since 1970 (UTC); none before the first check.
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
+    pub checked_at: Option<i64>,
+    /// Whether the person may list certificates in ILM.
+    pub listed: bool,
+    pub counts: CountsView,
+    pub attention: Vec<AttentionItemView>,
+    /// Certificates expiring in each calendar month, the current one first.
+    pub months: [u32; 12],
+}
+
+impl From<&Summary> for SummaryView {
+    fn from(summary: &Summary) -> Self {
+        Self {
+            computed_at: summary.computed_at,
+            checked_at: summary.checked_at,
+            listed: summary.listed,
+            counts: summary.counts.into(),
+            attention: summary.attention.iter().map(Into::into).collect(),
+            months: summary.months,
         }
     }
 }

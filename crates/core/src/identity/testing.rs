@@ -343,6 +343,13 @@ impl IdentityStore for StandInStore {
         ))
     }
 
+    fn der(&self, fingerprint: &Fingerprint) -> Option<Vec<u8>> {
+        self.identities
+            .iter()
+            .find(|identity| identity.fingerprint() == *fingerprint)
+            .map(|identity| identity.leaf().to_vec())
+    }
+
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity> {
         self.usable()
             .into_iter()

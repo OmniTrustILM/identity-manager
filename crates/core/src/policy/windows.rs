@@ -1,8 +1,8 @@
 //! The Windows source: the values of a registry key.
 
 use super::{
-    CHECK_INTERVAL, ILM_URL, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUIRE_UNLOCK, RawMap,
-    SIGN_IN_METHOD, SIGN_IN_PROVIDER, START_AT_LOGIN,
+    CHECK_INTERVAL, EXPIRY_WARNING_DAYS, ILM_URL, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue,
+    REQUIRE_UNLOCK, RawMap, SIGN_IN_METHOD, SIGN_IN_PROVIDER, START_AT_LOGIN,
 };
 #[cfg(windows)]
 use crate::settings::Layer;
@@ -63,7 +63,7 @@ pub enum RegValue {
     Other,
 }
 
-/// `REG_DWORD` 0 and 1 are booleans, other numbers stay integers (`LockAfterIdle` and `CheckInterval` are always numbers), `REG_SZ` is text. Value names ignore case, as
+/// `REG_DWORD` 0 and 1 are booleans, other numbers stay integers (`LockAfterIdle`, `CheckInterval` and `ExpiryWarningDays` are always numbers), `REG_SZ` is text. Value names ignore case, as
 /// they do in the registry.
 pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> RawMap {
     values
@@ -71,7 +71,10 @@ pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> R
         .map(|(name, value)| {
             let name = known_name(name);
             let value = match value {
-                RegValue::Dword(number) if name == LOCK_AFTER_IDLE || name == CHECK_INTERVAL => {
+                RegValue::Dword(number)
+                    if [LOCK_AFTER_IDLE, CHECK_INTERVAL, EXPIRY_WARNING_DAYS]
+                        .contains(&name.as_str()) =>
+                {
                     PolicyValue::Int(i64::from(number))
                 }
                 RegValue::Dword(0) => PolicyValue::Bool(false),
@@ -93,6 +96,7 @@ fn known_name(name: String) -> String {
         REQUIRE_UNLOCK,
         LOCK_AFTER_IDLE,
         CHECK_INTERVAL,
+        EXPIRY_WARNING_DAYS,
         SIGN_IN_PROVIDER,
         SIGN_IN_METHOD,
     ]
@@ -181,6 +185,23 @@ mod tests {
                 "test",
             );
             assert_eq!(layer.check_every.map(|m| m.get()), expected, "{minutes}");
+        }
+    }
+
+    #[test]
+    fn expiry_warning_days_are_always_a_number() {
+        for (days, expected) in [
+            (1, Some(1)),
+            (45, Some(45)),
+            (365, Some(365)),
+            (0, None),
+            (366, None),
+        ] {
+            let layer = to_layer(
+                &parse(vec![("expirywarningdays", RegValue::Dword(days))]),
+                "test",
+            );
+            assert_eq!(layer.warn_days.map(|d| d.get()), expected, "{days}");
         }
     }
 

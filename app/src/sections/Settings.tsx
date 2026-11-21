@@ -13,6 +13,7 @@ import { Unlock } from './Unlock';
 
 const logLevels: readonly LogLevel[] = ['error', 'warn', 'info', 'debug'];
 const checkChoices = [5, 15, 30, 60];
+const warnChoices = [7, 14, 30, 60, 90];
 const idleChoices = [null, 5, 15, 30, 60];
 
 const idleKey = (minutes: number | null) => (minutes === null ? 'never' : String(minutes));
@@ -317,6 +318,23 @@ export function Settings() {
                                 ).map(String)}
                                 label={(key) => strings.minutes(Number(key))}
                                 onChange={(key) => change({ key: 'checkEvery', value: Number(key) })}
+                            />
+                        )}
+                    />
+                    <Row
+                        label={strings.warnBeforeExpiry}
+                        locked={view.warnDays.locked}
+                        error={errors.warnDays}
+                        renderControl={(props) => (
+                            <Select
+                                {...props}
+                                value={String(view.warnDays.value)}
+                                options={(warnChoices.includes(view.warnDays.value)
+                                    ? warnChoices
+                                    : [...warnChoices, view.warnDays.value]
+                                ).map(String)}
+                                label={(key) => strings.days(Number(key))}
+                                onChange={(key) => change({ key: 'warnDays', value: Number(key) })}
                             />
                         )}
                     />

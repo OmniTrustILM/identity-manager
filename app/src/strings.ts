@@ -4,6 +4,14 @@ const time = (at: number) => {
     return new Intl.DateTimeFormat(undefined, today ? { timeStyle: 'short' } : { dateStyle: 'medium', timeStyle: 'short' }).format(when);
 };
 
+/** When a certificate expires, given its date and the calendar days left. */
+const when = (date: string, days: number) => {
+    if (days === 0) {
+        return `today, ${date}`;
+    }
+    return days === 1 ? `tomorrow, ${date}` : `on ${date}, in ${days} days`;
+};
+
 export const strings = {
     navigation: 'Sections',
     overview: 'Overview',
@@ -117,12 +125,55 @@ export const strings = {
     startAtLogin: 'Start at login',
     logLevel: 'Log level',
     checkEvery: 'Check ILM every',
+    warnBeforeExpiry: 'Warn before expiry',
+    days: (count: number) => (count === 1 ? '1 day' : `${count} days`),
     managedByOrganization: 'Managed by your organization',
     switchOn: 'On',
     switchOff: 'Off',
     settingsLoadError: 'The settings could not be loaded.',
     settingFailed: 'The setting could not be changed.',
     openApp: 'Open Identity Manager',
+    valid: 'Valid',
+    expiringSoon: 'Expiring soon',
+    expired: 'Expired',
+    countsLabel: 'Certificates by state',
+    needsAttention: 'Needs attention',
+    nothingNeedsAttention: 'Nothing needs attention.',
+    show: 'Show',
+    showCertificate: (name: string) => `Show ${name}`,
+    addToIlm: 'Add to ILM',
+    revokedInIlm: 'Revoked in ILM',
+    expiredOnDate: (date: string) => `Expired on ${date}`,
+    expiresOnDate: (date: string, days: number) => `Expires ${when(date, days)}`,
+    expiresOn: (date: string, days: number) => `expires ${when(date, days)}`,
+    notInIlmCount: (count: number, platform: 'macos' | 'windows') =>
+        `${count} ${count === 1 ? 'certificate' : 'certificates'} on this ${platform === 'macos' ? 'Mac' : 'PC'} ${count === 1 ? 'is' : 'are'} not in ILM`,
+    notInIlmCountShort: (count: number) => `${count} ${count === 1 ? 'certificate is' : 'certificates are'} not in ILM`,
+    nameList: (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`),
+    expiryChart: 'Expiry over the next 12 months',
+    expiryChartLabel: 'Certificates expiring in each of the next 12 months',
+    expiringList: 'Certificates expiring soon',
+    month: (at: number) => new Intl.DateTimeFormat(undefined, { month: 'short' }).format(new Date(at)),
+    noCertificatesWithKey: (platform: 'macos' | 'windows') =>
+        `No certificates with a private key on this ${platform === 'macos' ? 'Mac' : 'PC'}.`,
+    moreAttention: (count: number) => `+${count} more`,
+    lastCheckedWithIlm: (at: number) => `Last checked with ILM at ${time(at)}`,
+    addTitle: (count: number) => `Add ${count} ${count === 1 ? 'certificate' : 'certificates'} to ILM`,
+    keysStayHere: (platform: 'macos' | 'windows') => `Private keys stay on this ${platform === 'macos' ? 'Mac' : 'PC'}`,
+    certificatesToAdd: 'Certificates to add',
+    expiresDate: (date: string) => `expires ${date}`,
+    group: 'Group',
+    raProfile: 'RA Profile',
+    none: 'None',
+    raProfileHint: 'With an RA Profile ILM manages the certificate and can renew it. Without one ILM only tracks it.',
+    addCount: (count: number) => `Add ${count} to ILM`,
+    adding: 'Adding\u2026',
+    close: 'Close',
+    addResults: 'Results',
+    added: 'Added',
+    addedNotManaged: (reasons: string) => (reasons ? `Added, not managed: ${reasons}` : 'Added, not managed'),
+    notAdded: (reasons: string) => (reasons ? `Not added: ${reasons}` : 'Not added'),
+    addFailed: 'The certificates could not be added.',
     version: (version: string) => `Version ${version}`,
     loadError: 'Identity Manager could not load its details.',
     sessionLoadError: 'The sign-in state could not be loaded.',

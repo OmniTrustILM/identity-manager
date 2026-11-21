@@ -1,5 +1,10 @@
 export {
     Archive as ArchivedIcon,
+    Ban as RevokedIcon,
+    ChevronRight as ChevronIcon,
+    CircleX as ExpiredIcon,
+    Hourglass as ExpiringIcon,
+    TriangleAlert as WarningIcon,
     BadgeCheck as ManagedIcon,
     CircleMinus as NotInIlmIcon,
     Cloud as InIlmIcon,

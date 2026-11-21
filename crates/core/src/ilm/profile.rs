@@ -53,6 +53,7 @@ pub struct SignInCertificate {
 /// The signed-in person and their permissions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Person {
+    pub uuid: String,
     pub username: String,
     pub display_name: String,
     pub first_name: Option<String>,
@@ -67,6 +68,7 @@ pub struct Person {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Profile {
+    uuid: String,
     username: String,
     first_name: Option<String>,
     last_name: Option<String>,
@@ -105,6 +107,7 @@ impl From<Profile> for Person {
             name
         };
         Person {
+            uuid: profile.uuid,
             username: profile.username,
             display_name,
             first_name: profile.first_name,
@@ -256,6 +259,7 @@ mod tests {
         let person = ask(ResponseTemplate::new(200).set_body_json(fixture()))
             .await
             .unwrap();
+        assert_eq!(person.uuid, "5d3a4c3e-0000-4000-8000-000000000001");
         assert_eq!(person.username, "jdoe");
         assert_eq!(person.display_name, "Jane Doe");
         assert_eq!(person.allowed_listings, ["certificates", "keys"]);

@@ -36,9 +36,12 @@ fn unreachable(view: &SessionView) -> bool {
     )
 }
 
-/// One `renew`; while the person is signed in, the inventory is checked after it.
+/// One `renew`; while the person is signed in, or a saved sign-in waits for ILM, the inventory is checked after it.
 pub async fn refresh(checks: &impl Checks, trigger: Trigger) {
-    if matches!(renew(checks).await, SessionView::SignedIn { .. }) {
+    if matches!(
+        renew(checks).await,
+        SessionView::SignedIn { .. } | SessionView::Unreachable { .. }
+    ) {
         checks.inventory(trigger).await;
     }
 }
@@ -274,8 +277,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_inventory_is_checked_after_the_session_with_the_trigger_and_only_while_signed_in()
-    {
+    async fn the_inventory_is_checked_after_the_session_with_the_trigger_unless_the_session_is_neither_signed_in_nor_saved()
+     {
         let scripted = Scripted::new(signed_in(false));
         refresh(&*scripted, Trigger::Start).await;
         scripted.set(unreachable_at_start());
@@ -285,7 +288,7 @@ mod tests {
 
         assert_eq!(
             *scripted.calls.lock().unwrap(),
-            ["check", "inventory start", "retry"]
+            ["check", "inventory start", "retry", "inventory interval"]
         );
     }
 

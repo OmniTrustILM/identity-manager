@@ -5,6 +5,7 @@ mod dock;
 mod keep_alive;
 #[cfg(windows)]
 mod key_provider;
+mod local_time;
 mod lock;
 #[cfg(any(windows, test))]
 mod main_window;
@@ -83,11 +84,13 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
         .manage(summary::HiddenOnFocusLoss::default())
         .manage(self_check::Reports::default())
         .manage(settings_window::PendingSection::default())
+        .manage(bridge::PendingNavigation::default())
         .manage(settings_window::AwaitingHeight::default())
         .invoke_handler(tauri::generate_handler![
             bridge::app_info,
             bridge::report_ready,
             bridge::open_main_window,
+            bridge::pending_navigation,
             bridge::hide_summary,
             color_scheme::color_scheme,
             settings::settings,
@@ -108,7 +111,10 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             certificates::ilm_status,
             certificates::ilm_certificates,
             certificates::sync_now,
-            certificates::make_sign_in_certificate
+            certificates::make_sign_in_certificate,
+            certificates::overview,
+            certificates::add_to_ilm_choices,
+            certificates::add_to_ilm
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)
@@ -145,11 +151,11 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             session::manage(
                 app.handle(),
                 mode,
-                settings,
                 session::protected_store(),
                 Arc::new(session::SystemOpener::new(app.handle())),
                 notifier,
                 session::system_guard(app.handle(), mode),
+                certificates::system_identities(),
             );
             log::info!("starting {} {} in {mode:?} mode", info.name, info.version);
             if mode == Mode::SelfCheck {

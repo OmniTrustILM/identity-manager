@@ -31,6 +31,7 @@ fn old_sign_in() -> Fingerprint {
 /// ILM's profile of the person, who signs in with `old_sign_in`.
 fn profile() -> Value {
     json!({
+        "uuid": "u-1",
         "username": "jdoe",
         "firstName": "Zelda",
         "lastName": "Unique-Surname",
@@ -435,6 +436,7 @@ async fn the_sign_in_certificate_itself_is_refused() {
     Mock::given(method("GET"))
         .and(path(PROFILE))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "uuid": "u-1",
             "username": "jdoe",
             "certificate": { "uuid": UUID, "fingerprint": search_text(&change.jane.fingerprint()) },
             "permissions": { "allowedListings": ["certificates"], "allowedActions": [] },

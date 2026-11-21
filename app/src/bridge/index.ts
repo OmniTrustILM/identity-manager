@@ -1,20 +1,29 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import type { AddChoicesView } from './generated/AddChoicesView';
+import type { AddResultView } from './generated/AddResultView';
 import type { AppInfo } from './generated/AppInfo';
 import type { CertificateChoice } from './generated/CertificateChoice';
 import type { Change } from './generated/Change';
 import type { IlmPageView } from './generated/IlmPageView';
 import type { InventoryView } from './generated/InventoryView';
 import type { LocalCertificateView } from './generated/LocalCertificateView';
+import type { Navigation } from './generated/Navigation';
 import type { ProviderChoice } from './generated/ProviderChoice';
 import type { Scheme } from './generated/Scheme';
 import type { SessionView } from './generated/SessionView';
 import type { SettingsView } from './generated/SettingsView';
 import type { Shown } from './generated/Shown';
+import type { SummaryView } from './generated/SummaryView';
 
 export type { AppInfo, CertificateChoice, Change, LocalCertificateView, ProviderChoice, Scheme, SessionView, SettingsView, Shown };
 export type { IlmPageView, InventoryView };
+export type { AddChoicesView, AddResultView, Navigation, SummaryView };
+export type { GroupChoice } from './generated/GroupChoice';
+export type { RaProfileChoice } from './generated/RaProfileChoice';
+export type { AttentionItemView } from './generated/AttentionItemView';
+export type { SummaryCounts } from './generated/SummaryCounts';
 export type { IlmCertificateView } from './generated/IlmCertificateView';
 export type { IlmRaProfileView } from './generated/IlmRaProfileView';
 export type { InventoryStatus } from './generated/InventoryStatus';
@@ -34,8 +43,19 @@ export function reportReady(report: Shown): Promise<void> {
     return invoke<void>('report_ready', { report });
 }
 
-export function openMainWindow(): Promise<void> {
-    return invoke<void>('open_main_window');
+/** Shows the main window; `target` is "overview" or the fingerprint of a certificate, which the main window is then asked to show. */
+export function openMainWindow(target?: string): Promise<void> {
+    return invoke<void>('open_main_window', { target: target ?? null });
+}
+
+/** Calls the handler each time another window opens the main window with something to show; returns the unlisten. */
+export function onNavigate(handler: () => void): Promise<() => void> {
+    return listen('navigate', () => handler());
+}
+
+/** Takes what the main window was asked to show, if anything; it is handed out once. */
+export function pendingNavigation(): Promise<Navigation | null> {
+    return invoke<Navigation | null>('pending_navigation');
 }
 
 export function hideSummary(): Promise<void> {
@@ -115,6 +135,21 @@ export function syncNow(): Promise<InventoryView> {
 /** Makes the certificate with this fingerprint the sign-in certificate in ILM. */
 export function makeSignInCertificate(fingerprint: string): Promise<InventoryView> {
     return invoke<InventoryView>('make_sign_in_certificate', { fingerprint });
+}
+
+/** How the certificates on this computer stand, or null while nobody is signed in; refused while the application is locked. */
+export function overview(): Promise<SummaryView | null> {
+    return invoke<SummaryView | null>('overview');
+}
+
+/** The groups and RA Profiles the person may choose from, each null when ILM does not let them list it. */
+export function addToIlmChoices(): Promise<AddChoicesView> {
+    return invoke<AddChoicesView>('add_to_ilm_choices');
+}
+
+/** Adds the certificates of this computer with these fingerprints to ILM and returns how each ended. */
+export function addToIlm(fingerprints: string[], group: string | null, raProfile: string | null): Promise<AddResultView[]> {
+    return invoke<AddResultView[]>('add_to_ilm', { fingerprints, group, raProfile });
 }
 
 /** Calls the handler, without data, each time the inventory or whether a check runs changes; read it with `ilmStatus`. */

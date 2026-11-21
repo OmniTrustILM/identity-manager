@@ -1,5 +1,8 @@
 //! The sign-in of the person: connecting to an ILM, the browser flow, silent renewal and sign-out.
 
+mod add_to_ilm;
+#[cfg(test)]
+mod add_to_ilm_tests;
 mod certificate;
 #[cfg(test)]
 mod certificate_tests;
@@ -28,6 +31,7 @@ use crate::oauth::metadata::{MetadataError, ProviderMetadata, provider_metadata}
 use crate::oauth::token::{TokenError, Tokens, exchange, refresh, revoke};
 use crate::settings::SignInMethod;
 use crate::token::AccessToken;
+pub use add_to_ilm::{AddChoices, AddOutcome, AddResult};
 pub use certificate::ChangeError;
 use certificate::certificate_choice;
 pub use store::{Item, KeyringStore, MemoryStore, RefreshStore, StoreError};

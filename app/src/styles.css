@@ -19,6 +19,7 @@
     --color-focus-ring: var(--im-color-focus-ring);
     --color-fine: var(--im-color-status-fine);
     --color-attention: var(--im-color-status-attention);
+    --color-attention-text: var(--im-color-status-attention-text);
     --color-wait: var(--im-color-status-wait);
     --color-bad: var(--im-color-status-bad);
     --color-card: var(--im-color-card);

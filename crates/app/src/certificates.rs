@@ -8,16 +8,21 @@ use std::time::Duration;
 #[cfg(not(windows))]
 use im_core::identity::NoProviders;
 use im_core::identity::{
-    EmptyStore, Fingerprint, IdentityStore, KeyProviders, LocalCertificateView, StoreUnreadable,
-    system_store,
+    EmptyStore, Fingerprint, IdentityStore, KeyProviders, LocalCertificate, LocalCertificateView,
+    StoreUnreadable, system_store,
 };
-use im_core::inventory::{IlmPageView, Inventory, InventoryView, Status, Trigger};
+use im_core::inventory::{
+    AddChoicesView, AddResultView, IlmPageView, Inventory, InventoryView, Status, Summary,
+    SummaryView, Trigger,
+};
 use im_core::session::{Session, SessionView};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::keep_alive::{Checks, renew};
 use crate::lock::Guard;
+use crate::notice::Notices;
 use crate::settings::Settings;
+use crate::tray;
 
 /// Sent to the windows, without data, after each change of the inventory or of whether a check runs.
 const CHANGED: &str = "inventory-changed";
@@ -42,6 +47,16 @@ fn providers() -> Arc<dyn KeyProviders> {
 #[cfg(not(windows))]
 fn providers() -> Arc<dyn KeyProviders> {
     Arc::new(NoProviders)
+}
+
+/// `summary` without the certificates that ILM does not know: only the others are notified.
+fn known_in_ilm(summary: &Summary, matched: &[Fingerprint]) -> Summary {
+    let mut known = summary.clone();
+    known.attention.retain(|item| {
+        item.fingerprint
+            .is_none_or(|print| matched.contains(&print))
+    });
+    known
 }
 
 /// What the person is told when the store cannot be read; the reason goes to the log.
@@ -82,6 +97,7 @@ pub struct Ilm<R: Runtime> {
     guard: Arc<Guard>,
     settings: Arc<Settings>,
     local: Arc<dyn IdentityStore>,
+    notices: Arc<Notices>,
     /// How many checks, or changes that end in a check, are running.
     working: AtomicUsize,
 }
@@ -94,6 +110,7 @@ impl<R: Runtime> Ilm<R> {
         guard: Arc<Guard>,
         settings: Arc<Settings>,
         local: Arc<dyn IdentityStore>,
+        notices: Arc<Notices>,
     ) -> Self {
         Self {
             app: app.clone(),
@@ -102,6 +119,7 @@ impl<R: Runtime> Ilm<R> {
             guard,
             settings,
             local,
+            notices,
             working: AtomicUsize::new(0),
         }
     }
@@ -125,45 +143,104 @@ impl<R: Runtime> Ilm<R> {
         }
     }
 
-    /// Runs `work` and tells the windows when it starts and when it ends.
+    /// Runs `work`, tells the windows when it starts and when it ends, and takes the summary it leaves to the tray
+    /// and the notifications.
     pub(crate) async fn working<T>(&self, work: impl Future<Output = T>) -> T {
         self.working.fetch_add(1, Ordering::SeqCst);
         self.changed();
         let done = work.await;
         self.working.fetch_sub(1, Ordering::SeqCst);
+        self.publish_summary();
         self.changed();
         done
     }
 
-    async fn local_fingerprints(&self) -> Result<Vec<Fingerprint>, String> {
-        let store = self.local.clone();
-        let read = tokio::task::spawn_blocking(move || store.certificates())
-            .await
-            .expect("the certificate store task does not panic");
-        match read {
-            Ok(found) => Ok(found.iter().map(|found| found.fingerprint).collect()),
-            Err(StoreUnreadable(reason)) => {
-                log::warn!("the certificates cannot be matched with ILM: {reason}");
-                Err(unreadable_message(cfg!(target_os = "macos")).to_owned())
+    /// Gives the inventory the warning days of the settings, which rebuilds the summary when they changed. ILM is
+    /// not asked.
+    fn configure(&self) {
+        self.inventory.configure(self.settings.warn_days());
+    }
+
+    /// The person changed the warning days: the summary follows at once.
+    pub(crate) fn warn_days_changed(&self) {
+        self.configure();
+        self.publish_summary();
+        self.changed();
+    }
+
+    /// Whether the summary has certificates that are expiring, expired or revoked.
+    pub(crate) fn needs_attention(&self) -> bool {
+        self.inventory
+            .summary()
+            .is_some_and(|summary| summary.needs_attention())
+    }
+
+    /// Shows the tray whether certificates need attention and tells the person about new ones, unless the
+    /// application is locked: those wait for the next summary after the unlock.
+    pub(crate) fn publish_summary(&self) {
+        let summary = self.inventory.summary();
+        tray::set_attention(
+            &self.app,
+            summary.as_ref().is_some_and(Summary::needs_attention),
+        );
+        if let Some(summary) = summary {
+            let current = || self.inventory.summary().as_ref() == Some(&summary);
+            self.notices.summary(
+                &known_in_ilm(&summary, &self.inventory.matched_fingerprints()),
+                &self.inventory.local_fingerprints(),
+                current,
+                || current() && !self.guard.is_locked(),
+            );
+            if self.inventory.summary().is_none() {
+                // Signed out meanwhile: the write above must not leave the notices file behind.
+                self.notices.forget();
             }
         }
     }
 
+    /// A sign-in ended: what was kept about its certificates and notifications goes.
+    pub(crate) fn signed_out(&self) {
+        self.inventory.forget();
+        self.notices.forget();
+        tray::set_attention(&self.app, false);
+    }
+
+    async fn local_certificates(&self) -> Result<Vec<LocalCertificate>, String> {
+        let store = self.local.clone();
+        let read = tokio::task::spawn_blocking(move || store.certificates())
+            .await
+            .expect("the certificate store task does not panic");
+        read.map_err(|StoreUnreadable(reason)| {
+            log::warn!("the certificates cannot be matched with ILM: {reason}");
+            unreadable_message(cfg!(target_os = "macos")).to_owned()
+        })
+    }
+
     /// Asks ILM about the certificates on this computer. Nothing happens while nobody is signed in, and the
-    /// last answer stays when the store cannot be read.
+    /// last answer stays when the store cannot be read. While a saved sign-in cannot be renewed, the summary is
+    /// built from the saved answer.
     async fn check_inventory(&self, trigger: Trigger) -> Result<(), String> {
-        if self.session.signed_in_as().is_none() {
+        self.configure();
+        self.inventory.adopt(&self.session);
+        let signed_in = self.session.signed_in_as().is_some();
+        if !signed_in && self.session.unreachable_at().is_none() {
             return Ok(());
         }
-        self.inventory.adopt(&self.session);
-        let local = self.local_fingerprints().await?;
-        self.working(self.inventory.check(&self.session, trigger, &local))
-            .await;
+        let local = self.local_certificates().await?;
+        self.inventory.set_local(&local);
+        if signed_in {
+            self.working(self.inventory.check_local(&self.session, trigger, &local))
+                .await;
+        } else {
+            self.publish_summary();
+            self.changed();
+        }
         Ok(())
     }
 
     /// Takes the saved answer of the person who signed in, then checks ILM.
     pub async fn start(&self) {
+        self.configure();
         self.inventory.adopt(&self.session);
         self.changed();
         if let Err(error) = self.check_inventory(Trigger::Start).await {
@@ -200,6 +277,43 @@ impl<R: Runtime> Ilm<R> {
         }
         self.unlocked()?;
         Ok(self.view())
+    }
+
+    fn overview(&self) -> Result<Option<SummaryView>, String> {
+        self.unlocked()?;
+        let summary = self.inventory.summary();
+        self.unlocked()?;
+        Ok(summary.as_ref().map(SummaryView::from))
+    }
+
+    async fn add_choices(&self) -> Result<AddChoicesView, String> {
+        self.unlocked()?;
+        let choices = self.session.add_to_ilm_choices().await;
+        self.unlocked()?;
+        choices
+            .map(AddChoicesView::from)
+            .map_err(|error| error.to_string())
+    }
+
+    async fn add(
+        &self,
+        fingerprints: Vec<String>,
+        group: Option<String>,
+        ra_profile: Option<String>,
+    ) -> Result<Vec<AddResultView>, String> {
+        self.unlocked()?;
+        let added = self
+            .working(self.session.add_to_ilm(
+                &self.inventory,
+                fingerprints,
+                group,
+                ra_profile,
+                || !self.guard.is_locked(),
+            ))
+            .await;
+        self.unlocked()?;
+        let results = added.map_err(|error| error.to_string())?;
+        Ok(results.into_iter().map(AddResultView::from).collect())
     }
 
     async fn make_sign_in_certificate(&self, fingerprint: &str) -> Result<InventoryView, String> {
@@ -251,6 +365,13 @@ impl<R: Runtime> Checks for Ilm<R> {
     }
 }
 
+#[cfg(test)]
+impl<R: Runtime> Ilm<R> {
+    pub(crate) fn inventory(&self) -> &Inventory {
+        &self.inventory
+    }
+}
+
 pub fn ilm<R: Runtime>(app: &AppHandle<R>) -> Arc<Ilm<R>> {
     app.state::<Arc<Ilm<R>>>().inner().clone()
 }
@@ -282,6 +403,26 @@ pub async fn make_sign_in_certificate<R: Runtime>(
     fingerprint: String,
 ) -> Result<InventoryView, String> {
     ilm(&app).make_sign_in_certificate(&fingerprint).await
+}
+
+#[tauri::command]
+pub fn overview<R: Runtime>(app: AppHandle<R>) -> Result<Option<SummaryView>, String> {
+    ilm(&app).overview()
+}
+
+#[tauri::command]
+pub async fn add_to_ilm_choices<R: Runtime>(app: AppHandle<R>) -> Result<AddChoicesView, String> {
+    ilm(&app).add_choices().await
+}
+
+#[tauri::command]
+pub async fn add_to_ilm<R: Runtime>(
+    app: AppHandle<R>,
+    fingerprints: Vec<String>,
+    group: Option<String>,
+    ra_profile: Option<String>,
+) -> Result<Vec<AddResultView>, String> {
+    ilm(&app).add(fingerprints, group, ra_profile).await
 }
 
 #[tauri::command]

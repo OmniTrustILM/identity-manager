@@ -40,6 +40,14 @@ impl IdentityStore for KeychainStore {
         })
     }
 
+    fn der(&self, fingerprint: &Fingerprint) -> Option<Vec<u8>> {
+        identities()
+            .ok()?
+            .into_iter()
+            .map(|(der, _, _)| der)
+            .find(|der| Fingerprint::of(der) == *fingerprint)
+    }
+
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity> {
         let identities = match identities() {
             Ok(identities) => identities,

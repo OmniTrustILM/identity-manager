@@ -166,6 +166,27 @@ mod tests {
     }
 
     #[test]
+    fn expiry_warning_days_integers_reach_the_layer() {
+        let plist = |days: i64| {
+            format!(
+                r#"<?xml version="1.0"?><plist version="1.0"><dict>
+<key>ExpiryWarningDays</key><integer>{days}</integer></dict></plist>"#
+            )
+        };
+        for (days, expected) in [
+            (1, Some(1)),
+            (45, Some(45)),
+            (365, Some(365)),
+            (0, None),
+            (366, None),
+        ] {
+            let layer =
+                crate::policy::to_layer(&parse_plist(plist(days).as_bytes(), "test"), "test");
+            assert_eq!(layer.warn_days.map(|d| d.get()), expected, "{days}");
+        }
+    }
+
+    #[test]
     fn a_plist_integer_is_not_a_bool_for_the_layer() {
         let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
 <key>StartAtLogin</key><integer>1</integer></dict></plist>"#;

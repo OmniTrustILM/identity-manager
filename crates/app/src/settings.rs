@@ -11,6 +11,7 @@ use im_core::settings::{
 use log::LevelFilter;
 use tauri::{AppHandle, Manager, Runtime};
 
+use crate::certificates::Ilm;
 use crate::lock::Guard;
 
 /// What the effective settings do to the system.
@@ -135,6 +136,12 @@ impl Settings {
     pub fn check_interval(&self) -> std::time::Duration {
         let (policy, person) = self.layers();
         settings::check_interval(&policy, &person)
+    }
+
+    /// The days before expiry that certificates start to need attention, as the settings say now.
+    pub fn warn_days(&self) -> settings::WarnDays {
+        let (policy, person) = self.layers();
+        settings::warn_days(&policy, &person)
     }
 
     pub fn change(&self, change: Change) -> Result<SettingsView, String> {
@@ -268,7 +275,11 @@ pub async fn set_setting<R: Runtime>(
     let guard = app.state::<Arc<Guard>>().inner().clone();
     guard.ensure_unlocked()?;
     let settings = app.state::<Arc<Settings>>().inner().clone();
+    let warn_days = matches!(change, Change::WarnDays(_));
     settings.change(change)?;
+    if warn_days && let Some(ilm) = app.try_state::<Arc<Ilm<R>>>() {
+        ilm.warn_days_changed();
+    }
     Ok(guard.adopt(|| settings.view()).await)
 }
 

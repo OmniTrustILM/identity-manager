@@ -14,6 +14,7 @@ const view: SettingsView = {
     requireUnlock: { value: true, locked: false },
     lockAfterIdle: { value: null, locked: false },
     checkEvery: { value: 15, locked: false },
+    warnDays: { value: 30, locked: false },
     unlock: 'unsupported',
 };
 const unlocked: SettingsView = {
@@ -243,7 +244,7 @@ test('the keyboard alone changes the address, and a refused address shows its re
         refuse: 'The address must start with https://',
     });
     await keyboardReady(page);
-    await page.getByRole('combobox', { name: 'Check ILM every' }).focus();
+    await page.getByRole('combobox', { name: 'Warn before expiry' }).focus();
 
     await page.keyboard.press('Tab');
     await expect(page.getByRole('textbox', { name: 'ILM address' })).toBeFocused();
@@ -366,3 +367,40 @@ for (const scheme of ['light', 'dark'] as const) {
         await expect(every).toHaveAccessibleDescription('Managed by your organization');
     });
 }
+
+for (const scheme of ['light', 'dark'] as const) {
+    test(`in ${scheme} Warn before expiry offers five times by name and sends the chosen one`, async ({ mount, page }) => {
+        await open(page, mount, 'macos', scheme, { view: unlocked });
+
+        const warn = page.getByRole('combobox', { name: 'Warn before expiry' });
+        await expect(warn).toBeEnabled();
+        await expect(warn).toHaveValue('30');
+        await expect(warn.locator('option')).toHaveText(['7 days', '14 days', '30 days', '60 days', '90 days']);
+        await warn.selectOption('60');
+        await expect(warn).toHaveValue('60');
+    });
+
+    test(`in ${scheme} a warning time set by the organization is locked and one outside the list shows its days`, async ({
+        mount,
+        page,
+    }) => {
+        await open(page, mount, 'windows', scheme, { view: { ...unlocked, warnDays: { value: 45, locked: true } } });
+
+        const warn = page.getByRole('combobox', { name: 'Warn before expiry' });
+        await expect(warn).toBeDisabled();
+        await expect(warn).toHaveValue('45');
+        await expect(warn.locator('option:checked')).toHaveText('45 days');
+        await expect(warn).toHaveAccessibleDescription('Managed by your organization');
+    });
+}
+
+test('the keyboard alone reaches Warn before expiry after Check ILM every and chooses a time', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'light', { view: unlocked });
+    await keyboardReady(page);
+
+    await page.getByRole('combobox', { name: 'Check ILM every' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('combobox', { name: 'Warn before expiry' })).toBeFocused();
+    await page.getByRole('combobox', { name: 'Warn before expiry' }).selectOption('60');
+    await expect(page.getByRole('combobox', { name: 'Warn before expiry' })).toHaveValue('60');
+});

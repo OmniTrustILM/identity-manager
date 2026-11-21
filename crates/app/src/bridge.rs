@@ -1,8 +1,59 @@
-use im_core::{AppInfo, Platform};
-use serde::Deserialize;
-use tauri::{AppHandle, LogicalSize, Manager, Runtime, State, Window};
+use std::sync::{Arc, Mutex, PoisonError};
 
+use im_core::identity::Fingerprint;
+use im_core::{AppInfo, Platform};
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, Runtime, State, Window};
+
+use crate::lock::Guard;
 use crate::{Mode, self_check, summary};
+
+/// Sent to the main window when another window has asked it to show something; the request waits in
+/// [`PendingNavigation`].
+const NAVIGATE: &str = "navigate";
+
+/// What the main window is asked to show.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "to", rename_all = "camelCase")]
+#[cfg_attr(
+    test,
+    derive(ts_rs::TS),
+    ts(export, tag = "to", rename_all = "camelCase")
+)]
+pub enum Navigation {
+    Overview,
+    /// The certificate on this computer with this fingerprint.
+    Certificate {
+        fingerprint: String,
+    },
+}
+
+/// The place the main window was asked to show and has not taken yet.
+#[derive(Default)]
+pub struct PendingNavigation(Mutex<Option<Navigation>>);
+
+impl PendingNavigation {
+    fn set(&self, place: Navigation) {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(place);
+    }
+
+    fn take(&self) -> Option<Navigation> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).take()
+    }
+}
+
+impl Navigation {
+    /// The place `target` names: "overview" or the fingerprint of a certificate; none for anything else.
+    fn of(target: &str) -> Option<Self> {
+        if target == "overview" {
+            return Some(Self::Overview);
+        }
+        let fingerprint = target.parse::<Fingerprint>().ok()?;
+        Some(Self::Certificate {
+            fingerprint: fingerprint.to_string(),
+        })
+    }
+}
 
 /// What an interface says it has shown.
 #[derive(Debug, Deserialize)]
@@ -83,10 +134,39 @@ pub fn report_ready<R: Runtime>(window: Window<R>, mode: State<'_, Mode>, report
     }
 }
 
+fn is_unlocked<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.try_state::<Arc<Guard>>()
+        .is_none_or(|guard| !guard.is_locked())
+}
+
+/// Shows the main window and, unless the application is locked, asks it to show `target`: "overview" or the
+/// fingerprint of a certificate on this computer. While locked the window shows the lock and nothing else. The
+/// request is kept until the interface takes it, because the event alone can be lost while the interface is
+/// still starting.
 #[tauri::command]
-pub fn open_main_window<R: Runtime>(app: AppHandle<R>) {
+pub fn open_main_window<R: Runtime>(
+    app: AppHandle<R>,
+    pending: State<'_, PendingNavigation>,
+    target: Option<String>,
+) {
     crate::show_main_window(&app);
     hide_window(&app, "summary");
+    let place = target.as_deref().and_then(Navigation::of);
+    if let (true, Some(place)) = (is_unlocked(&app), place) {
+        pending.set(place);
+        if let Err(error) = app.emit_to("main", NAVIGATE, ()) {
+            log::warn!("the main window could not be asked to navigate: {error}");
+        }
+    }
+}
+
+/// Hands the main window the place it was asked to show, once; nothing while locked.
+#[tauri::command]
+pub fn pending_navigation<R: Runtime>(
+    app: AppHandle<R>,
+    pending: State<'_, PendingNavigation>,
+) -> Option<Navigation> {
+    pending.take().filter(|_| is_unlocked(&app))
 }
 
 #[tauri::command]
@@ -110,7 +190,7 @@ pub(crate) const LOCAL_ORIGIN: &str = if cfg!(windows) {
 
 #[cfg(test)]
 mod tests {
-    use super::LOCAL_ORIGIN;
+    use super::{LOCAL_ORIGIN, Navigation};
     use crate::{Mode, builder};
     use tauri::test::MockRuntime;
     use tauri::webview::InvokeRequest;
@@ -614,17 +694,24 @@ mod tests {
                 "allow-ilm-status",
                 "allow-ilm-certificates",
                 "allow-sync-now",
-                "allow-make-sign-in-certificate"
+                "allow-make-sign-in-certificate",
+                "allow-add-to-ilm-choices",
+                "allow-add-to-ilm"
             ])
         );
     }
 
-    const CERTIFICATE_COMMANDS: [(&str, &str); 5] = [
+    const CERTIFICATE_COMMANDS: [(&str, &str); 7] = [
         ("local_certificates", "{}"),
         ("ilm_status", "{}"),
         ("ilm_certificates", r#"{"page":1,"search":null}"#),
         ("sync_now", "{}"),
         ("make_sign_in_certificate", r#"{"fingerprint":"00"}"#),
+        ("add_to_ilm_choices", "{}"),
+        (
+            "add_to_ilm",
+            r#"{"fingerprints":[],"group":null,"raProfile":null}"#,
+        ),
     ];
 
     #[test]
@@ -641,6 +728,88 @@ mod tests {
             }
             let answer = call_from("https://example.com", command, body);
             assert!(refused_by_capabilities(&answer), "{command}: {answer:?}");
+        }
+    }
+
+    #[test]
+    fn the_overview_capability_grants_only_the_overview_to_the_main_window_and_the_summary() {
+        let file = include_str!("../capabilities/overview.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["windows"], serde_json::json!(["main", "summary"]));
+        assert!(parsed.get("platforms").is_none());
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!(["allow-overview"])
+        );
+    }
+
+    #[test]
+    fn only_the_main_window_and_the_summary_may_read_the_overview() {
+        for label in ["main", "summary", "settings"] {
+            let answer = call_in(label, LOCAL_ORIGIN, "overview", serde_json::json!({}));
+            assert_eq!(
+                refused_by_capabilities(&answer),
+                label == "settings",
+                "{label}: {answer:?}"
+            );
+        }
+        for label in ["main", "summary"] {
+            let answer = call_in(
+                label,
+                "https://example.com",
+                "overview",
+                serde_json::json!({}),
+            );
+            assert!(refused_by_capabilities(&answer), "{label}: {answer:?}");
+        }
+    }
+
+    #[test]
+    fn the_navigation_capability_grants_only_taking_the_place_to_the_main_window() {
+        let file = include_str!("../capabilities/navigation.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["windows"], serde_json::json!(["main"]));
+        assert!(parsed.get("platforms").is_none());
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!(["allow-pending-navigation"])
+        );
+    }
+
+    #[test]
+    fn only_the_main_window_may_take_the_pending_navigation() {
+        for label in ["main", "summary", "settings"] {
+            let answer = call_in(
+                label,
+                LOCAL_ORIGIN,
+                "pending_navigation",
+                serde_json::json!({}),
+            );
+            assert_eq!(
+                refused_by_capabilities(&answer),
+                label != "main",
+                "{label}: {answer:?}"
+            );
+        }
+        let answer = call_in(
+            "main",
+            "https://example.com",
+            "pending_navigation",
+            serde_json::json!({}),
+        );
+        assert!(refused_by_capabilities(&answer), "{answer:?}");
+    }
+
+    #[test]
+    fn a_target_names_the_overview_or_a_certificate_and_nothing_else() {
+        let print = im_core::identity::Fingerprint::of(b"der").to_string();
+        assert_eq!(Navigation::of("overview"), Some(Navigation::Overview));
+        assert_eq!(
+            Navigation::of(&print),
+            Some(Navigation::Certificate { fingerprint: print })
+        );
+        for other in ["", "Overview", "settings", "00", "../etc"] {
+            assert_eq!(Navigation::of(other), None, "{other:?}");
         }
     }
 

@@ -173,6 +173,11 @@ The person enters the address of the ILM and signs in through their identity pro
 [docs/sign-in.md](docs/sign-in.md) for what the ILM and the provider need. The refresh token is kept in the system's
 protected storage: the Keychain on macOS, the Credential Manager on Windows and the Secret Service on Linux.
 
+## Certificates
+
+The overview counts the certificates on the computer, warns before they expire and can add them to the ILM; see
+[docs/certificates.md](docs/certificates.md).
+
 ## Settings and policy
 
 An organization can fix settings from the system, and the person's own choices are stored in `settings.json`; see

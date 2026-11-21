@@ -1,9 +1,23 @@
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { useAppInfo } from '../../app-info';
-import { hideSummary, openMainWindow, reportReady, type SessionView, signInAgain, unlock } from '../../bridge';
-import { AppIcon, FineIcon, LockIcon, ProblemIcon, UnreachableIcon } from '../../design-system/icons';
+import { attentionDetail, attentionLook } from '../../attention';
+import {
+    type AttentionItemView,
+    hideSummary,
+    openMainWindow,
+    reportReady,
+    type SessionView,
+    signInAgain,
+    type SummaryView,
+    unlock,
+} from '../../bridge';
+import { AppIcon, ChevronIcon, FineIcon, LockIcon, OfflineIcon, ProblemIcon, UnreachableIcon } from '../../design-system/icons';
 import { useSession } from '../../session';
 import { strings } from '../../strings';
+import { useSummary } from '../../useSummary';
+
+/** At most this many attention items are listed; the others are counted. */
+const listed = 3;
 
 const primary = 'h-control rounded-control bg-accent px-s3 text-body text-on-accent';
 const secondary = 'h-control rounded-control border border-button-edge bg-button px-s3 text-body text-primary';
@@ -20,15 +34,22 @@ interface Line {
     icon: ReactNode;
     text: string;
     problem?: string;
+    /** Said under the line in the colour of attention. */
+    attention?: string;
 }
 
 /** The one line that says where the sign-in stands; nothing while it is starting or in progress. */
-function lineFor(view: SessionView | null): Line | null {
+function lineFor(view: SessionView | null, needsAttention: boolean): Line | null {
     switch (view?.state) {
         case 'signedIn':
-            return view.unreachable
-                ? { icon: <UnreachableIcon className="text-attention" />, text: strings.summaryUnreachable(hostOf(view.address)) }
-                : { icon: <FineIcon className="text-fine" />, text: strings.summarySignedIn(hostOf(view.address), view.person.name) };
+            if (view.unreachable) {
+                return { icon: <UnreachableIcon className="text-attention" />, text: strings.summaryUnreachable(hostOf(view.address)) };
+            }
+            return {
+                icon: needsAttention ? <ProblemIcon className="text-attention" /> : <FineIcon className="text-fine" />,
+                text: strings.summarySignedIn(hostOf(view.address), view.person.name),
+                attention: needsAttention ? strings.needsAttention : undefined,
+            };
         case 'unreachable':
             return { icon: <UnreachableIcon className="text-attention" />, text: strings.summaryUnreachable(hostOf(view.address)) };
         case 'signedOut':
@@ -54,11 +75,98 @@ function actionFor(view: SessionView | null): { label: string; run: () => Promis
     return null;
 }
 
+const isOffline = (view: SessionView | null) => view?.state === 'unreachable' || (view?.state === 'signedIn' && view.unreachable);
+
+function Counts({ summary }: Readonly<{ summary: SummaryView }>) {
+    const { valid, expiring, expired, notInIlm } = summary.counts;
+    const counts: [number | null, string, string][] = [
+        [valid, strings.valid, 'bg-fine'],
+        [expiring, strings.expiringSoon, 'bg-attention'],
+        [expired, strings.expired, 'bg-bad'],
+        [notInIlm, strings.notInIlm, 'bg-wait'],
+    ];
+    return (
+        <ul aria-label={strings.countsLabel} className="grid grid-flow-col auto-cols-fr gap-s2">
+            {counts.map(([count, label, dot]) =>
+                count === null ? null : (
+                    <li key={label} className="flex flex-col">
+                        <span className="flex items-center gap-s2 text-title">
+                            <span aria-hidden className={`size-s2 shrink-0 rounded-full ${dot}`} />
+                            {count}
+                        </span>
+                        <span className="text-caption text-secondary">{label}</span>
+                    </li>
+                ),
+            )}
+        </ul>
+    );
+}
+
+function Item({ item }: Readonly<{ item: AttentionItemView }>) {
+    const { Icon, tone, textTone } = attentionLook(item);
+    const certificate = item.kind === 'notInIlm' ? null : item;
+    return (
+        <li>
+            <button
+                type="button"
+                tabIndex={0}
+                data-item
+                onClick={() => openMainWindow(certificate ? certificate.fingerprint : 'overview').catch(() => undefined)}
+                className="flex w-full items-center gap-s3 rounded-control bg-row-hover px-s3 py-s2 text-left"
+            >
+                <Icon aria-hidden className={`size-icon shrink-0 ${tone}`} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-body text-primary">
+                        {item.kind === 'notInIlm' ? strings.notInIlmCountShort(item.count) : item.name}
+                    </span>
+                    {certificate && <span className={`text-caption ${textTone}`}>{attentionDetail(certificate)}</span>}
+                </span>
+                <ChevronIcon aria-hidden className="size-icon shrink-0 text-secondary" />
+            </button>
+        </li>
+    );
+}
+
+/** The counts, the first items that need attention and when ILM was last checked. */
+function Standing({ summary, offline }: Readonly<{ summary: SummaryView; offline: boolean }>) {
+    const more = summary.attention.length - listed;
+    let note: string | null = null;
+    if (offline) {
+        note = summary.checkedAt === null ? strings.cannotReachIlm : strings.cannotReachIlmSince(summary.checkedAt);
+    } else if (summary.checkedAt !== null) {
+        note = strings.lastCheckedWithIlm(summary.checkedAt);
+    }
+    return (
+        <>
+            <Counts summary={summary} />
+            {summary.attention.length > 0 && (
+                <div className="flex flex-col gap-s1">
+                    <ul className="flex flex-col gap-s1">
+                        {summary.attention.slice(0, listed).map((item) => (
+                            <Item key={item.kind === 'notInIlm' ? item.kind : `${item.kind}:${item.fingerprint}`} item={item} />
+                        ))}
+                    </ul>
+                    {more > 0 && <p className="px-s3 text-body text-secondary">{strings.moreAttention(more)}</p>}
+                </div>
+            )}
+            {note !== null && (
+                <p className="flex items-center gap-s2 text-caption text-secondary">
+                    {offline && <OfflineIcon aria-hidden className="size-icon shrink-0" />}
+                    {note}
+                </p>
+            )}
+        </>
+    );
+}
+
 export function TraySummary() {
     const info = useAppInfo();
     const { view } = useSession();
     const content = useRef<HTMLDivElement>(null);
-    const line = lineFor(view);
+    // Nothing about the certificates is asked, or shown, while the application is locked or nobody is signed in.
+    const open = view?.state === 'signedIn' || view?.state === 'unreachable';
+    const summary = useSummary(open);
+    const line = lineFor(view, summary?.attention.some((item) => item.kind !== 'notInIlm') ?? false);
     const action = actionFor(view);
 
     // The summary only renders when the session or the details change, and each time its height may differ.
@@ -78,8 +186,11 @@ export function TraySummary() {
     }, []);
 
     // The first button is the one the person most likely wants; it takes focus whenever the summary shows or changes.
-    const focusFirst = useCallback(() => content.current?.querySelector('button')?.focus(), []);
-    useEffect(() => focusFirst());
+    const focusFirst = useCallback(() => content.current?.querySelector<HTMLElement>('button:not([data-item])')?.focus(), []);
+    // A new summary re-renders the content; an item the person moved to keeps the focus.
+    useEffect(() => {
+        if (!(document.activeElement instanceof HTMLElement && document.activeElement.dataset.item)) focusFirst();
+    });
     useEffect(() => {
         window.addEventListener('focus', focusFirst);
         return () => window.removeEventListener('focus', focusFirst);
@@ -104,9 +215,11 @@ export function TraySummary() {
                         <div>
                             <p>{line.text}</p>
                             {line.problem && <p className="text-caption text-bad">{line.problem}</p>}
+                            {line.attention && <p className="text-caption text-attention-text">{line.attention}</p>}
                         </div>
                     </div>
                 )}
+                {open && summary && <Standing summary={summary} offline={isOffline(view)} />}
                 <div className="flex flex-col gap-s2">
                     {action && (
                         <button type="button" tabIndex={0} onClick={() => action.run().catch(() => undefined)} className={primary}>

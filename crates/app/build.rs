@@ -20,6 +20,7 @@ fn main() {
                 "app_info",
                 "report_ready",
                 "open_main_window",
+                "pending_navigation",
                 "hide_summary",
                 "color_scheme",
                 "settings",
@@ -41,6 +42,9 @@ fn main() {
                 "ilm_certificates",
                 "sync_now",
                 "make_sign_in_certificate",
+                "overview",
+                "add_to_ilm_choices",
+                "add_to_ilm",
             ])),
     )
     .expect("the Tauri build failed");

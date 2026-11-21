@@ -54,6 +54,7 @@ const perSystemTokens = [
         'focus-ring',
         'status-fine',
         'status-attention',
+        'status-attention-text',
         'status-wait',
         'status-bad',
     ].map((name) => `color-${name}`),
