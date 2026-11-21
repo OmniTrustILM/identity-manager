@@ -14,7 +14,7 @@ tauri-build = { version = "2.7.4", features = [] }
 
 [dependencies]
 auto-launch = "0.6.0"
-jiff = { version = "=0.2.39", default-features = false, features = ["std", "tz-system"] }
+jiff = { version = "=1.0.1", default-features = false, features = ["std", "tz-system"] }
 im-core = { path = "../core" }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
@@ -39,7 +39,7 @@ objc2-foundation = "0.3.2"
 objc2-local-authentication = "0.3.2"
 
 [target.'cfg(windows)'.dependencies]
-jiff = { version = "=0.2.39", default-features = false, features = ["tzdb-bundle-platform"] }
+jiff = { version = "=1.0.1", default-features = false, features = ["tzdb-bundle-platform"] }
 windows-future = "0.3.2"
 windows = { version = "0.62.2", features = [
     "Security_Credentials_UI",
