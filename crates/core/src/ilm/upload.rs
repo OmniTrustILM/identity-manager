@@ -66,7 +66,7 @@ pub fn upload_request(client: &Client, ilm: &IlmUrl, der: &[u8]) -> RequestBuild
 pub fn update_request(
     client: &Client,
     ilm: &IlmUrl,
-    certificate_uuid: &str,
+    uuid: &str,
     owner_uuid: Option<&str>,
     group_uuid: Option<&str>,
     ra_profile_uuid: Option<&str>,
@@ -82,7 +82,7 @@ pub fn update_request(
         body.insert("raProfileUuid".into(), json!(ra_profile));
     }
     client
-        .patch(format!("{}/v1/certificates/{certificate_uuid}", ilm.api()))
+        .patch(format!("{}/v1/certificates/{uuid}", ilm.api()))
         .json(&Value::Object(body))
 }
 

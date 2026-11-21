@@ -607,13 +607,13 @@ async fn the_log_says_what_happened_without_names_or_messages() {
     );
     assert!(log.contains("added, not managed"));
     assert!(log.contains("ILM refused the update (400 or 422)"));
-    for secret in [
+    for private in [
         "Unique-Message-Z9",
         "Unique-Group-Z9",
         "Jane",
         "u-person",
         "u-new",
     ] {
-        assert!(!log.contains(secret), "{secret} is in the log");
+        assert!(!log.contains(private), "{private} is in the log");
     }
 }
