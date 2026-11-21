@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::sync::Arc;
 
+use im_core::identity::IdentityStore;
 use im_core::inventory::{Inventory, Trigger};
 use im_core::session::{
     CertificateChoice, KeyringStore, MemoryStore, ProviderChoice, RefreshStore, Session,
@@ -11,7 +12,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
-use crate::certificates::{Ilm, Local, ilm, system_identities};
+use crate::certificates::{Ilm, Local, ilm};
 use crate::keep_alive;
 use crate::lock::{self, Guard, Surface};
 use crate::notice::{Notices, Notifier};
@@ -86,17 +87,17 @@ pub struct SignIn {
 /// Builds the session, tells the windows about each change of it, hidden while the application is locked,
 /// and, outside self-check mode, renews a stored sign-in in the background and keeps it checked. Sign-in and
 /// the Certificates section read the same store. The answer of ILM about the certificates is kept in a file beside
-/// the settings.
+/// the settings, which the application has already given to `app`.
 pub fn manage<R: Runtime>(
     app: &AppHandle<R>,
     mode: Mode,
-    settings: Arc<Settings>,
     store: Arc<dyn RefreshStore>,
     opener: Arc<dyn Opener>,
     notifier: Box<dyn Notifier>,
     guard: Guard,
+    identities: Arc<dyn IdentityStore>,
 ) {
-    let identities = system_identities();
+    let settings = app.state::<Arc<Settings>>().inner().clone();
     let notices = Arc::new(Notices::new(
         notifier,
         AppInfo::current().platform,
@@ -181,11 +182,11 @@ pub fn manage_for_tests<R: Runtime>(app: &AppHandle<R>) {
     manage(
         app,
         Mode::SelfCheck,
-        settings,
         Arc::new(MemoryStore::default()),
         Arc::new(SystemOpener::new(app)),
         Box::new(crate::notice::Silent),
         system_guard(app, Mode::SelfCheck),
+        crate::certificates::system_identities(),
     );
 }
 
@@ -315,8 +316,11 @@ pub async fn sign_in_again<R: Runtime>(app: AppHandle<R>) -> Result<Vec<Provider
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::certificates::system_identities;
     use crate::lock::{Availability, Confirmation, ScriptedAuthenticator, ScriptedState};
-    use im_core::identity::{Fingerprint, KeyAlgorithm, KeyLocation, LocalCertificate};
+    use im_core::identity::{
+        ClientIdentity, Fingerprint, KeyAlgorithm, KeyLocation, LocalCertificate, StoreUnreadable,
+    };
     use im_core::ilm::IlmUrl;
     use im_core::oauth::token::RefreshToken;
     use im_core::session::{ConnectionSettings, Item, PersonView};
@@ -363,11 +367,15 @@ mod tests {
     }
 
     fn fixture(mode: Mode) -> Fixture {
-        fixture_with(mode, None)
+        fixture_with(mode, None, system_identities())
     }
 
     /// A fixture whose settings have a saved sign-in at `saved`, with an ILM answer kept for it.
-    fn fixture_with(mode: Mode, saved: Option<&IlmUrl>) -> Fixture {
+    fn fixture_with(
+        mode: Mode,
+        saved: Option<&IlmUrl>,
+        identities: Arc<dyn IdentityStore>,
+    ) -> Fixture {
         let folder = tempfile::tempdir().unwrap();
         let app = mock_builder()
             .manage(crate::bridge::PendingNavigation::default())
@@ -443,7 +451,6 @@ mod tests {
         manage(
             app.handle(),
             mode,
-            settings,
             store,
             Arc::new(browser.clone()),
             Box::new(notified.clone()),
@@ -452,6 +459,7 @@ mod tests {
                 state.clone(),
                 prompt.clone(),
             ),
+            identities,
         );
         let window = WebviewWindowBuilder::new(&app, "main", WebviewUrl::default())
             .build()
@@ -566,7 +574,7 @@ mod tests {
     #[test]
     fn a_start_that_cannot_reach_ilm_shows_the_kept_answer_once_unlocked() {
         let address = IlmUrl::parse("ilm.invalid").unwrap();
-        let fixture = fixture_with(Mode::SelfCheck, Some(&address));
+        let fixture = fixture_with(Mode::SelfCheck, Some(&address), system_identities());
         let view = tauri::async_runtime::block_on(async {
             let started = fixture.app.state::<SignIn>().session.start().await;
             ilm(fixture.app.handle()).start().await;
@@ -1045,11 +1053,28 @@ mod tests {
         }
     }
 
-    /// A saved sign-in whose ILM cannot be reached, with its saved answer: the summary is built from it. The
-    /// application starts locked.
-    fn offline() -> Fixture {
+    /// The certificates of this computer, as the check that follows an unlock reads them again.
+    struct Certificates(Vec<LocalCertificate>);
+
+    impl IdentityStore for Certificates {
+        fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
+            Ok(self.0.clone())
+        }
+
+        fn open(&self, _fingerprint: &Fingerprint) -> Option<ClientIdentity> {
+            None
+        }
+    }
+
+    /// A saved sign-in whose ILM cannot be reached, with its saved answer, and `certificates` on this computer:
+    /// the summary is built from them. The application starts locked.
+    fn offline(certificates: Vec<LocalCertificate>) -> Fixture {
         let address = IlmUrl::parse("ilm.invalid").unwrap();
-        let fixture = fixture_with(Mode::SelfCheck, Some(&address));
+        let fixture = fixture_with(
+            Mode::SelfCheck,
+            Some(&address),
+            Arc::new(Certificates(certificates)),
+        );
         tauri::async_runtime::block_on(async {
             fixture.app.state::<SignIn>().session.start().await;
             ilm(fixture.app.handle()).start().await;
@@ -1095,9 +1120,7 @@ mod tests {
 
     #[test]
     fn the_overview_is_the_summary_of_the_saved_answer_and_the_local_certificates() {
-        let fixture = offline();
-        let ilm = ilm(fixture.app.handle());
-        ilm.inventory().set_local(&[sample("Ada", 1, 20)]);
+        let fixture = offline(vec![sample("Ada", 1, 20)]);
         confirm_unlock(&fixture);
 
         let summary = fixture.call("overview", serde_json::json!({})).unwrap();
@@ -1110,9 +1133,7 @@ mod tests {
 
     #[test]
     fn a_change_of_the_warning_days_rebuilds_the_summary_at_once() {
-        let fixture = offline();
-        let ilm = ilm(fixture.app.handle());
-        ilm.inventory().set_local(&[sample("Ada", 1, 20)]);
+        let fixture = offline(vec![sample("Ada", 1, 20)]);
         confirm_unlock(&fixture);
         let counts = |fixture: &Fixture| {
             fixture.call("overview", serde_json::json!({})).unwrap()["counts"].clone()
@@ -1133,9 +1154,8 @@ mod tests {
 
     #[test]
     fn nothing_is_told_while_locked_and_the_next_summary_after_the_unlock_tells_once() {
-        let fixture = offline();
+        let fixture = offline(vec![sample("Ada", 1, 5)]);
         let ilm = ilm(fixture.app.handle());
-        ilm.inventory().set_local(&[sample("Ada", 1, 5)]);
 
         ilm.publish_summary();
         assert!(told(&fixture).is_empty());
@@ -1152,10 +1172,8 @@ mod tests {
 
     #[test]
     fn a_certificate_that_ilm_does_not_know_is_not_told_but_stays_in_the_summary() {
-        let fixture = offline();
+        let fixture = offline(vec![sample("Ada", 1, 5), sample("Bob", 2, 5)]);
         let ilm = ilm(fixture.app.handle());
-        ilm.inventory()
-            .set_local(&[sample("Ada", 1, 5), sample("Bob", 2, 5)]);
         confirm_unlock(&fixture);
 
         ilm.publish_summary();
@@ -1168,9 +1186,8 @@ mod tests {
 
     #[test]
     fn a_sign_out_deletes_what_was_remembered_and_the_summary() {
-        let fixture = offline();
+        let fixture = offline(vec![sample("Ada", 1, 5)]);
         let ilm = ilm(fixture.app.handle());
-        ilm.inventory().set_local(&[sample("Ada", 1, 5)]);
         confirm_unlock(&fixture);
         ilm.publish_summary();
         let record = fixture._folder.path().join("notified.json");

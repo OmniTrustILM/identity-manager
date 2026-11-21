@@ -187,7 +187,10 @@ export function TraySummary() {
 
     // The first button is the one the person most likely wants; it takes focus whenever the summary shows or changes.
     const focusFirst = useCallback(() => content.current?.querySelector<HTMLElement>('button:not([data-item])')?.focus(), []);
-    useEffect(() => focusFirst());
+    // A new summary re-renders the content; an item the person moved to keeps the focus.
+    useEffect(() => {
+        if (!(document.activeElement instanceof HTMLElement && document.activeElement.dataset.item)) focusFirst();
+    });
     useEffect(() => {
         window.addEventListener('focus', focusFirst);
         return () => window.removeEventListener('focus', focusFirst);

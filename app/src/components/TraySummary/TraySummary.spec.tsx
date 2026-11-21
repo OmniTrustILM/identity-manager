@@ -253,6 +253,17 @@ test('is read again when the inventory changes', async () => {
     expect(items()).toHaveLength(1);
 });
 
+test('an item the person moved to keeps the focus when the inventory changes', async () => {
+    await shows(stand([revoked, expired]));
+    items()[1]?.focus();
+    summary = stand([revoked, expired, expiring]);
+
+    await act(async () => emit('inventory-changed'));
+
+    expect(items()).toHaveLength(3);
+    expect(document.activeElement).toBe(items()[1]);
+});
+
 test('shows no counts or names when the summary is refused or there is none', async () => {
     summary = null;
     await shows(null);

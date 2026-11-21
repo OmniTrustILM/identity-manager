@@ -233,10 +233,14 @@ test('the keyboard alone reaches an item and opens the main window at its certif
         summary: summary(items.slice(0, 3)),
         seen: (command, args) => seen.push({ command, args }),
     });
+    const item = page.getByRole('button', { name: /^vpn\.example\.com/ });
+    // The summary is read after the page mounts and each render gives Open the focus again, so the keys wait for it.
+    await expect(item).toBeVisible();
     await keyboardReady(page);
+    await expect(page.getByRole('button', { name: 'Open Identity Manager' })).toBeFocused();
 
     await page.keyboard.press('Shift+Tab');
-    await expect(page.getByRole('button', { name: /^vpn\.example\.com/ })).toBeFocused();
+    await expect(item).toBeFocused();
     await page.keyboard.press('Enter');
 
     await expect.poll(() => seen).toContainEqual({ command: 'open_main_window', args: { target: 'LO:vpn.example.com' } });

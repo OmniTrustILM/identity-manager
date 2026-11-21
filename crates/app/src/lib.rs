@@ -151,11 +151,11 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             session::manage(
                 app.handle(),
                 mode,
-                settings,
                 session::protected_store(),
                 Arc::new(session::SystemOpener::new(app.handle())),
                 notifier,
                 session::system_guard(app.handle(), mode),
+                certificates::system_identities(),
             );
             log::info!("starting {} {} in {mode:?} mode", info.name, info.version);
             if mode == Mode::SelfCheck {
