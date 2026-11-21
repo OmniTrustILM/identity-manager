@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppInfo } from '../../app-info';
 import { onNavigate, onOpenSection, pendingNavigation, pendingSection } from '../../bridge';
 import { NavigationContext, type Showing } from '../../navigation';
@@ -64,6 +64,7 @@ export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
             void listening.then((stop) => stop());
         };
     }, [hasOverview, showCertificate]);
+    const navigation = useMemo(() => ({ showing, showCertificate }), [showing, showCertificate]);
 
     useEffect(() => {
         if (!bottom || bottom.open) {
@@ -99,7 +100,7 @@ export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
                 {banner && <div className="in-data-[os=macos]:mt-titlebar">{banner}</div>}
                 <main className={`flex-1 overflow-auto p-s5 ${banner ? '' : 'in-data-[os=macos]:pt-titlebar'}`}>
                     {open && (
-                        <NavigationContext.Provider value={{ showing, showCertificate }}>
+                        <NavigationContext.Provider value={navigation}>
                             <open.Component />
                         </NavigationContext.Provider>
                     )}
