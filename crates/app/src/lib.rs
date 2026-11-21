@@ -5,6 +5,7 @@ mod dock;
 mod keep_alive;
 #[cfg(windows)]
 mod key_provider;
+mod local_time;
 mod lock;
 #[cfg(any(windows, test))]
 mod main_window;
@@ -108,7 +109,10 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             certificates::ilm_status,
             certificates::ilm_certificates,
             certificates::sync_now,
-            certificates::make_sign_in_certificate
+            certificates::make_sign_in_certificate,
+            certificates::overview,
+            certificates::add_to_ilm_choices,
+            certificates::add_to_ilm
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)

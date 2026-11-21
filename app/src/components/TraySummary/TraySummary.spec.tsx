@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { AppInfoContext } from '../../app-info';
-import type { AppInfo, SessionView } from '../../bridge';
+import type { AppInfo, AttentionItemView, SessionView, SummaryView } from '../../bridge';
 import { strings } from '../../strings';
 import { TraySummary } from './TraySummary';
 
@@ -27,6 +27,9 @@ const signedOut: SessionView = { state: 'signedOut', address: null, locked: fals
 let container: HTMLElement;
 let session: SessionView;
 let refusal: string | undefined;
+let summary: SummaryView | null;
+let overviews: number;
+let opened: unknown[];
 let root: Root;
 let calls: string[];
 let reports: unknown[];
@@ -40,6 +43,9 @@ beforeEach(async () => {
     reports = [];
     session = signedIn;
     refusal = undefined;
+    summary = null;
+    overviews = 0;
+    opened = [];
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
         height: 117.4,
     } as DOMRect);
@@ -51,6 +57,13 @@ beforeEach(async () => {
             }
             if (command === 'session') {
                 return session;
+            }
+            if (command === 'overview') {
+                overviews += 1;
+                return summary;
+            }
+            if (command === 'open_main_window') {
+                opened.push((args as { target?: string }).target);
             }
             calls.push(command);
             if (refusal && (command === 'unlock' || command === 'sign_in_again')) {
@@ -82,6 +95,27 @@ const button = () => container.querySelector('button');
 const buttons = () => [...container.querySelectorAll('button')].map((candidate) => candidate.textContent);
 const press = (name: string) =>
     act(async () => [...container.querySelectorAll('button')].find((candidate) => candidate.textContent === name)?.click());
+const checkedAt = new Date(2026, 5, 21, 10, 38).getTime();
+const day = 24 * 60 * 60 * 1000;
+const stand = (attention: AttentionItemView[], over: Partial<SummaryView> = {}): SummaryView => ({
+    computedAt: checkedAt,
+    checkedAt,
+    listed: true,
+    counts: { valid: 3, expiring: 2, expired: 2, notInIlm: 3 },
+    attention,
+    months: [0, 2, 0, 1, 0, 1, 0, 1, 0, 2, 0, 1],
+    ...over,
+});
+const revoked: AttentionItemView = { kind: 'revoked', fingerprint: 'FP:build', name: 'Build server' };
+const expired: AttentionItemView = { kind: 'expired', fingerprint: 'FP:card', name: 'Smart card login', on: checkedAt - 7 * day };
+const expiring: AttentionItemView = {
+    kind: 'expiring',
+    fingerprint: 'FP:vpn',
+    name: 'vpn.example.com',
+    days: 13,
+    on: checkedAt + 13 * day,
+};
+const unmatched: AttentionItemView = { kind: 'notInIlm', count: 3 };
 const changeTo = (view: SessionView) => act(async () => emit('session-changed', view));
 
 test('shows the name and the version under one heading', () => {
@@ -96,6 +130,7 @@ test('has one button, named Open Identity Manager, that opens the main window', 
     await act(async () => button()?.click());
 
     expect(calls).toEqual(['open_main_window']);
+    expect(opened).toEqual([null]);
 });
 
 test('Escape hides the summary and other keys do not', async () => {
@@ -120,6 +155,131 @@ test('focus starts on the button and returns to it when the window regains focus
     });
 
     expect(document.activeElement).toBe(button());
+});
+
+const shows = async (view: SummaryView | null) => {
+    summary = view;
+    await act(async () => root.render(null));
+    await show();
+};
+const items = () => [...container.querySelectorAll<HTMLElement>('button[data-item]')];
+const counts = () => [...container.querySelectorAll('ul[aria-label="Certificates by state"] li')].map((item) => item.textContent);
+
+test('with a summary it shows the four counts, the first three items and how many more', async () => {
+    await shows(stand([revoked, expired, expiring, unmatched]));
+
+    expect(counts()).toEqual(['3Valid', '2Expiring soon', '2Expired', '3Not in ILM']);
+    expect(items().map((item) => item.textContent)).toEqual([
+        `Build server${strings.revokedInIlm}`,
+        `Smart card login${strings.expiredOnDate(strings.date(expired.on))}`,
+        `vpn.example.com${strings.expiresOnDate(strings.date(expiring.on), 13)}`,
+    ]);
+    expect(container.textContent).toContain('+1 more');
+    expect(container.textContent).toContain(strings.lastCheckedWithIlm(checkedAt));
+    expect(container.textContent).toContain(strings.needsAttention);
+});
+
+test('the counts leave out Not in ILM when certificates are not listed', async () => {
+    await shows(stand([], { counts: { valid: 3, expiring: 0, expired: 0, notInIlm: null }, listed: false }));
+
+    expect(counts()).toEqual(['3Valid', '0Expiring soon', '0Expired']);
+    expect(items()).toEqual([]);
+    expect(container.textContent).not.toContain('more');
+    expect(container.textContent).not.toContain(strings.needsAttention);
+});
+
+test('Open Identity Manager keeps the focus whatever the items are', async () => {
+    await shows(stand([revoked]));
+
+    expect(document.activeElement?.textContent).toBe(strings.openApp);
+});
+
+test('an item opens the main window at its certificate; the not-in-ILM item opens Overview', async () => {
+    await shows(stand([revoked, unmatched]));
+
+    await act(async () => items()[0]?.click());
+    await act(async () => items()[1]?.click());
+
+    expect(opened).toEqual(['FP:build', 'overview']);
+    expect(items()[1]?.textContent).toBe(strings.notInIlmCountShort(3));
+});
+
+test('only not-in-ILM items do not make the sign-in line say that attention is needed', async () => {
+    await shows(stand([unmatched]));
+
+    expect(container.textContent).not.toContain(strings.needsAttention);
+    expect(container.textContent).toContain(strings.notInIlmCountShort(3));
+});
+
+test('a failure to open the main window is not an error', async () => {
+    await shows(stand([revoked]));
+    mockIPC(() => Promise.reject('refused'), { shouldMockEvents: true });
+
+    await act(async () => items()[0]?.click());
+
+    expect(items()).toHaveLength(1);
+});
+
+test('out of reach it shows the last counts and says when they are from', async () => {
+    session = { ...signedIn, unreachable: true };
+    await shows(stand([revoked]));
+
+    expect(container.textContent).toContain(strings.cannotReachIlmSince(checkedAt));
+    expect(container.textContent).not.toContain(strings.lastCheckedWithIlm(checkedAt));
+    expect(counts()).toHaveLength(4);
+});
+
+test('out of reach before any check it only says so', async () => {
+    session = { state: 'unreachable', address: 'ilm.internal', problem: 'timed out' };
+    await shows(stand([], { checkedAt: null }));
+
+    expect(container.textContent).toContain(strings.cannotReachIlm);
+});
+
+test('before the first check it names no time', async () => {
+    await shows(stand([], { checkedAt: null }));
+
+    expect(container.textContent).not.toContain('Last checked');
+});
+
+test('is read again when the inventory changes', async () => {
+    await shows(stand([]));
+    const before = overviews;
+    summary = stand([revoked]);
+
+    await act(async () => emit('inventory-changed'));
+
+    expect(overviews).toBeGreaterThan(before);
+    expect(items()).toHaveLength(1);
+});
+
+test('shows no counts or names when the summary is refused or there is none', async () => {
+    summary = null;
+    await shows(null);
+    expect(container.querySelector('ul')).toBeNull();
+
+    mockIPC((command) => (command === 'session' ? session : command === 'overview' ? Promise.reject('locked') : undefined), {
+        shouldMockEvents: true,
+    });
+    await act(async () => root.render(null));
+    await show();
+    expect(container.querySelector('ul')).toBeNull();
+});
+
+test('locked or signed out, it asks for nothing and shows no counts or names', async () => {
+    await shows(stand([revoked]));
+    expect(counts()).toHaveLength(4);
+    overviews = 0;
+
+    await changeTo({ state: 'locked' });
+    expect(overviews).toBe(0);
+    expect(counts()).toEqual([]);
+    expect(container.textContent).not.toContain('Build server');
+
+    await changeTo(signedOut);
+    expect(counts()).toEqual([]);
+    expect(container.textContent).not.toContain('Build server');
+    expect(overviews).toBe(0);
 });
 
 test('stops listening once it is gone', async () => {

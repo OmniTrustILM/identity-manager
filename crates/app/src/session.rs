@@ -96,18 +96,23 @@ pub fn manage<R: Runtime>(
     guard: Guard,
 ) {
     let identities = system_identities();
-    let notices = Notices::new(notifier, AppInfo::current().platform);
+    let notices = Arc::new(Notices::new(
+        notifier,
+        AppInfo::current().platform,
+        settings.folder().to_owned(),
+    ));
     let guard = Arc::new(guard);
     let views = guard.clone();
+    let announcing = notices.clone();
     let session = Arc::new(
         Session::new(http::client(), settings.clone(), store, move |view| {
             views.publish(view);
-            notices.view(view);
+            announcing.view(view);
         })
         .with_identities(identities.clone()),
     );
-    let inventory = Arc::new(Inventory::new(settings.folder()));
-    inventory.attach(&session);
+    let inventory =
+        Arc::new(Inventory::new(settings.folder()).with_zone(crate::local_time::utc_offset_at));
     let ilm = Arc::new(Ilm::new(
         app,
         session.clone(),
@@ -115,7 +120,12 @@ pub fn manage<R: Runtime>(
         guard.clone(),
         settings.clone(),
         identities.clone(),
+        notices,
     ));
+    session.on_signed_out({
+        let ilm = ilm.clone();
+        move || ilm.signed_out()
+    });
     app.manage(ilm.clone());
     app.manage(SignIn {
         session: session.clone(),
@@ -305,13 +315,14 @@ pub async fn sign_in_again<R: Runtime>(app: AppHandle<R>) -> Result<Vec<Provider
 mod tests {
     use super::*;
     use crate::lock::{Availability, Confirmation, ScriptedAuthenticator, ScriptedState};
+    use im_core::identity::{Fingerprint, KeyAlgorithm, KeyLocation, LocalCertificate};
     use im_core::ilm::IlmUrl;
     use im_core::oauth::token::RefreshToken;
     use im_core::session::{ConnectionSettings, Item, PersonView};
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc::{Receiver, channel};
-    use std::time::Duration;
+    use std::time::{Duration, SystemTime};
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
     use tauri::webview::InvokeRequest;
     use tauri::{Listener, WebviewUrl, WebviewWindowBuilder, ipc::CallbackFn};
@@ -325,8 +336,23 @@ mod tests {
         }
     }
 
+    /// The notifications that were shown.
+    #[derive(Default)]
+    struct Shown(Mutex<Vec<(String, String)>>);
+
+    impl crate::notice::Notifier for Arc<Shown> {
+        fn notify(&self, title: &str, body: &str) -> Result<(), String> {
+            self.0
+                .lock()
+                .unwrap()
+                .push((title.to_owned(), body.to_owned()));
+            Ok(())
+        }
+    }
+
     struct Fixture {
         app: tauri::App<MockRuntime>,
+        notified: Arc<Shown>,
         window: tauri::WebviewWindow<MockRuntime>,
         browser: Arc<Browser>,
         events: Receiver<String>,
@@ -360,7 +386,10 @@ mod tests {
                 crate::certificates::ilm_status,
                 crate::certificates::ilm_certificates,
                 crate::certificates::sync_now,
-                crate::certificates::make_sign_in_certificate
+                crate::certificates::make_sign_in_certificate,
+                crate::certificates::overview,
+                crate::certificates::add_to_ilm_choices,
+                crate::certificates::add_to_ilm
             ])
             .build(mock_context(noop_assets()))
             .expect("the mock app builds");
@@ -398,6 +427,7 @@ mod tests {
             .unwrap();
         }
         let browser = Arc::new(Browser::default());
+        let notified = Arc::new(Shown::default());
         let state = Arc::new(ScriptedState::default());
         state.set(Some(false), Some(Duration::ZERO));
         let prompt = Arc::new(ScriptedAuthenticator::new(Availability::Available));
@@ -408,7 +438,7 @@ mod tests {
             settings,
             store,
             Arc::new(browser.clone()),
-            Box::new(crate::notice::Silent),
+            Box::new(notified.clone()),
             Guard::new(
                 Arc::new(Windows(app.handle().clone())),
                 state.clone(),
@@ -420,6 +450,7 @@ mod tests {
             .unwrap();
         Fixture {
             app,
+            notified,
             window,
             browser,
             events,
@@ -930,7 +961,11 @@ mod tests {
         fixture.lock();
         fixture.prompt.queue(Confirmation::Confirmed);
         fixture.call("unlock", serde_json::json!({})).unwrap();
-        let notices = Notices::new(Box::new(crate::notice::Silent), im_core::Platform::Macos);
+        let notices = Notices::new(
+            Box::new(crate::notice::Silent),
+            im_core::Platform::Macos,
+            fixture._folder.path().to_owned(),
+        );
         notices.view(&SessionView::SignedOut {
             address: Some("https://ada.example.com".to_owned()),
             locked: false,
@@ -938,11 +973,28 @@ mod tests {
             again: true,
         });
 
+        notices.summary(
+            &im_core::inventory::summarize(
+                &[sample("Grace Hopper", 7, 5)],
+                None,
+                im_core::settings::WarnDays::new(30).unwrap(),
+                now_millis(),
+                |_| 0,
+            ),
+            &[im_core::identity::Fingerprint::of(&[7])],
+            || true,
+            || true,
+        );
+
         let log = lines.lock().unwrap().join("\n");
+        assert!(log.contains("notification sent (expiring)"), "{log}");
         assert!(log.contains("locked: computer"), "{log}");
         assert!(log.contains("unlocked"), "{log}");
         assert!(log.contains("notified that the sign-in has ended"), "{log}");
-        for (index, secret) in ["4242", "Ada", "ada.example.com"].into_iter().enumerate() {
+        for (index, secret) in ["4242", "Ada", "ada.example.com", "Grace"]
+            .into_iter()
+            .enumerate()
+        {
             assert!(!log.contains(secret), "the log holds secret number {index}");
         }
     }
@@ -958,6 +1010,193 @@ mod tests {
                 "{key}"
             );
         }
+    }
+
+    fn now_millis() -> i64 {
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+    }
+
+    fn sample(name: &str, number: u8, days: u64) -> LocalCertificate {
+        LocalCertificate {
+            fingerprint: Fingerprint::of(&[number]),
+            name: name.to_owned(),
+            subject: format!("CN={name}"),
+            issuer: "Root".to_owned(),
+            issuer_name: "CN=Root".to_owned(),
+            serial: "01".to_owned(),
+            not_before: SystemTime::UNIX_EPOCH,
+            not_after: SystemTime::now() + Duration::from_secs(days * 86_400),
+            uses: Vec::new(),
+            alternative_names: Vec::new(),
+            key: KeyAlgorithm::Ed25519,
+            location: KeyLocation::Keychain,
+            sign_in: Ok(()),
+        }
+    }
+
+    /// A saved sign-in whose ILM cannot be reached, with its saved answer: the summary is built from it. The
+    /// application starts locked.
+    fn offline() -> Fixture {
+        let address = IlmUrl::parse("ilm.invalid").unwrap();
+        let fixture = fixture_with(Mode::SelfCheck, Some(&address));
+        tauri::async_runtime::block_on(async {
+            fixture.app.state::<SignIn>().session.start().await;
+            ilm(fixture.app.handle()).start().await;
+        });
+        assert!(fixture.guard().is_locked());
+        fixture
+    }
+
+    fn confirm_unlock(fixture: &Fixture) {
+        fixture.prompt.queue(Confirmation::Confirmed);
+        fixture.call("unlock", serde_json::json!({})).unwrap();
+    }
+
+    fn told(fixture: &Fixture) -> Vec<(String, String)> {
+        fixture.notified.0.lock().unwrap().clone()
+    }
+
+    #[test]
+    fn the_overview_and_add_to_ilm_commands_refuse_while_locked_and_answer_otherwise() {
+        let fixture = fixture(Mode::SelfCheck);
+        let add = serde_json::json!({ "fingerprints": [], "group": null, "raProfile": null });
+        assert_eq!(
+            fixture.call("overview", serde_json::json!({})).unwrap(),
+            serde_json::Value::Null
+        );
+        for (command, body) in [
+            ("add_to_ilm_choices", serde_json::json!({})),
+            ("add_to_ilm", add.clone()),
+        ] {
+            let error = fixture.call(command, body).unwrap_err();
+            assert!(!error.contains(LOCKED), "{command}: {error}");
+        }
+
+        fixture.lock();
+
+        refused_as_locked(fixture.call("overview", serde_json::json!({})), "overview");
+        refused_as_locked(
+            fixture.call("add_to_ilm_choices", serde_json::json!({})),
+            "add_to_ilm_choices",
+        );
+        refused_as_locked(fixture.call("add_to_ilm", add), "add_to_ilm");
+    }
+
+    #[test]
+    fn the_overview_is_the_summary_of_the_saved_answer_and_the_local_certificates() {
+        let fixture = offline();
+        let ilm = ilm(fixture.app.handle());
+        ilm.inventory().set_local(&[sample("Ada", 1, 20)]);
+        confirm_unlock(&fixture);
+
+        let summary = fixture.call("overview", serde_json::json!({})).unwrap();
+
+        assert_eq!(summary["counts"]["expiring"], 1);
+        assert_eq!(summary["attention"][0]["kind"], "expiring");
+        assert_eq!(summary["attention"][0]["name"], "Ada");
+        assert_eq!(summary["checkedAt"], 5);
+    }
+
+    #[test]
+    fn a_change_of_the_warning_days_rebuilds_the_summary_at_once() {
+        let fixture = offline();
+        let ilm = ilm(fixture.app.handle());
+        ilm.inventory().set_local(&[sample("Ada", 1, 20)]);
+        confirm_unlock(&fixture);
+        let counts = |fixture: &Fixture| {
+            fixture.call("overview", serde_json::json!({})).unwrap()["counts"].clone()
+        };
+        assert_eq!(counts(&fixture)["expiring"], 1);
+
+        fixture
+            .call(
+                "set_setting",
+                serde_json::json!({ "change": { "key": "warnDays", "value": 7 } }),
+            )
+            .unwrap();
+
+        let after = counts(&fixture);
+        assert_eq!(after["expiring"], 0);
+        assert_eq!(after["valid"], 1);
+    }
+
+    #[test]
+    fn nothing_is_told_while_locked_and_the_next_summary_after_the_unlock_tells_once() {
+        let fixture = offline();
+        let ilm = ilm(fixture.app.handle());
+        ilm.inventory().set_local(&[sample("Ada", 1, 5)]);
+
+        ilm.publish_summary();
+        assert!(told(&fixture).is_empty());
+
+        confirm_unlock(&fixture);
+        ilm.publish_summary();
+        ilm.publish_summary();
+
+        let told = told(&fixture);
+        assert_eq!(told.len(), 1);
+        assert_eq!(told[0].0, "Certificate expires soon");
+        assert!(told[0].1.starts_with("Ada expires on "), "{}", told[0].1);
+    }
+
+    #[test]
+    fn a_sign_out_deletes_what_was_remembered_and_the_summary() {
+        let fixture = offline();
+        let ilm = ilm(fixture.app.handle());
+        ilm.inventory().set_local(&[sample("Ada", 1, 5)]);
+        confirm_unlock(&fixture);
+        ilm.publish_summary();
+        let record = fixture._folder.path().join("notified.json");
+        assert!(record.exists());
+
+        fixture.call("sign_out", serde_json::json!({})).unwrap();
+
+        assert!(!record.exists());
+        assert_eq!(
+            fixture.call("overview", serde_json::json!({})).unwrap(),
+            serde_json::Value::Null
+        );
+    }
+
+    fn navigations(fixture: &Fixture, target: Option<&str>) -> Vec<serde_json::Value> {
+        let (sender, received) = channel();
+        let id = fixture.window.listen("navigate", move |event| {
+            sender.send(event.payload().to_owned()).unwrap();
+        });
+        crate::bridge::open_main_window(fixture.app.handle().clone(), target.map(str::to_owned));
+        fixture.window.unlisten(id);
+        received
+            .try_iter()
+            .map(|payload| serde_json::from_str(&payload).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn the_main_window_is_asked_to_show_the_overview_or_a_certificate() {
+        let fixture = fixture(Mode::SelfCheck);
+        let print = Fingerprint::of(b"der").to_string();
+
+        assert_eq!(
+            navigations(&fixture, Some("overview")),
+            [serde_json::json!({ "to": "overview" })]
+        );
+        assert_eq!(
+            navigations(&fixture, Some(&print)),
+            [serde_json::json!({ "to": "certificate", "fingerprint": print })]
+        );
+        assert!(navigations(&fixture, None).is_empty());
+        assert!(navigations(&fixture, Some("something else")).is_empty());
+    }
+
+    #[test]
+    fn while_locked_the_main_window_opens_without_being_asked_to_show_anything() {
+        let fixture = fixture(Mode::SelfCheck);
+        fixture.lock();
+
+        assert!(navigations(&fixture, Some("overview")).is_empty());
     }
 
     /// Captures the log lines of every test in the process; the logger can be installed only once.

@@ -2,6 +2,8 @@ import { emit } from '@tauri-apps/api/event';
 import { clearMocks, mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+    addToIlm,
+    addToIlmChoices,
     cancelSignIn,
     certificates,
     colorScheme,
@@ -11,11 +13,13 @@ import {
     getSettings,
     hideSummary,
     localCertificates,
+    onNavigate,
     onOpenSection,
     onSignInChoices,
     onSessionChanged,
     openMainWindow,
     openSettings,
+    overview,
     pendingSection,
     reopenBrowser,
     reportReady,
@@ -275,6 +279,68 @@ describe('bridge', () => {
         await emit('sign-in-choices', []);
 
         expect(choices).toEqual([[{ id: '0', name: 'Company SSO' }]]);
+    });
+
+    it('openMainWindow passes the target, or none', async () => {
+        const calls: { command: string; args: unknown }[] = [];
+        mockIPC((command, args) => {
+            calls.push({ command, args });
+        });
+
+        await openMainWindow('overview');
+        await openMainWindow();
+
+        expect(calls).toEqual([
+            { command: 'open_main_window', args: { target: 'overview' } },
+            { command: 'open_main_window', args: { target: null } },
+        ]);
+    });
+
+    it('onNavigate passes what each navigate event asks for until it is unlistened', async () => {
+        mockIPC(() => undefined, { shouldMockEvents: true });
+        const places: unknown[] = [];
+
+        const unlisten = await onNavigate((to) => places.push(to));
+        await emit('navigate', { to: 'certificate', fingerprint: 'ab' });
+        unlisten();
+        await emit('navigate', { to: 'overview' });
+
+        expect(places).toEqual([{ to: 'certificate', fingerprint: 'ab' }]);
+    });
+
+    it('overview calls overview and returns the summary or null', async () => {
+        const calls: string[] = [];
+        mockIPC((command) => {
+            calls.push(command);
+            return null;
+        });
+
+        await expect(overview()).resolves.toBeNull();
+        expect(calls).toEqual(['overview']);
+    });
+
+    it('addToIlmChoices calls add_to_ilm_choices and returns the choices', async () => {
+        const choices = { groups: [{ uuid: 'g', name: 'Team' }], raProfiles: null };
+        const calls: string[] = [];
+        mockIPC((command) => {
+            calls.push(command);
+            return choices;
+        });
+
+        await expect(addToIlmChoices()).resolves.toEqual(choices);
+        expect(calls).toEqual(['add_to_ilm_choices']);
+    });
+
+    it('addToIlm calls add_to_ilm with the fingerprints and the choices and returns the results', async () => {
+        const results = [{ fingerprint: 'ab', outcome: 'added', messages: [] }];
+        const calls: { command: string; args: unknown }[] = [];
+        mockIPC((command, args) => {
+            calls.push({ command, args });
+            return results;
+        });
+
+        await expect(addToIlm(['ab'], 'g', null)).resolves.toEqual(results);
+        expect(calls).toEqual([{ command: 'add_to_ilm', args: { fingerprints: ['ab'], group: 'g', raProfile: null } }]);
     });
 
     it('windowLabel returns the label of the current window', () => {

@@ -1,4 +1,7 @@
 import { type ReactNode, useId } from 'react';
+import type { InventoryView } from '../bridge';
+import { OfflineIcon, SyncIcon } from '../design-system/icons';
+import { useIlmWaiting } from '../ilm-waiting';
 import { strings } from '../strings';
 
 const fingerprintLineBytes = 16;
@@ -90,4 +93,37 @@ export function validationTone(code: string): string {
 /** An arrow-key list: moves the selection with Up, Down, Home and End and focuses the new row. */
 export function arrowTarget(key: string, index: number, last: number): number | undefined {
     return { ArrowDown: Math.min(index + 1, last), ArrowUp: Math.max(index - 1, 0), Home: 0, End: last }[key];
+}
+
+/** The check time or the offline line, with the button that checks ILM now. */
+export function SyncLine({ inventory, onSync }: Readonly<{ inventory: InventoryView; onSync: () => void }>) {
+    const { checking } = inventory;
+    const waiting = useIlmWaiting();
+    const stopped = checking || waiting;
+    const stateOf = inventory.status;
+    let note: string | null = null;
+    if (checking) {
+        note = strings.checkingIlm;
+    } else if (stateOf.state === 'fresh') {
+        note = strings.checkedWithIlm(stateOf.checkedAt);
+    } else if (stateOf.state === 'offline') {
+        note = stateOf.since === null ? strings.cannotReachIlm : strings.cannotReachIlmSince(stateOf.since);
+    }
+    return (
+        <p className="flex items-center gap-s2 text-caption text-secondary">
+            {!checking && stateOf.state === 'offline' && <OfflineIcon aria-hidden className="size-icon shrink-0" />}
+            {note !== null && <output>{note}</output>}
+            <button
+                tabIndex={0}
+                type="button"
+                aria-label={strings.syncNow}
+                title={strings.syncNow}
+                disabled={stopped}
+                onClick={onSync}
+                className="flex size-control items-center justify-center rounded-control border border-button-edge bg-button text-primary disabled:opacity-disabled"
+            >
+                <SyncIcon aria-hidden className={`size-icon ${checking ? 'motion-safe:animate-spin' : ''}`} />
+            </button>
+        </p>
+    );
 }

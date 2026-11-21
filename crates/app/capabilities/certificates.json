@@ -8,6 +8,8 @@
         "allow-ilm-status",
         "allow-ilm-certificates",
         "allow-sync-now",
-        "allow-make-sign-in-certificate"
+        "allow-make-sign-in-certificate",
+        "allow-add-to-ilm-choices",
+        "allow-add-to-ilm"
     ]
 }

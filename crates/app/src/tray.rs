@@ -7,15 +7,18 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Runtime};
 
+use crate::certificates::Ilm;
 use crate::lock::Guard;
 use crate::{session, settings_window, show_main_window, summary};
 
 const TRAY_ID: &str = "main";
 
-/// What the tray icon says about the sign-in.
+/// What the tray icon says about the sign-in and the certificates. A signed-out person, or one who cannot reach ILM,
+/// is told that before certificates that need attention.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
     Fine,
+    Attention,
     SignedOut,
     Unreachable,
 }
@@ -50,26 +53,63 @@ impl Look {
         };
         Look { state, again }
     }
+
+    /// The look with the certificates that need attention (or not) taken into account.
+    fn with_attention(self, attention: bool) -> Look {
+        match self.state {
+            State::Fine if attention => Look {
+                state: State::Attention,
+                ..self
+            },
+            _ => self,
+        }
+    }
+}
+
+/// What the tray was told, and what it shows.
+struct Seen {
+    view: Look,
+    attention: bool,
+    shown: Look,
 }
 
 /// Remembers what the tray shows, so that it is touched only when that changes.
-struct Shown(Mutex<Look>);
+struct Shown(Mutex<Seen>);
 
 impl Shown {
-    /// The new look when the view changes what the tray shows.
-    fn update(&self, view: &SessionView) -> Option<Look> {
-        let next = Look::of(view);
-        let mut shown = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        (*shown != next).then(|| {
-            *shown = next;
+    fn new() -> Self {
+        Self(Mutex::new(Seen {
+            view: Look::START,
+            attention: false,
+            shown: Look::START,
+        }))
+    }
+
+    fn change(&self, tell: impl FnOnce(&mut Seen)) -> Option<Look> {
+        let mut seen = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        tell(&mut seen);
+        let next = seen.view.with_attention(seen.attention);
+        (seen.shown != next).then(|| {
+            seen.shown = next;
             next
         })
+    }
+
+    /// The new look when the view changes what the tray shows.
+    fn update(&self, view: &SessionView) -> Option<Look> {
+        self.change(|seen| seen.view = Look::of(view))
+    }
+
+    /// The new look when whether certificates need attention changes what the tray shows.
+    fn attention(&self, attention: bool) -> Option<Look> {
+        self.change(|seen| seen.attention = attention)
     }
 }
 
 pub fn tooltip(state: State) -> &'static str {
     match state {
         State::Fine => "Identity Manager \u{2014} Signed in",
+        State::Attention => "Identity Manager \u{2014} Needs attention",
         State::SignedOut => "Identity Manager \u{2014} Signed out",
         State::Unreachable => "Identity Manager \u{2014} Cannot reach ILM",
     }
@@ -80,6 +120,8 @@ fn icon_bytes(state: State, template: bool) -> &'static [u8] {
     match (state, template) {
         (State::Fine, true) => include_bytes!("../icons/tray-template.png"),
         (State::Fine, false) => include_bytes!("../icons/tray-color.png"),
+        (State::Attention, true) => include_bytes!("../icons/tray-attention-template.png"),
+        (State::Attention, false) => include_bytes!("../icons/tray-attention-color.png"),
         (State::SignedOut, true) => include_bytes!("../icons/tray-signed-out-template.png"),
         (State::SignedOut, false) => include_bytes!("../icons/tray-signed-out-color.png"),
         (State::Unreachable, true) => include_bytes!("../icons/tray-unreachable-template.png"),
@@ -179,28 +221,47 @@ fn apply<R: Runtime>(app: &AppHandle<R>, look: Look) -> tauri::Result<()> {
     tray.set_menu(Some(build_menu(app, platform, look)?))
 }
 
+fn show<R: Runtime>(app: &AppHandle<R>, look: Look) {
+    let handle = app.clone();
+    // Menus are built on the main thread only.
+    let scheduled = app.run_on_main_thread(move || {
+        if let Err(error) = apply(&handle, look) {
+            log::warn!("updating the tray failed: {error}");
+        }
+    });
+    if let Err(error) = scheduled {
+        log::warn!("scheduling the tray update failed: {error}");
+    }
+}
+
+/// Tells the tray whether certificates need attention. It shows that only while the sign-in is fine and the
+/// application is not locked.
+pub fn set_attention<R: Runtime>(app: &AppHandle<R>, attention: bool) {
+    let Some(shown) = app.try_state::<Arc<Shown>>() else {
+        return;
+    };
+    if let Some(look) = shown.attention(attention) {
+        show(app, look);
+    }
+}
+
 /// Shows the sign-in the person has now and follows it, whichever thread reports it.
 fn follow<R: Runtime>(app: &AppHandle<R>) {
-    let shown = Arc::new(Shown(Mutex::new(Look::START)));
+    let shown = Arc::new(Shown::new());
+    app.manage(shown.clone());
     let guard = app.state::<Arc<Guard>>();
     let handle = app.clone();
     let refresh = move |view: &SessionView| {
         if let Some(look) = shown.update(view) {
-            let app = handle.clone();
-            // Menus are built on the main thread only.
-            let scheduled = handle.run_on_main_thread(move || {
-                if let Err(error) = apply(&app, look) {
-                    log::warn!("updating the tray failed: {error}");
-                }
-            });
-            if let Err(error) = scheduled {
-                log::warn!("scheduling the tray update failed: {error}");
-            }
+            show(&handle, look);
         }
     };
     guard.listen(refresh.clone());
-    // A view published before the listener existed is not lost.
+    // A view published before the listener existed is not lost, and neither is a summary built before the tray.
     refresh(&guard.real());
+    if let Some(ilm) = app.try_state::<Arc<Ilm<R>>>() {
+        set_attention(app, ilm.needs_attention());
+    }
 }
 
 pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
@@ -261,6 +322,10 @@ mod tests {
         state: State::Unreachable,
         again: false,
     };
+    const ATTENTION: Look = Look {
+        state: State::Attention,
+        again: false,
+    };
     const PLATFORMS: [Platform; 3] = [Platform::Linux, Platform::Macos, Platform::Windows];
 
     fn ids(platform: Platform, look: Look) -> Vec<&'static str> {
@@ -313,8 +378,50 @@ mod tests {
     }
 
     #[test]
+    fn attention_is_shown_only_over_a_fine_sign_in() {
+        let unreachable = SessionView::Unreachable {
+            address: "https://ilm.example".into(),
+            problem: "offline".into(),
+        };
+        let signing_in = SessionView::SigningIn {
+            provider: "idp".into(),
+            method: im_core::session::SignInKind::Browser,
+        };
+        let state = |view: &SessionView| Look::of(view).with_attention(true).state;
+        assert_eq!(state(&signed_in(false)), State::Attention);
+        assert_eq!(state(&signed_in(true)), State::Unreachable);
+        assert_eq!(state(&unreachable), State::Unreachable);
+        assert_eq!(state(&signed_out(false)), State::SignedOut);
+        assert_eq!(state(&signed_out(true)), State::SignedOut);
+        assert_eq!(state(&signing_in), State::SignedOut);
+        assert_eq!(state(&SessionView::Starting), State::SignedOut);
+        assert_eq!(state(&SessionView::Locked {}), State::SignedOut);
+        assert_eq!(
+            Look::of(&signed_in(false)).with_attention(false).state,
+            State::Fine
+        );
+    }
+
+    #[test]
+    fn the_look_follows_the_view_and_the_attention_together() {
+        let shown = Shown::new();
+        assert_eq!(shown.attention(true), None);
+        assert_eq!(shown.update(&signed_in(false)), Some(ATTENTION));
+        assert_eq!(shown.attention(true), None);
+        assert_eq!(shown.update(&signed_in(true)), Some(UNREACHABLE));
+        assert_eq!(shown.attention(false), None);
+        assert_eq!(shown.attention(true), None);
+        assert_eq!(shown.update(&signed_in(false)), Some(ATTENTION));
+        assert_eq!(shown.update(&SessionView::Locked {}), Some(SIGNED_OUT));
+        assert_eq!(shown.attention(false), None);
+        assert_eq!(shown.update(&signed_in(false)), Some(FINE));
+        assert_eq!(shown.attention(true), Some(ATTENTION));
+        assert_eq!(shown.attention(false), Some(FINE));
+    }
+
+    #[test]
     fn a_view_seen_before_the_tray_existed_changes_the_first_look() {
-        let shown = Shown(Mutex::new(Look::START));
+        let shown = Shown::new();
         assert_eq!(shown.update(&signed_in(false)), Some(FINE));
     }
 
@@ -327,6 +434,10 @@ mod tests {
 
     #[test]
     fn the_tooltip_says_the_state_and_nothing_else() {
+        assert_eq!(
+            tooltip(State::Attention),
+            "Identity Manager \u{2014} Needs attention"
+        );
         assert_eq!(tooltip(State::Fine), "Identity Manager \u{2014} Signed in");
         assert_eq!(
             tooltip(State::SignedOut),
@@ -340,7 +451,12 @@ mod tests {
 
     #[test]
     fn every_state_has_an_icon_for_both_kinds() {
-        for state in [State::Fine, State::SignedOut, State::Unreachable] {
+        for state in [
+            State::Fine,
+            State::Attention,
+            State::SignedOut,
+            State::Unreachable,
+        ] {
             for template in [true, false] {
                 assert!(Image::from_bytes(icon_bytes(state, template)).is_ok());
             }
@@ -349,7 +465,7 @@ mod tests {
 
     #[test]
     fn the_icon_changes_only_when_the_look_does() {
-        let shown = Shown(Mutex::new(Look::START));
+        let shown = Shown::new();
         assert_eq!(shown.update(&SessionView::Starting), None);
         assert_eq!(shown.update(&signed_in(false)), Some(FINE));
         assert_eq!(shown.update(&signed_in(false)), None);
@@ -420,7 +536,7 @@ mod tests {
     #[test]
     fn signed_in_and_unreachable_have_no_sign_in_entry() {
         for platform in PLATFORMS {
-            for look in [FINE, UNREACHABLE] {
+            for look in [FINE, ATTENTION, UNREACHABLE] {
                 let ids = ids(platform, look);
                 assert!(!ids.contains(&"sign-in") && !ids.contains(&"sign-in-again"));
             }

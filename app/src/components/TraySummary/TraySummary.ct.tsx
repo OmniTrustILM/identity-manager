@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/experimental-ct-react';
 import { TraySummaryStory } from '../../../playwright/stories';
 import type { Locator, Page } from '@playwright/test';
 import { keyboardReady } from '../../../playwright/focus';
-import type { Platform, SessionView } from '../../bridge';
+import { attentionItems, summary } from '../../../playwright/ilm';
+import type { Platform, SessionView, SummaryView } from '../../bridge';
 
 type Scheme = 'light' | 'dark';
 
@@ -13,7 +14,7 @@ const surfaces: Record<Platform, Record<Scheme, string>> = {
     linux: { light: 'rgb(250, 250, 251)', dark: 'rgb(34, 34, 38)' },
 };
 
-type Story = { session?: SessionView; seen?: (command: string) => void };
+type Story = { session?: SessionView; summary?: SummaryView | null; seen?: (command: string, args?: unknown) => void };
 
 async function open(
     page: Page,
@@ -154,4 +155,119 @@ test('the keyboard alone presses Unlock', async ({ mount, page }) => {
     await page.keyboard.press('Space');
 
     await expect.poll(() => seen).toContain('unlock');
+});
+
+const signedIn: SessionView = {
+    state: 'signedIn',
+    address: 'https://develop-02.example.com',
+    person: { name: 'Alex Morgan', username: 'alex.morgan' },
+    allowedListings: [],
+    certificate: null,
+    unreachable: false,
+};
+const items = [
+    attentionItems.revoked,
+    attentionItems.expired,
+    attentionItems.expiring,
+    attentionItems.later,
+    { kind: 'notInIlm' as const, count: 3 },
+];
+const attention: Record<'macos' | 'windows', Record<Scheme, string>> = {
+    macos: { light: 'rgb(255, 149, 0)', dark: 'rgb(255, 159, 10)' },
+    windows: { light: 'rgb(157, 93, 0)', dark: 'rgb(252, 225, 0)' },
+};
+const bad: Record<'macos' | 'windows', Record<Scheme, string>> = {
+    macos: { light: 'rgb(200, 16, 28)', dark: 'rgb(255, 130, 121)' },
+    windows: { light: 'rgb(189, 38, 25)', dark: 'rgb(255, 153, 164)' },
+};
+
+for (const os of ['macos', 'windows'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+        test(`on ${os} in ${scheme} the counts, three items and the rest are shown in the colours of the tokens`, async ({
+            mount,
+            page,
+        }) => {
+            await open(page, mount, os, scheme, { session: signedIn, summary: summary(items) });
+
+            const counts = page.getByRole('list', { name: 'Certificates by state' }).getByRole('listitem');
+            await expect(counts).toHaveText(['3Valid', '2Expiring soon', '2Expired', '3Not in ILM']);
+            await expect(page.locator('button[data-item]')).toHaveCount(3);
+            await expect(page.getByText('+2 more')).toBeVisible();
+            await expect(page.getByText(/^Last checked with ILM at /)).toBeVisible();
+            await expect(page.getByText('Needs attention')).toBeVisible();
+
+            const colours = await page.evaluate(() => {
+                const colour = (text: string) => {
+                    const found = [...document.querySelectorAll('button[data-item] span, p')].find((span) => span.textContent === text);
+                    return found && getComputedStyle(found).color;
+                };
+                const first = document.querySelector('button[data-item]') as HTMLElement;
+                return {
+                    revoked: colour('Revoked in ILM'),
+                    note: colour('Needs attention'),
+                    item: getComputedStyle(first).backgroundColor,
+                    page: getComputedStyle(document.body).backgroundColor,
+                    width: first.getBoundingClientRect().width,
+                };
+            });
+            expect(colours.revoked).toBe(bad[os][scheme]);
+            expect(colours.note).toBe(attention[os][scheme]);
+            expect(colours.item).not.toBe('rgba(0, 0, 0, 0)');
+            expect(colours.width).toBeGreaterThan(280);
+        });
+    }
+}
+
+test('the items are buttons named by their certificate, and Open Identity Manager keeps the focus', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', { session: signedIn, summary: summary(items) });
+
+    await expect(page.getByRole('button', { name: /^Build server Revoked in ILM$/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^3 certificates are not in ILM$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Open Identity Manager' })).toBeFocused();
+});
+
+test('the keyboard alone reaches an item and opens the main window at its certificate', async ({ mount, page }) => {
+    const seen: { command: string; args: unknown }[] = [];
+    await open(page, mount, 'windows', 'light', {
+        session: signedIn,
+        summary: summary(items.slice(0, 3)),
+        seen: (command, args) => seen.push({ command, args }),
+    });
+    await keyboardReady(page);
+
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByRole('button', { name: /^vpn\.example\.com/ })).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect.poll(() => seen).toContainEqual({ command: 'open_main_window', args: { target: 'LO:vpn.example.com' } });
+});
+
+test('the item for certificates ILM does not know opens Overview', async ({ mount, page }) => {
+    const seen: { command: string; args: unknown }[] = [];
+    await open(page, mount, 'macos', 'dark', {
+        session: signedIn,
+        summary: summary([items[4] as (typeof items)[number]]),
+        seen: (command, args) => seen.push({ command, args }),
+    });
+
+    await page.getByRole('button', { name: '3 certificates are not in ILM' }).click();
+
+    await expect.poll(() => seen).toContainEqual({ command: 'open_main_window', args: { target: 'overview' } });
+    await expect(page.getByText('Needs attention')).toHaveCount(0);
+});
+
+test('out of reach it says when the counts are from', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'dark', { session: { ...signedIn, unreachable: true }, summary: summary(items) });
+
+    await expect(page.getByText('Cannot reach develop-02.example.com')).toBeVisible();
+    await expect(page.getByText(/^Cannot reach ILM\. Shown as of /)).toBeVisible();
+    await expect(page.getByText(/^Last checked/)).toHaveCount(0);
+});
+
+test('locked or signed out it shows no counts and no names', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', { session: { state: 'locked' }, summary: summary(items) });
+
+    await expect(page.getByText('Identity Manager is locked')).toBeVisible();
+    await expect(page.getByRole('list')).toHaveCount(0);
+    await expect(page.getByText('Build server')).toHaveCount(0);
 });

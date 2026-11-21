@@ -5,6 +5,7 @@
   "RequireUnlock": true,
   "LockAfterIdle": 15,
   "CheckInterval": 30,
+  "ExpiryWarningDays": 30,
   "SignInProvider": "Corporate",
   "SignInMethod": "oauth"
 }

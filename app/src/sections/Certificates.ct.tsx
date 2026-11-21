@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/experimental-ct-react';
 import type { Locator, Page } from '@playwright/test';
 import { keyboardReady } from '../../playwright/focus';
-import { ilmCertificate, inventory } from '../../playwright/ilm';
+import { ilmCertificate, inventory, summary } from '../../playwright/ilm';
 import { CertificatesStory, UnreachableStory } from '../../playwright/stories';
 import type { LocalCertificateView, Platform } from '../bridge';
 
@@ -357,4 +357,79 @@ test('Sign out in the banner announces a refusal', async ({ mount, page }) => {
     await page.getByRole('button', { name: 'Sign out' }).click();
 
     await expect(page.getByRole('alert')).toHaveText('Unlock Identity Manager first.');
+});
+
+const attentionColour: Record<'macos' | 'windows', Record<Scheme, string>> = {
+    macos: { light: 'rgb(255, 149, 0)', dark: 'rgb(255, 159, 10)' },
+    windows: { light: 'rgb(157, 93, 0)', dark: 'rgb(252, 225, 0)' },
+};
+const soon = certificate('Soon', { notAfter: Date.now() + 12 * day });
+const soonSummary = summary([{ kind: 'expiring', fingerprint: soon.fingerprint, name: 'Soon', days: 12, on: soon.notAfter }]);
+
+for (const os of ['macos', 'windows'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+        test(`on ${os} in ${scheme} the expiry within the warning days is in the colour of attention and expired stays red`, async ({
+            mount,
+            page,
+        }) => {
+            await open(page, mount, os, scheme, 1000, [certificate('Later'), soon, list[2]!], { summary: soonSummary });
+            await expect(page.getByRole('option', { name: /^Soon/ })).toBeVisible();
+
+            const colours = await page.evaluate(() => {
+                const colour = (text: string) => {
+                    const found = [...document.querySelectorAll('[role="option"] span')].find((span) => span.textContent?.startsWith(text));
+                    return found && getComputedStyle(found).color;
+                };
+                return { soon: colour('Expires in 12'), later: colour('Expires in 212'), expired: colour('Expired') };
+            });
+            expect(colours.soon).toBe(attentionColour[os][scheme]);
+            expect(colours.later).not.toBe(colours.soon);
+            expect(colours.expired).toBe(bad[os][scheme]);
+            await page.getByRole('option', { name: /^Soon/ }).click();
+            await expect(page.getByRole('heading', { name: 'Soon', level: 2 }).locator('xpath=following-sibling::p')).toHaveCSS(
+                'color',
+                attentionColour[os][scheme],
+            );
+        });
+    }
+}
+
+const unknown = certificate('Lab device');
+const unknownInventory = (over: Parameters<typeof inventory>[0] = {}) => inventory({ checked: [unknown.fingerprint], ...over });
+
+test('an unmatched certificate has Add to ILM under the In ILM group, which opens the dialog with it checked', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', 1000, [unknown], { inventory: unknownInventory(), adding: { results: [] } });
+
+    const detail = page.getByRole('region').filter({ has: page.getByRole('heading', { name: 'Lab device', level: 2 }) });
+    const ilm = detail.getByRole('region', { name: 'In ILM' });
+    await expect(ilm).toBeVisible();
+    const [group, button] = await Promise.all([ilm.boundingBox(), page.getByRole('button', { name: 'Add to ILM' }).boundingBox()]);
+    expect(button?.y).toBeGreaterThanOrEqual((group?.y ?? 0) + (group?.height ?? 0));
+
+    await page.getByRole('button', { name: 'Add to ILM' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Add 1 certificate to ILM' });
+    await expect(dialog.getByRole('checkbox', { name: /Lab device/ })).toBeChecked();
+});
+
+test('there is no Add to ILM when ILM cannot be reached', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'dark', 1000, [unknown], {
+        inventory: unknownInventory({ status: { state: 'offline', since: Date.now() - 60000, reason: 'no route', unreachable: true } }),
+    });
+    await expect(page.getByRole('heading', { name: 'Lab device', level: 2 })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add to ILM' })).toHaveCount(0);
+});
+
+test('the keyboard alone opens Add to ILM and closes it with Escape, returning the focus', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', 1000, [unknown], { inventory: unknownInventory(), adding: { results: [] } });
+    await keyboardReady(page);
+
+    const add = page.getByRole('button', { name: 'Add to ILM' });
+    await add.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(add).toBeFocused();
 });

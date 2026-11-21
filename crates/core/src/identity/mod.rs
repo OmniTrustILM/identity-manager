@@ -430,6 +430,12 @@ pub trait IdentityStore: Send + Sync {
         candidates
     }
 
+    /// The DER of the certificate with `fingerprint` when the store has it with a private key, whether or not it
+    /// can sign in. Nothing else of it: no chain and no key.
+    fn der(&self, _fingerprint: &Fingerprint) -> Option<Vec<u8>> {
+        None
+    }
+
     /// The certificate with `fingerprint`, ready to sign, when the store has it and it can still sign in.
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity>;
 }

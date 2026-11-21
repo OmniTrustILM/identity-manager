@@ -27,6 +27,8 @@
 			<integer>15</integer>
 			<key>CheckInterval</key>
 			<integer>30</integer>
+			<key>ExpiryWarningDays</key>
+			<integer>30</integer>
 			<key>SignInProvider</key>
 			<string>Corporate</string>
 			<key>SignInMethod</key>

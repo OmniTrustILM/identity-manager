@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::{CheckMinutes, IdleMinutes, Layer, LogLevel, RememberedCertificate};
+use super::{CheckMinutes, IdleMinutes, Layer, LogLevel, RememberedCertificate, WarnDays};
 use crate::ilm::IlmUrl;
 
 const START_AT_LOGIN: &str = "startAtLogin";
@@ -15,6 +15,7 @@ const ILM_URL: &str = "ilmUrl";
 const REQUIRE_UNLOCK: &str = "requireUnlock";
 const LOCK_AFTER_IDLE: &str = "lockAfterIdle";
 const CHECK_EVERY: &str = "checkEvery";
+const WARN_DAYS: &str = "warnDays";
 const SIGN_IN_CERTIFICATE: &str = "signInCertificate";
 
 /// Reads the person's layer; a missing, unreadable or malformed file gives an empty layer
@@ -59,6 +60,7 @@ fn parse(entries: Map<String, Value>) -> Layer {
                 layer.lock_after_idle = value.as_i64().and_then(IdleMinutes::new);
             }
             CHECK_EVERY => layer.check_every = value.as_i64().and_then(CheckMinutes::option),
+            WARN_DAYS => layer.warn_days = value.as_i64().and_then(WarnDays::option),
             SIGN_IN_CERTIFICATE => {
                 layer.sign_in_certificate = remembered_certificate(&value);
             }
@@ -71,6 +73,7 @@ fn parse(entries: Map<String, Value>) -> Layer {
             REQUIRE_UNLOCK => layer.require_unlock.is_some(),
             LOCK_AFTER_IDLE => layer.lock_after_idle.is_some(),
             CHECK_EVERY => layer.check_every.is_some(),
+            WARN_DAYS => layer.warn_days.is_some(),
             SIGN_IN_CERTIFICATE => layer.sign_in_certificate.is_some(),
             _ => continue,
         };
@@ -102,6 +105,9 @@ pub fn save(path: &Path, layer: &Layer) -> io::Result<()> {
     }
     if let Some(value) = layer.check_every {
         entries.insert(CHECK_EVERY.into(), Value::from(value.get()));
+    }
+    if let Some(value) = layer.warn_days {
+        entries.insert(WARN_DAYS.into(), Value::from(value.get()));
     }
     if let Some(value) = &layer.sign_in_certificate {
         entries.insert(
@@ -157,6 +163,7 @@ mod tests {
             require_unlock: Some(false),
             lock_after_idle: IdleMinutes::new(15),
             check_every: CheckMinutes::option(30),
+            warn_days: WarnDays::option(60),
             sign_in_provider: None,
             sign_in_method: None,
             sign_in_certificate: Some(remembered()),
@@ -205,6 +212,7 @@ mod tests {
                 "requireUnlock": false,
                 "lockAfterIdle": 15,
                 "checkEvery": 30,
+                "warnDays": 60,
                 "signInCertificate": {
                     "ilm": "https://ilm.example.com",
                     "fingerprint": Fingerprint::of(b"certificate").to_string()
@@ -277,6 +285,22 @@ mod tests {
             fs::write(&path, format!(r#"{{"checkEvery":{invalid}}}"#)).unwrap();
             assert_eq!(load(&path), Layer::default(), "{invalid}");
         }
+    }
+
+    #[test]
+    fn warn_days_are_read_only_for_the_offered_days() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        for days in [7, 14, 30, 60, 90] {
+            fs::write(&path, format!(r#"{{"warnDays":{days}}}"#)).unwrap();
+            assert_eq!(load(&path).warn_days, WarnDays::option(days));
+        }
+        for invalid in ["0", "1", "45", "365", "-7", "30.5", r#""30""#, "null"] {
+            fs::write(&path, format!(r#"{{"warnDays":{invalid}}}"#)).unwrap();
+            assert_eq!(load(&path), Layer::default(), "{invalid}");
+        }
+        fs::write(&path, "{}").unwrap();
+        assert_eq!(load(&path).warn_days, None);
     }
 
     #[test]

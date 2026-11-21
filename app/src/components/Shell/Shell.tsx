@@ -1,6 +1,7 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useAppInfo } from '../../app-info';
-import { onOpenSection, pendingSection } from '../../bridge';
+import { onNavigate, onOpenSection, pendingSection } from '../../bridge';
+import { NavigationContext, type Showing } from '../../navigation';
 import type { Section } from '../../sections';
 import { Sidebar } from '../Sidebar/Sidebar';
 
@@ -15,6 +16,7 @@ interface ShellProps {
 export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
     const info = useAppInfo();
     const [current, setCurrent] = useState(sections[0]?.id);
+    const [showing, setShowing] = useState<Showing | null>(null);
     const entries = [...sections, ...(bottom ? [bottom] : [])];
     const open = entries.find((section) => section.id === current);
     const select = (id: string) => {
@@ -22,9 +24,36 @@ export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
         if (entry?.open) {
             entry.open();
         } else {
+            setShowing(null);
             setCurrent(id);
         }
     };
+    const hasOverview = sections.some((section) => section.id === 'overview');
+    const hasCertificates = sections.some((section) => section.id === 'certificates');
+    const showCertificate = useCallback(
+        (fingerprint: string) => {
+            if (hasCertificates) {
+                setShowing((before) => ({ fingerprint, id: (before?.id ?? 0) + 1 }));
+                setCurrent('certificates');
+            }
+        },
+        [hasCertificates],
+    );
+
+    useEffect(() => {
+        // The tray summary asks the window to show Overview or one certificate.
+        const listening = onNavigate((to) => {
+            if (to.to === 'certificate') {
+                showCertificate(to.fingerprint);
+            } else if (hasOverview) {
+                setShowing(null);
+                setCurrent('overview');
+            }
+        }).catch(() => () => undefined);
+        return () => {
+            void listening.then((stop) => stop());
+        };
+    }, [hasOverview, showCertificate]);
 
     useEffect(() => {
         if (!bottom || bottom.open) {
@@ -59,7 +88,11 @@ export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
             <div className="flex min-w-0 flex-1 flex-col bg-surface">
                 {banner && <div className="in-data-[os=macos]:mt-titlebar">{banner}</div>}
                 <main className={`flex-1 overflow-auto p-s5 ${banner ? '' : 'in-data-[os=macos]:pt-titlebar'}`}>
-                    {open && <open.Component />}
+                    {open && (
+                        <NavigationContext.Provider value={{ showing, showCertificate }}>
+                            <open.Component />
+                        </NavigationContext.Provider>
+                    )}
                 </main>
             </div>
         </div>

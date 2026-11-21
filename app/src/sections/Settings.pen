@@ -519,6 +519,95 @@
                       ]
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "snXTn",
+                  "name": "Separator",
+                  "width": "fill_container",
+                  "height": 1,
+                  "fill": "$color.separator"
+                },
+                {
+                  "type": "frame",
+                  "id": "z71Qt",
+                  "name": "Row Warn before expiry",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "w6cObR",
+                      "name": "Label",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "tHCaf",
+                          "name": "Warn before expiry",
+                          "fill": "$color.text-primary",
+                          "content": "Warn before expiry",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "LBfZY",
+                      "name": "Control",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "a6drEJ",
+                          "name": "Select",
+                          "width": 130,
+                          "fill": "$color.surface",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "fB7Ij",
+                              "name": "30 days",
+                              "fill": "$color.text-primary",
+                              "content": "30 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "DrtXt",
+                              "name": "Chevron",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "chevrons-up-down",
+                              "library": "lucide",
+                              "fill": "$color.text-secondary"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -1101,6 +1190,92 @@
                                 {
                                   "type": "icon",
                                   "id": "gXLe4",
+                                  "name": "Chevron",
+                                  "width": 14,
+                                  "height": 14,
+                                  "icon": "chevrons-up-down",
+                                  "library": "lucide",
+                                  "fill": "$color.text-secondary"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ylR6u",
+                      "name": "Card Warn before expiry",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "vVRYo",
+                          "name": "Label",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "liqn2",
+                              "name": "Warn before expiry",
+                              "fill": "$color.text-primary",
+                              "content": "Warn before expiry",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "l61DfR",
+                          "name": "Control",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "HLCeO",
+                              "name": "Select",
+                              "width": 130,
+                              "fill": "$color.row-hover",
+                              "cornerRadius": "$radius.control",
+                              "stroke": "$color.separator",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "padding": [
+                                0,
+                                10
+                              ],
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Es7eg",
+                                  "name": "30 days",
+                                  "fill": "$color.text-primary",
+                                  "content": "30 days",
+                                  "fontFamily": "$font.family-preview",
+                                  "fontSize": "$font.body",
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "EElB1",
                                   "name": "Chevron",
                                   "width": 14,
                                   "height": 14,
@@ -2421,6 +2596,95 @@
                       ]
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "d1fJh",
+                  "name": "Separator",
+                  "width": "fill_container",
+                  "height": 1,
+                  "fill": "$color.separator"
+                },
+                {
+                  "type": "frame",
+                  "id": "EdA3g",
+                  "name": "Row Warn before expiry",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Eq5RQ",
+                      "name": "Label",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "k9K4Sc",
+                          "name": "Warn before expiry",
+                          "fill": "$color.text-primary",
+                          "content": "Warn before expiry",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "FR96v",
+                      "name": "Control",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "qpCqM",
+                          "name": "Select",
+                          "width": 130,
+                          "fill": "$color.surface",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ZXTuM",
+                              "name": "30 days",
+                              "fill": "$color.text-primary",
+                              "content": "30 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "sKD9z",
+                              "name": "Chevron",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "chevrons-up-down",
+                              "library": "lucide",
+                              "fill": "$color.text-secondary"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -3003,6 +3267,92 @@
                                 {
                                   "type": "icon",
                                   "id": "iAjOl",
+                                  "name": "Chevron",
+                                  "width": 14,
+                                  "height": 14,
+                                  "icon": "chevrons-up-down",
+                                  "library": "lucide",
+                                  "fill": "$color.text-secondary"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "hNc7d",
+                      "name": "Card Warn before expiry",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "G9IGT",
+                          "name": "Label",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "s1RCZc",
+                              "name": "Warn before expiry",
+                              "fill": "$color.text-primary",
+                              "content": "Warn before expiry",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "CiqLu",
+                          "name": "Control",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "P6irqD",
+                              "name": "Select",
+                              "width": 130,
+                              "fill": "$color.row-hover",
+                              "cornerRadius": "$radius.control",
+                              "stroke": "$color.separator",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "padding": [
+                                0,
+                                10
+                              ],
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "d7MHUl",
+                                  "name": "30 days",
+                                  "fill": "$color.text-primary",
+                                  "content": "30 days",
+                                  "fontFamily": "$font.family-preview",
+                                  "fontSize": "$font.body",
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "E5tsja",
                                   "name": "Chevron",
                                   "width": 14,
                                   "height": 14,
@@ -19821,6 +20171,125 @@
                       ]
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "FjGv3",
+                  "name": "Separator",
+                  "width": "fill_container",
+                  "height": 1,
+                  "fill": "$color.separator"
+                },
+                {
+                  "type": "frame",
+                  "id": "J0BZV",
+                  "name": "Row Warn before expiry",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Uvz8B",
+                      "name": "Label",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "y1BKun",
+                          "name": "Warn before expiry",
+                          "fill": "$color.text-primary",
+                          "content": "Warn before expiry",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "F4JIJ",
+                          "name": "Lock note",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "szDbj",
+                              "name": "Icon lock",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$color.text-secondary"
+                            },
+                            {
+                              "type": "text",
+                              "id": "dOBbm",
+                              "name": "Managed by your organization",
+                              "fill": "$color.text-secondary",
+                              "content": "Managed by your organization",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "iVa79",
+                      "name": "Control",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "L22OKc",
+                          "name": "Select",
+                          "opacity": 0.4,
+                          "width": 130,
+                          "fill": "$color.surface",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ZmEpY",
+                              "name": "30 days",
+                              "fill": "$color.text-primary",
+                              "content": "30 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "SQWaj",
+                              "name": "Chevron",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "chevrons-up-down",
+                              "library": "lucide",
+                              "fill": "$color.text-secondary"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -20364,6 +20833,125 @@
                             {
                               "type": "icon",
                               "id": "b1x1L",
+                              "name": "Chevron",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "chevrons-up-down",
+                              "library": "lucide",
+                              "fill": "$color.text-secondary"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ldT8q",
+                  "name": "Separator",
+                  "width": "fill_container",
+                  "height": 1,
+                  "fill": "$color.separator"
+                },
+                {
+                  "type": "frame",
+                  "id": "MaBGS",
+                  "name": "Row Warn before expiry",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "WLyz0",
+                      "name": "Label",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "px7Ve",
+                          "name": "Warn before expiry",
+                          "fill": "$color.text-primary",
+                          "content": "Warn before expiry",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "z6fbF",
+                          "name": "Lock note",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "w371nd",
+                              "name": "Icon lock",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "lock",
+                              "library": "lucide",
+                              "fill": "$color.text-secondary"
+                            },
+                            {
+                              "type": "text",
+                              "id": "eWAvn",
+                              "name": "Managed by your organization",
+                              "fill": "$color.text-secondary",
+                              "content": "Managed by your organization",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "C4yWz",
+                      "name": "Control",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "cjKbb",
+                          "name": "Select",
+                          "opacity": 0.4,
+                          "width": 130,
+                          "fill": "$color.surface",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "k0CVV",
+                              "name": "30 days",
+                              "fill": "$color.text-primary",
+                              "content": "30 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "hZeoV",
                               "name": "Chevron",
                               "width": 14,
                               "height": 14,
@@ -20988,6 +21576,122 @@
                                 {
                                   "type": "icon",
                                   "id": "DGF07",
+                                  "name": "Chevron",
+                                  "width": 14,
+                                  "height": 14,
+                                  "icon": "chevrons-up-down",
+                                  "library": "lucide",
+                                  "fill": "$color.text-secondary"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Q1JOkt",
+                      "name": "Card Warn before expiry",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "U34g4N",
+                          "name": "Label",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "vDGKI",
+                              "name": "Warn before expiry",
+                              "fill": "$color.text-primary",
+                              "content": "Warn before expiry",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "EUfnH",
+                              "name": "Lock note",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "BMBPa",
+                                  "name": "Icon lock",
+                                  "width": 14,
+                                  "height": 14,
+                                  "icon": "lock",
+                                  "library": "lucide",
+                                  "fill": "$color.text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "T8JGH0",
+                                  "name": "Managed by your organization",
+                                  "fill": "$color.text-secondary",
+                                  "content": "Managed by your organization",
+                                  "fontFamily": "$font.family-preview",
+                                  "fontSize": "$font.caption",
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Qkfb5",
+                          "name": "Control",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "YrGda",
+                              "name": "Select",
+                              "opacity": 0.4,
+                              "width": 130,
+                              "fill": "$color.row-hover",
+                              "cornerRadius": "$radius.control",
+                              "stroke": "$color.separator",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "padding": [
+                                0,
+                                10
+                              ],
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "ntWQW",
+                                  "name": "30 days",
+                                  "fill": "$color.text-primary",
+                                  "content": "30 days",
+                                  "fontFamily": "$font.family-preview",
+                                  "fontSize": "$font.body",
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "ffDkE",
                                   "name": "Chevron",
                                   "width": 14,
                                   "height": 14,
@@ -21793,6 +22497,122 @@
                                 {
                                   "type": "icon",
                                   "id": "fLRky",
+                                  "name": "Chevron",
+                                  "width": 14,
+                                  "height": 14,
+                                  "icon": "chevrons-up-down",
+                                  "library": "lucide",
+                                  "fill": "$color.text-secondary"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DygjF",
+                      "name": "Card Warn before expiry",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "d64A2",
+                          "name": "Label",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "L6gnUt",
+                              "name": "Warn before expiry",
+                              "fill": "$color.text-primary",
+                              "content": "Warn before expiry",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Jm2MK",
+                              "name": "Lock note",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "N8eaN",
+                                  "name": "Icon lock",
+                                  "width": 14,
+                                  "height": 14,
+                                  "icon": "lock",
+                                  "library": "lucide",
+                                  "fill": "$color.text-secondary"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "vQisO",
+                                  "name": "Managed by your organization",
+                                  "fill": "$color.text-secondary",
+                                  "content": "Managed by your organization",
+                                  "fontFamily": "$font.family-preview",
+                                  "fontSize": "$font.caption",
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "IeddH",
+                          "name": "Control",
+                          "gap": 12,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "i7W2r",
+                              "name": "Select",
+                              "opacity": 0.4,
+                              "width": 130,
+                              "fill": "$color.row-hover",
+                              "cornerRadius": "$radius.control",
+                              "stroke": "$color.separator",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "padding": [
+                                0,
+                                10
+                              ],
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "aUMHV",
+                                  "name": "30 days",
+                                  "fill": "$color.text-primary",
+                                  "content": "30 days",
+                                  "fontFamily": "$font.family-preview",
+                                  "fontSize": "$font.body",
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "gf3n1",
                                   "name": "Chevron",
                                   "width": 14,
                                   "height": 14,

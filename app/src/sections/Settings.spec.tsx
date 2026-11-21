@@ -15,6 +15,7 @@ const open: SettingsView = {
     requireUnlock: { value: true, locked: false },
     lockAfterIdle: { value: null, locked: false },
     checkEvery: { value: 15, locked: false },
+    warnDays: { value: 30, locked: false },
     unlock: 'available',
 };
 const lockedLevel: SettingsView = {
@@ -806,4 +807,65 @@ test('a check time of the organization that is not in the list is shown in minut
 
     expect([...checkSelect().options].map((option) => option.textContent)).toContain('120 minutes');
     expect(checkSelect().value).toBe('120');
+});
+
+const warnSelect = () => {
+    const row = [...container.querySelectorAll('label')].find((candidate) => candidate.textContent === strings.warnBeforeExpiry);
+    return document.getElementById(row?.htmlFor ?? '') as HTMLSelectElement;
+};
+
+test('Warn before expiry offers five times and sends the chosen one', async () => {
+    bridge((command, args) => {
+        if (command !== 'set_setting') {
+            return open;
+        }
+        const { key, value } = (args as { change: Change }).change;
+        return { ...open, [key]: { value, locked: false } };
+    });
+    await render('macos');
+
+    expect([...warnSelect().options].map((option) => option.textContent)).toEqual(['7 days', '14 days', '30 days', '60 days', '90 days']);
+    expect(warnSelect().value).toBe('30');
+    expect(warnSelect().disabled).toBe(false);
+
+    await act(async () => {
+        warnSelect().value = '60';
+        warnSelect().dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(calls.at(-1)?.args).toEqual({ change: { key: 'warnDays', value: 60 } });
+    expect(warnSelect().value).toBe('60');
+});
+
+test('Warn before expiry set by the organization is locked and says so', async () => {
+    bridge(() => ({ ...open, warnDays: { value: 14, locked: true } }));
+
+    await render('macos');
+
+    expect(warnSelect().disabled).toBe(true);
+    expect(warnSelect().value).toBe('14');
+    expect(document.getElementById(warnSelect().getAttribute('aria-describedby') ?? '')?.textContent).toBe(strings.managedByOrganization);
+});
+
+test.each([
+    [45, '45 days'],
+    [1, '1 day'],
+])('a warning time of the organization that is not in the list (%i) is shown in days', async (value, word) => {
+    bridge(() => ({ ...open, warnDays: { value, locked: true } }));
+
+    await render('macos');
+
+    expect([...warnSelect().options].map((option) => option.textContent)).toContain(word);
+    expect(warnSelect().value).toBe(String(value));
+});
+
+test('a refused warning time shows the reason under the row', async () => {
+    bridge((command) => (command === 'set_setting' ? Promise.reject(strings.settingFailed) : open));
+    await render('macos');
+
+    await act(async () => {
+        warnSelect().value = '7';
+        warnSelect().dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(strings.settingFailed);
 });

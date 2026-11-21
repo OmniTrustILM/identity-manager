@@ -120,6 +120,47 @@ impl<'de> Deserialize<'de> for CheckMinutes {
     }
 }
 
+/// Days before expiry from which a certificate counts as expiring: a whole number from 1 to 365. The person chooses
+/// among [`WarnDays::OPTIONS`]; policy may set any value in the range.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WarnDays(u16);
+
+impl WarnDays {
+    pub const OPTIONS: [u16; 5] = [7, 14, 30, 60, 90];
+
+    /// Any whole number of days from 1 to 365.
+    pub fn new(days: i64) -> Option<Self> {
+        match u16::try_from(days) {
+            Ok(days @ 1..=365) => Some(Self(days)),
+            _ => None,
+        }
+    }
+
+    /// One of the days the person can choose.
+    pub fn option(days: i64) -> Option<Self> {
+        Self::new(days).filter(|days| Self::OPTIONS.contains(&days.0))
+    }
+
+    pub fn get(self) -> u16 {
+        self.0
+    }
+}
+
+impl Default for WarnDays {
+    fn default() -> Self {
+        Self(DEFAULT_WARN_DAYS)
+    }
+}
+
+impl<'de> Deserialize<'de> for WarnDays {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let days = i64::deserialize(deserializer)?;
+        Self::option(days).ok_or_else(|| {
+            serde::de::Error::custom(format!("{days} is not one of 7, 14, 30, 60 or 90 days"))
+        })
+    }
+}
+
 /// The certificate last used to sign in, with the ILM address it signed in to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RememberedCertificate {
@@ -136,6 +177,7 @@ pub struct Layer {
     pub require_unlock: Option<bool>,
     pub lock_after_idle: Option<IdleMinutes>,
     pub check_every: Option<CheckMinutes>,
+    pub warn_days: Option<WarnDays>,
     /// Which sign-in provider to use; only policy sets it.
     pub sign_in_provider: Option<String>,
     /// Which way of signing in is allowed; only policy sets it.
@@ -201,6 +243,8 @@ pub struct SettingsView {
     pub lock_after_idle: Entry<Option<u16>>,
     /// Minutes between two checks with ILM.
     pub check_every: Entry<u16>,
+    /// Days before expiry from which a certificate counts as expiring.
+    pub warn_days: Entry<u16>,
     /// What the system can do; the settings do not know it, so `view` says unsupported until the application
     /// reads the system.
     pub unlock: Unlock,
@@ -223,6 +267,7 @@ pub enum Change {
         #[cfg_attr(any(test, feature = "ts"), ts(as = "Option<u16>"))] Option<IdleMinutes>,
     ),
     CheckEvery(#[cfg_attr(any(test, feature = "ts"), ts(as = "u16"))] CheckMinutes),
+    WarnDays(#[cfg_attr(any(test, feature = "ts"), ts(as = "u16"))] WarnDays),
 }
 
 /// A change to a setting that policy fixes.
@@ -240,6 +285,7 @@ impl std::error::Error for Locked {}
 const DEFAULT_START_AT_LOGIN: bool = true;
 const DEFAULT_REQUIRE_UNLOCK: bool = true;
 const DEFAULT_CHECK_EVERY: u16 = 15;
+const DEFAULT_WARN_DAYS: u16 = 30;
 
 fn resolve<T: Copy>(policy: Option<T>, person: Option<T>, default: T) -> (T, Source) {
     match (policy, person) {
@@ -305,6 +351,15 @@ pub fn check_interval(policy: &Layer, person: &Layer) -> std::time::Duration {
     std::time::Duration::from_secs(u64::from(check_every(policy, person).0.get()) * 60)
 }
 
+fn warn_days_of(policy: &Layer, person: &Layer) -> (WarnDays, Source) {
+    resolve(policy.warn_days, person.warn_days, WarnDays::default())
+}
+
+/// How many days before expiry a certificate counts as expiring, policy over the person's choice over the default.
+pub fn warn_days(policy: &Layer, person: &Layer) -> WarnDays {
+    warn_days_of(policy, person).0
+}
+
 /// Merges the layers: policy over the person's choice over the default.
 pub fn view(policy: &Layer, person: &Layer) -> SettingsView {
     SettingsView {
@@ -322,6 +377,10 @@ pub fn view(policy: &Layer, person: &Layer) -> SettingsView {
         check_every: entry({
             let (minutes, source) = check_every(policy, person);
             (minutes.get(), source)
+        }),
+        warn_days: entry({
+            let (days, source) = warn_days_of(policy, person);
+            (days.get(), source)
         }),
         unlock: Unlock::Unsupported,
     }
@@ -375,6 +434,13 @@ pub fn apply(change: Change, policy: &Layer, person: &mut Layer) -> Result<(), L
             }
             log::info!("the ILM check interval is now {} minutes", value.get());
             person.check_every = Some(value);
+        }
+        Change::WarnDays(value) => {
+            if policy.warn_days.is_some() {
+                return Err(Locked("Expiry warning"));
+            }
+            log::info!("the expiry warning is now {} days", value.get());
+            person.warn_days = Some(value);
         }
     }
     Ok(())
@@ -853,6 +919,78 @@ mod tests {
     }
 
     #[test]
+    fn warn_days_accept_one_to_365_and_the_person_five_of_them() {
+        for (value, accepted) in [(0, false), (1, true), (45, true), (365, true), (366, false)] {
+            assert_eq!(WarnDays::new(value).is_some(), accepted, "{value}");
+        }
+        for (value, accepted) in [
+            (7, true),
+            (14, true),
+            (30, true),
+            (60, true),
+            (90, true),
+            (45, false),
+        ] {
+            assert_eq!(WarnDays::option(value).is_some(), accepted, "{value}");
+        }
+        assert_eq!(WarnDays::default().get(), 30);
+    }
+
+    #[test]
+    fn warn_days_default_to_thirty_and_policy_wins() {
+        let view_of = |policy: &Layer, person: &Layer| view(policy, person).warn_days;
+        assert_eq!(
+            view_of(&Layer::default(), &Layer::default()),
+            Entry {
+                value: 30,
+                locked: false
+            }
+        );
+        let person = Layer {
+            warn_days: WarnDays::option(7),
+            ..Layer::default()
+        };
+        assert_eq!(
+            view_of(&Layer::default(), &person),
+            Entry {
+                value: 7,
+                locked: false
+            }
+        );
+        let policy = Layer {
+            warn_days: WarnDays::new(45),
+            ..Layer::default()
+        };
+        assert_eq!(
+            view_of(&policy, &person),
+            Entry {
+                value: 45,
+                locked: true
+            }
+        );
+        assert_eq!(warn_days(&policy, &person).get(), 45);
+        assert_eq!(warn_days(&Layer::default(), &person).get(), 7);
+        assert_eq!(warn_days(&Layer::default(), &Layer::default()).get(), 30);
+    }
+
+    #[test]
+    fn warn_days_are_changed_unless_policy_fixes_them() {
+        let mut person = Layer::default();
+        let sixty = WarnDays::option(60).unwrap();
+        apply(Change::WarnDays(sixty), &Layer::default(), &mut person).unwrap();
+        assert_eq!(person.warn_days, Some(sixty));
+        let policy = Layer {
+            warn_days: WarnDays::new(45),
+            ..Layer::default()
+        };
+        let refused = apply(Change::WarnDays(sixty), &policy, &mut person).unwrap_err();
+        assert_eq!(
+            refused.to_string(),
+            "Expiry warning is managed by your organization."
+        );
+    }
+
+    #[test]
     fn view_serialises_in_camel_case() {
         let json = serde_json::to_value(view(
             &policy_with(false, LogLevel::Debug),
@@ -868,6 +1006,7 @@ mod tests {
                 "requireUnlock": { "value": true, "locked": false },
                 "lockAfterIdle": { "value": null, "locked": false },
                 "checkEvery": { "value": 15, "locked": false },
+                "warnDays": { "value": 30, "locked": false },
                 "unlock": "unsupported",
             })
         );
@@ -902,6 +1041,22 @@ mod tests {
         for bad in [json!(0), json!(10), json!(1440), json!("15"), json!(null)] {
             assert!(
                 serde_json::from_value::<Change>(json!({ "key": "checkEvery", "value": bad }))
+                    .is_err()
+            );
+        }
+        let days: Change =
+            serde_json::from_value(json!({ "key": "warnDays", "value": 60 })).unwrap();
+        assert_eq!(days, Change::WarnDays(WarnDays::option(60).unwrap()));
+        for bad in [
+            json!(0),
+            json!(1),
+            json!(45),
+            json!(365),
+            json!("30"),
+            json!(null),
+        ] {
+            assert!(
+                serde_json::from_value::<Change>(json!({ "key": "warnDays", "value": bad }))
                     .is_err()
             );
         }

@@ -10,7 +10,7 @@ use std::fmt;
 use std::path::Path;
 
 use crate::ilm::IlmUrl;
-use crate::settings::{CheckMinutes, IdleMinutes, Layer, LogLevel, SignInMethod};
+use crate::settings::{CheckMinutes, IdleMinutes, Layer, LogLevel, SignInMethod, WarnDays};
 
 /// A value as a policy source stores it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +31,7 @@ pub(crate) const ILM_URL: &str = "IlmUrl";
 pub(crate) const REQUIRE_UNLOCK: &str = "RequireUnlock";
 pub(crate) const LOCK_AFTER_IDLE: &str = "LockAfterIdle";
 pub(crate) const CHECK_INTERVAL: &str = "CheckInterval";
+pub(crate) const EXPIRY_WARNING_DAYS: &str = "ExpiryWarningDays";
 pub(crate) const SIGN_IN_PROVIDER: &str = "SignInProvider";
 pub(crate) const SIGN_IN_METHOD: &str = "SignInMethod";
 
@@ -59,6 +60,10 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
                 Some(minutes) => layer.check_every = Some(minutes),
                 None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
             },
+            (EXPIRY_WARNING_DAYS, PolicyValue::Int(days)) => match WarnDays::new(*days) {
+                Some(days) => layer.warn_days = Some(days),
+                None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
+            },
             (SIGN_IN_PROVIDER, PolicyValue::Text(text)) if !text.trim().is_empty() => {
                 layer.sign_in_provider = Some(text.trim().to_string());
             }
@@ -71,7 +76,7 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
             },
             (
                 START_AT_LOGIN | LOG_LEVEL | ILM_URL | REQUIRE_UNLOCK | LOCK_AFTER_IDLE
-                | CHECK_INTERVAL | SIGN_IN_PROVIDER | SIGN_IN_METHOD,
+                | CHECK_INTERVAL | EXPIRY_WARNING_DAYS | SIGN_IN_PROVIDER | SIGN_IN_METHOD,
                 _,
             ) => {
                 log::warn!("policy {name} in {source} has the wrong type; ignored");
@@ -101,6 +106,7 @@ pub fn merge(machine: Layer, user: Layer) -> Layer {
         require_unlock: machine.require_unlock.or(user.require_unlock),
         lock_after_idle: machine.lock_after_idle.or(user.lock_after_idle),
         check_every: machine.check_every.or(user.check_every),
+        warn_days: machine.warn_days.or(user.warn_days),
         sign_in_provider: machine.sign_in_provider.or(user.sign_in_provider),
         sign_in_method: machine.sign_in_method.or(user.sign_in_method),
         sign_in_certificate: None,
@@ -356,6 +362,28 @@ mod tests {
     }
 
     #[test]
+    fn expiry_warning_days_outside_one_to_365_are_ignored() {
+        for (days, accepted) in [
+            (-7, false),
+            (0, false),
+            (1, true),
+            (45, true),
+            (365, true),
+            (366, false),
+        ] {
+            let layer = to_layer(
+                &raw(&[("ExpiryWarningDays", PolicyValue::Int(days))]),
+                "test",
+            );
+            assert_eq!(layer.warn_days.is_some(), accepted, "{days}");
+        }
+        for value in [text("30"), PolicyValue::Bool(true), PolicyValue::Other] {
+            let layer = to_layer(&raw(&[("ExpiryWarningDays", value)]), "test");
+            assert_eq!(layer, Layer::default());
+        }
+    }
+
+    #[test]
     fn wrong_types_for_the_unlock_names_are_ignored() {
         for value in [text("true"), PolicyValue::Int(1), PolicyValue::Other] {
             let layer = to_layer(&raw(&[("RequireUnlock", value)]), "test");
@@ -417,10 +445,12 @@ mod tests {
             require_unlock: Some(false),
             lock_after_idle: IdleMinutes::new(10),
             check_every: CheckMinutes::new(10),
+            warn_days: WarnDays::new(45),
             ..Layer::default()
         };
         let merged = merge(machine, user);
         assert_eq!(merged.check_every, CheckMinutes::new(10));
+        assert_eq!(merged.warn_days, WarnDays::new(45));
         assert_eq!(merged.require_unlock, Some(false));
         assert_eq!(merged.lock_after_idle, IdleMinutes::new(10));
         assert_eq!(merged.sign_in_method, Some(SignInMethod::Certificate));

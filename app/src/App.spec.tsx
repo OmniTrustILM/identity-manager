@@ -68,8 +68,12 @@ function mockBridge(
                     requireUnlock: { value: true, locked: false },
                     lockAfterIdle: { value: null, locked: false },
                     checkEvery: { value: 15, locked: false },
+                    warnDays: { value: 30, locked: false },
                     unlock: 'unsupported',
                 };
+            }
+            if (command === 'local_certificates') {
+                return [];
             }
             if (command === 'unlock') {
                 return unlocking();
@@ -95,14 +99,13 @@ async function render(element: React.ReactElement) {
     });
 }
 
-test('shows the product name and version and reports exactly what it shows', async () => {
+test('opens on Overview and reports exactly what it shows', async () => {
     mockBridge(() => info);
 
     await render(<App />);
 
     expect(container.querySelectorAll('h1')).toHaveLength(1);
-    expect(container.querySelector('h1')?.textContent).toBe(info.name);
-    expect(container.textContent).toContain(strings.version(info.version));
+    expect(container.querySelector('h1')?.textContent).toBe(strings.overview);
     expect(reports).toEqual([info]);
 });
 
@@ -115,7 +118,7 @@ test('reports once under StrictMode double effects', async () => {
         </StrictMode>,
     );
 
-    expect(container.querySelector('h1')?.textContent).toBe(info.name);
+    expect(container.querySelector('h1')?.textContent).toBe(strings.overview);
     expect(reports).toEqual([info]);
 });
 
@@ -137,7 +140,7 @@ test.each(['macos', 'windows', 'linux'] as const)('sets data-os to the %s platfo
     await render(<App />);
 
     expect(document.documentElement.dataset.os).toBe(platform);
-    expect(container.querySelector('h1')?.textContent).toBe(info.name);
+    expect(container.querySelector('h1')?.textContent).toBe(strings.overview);
 });
 
 test('leaves data-os unset when the app information is unavailable', async () => {

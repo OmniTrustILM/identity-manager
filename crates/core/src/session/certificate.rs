@@ -97,8 +97,8 @@ impl From<CallError> for ChangeError {
 }
 
 /// The sign-in a change of the sign-in certificate started from.
-struct Departing {
-    id: Arc<()>,
+pub(super) struct Departing {
+    pub(super) id: Arc<()>,
     /// The generation of a certificate sign-in; none with a provider.
     generation: Option<Arc<()>>,
 }
@@ -142,7 +142,7 @@ fn handshake_refused(error: &(dyn Error + 'static)) -> bool {
 }
 
 impl Session {
-    async fn in_identities<T: Send + 'static>(
+    pub(super) async fn in_identities<T: Send + 'static>(
         &self,
         work: impl FnOnce(&dyn IdentityStore) -> T + Send + 'static,
     ) -> T {
@@ -301,13 +301,12 @@ impl Session {
             },
         )
         .await;
-        let locals: Vec<Fingerprint> = local.iter().map(|found| found.fingerprint).collect();
-        inventory.check(self, Trigger::Action, &locals).await;
+        inventory.check_local(self, Trigger::Action, &local).await;
         Ok(())
     }
 
     /// Notes the sign-in the change starts from, so a later sign-in is never changed with what was read for it.
-    fn departing(&self) -> Result<Departing, ChangeError> {
+    pub(super) fn departing(&self) -> Result<Departing, ChangeError> {
         match &*lock(&self.state) {
             State::SignedIn(active) => Ok(Departing {
                 id: active.id.clone(),

@@ -46,6 +46,14 @@ impl IdentityStore for PersonalStore {
         })
     }
 
+    fn der(&self, fingerprint: &Fingerprint) -> Option<Vec<u8>> {
+        all_certificates()
+            .ok()?
+            .into_iter()
+            .map(|(der, _)| der)
+            .find(|der| Fingerprint::of(der) == *fingerprint)
+    }
+
     fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity> {
         let found = match all_certificates() {
             Ok(found) => found,

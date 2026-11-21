@@ -2,16 +2,31 @@ import { emit } from '@tauri-apps/api/event';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { AppInfoContext, useAppInfo } from '../../app-info';
 import type { AppInfo } from '../../bridge';
 import { OverviewIcon } from '../../design-system/icons';
-import { type Section, sections, settingsSection } from '../../sections';
+import { useNavigation } from '../../navigation';
+import { type Section, settingsSection } from '../../sections';
 import { strings } from '../../strings';
 import { Shell } from './Shell';
 
 const info: AppInfo = { name: 'Identity Manager', version: '0.1.0', platform: 'macos' };
 const other: Section = { id: 'other', label: 'Other', icon: OverviewIcon, Component: () => <p>Other content</p> };
+
+const Overview = () => {
+    const { showCertificate } = useNavigation();
+    return (
+        <button type="button" onClick={() => showCertificate('FP:one')}>
+            Overview content
+        </button>
+    );
+};
+const Certificates = () => <p>Certificates content: {useNavigation().showing?.fingerprint ?? 'none'}</p>;
+const sections: Section[] = [
+    { id: 'overview', label: strings.overview, icon: OverviewIcon, Component: Overview },
+    { id: 'certificates', label: strings.certificates, icon: OverviewIcon, Component: Certificates },
+];
 
 const Probe = () => <p>{useAppInfo().name}</p>;
 
@@ -48,13 +63,6 @@ test('lists exactly the registered sections and opens the first', async () => {
 
     expect(entries().map((entry) => entry.textContent)).toEqual(sections.map((section) => section.label));
     expect(entries()[0]?.getAttribute('aria-current')).toBe('page');
-});
-
-test('the overview shows the product name and version', async () => {
-    await render(sections);
-
-    expect(container.querySelector('h1')?.textContent).toBe(info.name);
-    expect(container.textContent).toContain(strings.version(info.version));
 });
 
 test('selecting a section shows its content and marks it current', async () => {
@@ -103,6 +111,7 @@ const settingsView = {
     requireUnlock: { value: true, locked: false },
     lockAfterIdle: { value: null, locked: false },
     checkEvery: { value: 15, locked: false },
+    warnDays: { value: 30, locked: false },
     unlock: 'unsupported',
 };
 const settingsEntry = () => container.querySelector('nav > div button') as HTMLElement | null;
@@ -131,7 +140,7 @@ test('on macOS the Settings… entry opens the Settings window and stays on the 
 
     expect(settingsEntry()?.textContent).toBe(strings.settingsWindow);
     await act(async () => settingsEntry()?.click());
-    expect(calls).toEqual(['open_settings']);
+    expect(calls.filter((command) => command === 'open_settings')).toEqual(['open_settings']);
     expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
     expect(container.querySelector('nav button')?.getAttribute('aria-current')).toBe('page');
 });
@@ -190,13 +199,15 @@ test('listens for the request only where there is a Settings entry, and stops on
         return (args as { handler?: number })?.handler;
     });
     await render(sections, 'macos');
-    expect(listens).toEqual([]);
+    expect(listens).toEqual(['plugin:event|listen']);
 
+    listens.length = 0;
     await render(sections, 'windows', { ...other, id: 'settings' });
     expect(listens).toEqual(['plugin:event|listen']);
 
+    listens.length = 0;
     await act(async () => root.render(null));
-    expect(listens).toEqual(['plugin:event|listen', 'plugin:event|unlisten']);
+    expect(listens).toEqual(['plugin:event|unlisten', 'plugin:event|unlisten']);
 });
 
 test('works when the event bridge is not available', async () => {
@@ -231,4 +242,54 @@ test('a banner shows above the section and the section stays usable', async () =
     expect(container.textContent).toContain('Waiting for ILM');
     expect(container.textContent).toContain('Other content');
     expect(container.querySelector('nav')).not.toBeNull();
+});
+
+const navigate = (to: unknown) => act(async () => emit('navigate', to));
+const current = () => container.querySelector('nav [aria-current="page"]')?.textContent;
+
+describe('navigation', () => {
+    beforeEach(() => mockIPC(() => undefined, { shouldMockEvents: true }));
+
+    test('a request for a certificate opens Certificates with that certificate, again for the same one', async () => {
+        await render(sections);
+
+        await navigate({ to: 'certificate', fingerprint: 'FP:one' });
+        expect(current()).toBe(strings.certificates);
+        expect(container.querySelector('main')?.textContent).toBe('Certificates content: FP:one');
+
+        await act(async () => (entries()[0] as HTMLElement).click());
+        expect(container.querySelector('main')?.textContent).toBe('Overview content');
+        await act(async () => (entries()[1] as HTMLElement).click());
+        expect(container.querySelector('main')?.textContent).toBe('Certificates content: none');
+
+        await navigate({ to: 'certificate', fingerprint: 'FP:one' });
+        expect(container.querySelector('main')?.textContent).toBe('Certificates content: FP:one');
+    });
+
+    test('a request for the overview opens it from Certificates', async () => {
+        await render(sections);
+        await navigate({ to: 'certificate', fingerprint: 'FP:one' });
+
+        await navigate({ to: 'overview' });
+
+        expect(current()).toBe(strings.overview);
+        expect(container.querySelector('main')?.textContent).toBe('Overview content');
+    });
+
+    test('a section can ask for a certificate to be shown', async () => {
+        await render(sections);
+
+        await act(async () => (container.querySelector('main button') as HTMLElement).click());
+
+        expect(container.querySelector('main')?.textContent).toBe('Certificates content: FP:one');
+    });
+
+    test('requests for sections that are not shown are ignored', async () => {
+        await render([other]);
+
+        await navigate({ to: 'certificate', fingerprint: 'FP:one' });
+        await navigate({ to: 'overview' });
+
+        expect(container.querySelector('main')?.textContent).toBe('Other content');
+    });
 });

@@ -9,6 +9,7 @@ pub mod actions;
 pub mod certificates;
 pub mod profile;
 pub mod resource;
+pub mod upload;
 
 /// Why an ILM address is refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

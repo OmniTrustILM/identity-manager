@@ -6,7 +6,8 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { AppInfoContext } from '../app-info';
 import { IlmWaitingContext } from '../ilm-waiting';
 import { ilmCertificate, inventory as checkedInventory } from '../../playwright/ilm';
-import type { InventoryView, LocalCertificateView, Platform } from '../bridge';
+import type { InventoryView, LocalCertificateView, Platform, SummaryView } from '../bridge';
+import { NavigationContext } from '../navigation';
 import { strings } from '../strings';
 import { Certificates } from './Certificates';
 
@@ -549,12 +550,12 @@ test('a change event reads the status again', async () => {
 });
 
 test('the status is read only once the window listens for changes', async () => {
-    let listening: (id: number) => void = () => undefined;
+    const listening: ((id: number) => void)[] = [];
     const commands: string[] = [];
     mockIPC((command) => {
         commands.push(command);
         if (command === 'plugin:event|listen') {
-            return new Promise((resolve) => (listening = resolve));
+            return new Promise((resolve) => listening.push(resolve));
         }
         return command === 'local_certificates' ? [mine] : undefined;
     });
@@ -562,7 +563,11 @@ test('the status is read only once the window listens for changes', async () => 
     await render();
     expect(commands).not.toContain('ilm_status');
 
-    await act(async () => listening(1));
+    await act(async () => {
+        for (const resolve of listening) {
+            resolve(1);
+        }
+    });
 
     expect(commands).toContain('ilm_status');
 });
@@ -727,4 +732,156 @@ test('the segmented control shows only with the listing and switches to the In I
     expect(text()).toContain('1 certificates in ILM');
     await act(async () => button('On this Mac')?.click());
     expect(container.querySelector('[role="listbox"]')?.getAttribute('aria-label')).toBe(strings.certificatesListLabel);
+});
+
+const lab = view('Lab device', { fingerprint: 'FP:lab', issuerName: 'Demo Issuing CA', notAfter: at(300) });
+const labOnly = ['FP:lab'];
+const summaryWith = (attention: SummaryView['attention']): SummaryView => ({
+    computedAt: now,
+    checkedAt: now,
+    listed: true,
+    counts: { valid: 1, expiring: 1, expired: 0, notInIlm: 1 },
+    attention,
+    months: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+});
+
+function withLab(
+    current: InventoryView | null,
+    extra: (command: string, args: unknown) => unknown = () => undefined,
+    items: LocalCertificateView[] = [lab],
+) {
+    answer(
+        () => items,
+        (command, args) => (command === 'ilm_status' ? current : extra(command, args)),
+    );
+}
+const addButton = () => button(strings.addToIlm);
+
+test('the expiry text is in the attention colour within the warning days and expired stays bad', async () => {
+    const soon = view('Soon', { fingerprint: 'FP:soon', notAfter: at(12) });
+    const gone = view('Gone', { fingerprint: 'FP:gone', notAfter: at(-3) });
+    const later = view('Later', { fingerprint: 'FP:later', notAfter: at(100) });
+    withLab(
+        null,
+        (command) =>
+            command === 'overview'
+                ? summaryWith([{ kind: 'expiring', fingerprint: 'FP:soon', name: 'Soon', days: 12, on: at(12) }])
+                : undefined,
+        [later, soon, gone],
+    );
+    await render();
+
+    const tones = options().map(
+        (option) => option.querySelector('div.flex-col > span')?.className.match(/text-(secondary|attention|bad)$/)?.[0],
+    );
+    expect(tones).toEqual(['text-secondary', 'text-attention', 'text-bad']);
+
+    await act(async () => options()[1]?.click());
+    expect(detail().querySelector('header p')?.className).toContain('text-attention');
+    await act(async () => options()[2]?.click());
+    expect(detail().querySelector('header p')?.className).toContain('text-bad');
+});
+
+test('under In ILM a certificate ILM does not know has Add to ILM, which adds it and reports', async () => {
+    const asked: unknown[] = [];
+    withLab(inventory({ checked: labOnly }), (command, args) => {
+        if (command === 'add_to_ilm_choices') {
+            return { groups: null, raProfiles: null };
+        }
+        if (command === 'add_to_ilm') {
+            asked.push(args);
+            return [{ fingerprint: 'FP:lab', outcome: 'added', messages: [] }];
+        }
+    });
+    await render();
+
+    const groups = [...detail().querySelectorAll('section')].map((group) => group.querySelector('h3')?.textContent);
+    expect(groups.slice(0, 2)).toEqual([strings.certificateGroupTitle, strings.inIlmGroupTitle]);
+    expect(detail().children[3]).toBe(addButton());
+
+    await act(async () => addButton()?.click());
+    expect(container.querySelector('dialog h2')?.textContent).toBe(strings.addTitle(1));
+    await act(async () => button(strings.addCount(1))?.click());
+
+    expect(asked).toEqual([{ fingerprints: ['FP:lab'], group: null, raProfile: null }]);
+    expect(container.querySelector('dialog')?.textContent).toContain(strings.added);
+    await act(async () => button(strings.close)?.click());
+    expect(container.querySelector('dialog')).toBeNull();
+});
+
+test('the dialog stays while it reports although the check makes ILM know the certificate', async () => {
+    let current = inventory({ checked: labOnly });
+    mockIPC(
+        (command) => {
+            switch (command) {
+                case 'local_certificates':
+                    return [lab];
+                case 'ilm_status':
+                    return current;
+                case 'add_to_ilm_choices':
+                    return { groups: null, raProfiles: null };
+                case 'add_to_ilm':
+                    current = inventory({ checked: labOnly, matches: { 'FP:lab': plain } });
+                    return [{ fingerprint: 'FP:lab', outcome: 'added', messages: [] }];
+            }
+        },
+        { shouldMockEvents: true },
+    );
+    await render();
+    await act(async () => addButton()?.click());
+    await act(async () => button(strings.addCount(1))?.click());
+    await act(async () => emit('inventory-changed'));
+
+    expect(addButton()).toBeUndefined();
+    expect(container.querySelector('dialog')?.textContent).toContain(strings.added);
+});
+
+test.each([
+    [
+        'ILM cannot be reached',
+        () => inventory({ checked: labOnly, status: { state: 'offline', since: now, reason: 'no route', unreachable: true } }),
+    ],
+    ['certificates are not listed', () => inventory({ checked: [], listed: false })],
+    ['ILM knows the certificate', () => inventory({ checked: labOnly, matches: { 'FP:lab': plain } })],
+    ['no check has looked at it', () => inventory({ checked: [] })],
+])('there is no Add to ILM when %s', async (_, current) => {
+    withLab(current());
+    await render();
+
+    expect(addButton()).toBeUndefined();
+});
+
+test('there is no Add to ILM while the saved sign-in waits for ILM', async () => {
+    withLab(inventory({ checked: labOnly }));
+    await act(async () =>
+        root.render(
+            <AppInfoContext.Provider value={{ name: 'Identity Manager', version: '1', platform: 'macos' }}>
+                <IlmWaitingContext.Provider value>
+                    <Certificates />
+                </IlmWaitingContext.Provider>
+            </AppInfoContext.Provider>,
+        ),
+    );
+
+    expect(addButton()).toBeUndefined();
+});
+
+test('a certificate it was sent to is selected, also when another was selected, and the list of this computer shows', async () => {
+    withLab(inventory({ checked: labOnly }), () => undefined, [mine, lab, other]);
+    const show = (fingerprint: string, id: number) =>
+        act(async () =>
+            root.render(
+                <AppInfoContext.Provider value={{ name: 'Identity Manager', version: '1', platform: 'macos' }}>
+                    <NavigationContext.Provider value={{ showing: { fingerprint, id }, showCertificate: () => undefined }}>
+                        <Certificates />
+                    </NavigationContext.Provider>
+                </AppInfoContext.Provider>,
+            ),
+        );
+
+    await show('FP:lab', 1);
+    expect(selected()?.textContent).toContain('Lab device');
+
+    await show('FP:two', 2);
+    expect(selected()?.textContent).toContain('Alex Novak');
 });

@@ -2,6 +2,8 @@ import { mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { useMemo, useState } from 'react';
 import { AppInfoContext } from '../src/app-info';
 import type {
+    AddChoicesView,
+    AddResultView,
     CertificateChoice,
     Change,
     IlmPageView,
@@ -12,6 +14,7 @@ import type {
     ProviderChoice,
     SessionView,
     SettingsView,
+    SummaryView,
 } from '../src/bridge';
 import { IlmWaitingContext } from '../src/ilm-waiting';
 import { LockNote } from '../src/components/Switch/LockNote';
@@ -23,6 +26,7 @@ import { OverviewIcon, SettingsIcon } from '../src/design-system/icons';
 import type { Section } from '../src/sections';
 import { sections as realSections, settingsSection, visibleSections } from '../src/sections';
 import { Certificates } from '../src/sections/Certificates';
+import { AddToIlm } from '../src/sections/AddToIlm';
 import { Settings } from '../src/sections/Settings';
 import { SignIn, UnreachableBanner } from '../src/sections/SignIn';
 import { Unlock } from '../src/sections/Unlock';
@@ -64,22 +68,31 @@ export function ShellStory({ platform }: StoryProps) {
     );
 }
 
-type SeenProps = Readonly<{ session?: SessionView; refuse?: string; seen?: (command: string) => void }>;
+type SeenProps = Readonly<{
+    session?: SessionView;
+    refuse?: string;
+    /** What the summary shows of the certificates; none while it is not known. */
+    summary?: SummaryView | null;
+    seen?: (command: string, args?: unknown) => void;
+}>;
 
 /** Stands in for the commands of the summary and the unlock: each command is passed to `seen`, `refuse` rejects it. */
-function useCommands({ session, refuse, seen }: SeenProps) {
+function useCommands({ session, refuse, summary = null, seen }: SeenProps) {
     useMemo(() => {
         mockIPC(
-            (command) => {
+            (command, args) => {
                 if (command === 'session') {
                     return session;
                 }
-                seen?.(command);
+                if (command === 'overview') {
+                    return summary;
+                }
+                seen?.(command, args);
                 return refuse && (command === 'unlock' || command === 'sign_in_again') ? Promise.reject(refuse) : undefined;
             },
             { shouldMockEvents: true },
         );
-    }, [session, refuse, seen]);
+    }, [session, refuse, summary, seen]);
 }
 
 export function TraySummaryStory({ platform, ...commands }: StoryProps & SeenProps) {
@@ -152,6 +165,12 @@ export function SettingsStory({ platform, view, refuse, session = signedInView }
         mockIPC((command, args) => {
             if (command === 'session') {
                 return session;
+            }
+            if (command === 'overview' || command === 'ilm_status') {
+                return null;
+            }
+            if (command === 'local_certificates') {
+                return [];
             }
             if (command === 'connect') {
                 return refuse ? Promise.reject(refuse) : [];
@@ -304,7 +323,31 @@ type CertificatesProps = StoryProps &
         delays?: Record<string, number>;
         /** Rejects the sign-in certificate change with this reason. */
         refuseSignIn?: string;
+        /** How the certificates stand, as the summary says; the expiring ones are shown in the colour of attention. */
+        summary?: SummaryView | null;
+        /** What ILM lets the person choose when adding, and how each certificate fares. */
+        adding?: Adding;
     }>;
+
+interface Adding {
+    choices?: AddChoicesView;
+    results?: AddResultView[];
+    /** Rejects the add with this reason. */
+    refuse?: string;
+    /** Milliseconds the add takes. */
+    delay?: number;
+}
+
+const noChoices: AddChoicesView = { groups: null, raProfiles: null };
+
+/** Answers the two commands of the Add to ILM dialog from `adding`; anything else is not its business. */
+function addAnswer(command: string, adding: Adding | undefined) {
+    if (command === 'add_to_ilm_choices') {
+        return adding?.choices ?? noChoices;
+    }
+    const settle = () => (adding?.refuse ? Promise.reject(adding.refuse) : (adding?.results ?? []));
+    return adding?.delay ? new Promise((resolve) => setTimeout(resolve, adding.delay)).then(settle) : settle();
+}
 
 declare global {
     interface Window {
@@ -337,6 +380,8 @@ export function CertificatesStory({
     pages,
     delays,
     refuseSignIn,
+    summary = null,
+    adding,
 }: CertificatesProps) {
     useMemo(() => {
         window.ilmRequests = [];
@@ -350,6 +395,11 @@ export function CertificatesStory({
                         return inventory;
                     case 'ilm_certificates':
                         return ilmAnswer(pages, delays, args as { page: number; search: string | null });
+                    case 'overview':
+                        return summary;
+                    case 'add_to_ilm_choices':
+                    case 'add_to_ilm':
+                        return addAnswer(command, adding);
                     case 'make_sign_in_certificate':
                         return refuseSignIn
                             ? Promise.reject(refuseSignIn)
@@ -360,11 +410,82 @@ export function CertificatesStory({
             },
             { shouldMockEvents: true },
         );
-    }, [certificates, inventory, pages, delays, refuseSignIn]);
+    }, [certificates, inventory, pages, delays, refuseSignIn, summary, adding]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <main className="bg-surface p-s5" style={{ width }}>
                 <Certificates />
+            </main>
+        </AppInfoContext.Provider>
+    );
+}
+
+type OverviewProps = StoryProps &
+    Readonly<{
+        summary: SummaryView | null;
+        certificates: LocalCertificateView[];
+        inventory: InventoryView | null;
+        adding?: Adding;
+        /** The saved sign-in waits for ILM. */
+        waiting?: boolean;
+    }>;
+
+/** The shell on Overview, against a stand-in for the commands, so that Show can open Certificates. */
+export function OverviewStory({ platform, summary, certificates, inventory, adding, waiting = false }: OverviewProps) {
+    useMemo(() => {
+        mockIPC(
+            (command) => {
+                switch (command) {
+                    case 'overview':
+                        return summary;
+                    case 'local_certificates':
+                        return certificates;
+                    case 'ilm_status':
+                    case 'sync_now':
+                        return inventory;
+                    case 'add_to_ilm_choices':
+                    case 'add_to_ilm':
+                        return addAnswer(command, adding);
+                    default:
+                        return undefined;
+                }
+            },
+            { shouldMockEvents: true },
+        );
+    }, [summary, certificates, inventory, adding]);
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            <IlmWaitingContext.Provider value={waiting}>
+                <Shell sections={visibleSections(['certificates'], platform)} bottom={settingsSection(platform)} />
+            </IlmWaitingContext.Provider>
+        </AppInfoContext.Provider>
+    );
+}
+
+type AddProps = StoryProps & Readonly<{ certificates: LocalCertificateView[]; adding?: Adding; onClose?: () => void }>;
+
+/** The Add to ILM dialog over an empty page, against a stand-in for the commands. */
+export function AddToIlmStory({ platform, certificates, adding, onClose }: AddProps) {
+    const [open, setOpen] = useState(true);
+    useMemo(() => {
+        mockIPC((command) => addAnswer(command, adding));
+    }, [adding]);
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            <main className="min-h-screen bg-surface p-s5">
+                <button type="button" onClick={() => setOpen(true)}>
+                    Open
+                </button>
+                {open && (
+                    <AddToIlm
+                        certificates={certificates}
+                        system={platform === 'macos' ? 'macos' : 'windows'}
+                        onClose={() => {
+                            setOpen(false);
+                            onClose?.();
+                        }}
+                    />
+                )}
             </main>
         </AppInfoContext.Provider>
     );
