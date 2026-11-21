@@ -59,7 +59,7 @@ interface Unmatched {
 
 function Row({ item, unmatched, system }: Readonly<{ item: AttentionItemView; unmatched: Unmatched; system: System }>) {
     const { showCertificate } = useNavigation();
-    const { Icon, tone } = attentionLook(item);
+    const { Icon, tone, textTone } = attentionLook(item);
     const names = unmatched.certificates.map((certificate) => certificate.name);
     let title: string;
     let detail: string | null = null;
@@ -78,7 +78,7 @@ function Row({ item, unmatched, system }: Readonly<{ item: AttentionItemView; un
             <Icon aria-hidden className={`size-icon shrink-0 ${tone}`} />
             <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-body text-primary">{title}</span>
-                {detail !== null && <span className={`text-caption ${item.kind === 'notInIlm' ? 'text-secondary' : tone}`}>{detail}</span>}
+                {detail !== null && <span className={`text-caption ${textTone}`}>{detail}</span>}
             </div>
             {action && (
                 <button tabIndex={0} type="button" aria-label={action.name} onClick={action.run} className={secondary}>

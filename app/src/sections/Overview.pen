@@ -765,7 +765,7 @@
                                       "type": "text",
                                       "id": "wErey",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -855,7 +855,7 @@
                                       "type": "text",
                                       "id": "asgw3",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -2598,7 +2598,7 @@
                                       "type": "text",
                                       "id": "JjdaZ",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -2688,7 +2688,7 @@
                                       "type": "text",
                                       "id": "m5GTgE",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -4357,7 +4357,7 @@
                                       "type": "text",
                                       "id": "wkJWy",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -4447,7 +4447,7 @@
                                       "type": "text",
                                       "id": "Fq1VX",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -6190,7 +6190,7 @@
                                       "type": "text",
                                       "id": "hCLQs",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -6280,7 +6280,7 @@
                                       "type": "text",
                                       "id": "y84EY",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -15587,7 +15587,7 @@
                                       "type": "text",
                                       "id": "behjW",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -15677,7 +15677,7 @@
                                       "type": "text",
                                       "id": "HYfpm",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -17402,7 +17402,7 @@
                                       "type": "text",
                                       "id": "Rx0Db",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -17492,7 +17492,7 @@
                                       "type": "text",
                                       "id": "JPkFY",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -19143,7 +19143,7 @@
                                       "type": "text",
                                       "id": "NwBKz",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -19233,7 +19233,7 @@
                                       "type": "text",
                                       "id": "QJHiX",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -20958,7 +20958,7 @@
                                       "type": "text",
                                       "id": "LE9Af",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -21048,7 +21048,7 @@
                                       "type": "text",
                                       "id": "bNdka",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -22633,7 +22633,7 @@
                                       "type": "text",
                                       "id": "mkV5H",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -22720,7 +22720,7 @@
                                       "type": "text",
                                       "id": "TfLIC",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -24320,7 +24320,7 @@
                                       "type": "text",
                                       "id": "gqQ0z",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -24407,7 +24407,7 @@
                                       "type": "text",
                                       "id": "B62eRU",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -25933,7 +25933,7 @@
                                       "type": "text",
                                       "id": "KFBjJ",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -26020,7 +26020,7 @@
                                       "type": "text",
                                       "id": "eGEPH",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -27620,7 +27620,7 @@
                                       "type": "text",
                                       "id": "lu756",
                                       "name": "Expires on 3 Dec 2026, in 13",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -27707,7 +27707,7 @@
                                       "type": "text",
                                       "id": "N5JCDP",
                                       "name": "Expires on 19 Dec 2026, in 2",
-                                      "fill": "$color.status-attention",
+                                      "fill": "$color.status-attention-text",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
                                       "content": "Expires on 19 Dec 2026, in 29 days",
@@ -29691,6 +29691,53 @@
         },
         {
           "value": "#E5A50A",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#F8E45C",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-attention-text": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#C93400",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF9F0A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#9D5D00",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FCE100",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#855D00",
           "theme": {
             "os": "linux",
             "mode": "light"

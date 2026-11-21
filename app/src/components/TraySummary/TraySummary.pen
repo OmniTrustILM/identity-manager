@@ -4695,7 +4695,7 @@
                   "type": "text",
                   "id": "I1rGZ",
                   "name": "Needs attention",
-                  "fill": "$color.status-attention",
+                  "fill": "$color.status-attention-text",
                   "content": "Needs attention",
                   "fontFamily": "$font.family-preview",
                   "fontSize": "$font.caption",
@@ -5106,7 +5106,7 @@
                       "type": "text",
                       "id": "Ap2Aa",
                       "name": "Expires on 3 Dec 2026, in 13",
-                      "fill": "$color.status-attention",
+                      "fill": "$color.status-attention-text",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -5730,7 +5730,7 @@
                       "type": "text",
                       "id": "MRLJi",
                       "name": "Expires on 3 Dec 2026, in 13",
-                      "fill": "$color.status-attention",
+                      "fill": "$color.status-attention-text",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -6424,7 +6424,7 @@
                   "type": "text",
                   "id": "qla1K",
                   "name": "Needs attention",
-                  "fill": "$color.status-attention",
+                  "fill": "$color.status-attention-text",
                   "content": "Needs attention",
                   "fontFamily": "$font.family-preview",
                   "fontSize": "$font.caption",
@@ -6835,7 +6835,7 @@
                       "type": "text",
                       "id": "xajeb",
                       "name": "Expires on 3 Dec 2026, in 13",
-                      "fill": "$color.status-attention",
+                      "fill": "$color.status-attention-text",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -7459,7 +7459,7 @@
                       "type": "text",
                       "id": "ljQeA",
                       "name": "Expires on 3 Dec 2026, in 13",
-                      "fill": "$color.status-attention",
+                      "fill": "$color.status-attention-text",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -8153,7 +8153,7 @@
                   "type": "text",
                   "id": "bb3Go",
                   "name": "Needs attention",
-                  "fill": "$color.status-attention",
+                  "fill": "$color.status-attention-text",
                   "content": "Needs attention",
                   "fontFamily": "$font.family-preview",
                   "fontSize": "$font.caption",
@@ -8564,7 +8564,7 @@
                       "type": "text",
                       "id": "nguCc",
                       "name": "Expires on 3 Dec 2026, in 13",
-                      "fill": "$color.status-attention",
+                      "fill": "$color.status-attention-text",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -9188,7 +9188,7 @@
                       "type": "text",
                       "id": "kYYiU",
                       "name": "Expires on 3 Dec 2026, in 13",
-                      "fill": "$color.status-attention",
+                      "fill": "$color.status-attention-text",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -9882,7 +9882,7 @@
                   "type": "text",
                   "id": "VPldd",
                   "name": "Needs attention",
-                  "fill": "$color.status-attention",
+                  "fill": "$color.status-attention-text",
                   "content": "Needs attention",
                   "fontFamily": "$font.family-preview",
                   "fontSize": "$font.caption",
@@ -10293,7 +10293,7 @@
                       "type": "text",
                       "id": "c4rCc",
                       "name": "Expires on 3 Dec 2026, in 13",
-                      "fill": "$color.status-attention",
+                      "fill": "$color.status-attention-text",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -10917,7 +10917,7 @@
                       "type": "text",
                       "id": "O4CDBy",
                       "name": "Expires on 3 Dec 2026, in 13",
-                      "fill": "$color.status-attention",
+                      "fill": "$color.status-attention-text",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
                       "content": "Expires on 3 Dec 2026, in 13 days",
@@ -12378,6 +12378,53 @@
         },
         {
           "value": "Cantarell",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-attention-text": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#C93400",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF9F0A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#9D5D00",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FCE100",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#855D00",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#F8E45C",
           "theme": {
             "os": "linux",
             "mode": "dark"

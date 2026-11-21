@@ -95,7 +95,7 @@ const statusTone = (expired: boolean, expiring: boolean) => {
     if (expired) {
         return 'text-bad';
     }
-    return expiring ? 'text-attention' : 'text-secondary';
+    return expiring ? 'text-attention-text' : 'text-secondary';
 };
 
 /** The button that makes a certificate ILM knows the person's sign-in certificate, after a question. */

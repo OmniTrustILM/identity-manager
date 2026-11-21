@@ -103,7 +103,7 @@ function Counts({ summary }: Readonly<{ summary: SummaryView }>) {
 }
 
 function Item({ item }: Readonly<{ item: AttentionItemView }>) {
-    const { Icon, tone } = attentionLook(item);
+    const { Icon, tone, textTone } = attentionLook(item);
     const certificate = item.kind === 'notInIlm' ? null : item;
     return (
         <li>
@@ -119,7 +119,7 @@ function Item({ item }: Readonly<{ item: AttentionItemView }>) {
                     <span className="text-body text-primary">
                         {item.kind === 'notInIlm' ? strings.notInIlmCountShort(item.count) : item.name}
                     </span>
-                    {certificate && <span className={`text-caption ${tone}`}>{attentionDetail(certificate)}</span>}
+                    {certificate && <span className={`text-caption ${textTone}`}>{attentionDetail(certificate)}</span>}
                 </span>
                 <ChevronIcon aria-hidden className="size-icon shrink-0 text-secondary" />
             </button>
@@ -215,7 +215,7 @@ export function TraySummary() {
                         <div>
                             <p>{line.text}</p>
                             {line.problem && <p className="text-caption text-bad">{line.problem}</p>}
-                            {line.attention && <p className="text-caption text-attention">{line.attention}</p>}
+                            {line.attention && <p className="text-caption text-attention-text">{line.attention}</p>}
                         </div>
                     </div>
                 )}

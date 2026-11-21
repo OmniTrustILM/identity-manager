@@ -5,17 +5,17 @@ import { strings } from './strings';
 /** The item of an attention list that is about one certificate. */
 export type CertificateItem = Exclude<AttentionItemView, { kind: 'notInIlm' }>;
 
-/** The icon and colour of an item. */
-export function attentionLook(item: AttentionItemView): { Icon: Icon; tone: string } {
+/** The icon of an item with its colour, and the colour of its text. */
+export function attentionLook(item: AttentionItemView): { Icon: Icon; tone: string; textTone: string } {
     switch (item.kind) {
         case 'expiring':
-            return { Icon: ExpiringIcon, tone: 'text-attention' };
+            return { Icon: ExpiringIcon, tone: 'text-attention', textTone: 'text-attention-text' };
         case 'expired':
-            return { Icon: ExpiredIcon, tone: 'text-bad' };
+            return { Icon: ExpiredIcon, tone: 'text-bad', textTone: 'text-bad' };
         case 'revoked':
-            return { Icon: RevokedIcon, tone: 'text-bad' };
+            return { Icon: RevokedIcon, tone: 'text-bad', textTone: 'text-bad' };
         default:
-            return { Icon: NotInIlmIcon, tone: 'text-secondary' };
+            return { Icon: NotInIlmIcon, tone: 'text-secondary', textTone: 'text-secondary' };
     }
 }
 

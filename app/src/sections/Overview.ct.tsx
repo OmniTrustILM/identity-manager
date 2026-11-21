@@ -9,7 +9,7 @@ type Scheme = 'light' | 'dark';
 type System = 'macos' | 'windows';
 
 const attention: Record<System, Record<Scheme, string>> = {
-    macos: { light: 'rgb(255, 149, 0)', dark: 'rgb(255, 159, 10)' },
+    macos: { light: 'rgb(201, 52, 0)', dark: 'rgb(255, 159, 10)' },
     windows: { light: 'rgb(157, 93, 0)', dark: 'rgb(252, 225, 0)' },
 };
 const bad: Record<System, Record<Scheme, string>> = {

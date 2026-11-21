@@ -16,11 +16,11 @@ function resultLook({ outcome, messages }: AddResultView) {
     const reasons = messages.join(' ');
     switch (outcome) {
         case 'addedNotManaged':
-            return { Icon: WarningIcon, tone: 'text-attention', text: strings.addedNotManaged(reasons) };
+            return { Icon: WarningIcon, tone: 'text-attention', textTone: 'text-attention-text', text: strings.addedNotManaged(reasons) };
         case 'notAdded':
-            return { Icon: ExpiredIcon, tone: 'text-bad', text: strings.notAdded(reasons) };
+            return { Icon: ExpiredIcon, tone: 'text-bad', textTone: 'text-bad', text: strings.notAdded(reasons) };
         default:
-            return { Icon: FineIcon, tone: 'text-fine', text: strings.added };
+            return { Icon: FineIcon, tone: 'text-fine', textTone: 'text-fine', text: strings.added };
     }
 }
 
@@ -28,14 +28,14 @@ function Results({ results, certificates }: Readonly<{ results: AddResultView[];
     return (
         <ul aria-label={strings.addResults} className="flex flex-col divide-y divide-separator rounded-control border border-separator">
             {results.map((result) => {
-                const { Icon, tone, text } = resultLook(result);
+                const { Icon, tone, textTone, text } = resultLook(result);
                 const name = certificates.find((certificate) => certificate.fingerprint === result.fingerprint)?.name ?? result.fingerprint;
                 return (
                     <li key={result.fingerprint} className="flex items-start gap-s2 px-s3 py-s2">
                         <Icon aria-hidden className={`mt-[2px] size-icon shrink-0 ${tone}`} />
                         <div className="flex min-w-0 flex-col">
                             <span className="text-body text-primary">{name}</span>
-                            <span className={`text-caption ${tone}`}>{text}</span>
+                            <span className={`text-caption ${textTone}`}>{text}</span>
                         </div>
                     </li>
                 );

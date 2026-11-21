@@ -82360,7 +82360,7 @@
                                   "type": "text",
                                   "id": "R6ZQW",
                                   "name": "Expires in 12 days",
-                                  "fill": "$color.status-attention",
+                                  "fill": "$color.status-attention-text",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
                                   "content": "Expires in 12 days",
@@ -84014,7 +84014,7 @@
                                   "type": "text",
                                   "id": "R2Flc",
                                   "name": "Expires in 12 days",
-                                  "fill": "$color.status-attention",
+                                  "fill": "$color.status-attention-text",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
                                   "content": "Expires in 12 days",
@@ -85594,7 +85594,7 @@
                                   "type": "text",
                                   "id": "cyKT7",
                                   "name": "Expires in 12 days",
-                                  "fill": "$color.status-attention",
+                                  "fill": "$color.status-attention-text",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
                                   "content": "Expires in 12 days",
@@ -87248,7 +87248,7 @@
                                   "type": "text",
                                   "id": "UzH0o",
                                   "name": "Expires in 12 days",
-                                  "fill": "$color.status-attention",
+                                  "fill": "$color.status-attention-text",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
                                   "content": "Expires in 12 days",
@@ -88828,7 +88828,7 @@
                                   "type": "text",
                                   "id": "I44AH",
                                   "name": "Expires in 12 days",
-                                  "fill": "$color.status-attention",
+                                  "fill": "$color.status-attention-text",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
                                   "content": "Expires in 12 days",
@@ -90522,7 +90522,7 @@
                                   "type": "text",
                                   "id": "l7HqGC",
                                   "name": "Expires in 12 days",
-                                  "fill": "$color.status-attention",
+                                  "fill": "$color.status-attention-text",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
                                   "content": "Expires in 12 days",
@@ -92142,7 +92142,7 @@
                                   "type": "text",
                                   "id": "Y7G3R",
                                   "name": "Expires in 12 days",
-                                  "fill": "$color.status-attention",
+                                  "fill": "$color.status-attention-text",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
                                   "content": "Expires in 12 days",
@@ -93836,7 +93836,7 @@
                                   "type": "text",
                                   "id": "M6TIgp",
                                   "name": "Expires in 12 days",
-                                  "fill": "$color.status-attention",
+                                  "fill": "$color.status-attention-text",
                                   "textGrowth": "fixed-width",
                                   "width": "fill_container",
                                   "content": "Expires in 12 days",
@@ -113649,7 +113649,7 @@
                               "type": "text",
                               "id": "T2VDmm",
                               "name": "Added, not managed: ILM does",
-                              "fill": "$color.status-attention",
+                              "fill": "$color.status-attention-text",
                               "textGrowth": "fixed-width",
                               "width": "fill_container",
                               "content": "Added, not managed: ILM does not allow this RA Profile.",
@@ -115595,7 +115595,7 @@
                               "type": "text",
                               "id": "FYfGU",
                               "name": "Added, not managed: ILM does",
-                              "fill": "$color.status-attention",
+                              "fill": "$color.status-attention-text",
                               "textGrowth": "fixed-width",
                               "width": "fill_container",
                               "content": "Added, not managed: ILM does not allow this RA Profile.",
@@ -117467,7 +117467,7 @@
                               "type": "text",
                               "id": "Z89Jh",
                               "name": "Added, not managed: ILM does",
-                              "fill": "$color.status-attention",
+                              "fill": "$color.status-attention-text",
                               "textGrowth": "fixed-width",
                               "width": "fill_container",
                               "content": "Added, not managed: ILM does not allow this RA Profile.",
@@ -119413,7 +119413,7 @@
                               "type": "text",
                               "id": "o7XSTV",
                               "name": "Added, not managed: ILM does",
-                              "fill": "$color.status-attention",
+                              "fill": "$color.status-attention-text",
                               "textGrowth": "fixed-width",
                               "width": "fill_container",
                               "content": "Added, not managed: ILM does not allow this RA Profile.",
@@ -128723,6 +128723,53 @@
         },
         {
           "value": "#E5A50A",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#F8E45C",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "color.status-attention-text": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#C93400",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF9F0A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#9D5D00",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FCE100",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#855D00",
           "theme": {
             "os": "linux",
             "mode": "light"

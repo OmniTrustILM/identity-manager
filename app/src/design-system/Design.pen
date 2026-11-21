@@ -6421,6 +6421,53 @@
           }
         }
       ]
+    },
+    "color.status-attention-text": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#C93400",
+          "theme": {
+            "os": "macos",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FF9F0A",
+          "theme": {
+            "os": "macos",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#9D5D00",
+          "theme": {
+            "os": "windows",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#FCE100",
+          "theme": {
+            "os": "windows",
+            "mode": "dark"
+          }
+        },
+        {
+          "value": "#855D00",
+          "theme": {
+            "os": "linux",
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#F8E45C",
+          "theme": {
+            "os": "linux",
+            "mode": "dark"
+          }
+        }
+      ]
     }
   },
   "fileToken": "7f9cd968-bdc4-4f04-a2b8-2db8a7185cf8"

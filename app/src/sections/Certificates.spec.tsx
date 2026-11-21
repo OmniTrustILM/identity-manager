@@ -772,12 +772,12 @@ test('the expiry text is in the attention colour within the warning days and exp
     await render();
 
     const tones = options().map(
-        (option) => option.querySelector('div.flex-col > span')?.className.match(/text-(secondary|attention|bad)$/)?.[0],
+        (option) => option.querySelector('div.flex-col > span')?.className.match(/text-(secondary|attention-text|bad)$/)?.[0],
     );
-    expect(tones).toEqual(['text-secondary', 'text-attention', 'text-bad']);
+    expect(tones).toEqual(['text-secondary', 'text-attention-text', 'text-bad']);
 
     await act(async () => options()[1]?.click());
-    expect(detail().querySelector('header p')?.className).toContain('text-attention');
+    expect(detail().querySelector('header p')?.className).toContain('text-attention-text');
     await act(async () => options()[2]?.click());
     expect(detail().querySelector('header p')?.className).toContain('text-bad');
 });

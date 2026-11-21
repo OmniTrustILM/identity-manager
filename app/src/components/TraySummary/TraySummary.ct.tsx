@@ -173,7 +173,7 @@ const items = [
     { kind: 'notInIlm' as const, count: 3 },
 ];
 const attention: Record<'macos' | 'windows', Record<Scheme, string>> = {
-    macos: { light: 'rgb(255, 149, 0)', dark: 'rgb(255, 159, 10)' },
+    macos: { light: 'rgb(201, 52, 0)', dark: 'rgb(255, 159, 10)' },
     windows: { light: 'rgb(157, 93, 0)', dark: 'rgb(252, 225, 0)' },
 };
 const bad: Record<'macos' | 'windows', Record<Scheme, string>> = {

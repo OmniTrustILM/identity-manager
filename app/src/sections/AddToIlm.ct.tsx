@@ -26,7 +26,7 @@ const fine: Record<System, Record<Scheme, string>> = {
     windows: { light: 'rgb(13, 114, 13)', dark: 'rgb(108, 203, 95)' },
 };
 const attention: Record<System, Record<Scheme, string>> = {
-    macos: { light: 'rgb(255, 149, 0)', dark: 'rgb(255, 159, 10)' },
+    macos: { light: 'rgb(201, 52, 0)', dark: 'rgb(255, 159, 10)' },
     windows: { light: 'rgb(157, 93, 0)', dark: 'rgb(252, 225, 0)' },
 };
 const bad: Record<System, Record<Scheme, string>> = {
