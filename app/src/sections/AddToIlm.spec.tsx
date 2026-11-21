@@ -326,3 +326,16 @@ test('a dialog that is gone before ILM answered does nothing', async () => {
 
     expect(container.querySelector('dialog')).toBeNull();
 });
+
+test('keeps to the certificates it was opened for when the request changes while choices load', async () => {
+    choices = 'later';
+    await render([wifi]);
+    await render([vpn]);
+
+    await act(async () => release({ groups: null, raProfiles: null }));
+
+    expect(dialog().textContent).toContain(wifi.name);
+    expect(dialog().textContent).not.toContain(vpn.name);
+    expect(boxes().map((box) => box.checked)).toEqual([true]);
+    expect((button('Add 1 to ILM') as HTMLButtonElement).disabled).toBe(false);
+});

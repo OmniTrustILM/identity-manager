@@ -58,6 +58,7 @@ impl<R: Runtime> Surface for Windows<R> {
         if let Err(error) = self.0.emit(CHANGED, view) {
             log::warn!("the sign-in state could not be sent to the windows: {error}");
         }
+        crate::tray::set_locked(&self.0, matches!(view, SessionView::Locked {}));
     }
 
     fn hide_summary(&self) {
@@ -369,6 +370,7 @@ mod tests {
     fn fixture_with(mode: Mode, saved: Option<&IlmUrl>) -> Fixture {
         let folder = tempfile::tempdir().unwrap();
         let app = mock_builder()
+            .manage(crate::bridge::PendingNavigation::default())
             .invoke_handler(tauri::generate_handler![
                 session,
                 connect,
@@ -419,8 +421,14 @@ mod tests {
                 folder.path().join("ilm-cache.json"),
                 serde_json::json!({
                     "version": 1, "ilm": address.as_str(), "username": "ada", "checkedAt": 5,
-                    "listed": true, "checked": [], "matches": {}, "signIn": null,
-                    "firstPage": null, "allowed": {}
+                    "listed": true, "checked": [], "matches": {
+                        Fingerprint::of(&[1]).to_string(): {
+                            "uuid": "u-1", "name": "Ada", "subjectDn": null, "issuerName": null,
+                            "serial": null, "notBefore": null, "notAfter": null, "fingerprint": null,
+                            "key": null, "state": "issued", "validationStatus": "valid",
+                            "raProfile": null, "owner": null, "groups": [], "archived": false
+                        }
+                    }, "signIn": null, "firstPage": null, "allowed": {}
                 })
                 .to_string(),
             )
@@ -1143,6 +1151,22 @@ mod tests {
     }
 
     #[test]
+    fn a_certificate_that_ilm_does_not_know_is_not_told_but_stays_in_the_summary() {
+        let fixture = offline();
+        let ilm = ilm(fixture.app.handle());
+        ilm.inventory()
+            .set_local(&[sample("Ada", 1, 5), sample("Bob", 2, 5)]);
+        confirm_unlock(&fixture);
+
+        ilm.publish_summary();
+
+        let told = told(&fixture);
+        assert_eq!(told.len(), 1);
+        assert!(told[0].1.starts_with("Ada expires on "), "{}", told[0].1);
+        assert_eq!(ilm.inventory().summary().unwrap().attention.len(), 2);
+    }
+
+    #[test]
     fn a_sign_out_deletes_what_was_remembered_and_the_summary() {
         let fixture = offline();
         let ilm = ilm(fixture.app.handle());
@@ -1161,42 +1185,68 @@ mod tests {
         );
     }
 
-    fn navigations(fixture: &Fixture, target: Option<&str>) -> Vec<serde_json::Value> {
+    /// Asks the main window to open `target` and returns how many times it was woken for it.
+    fn asked_to_navigate(fixture: &Fixture, target: Option<&str>) -> usize {
         let (sender, received) = channel();
         let id = fixture.window.listen("navigate", move |event| {
             sender.send(event.payload().to_owned()).unwrap();
         });
-        crate::bridge::open_main_window(fixture.app.handle().clone(), target.map(str::to_owned));
+        crate::bridge::open_main_window(
+            fixture.app.handle().clone(),
+            fixture.app.state(),
+            target.map(str::to_owned),
+        );
         fixture.window.unlisten(id);
-        received
-            .try_iter()
-            .map(|payload| serde_json::from_str(&payload).unwrap())
-            .collect()
+        received.try_iter().count()
+    }
+
+    fn taken(fixture: &Fixture) -> Option<serde_json::Value> {
+        crate::bridge::pending_navigation(fixture.app.handle().clone(), fixture.app.state())
+            .map(|place| serde_json::to_value(place).unwrap())
     }
 
     #[test]
-    fn the_main_window_is_asked_to_show_the_overview_or_a_certificate() {
+    fn the_main_window_is_woken_and_takes_the_overview_or_a_certificate_once() {
         let fixture = fixture(Mode::SelfCheck);
         let print = Fingerprint::of(b"der").to_string();
 
+        assert_eq!(asked_to_navigate(&fixture, Some("overview")), 1);
         assert_eq!(
-            navigations(&fixture, Some("overview")),
-            [serde_json::json!({ "to": "overview" })]
+            taken(&fixture),
+            Some(serde_json::json!({ "to": "overview" }))
         );
+        assert_eq!(taken(&fixture), None);
+        assert_eq!(asked_to_navigate(&fixture, Some(&print)), 1);
         assert_eq!(
-            navigations(&fixture, Some(&print)),
-            [serde_json::json!({ "to": "certificate", "fingerprint": print })]
+            taken(&fixture),
+            Some(serde_json::json!({ "to": "certificate", "fingerprint": print }))
         );
-        assert!(navigations(&fixture, None).is_empty());
-        assert!(navigations(&fixture, Some("something else")).is_empty());
+        assert_eq!(asked_to_navigate(&fixture, None), 0);
+        assert_eq!(asked_to_navigate(&fixture, Some("something else")), 0);
+        assert_eq!(taken(&fixture), None);
     }
 
     #[test]
-    fn while_locked_the_main_window_opens_without_being_asked_to_show_anything() {
+    fn a_request_made_before_the_interface_listens_is_kept_until_taken() {
         let fixture = fixture(Mode::SelfCheck);
+
+        asked_to_navigate(&fixture, Some("overview"));
+
+        assert_eq!(
+            taken(&fixture),
+            Some(serde_json::json!({ "to": "overview" }))
+        );
+    }
+
+    #[test]
+    fn while_locked_nothing_is_asked_or_kept_and_a_kept_request_is_not_handed_out() {
+        let fixture = fixture(Mode::SelfCheck);
+        asked_to_navigate(&fixture, Some("overview"));
         fixture.lock();
 
-        assert!(navigations(&fixture, Some("overview")).is_empty());
+        assert_eq!(taken(&fixture), None);
+        assert_eq!(asked_to_navigate(&fixture, Some("overview")), 0);
+        assert_eq!(taken(&fixture), None);
     }
 
     /// Captures the log lines of every test in the process; the logger can be installed only once.

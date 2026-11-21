@@ -70,6 +70,7 @@ impl Look {
 struct Seen {
     view: Look,
     attention: bool,
+    locked: bool,
     shown: Look,
 }
 
@@ -81,6 +82,7 @@ impl Shown {
         Self(Mutex::new(Seen {
             view: Look::START,
             attention: false,
+            locked: false,
             shown: Look::START,
         }))
     }
@@ -88,7 +90,7 @@ impl Shown {
     fn change(&self, tell: impl FnOnce(&mut Seen)) -> Option<Look> {
         let mut seen = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         tell(&mut seen);
-        let next = seen.view.with_attention(seen.attention);
+        let next = seen.view.with_attention(seen.attention && !seen.locked);
         (seen.shown != next).then(|| {
             seen.shown = next;
             next
@@ -98,6 +100,11 @@ impl Shown {
     /// The new look when the view changes what the tray shows.
     fn update(&self, view: &SessionView) -> Option<Look> {
         self.change(|seen| seen.view = Look::of(view))
+    }
+
+    /// The new look when locking or unlocking changes what the tray shows: attention is not shown while locked.
+    fn locked(&self, locked: bool) -> Option<Look> {
+        self.change(|seen| seen.locked = locked)
     }
 
     /// The new look when whether certificates need attention changes what the tray shows.
@@ -245,6 +252,16 @@ pub fn set_attention<R: Runtime>(app: &AppHandle<R>, attention: bool) {
     }
 }
 
+/// Tells the tray whether the application is locked, which hides the attention until the unlock.
+pub fn set_locked<R: Runtime>(app: &AppHandle<R>, locked: bool) {
+    let Some(shown) = app.try_state::<Arc<Shown>>() else {
+        return;
+    };
+    if let Some(look) = shown.locked(locked) {
+        show(app, look);
+    }
+}
+
 /// Shows the sign-in the person has now and follows it, whichever thread reports it.
 fn follow<R: Runtime>(app: &AppHandle<R>) {
     let shown = Arc::new(Shown::new());
@@ -259,6 +276,7 @@ fn follow<R: Runtime>(app: &AppHandle<R>) {
     guard.listen(refresh.clone());
     // A view published before the listener existed is not lost, and neither is a summary built before the tray.
     refresh(&guard.real());
+    set_locked(app, guard.is_locked());
     if let Some(ilm) = app.try_state::<Arc<Ilm<R>>>() {
         set_attention(app, ilm.needs_attention());
     }
@@ -417,6 +435,30 @@ mod tests {
         assert_eq!(shown.update(&signed_in(false)), Some(FINE));
         assert_eq!(shown.attention(true), Some(ATTENTION));
         assert_eq!(shown.attention(false), Some(FINE));
+    }
+
+    #[test]
+    fn attention_is_hidden_while_locked_and_returns_with_the_unlock() {
+        let shown = Shown::new();
+        shown.update(&signed_in(false));
+        assert_eq!(shown.attention(true), Some(ATTENTION));
+
+        assert_eq!(shown.locked(true), Some(FINE));
+        assert_eq!(shown.attention(true), None);
+        assert_eq!(shown.attention(false), None);
+        assert_eq!(shown.attention(true), None);
+        assert_eq!(shown.locked(true), None);
+        assert_eq!(shown.locked(false), Some(ATTENTION));
+    }
+
+    #[test]
+    fn locking_changes_nothing_else_the_tray_shows() {
+        let shown = Shown::new();
+        shown.update(&signed_in(true));
+
+        assert_eq!(shown.locked(true), None);
+        assert_eq!(shown.update(&signed_in(false)), Some(FINE));
+        assert_eq!(shown.locked(false), None);
     }
 
     #[test]

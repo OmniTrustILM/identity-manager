@@ -1,0 +1,7 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "navigation",
+    "description": "The main window may take the place the tray summary asked it to show.",
+    "windows": ["main"],
+    "permissions": ["allow-pending-navigation"]
+}

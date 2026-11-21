@@ -20,6 +20,7 @@ import {
     openMainWindow,
     openSettings,
     overview,
+    pendingNavigation,
     pendingSection,
     reopenBrowser,
     reportReady,
@@ -296,16 +297,28 @@ describe('bridge', () => {
         ]);
     });
 
-    it('onNavigate passes what each navigate event asks for until it is unlistened', async () => {
+    it('onNavigate calls the handler for each navigate event until it is unlistened', async () => {
         mockIPC(() => undefined, { shouldMockEvents: true });
-        const places: unknown[] = [];
+        let asked = 0;
 
-        const unlisten = await onNavigate((to) => places.push(to));
-        await emit('navigate', { to: 'certificate', fingerprint: 'ab' });
+        const unlisten = await onNavigate(() => (asked += 1));
+        await emit('navigate');
+        await emit('navigate');
         unlisten();
-        await emit('navigate', { to: 'overview' });
+        await emit('navigate');
 
-        expect(places).toEqual([{ to: 'certificate', fingerprint: 'ab' }]);
+        expect(asked).toBe(2);
+    });
+
+    it('pendingNavigation calls pending_navigation and returns its answer', async () => {
+        const calls: string[] = [];
+        mockIPC((command) => {
+            calls.push(command);
+            return { to: 'overview' };
+        });
+
+        await expect(pendingNavigation()).resolves.toEqual({ to: 'overview' });
+        expect(calls).toEqual(['pending_navigation']);
     });
 
     it('overview calls overview and returns the summary or null', async () => {

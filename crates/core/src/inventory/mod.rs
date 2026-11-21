@@ -320,6 +320,16 @@ impl Inventory {
             .collect()
     }
 
+    /// The fingerprints of the certificates on this computer that ILM knows, as of the latest answer; none before
+    /// the first one.
+    pub fn matched_fingerprints(&self) -> Vec<Fingerprint> {
+        held(&self.held)
+            .snapshot
+            .iter()
+            .flat_map(|snapshot| snapshot.matches.keys().copied())
+            .collect()
+    }
+
     /// Sets the warning days and builds the summary again when they changed. ILM is not asked.
     pub fn configure(&self, days: WarnDays) {
         let mut held = held(&self.held);

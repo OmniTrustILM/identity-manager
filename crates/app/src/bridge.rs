@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use im_core::identity::Fingerprint;
 use im_core::{AppInfo, Platform};
@@ -8,7 +8,8 @@ use tauri::{AppHandle, Emitter, LogicalSize, Manager, Runtime, State, Window};
 use crate::lock::Guard;
 use crate::{Mode, self_check, summary};
 
-/// Sent to the main window, with a [`Navigation`], when another window asks it to show something.
+/// Sent to the main window when another window has asked it to show something; the request waits in
+/// [`PendingNavigation`].
 const NAVIGATE: &str = "navigate";
 
 /// What the main window is asked to show.
@@ -25,6 +26,20 @@ pub enum Navigation {
     Certificate {
         fingerprint: String,
     },
+}
+
+/// The place the main window was asked to show and has not taken yet.
+#[derive(Default)]
+pub struct PendingNavigation(Mutex<Option<Navigation>>);
+
+impl PendingNavigation {
+    fn set(&self, place: Navigation) {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(place);
+    }
+
+    fn take(&self) -> Option<Navigation> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).take()
+    }
 }
 
 impl Navigation {
@@ -119,21 +134,39 @@ pub fn report_ready<R: Runtime>(window: Window<R>, mode: State<'_, Mode>, report
     }
 }
 
+fn is_unlocked<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.try_state::<Arc<Guard>>()
+        .is_none_or(|guard| !guard.is_locked())
+}
+
 /// Shows the main window and, unless the application is locked, asks it to show `target`: "overview" or the
-/// fingerprint of a certificate on this computer. While locked the window shows the lock and nothing else.
+/// fingerprint of a certificate on this computer. While locked the window shows the lock and nothing else. The
+/// request is kept until the interface takes it, because the event alone can be lost while the interface is
+/// still starting.
 #[tauri::command]
-pub fn open_main_window<R: Runtime>(app: AppHandle<R>, target: Option<String>) {
+pub fn open_main_window<R: Runtime>(
+    app: AppHandle<R>,
+    pending: State<'_, PendingNavigation>,
+    target: Option<String>,
+) {
     crate::show_main_window(&app);
     hide_window(&app, "summary");
-    let unlocked = app
-        .try_state::<Arc<Guard>>()
-        .is_none_or(|guard| !guard.is_locked());
     let place = target.as_deref().and_then(Navigation::of);
-    if let (true, Some(place)) = (unlocked, place)
-        && let Err(error) = app.emit_to("main", NAVIGATE, place)
-    {
-        log::warn!("the main window could not be asked to navigate: {error}");
+    if let (true, Some(place)) = (is_unlocked(&app), place) {
+        pending.set(place);
+        if let Err(error) = app.emit_to("main", NAVIGATE, ()) {
+            log::warn!("the main window could not be asked to navigate: {error}");
+        }
     }
+}
+
+/// Hands the main window the place it was asked to show, once; nothing while locked.
+#[tauri::command]
+pub fn pending_navigation<R: Runtime>(
+    app: AppHandle<R>,
+    pending: State<'_, PendingNavigation>,
+) -> Option<Navigation> {
+    pending.take().filter(|_| is_unlocked(&app))
 }
 
 #[tauri::command]
@@ -729,6 +762,42 @@ mod tests {
             );
             assert!(refused_by_capabilities(&answer), "{label}: {answer:?}");
         }
+    }
+
+    #[test]
+    fn the_navigation_capability_grants_only_taking_the_place_to_the_main_window() {
+        let file = include_str!("../capabilities/navigation.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["windows"], serde_json::json!(["main"]));
+        assert!(parsed.get("platforms").is_none());
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!(["allow-pending-navigation"])
+        );
+    }
+
+    #[test]
+    fn only_the_main_window_may_take_the_pending_navigation() {
+        for label in ["main", "summary", "settings"] {
+            let answer = call_in(
+                label,
+                LOCAL_ORIGIN,
+                "pending_navigation",
+                serde_json::json!({}),
+            );
+            assert_eq!(
+                refused_by_capabilities(&answer),
+                label != "main",
+                "{label}: {answer:?}"
+            );
+        }
+        let answer = call_in(
+            "main",
+            "https://example.com",
+            "pending_navigation",
+            serde_json::json!({}),
+        );
+        assert!(refused_by_capabilities(&answer), "{answer:?}");
     }
 
     #[test]

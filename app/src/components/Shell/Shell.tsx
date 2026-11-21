@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useAppInfo } from '../../app-info';
-import { onNavigate, onOpenSection, pendingSection } from '../../bridge';
+import { onNavigate, onOpenSection, pendingNavigation, pendingSection } from '../../bridge';
 import { NavigationContext, type Showing } from '../../navigation';
 import type { Section } from '../../sections';
 import { Sidebar } from '../Sidebar/Sidebar';
@@ -41,15 +41,25 @@ export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
     );
 
     useEffect(() => {
-        // The tray summary asks the window to show Overview or one certificate.
-        const listening = onNavigate((to) => {
-            if (to.to === 'certificate') {
-                showCertificate(to.fingerprint);
-            } else if (hasOverview) {
-                setShowing(null);
-                setCurrent('overview');
-            }
-        }).catch(() => () => undefined);
+        // The tray summary asks the window to show Overview or one certificate. The request is kept until taken, so a
+        // click made before this listener exists still shows it.
+        const take = () =>
+            pendingNavigation()
+                .then((to) => {
+                    if (to?.to === 'certificate') {
+                        showCertificate(to.fingerprint);
+                    } else if (to && hasOverview) {
+                        setShowing(null);
+                        setCurrent('overview');
+                    }
+                })
+                .catch(() => undefined);
+        const listening = onNavigate(take)
+            .then((stop) => {
+                void take();
+                return stop;
+            })
+            .catch(() => () => undefined);
         return () => {
             void listening.then((stop) => stop());
         };

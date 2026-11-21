@@ -1,17 +1,25 @@
 //! The local time zone, for the calendar months of the summary and the dates in notifications.
 
-use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use jiff::{Timestamp, tz::TimeZone};
 
-/// The system time zone, or UTC when it cannot be found.
-fn system_zone() -> &'static TimeZone {
-    static ZONE: OnceLock<TimeZone> = OnceLock::new();
-    ZONE.get_or_init(|| {
-        TimeZone::try_system().unwrap_or_else(|error| {
+/// Set once the unknown time zone has been logged, so a zone that stays unknown does not fill the log.
+static WARNED: AtomicBool = AtomicBool::new(false);
+
+/// The system time zone, asked each time so that a failure to find it lasts only until it can be found. jiff keeps
+/// a zone it found for five minutes, so asking is cheap.
+fn system_zone() -> TimeZone {
+    or_utc(TimeZone::try_system(), &WARNED)
+}
+
+/// The zone found, or UTC with one warning in `warned` when there is none.
+fn or_utc(found: Result<TimeZone, jiff::Error>, warned: &AtomicBool) -> TimeZone {
+    found.unwrap_or_else(|error| {
+        if !warned.swap(true, Ordering::Relaxed) {
             log::warn!("The system time zone is unknown, using UTC: {error}");
-            TimeZone::UTC
-        })
+        }
+        TimeZone::UTC
     })
 }
 
@@ -23,7 +31,7 @@ pub fn utc_offset_at(millis: i64) -> i32 {
 
 /// The date of `millis` (since 1970, UTC) in the local time zone as it is on that date, like "3 Dec 2026".
 pub fn date(millis: i64) -> String {
-    in_zone(millis, system_zone())
+    in_zone(millis, &system_zone())
 }
 
 fn in_zone(millis: i64, zone: &TimeZone) -> String {
@@ -57,6 +65,17 @@ mod tests {
     }
 
     #[test]
+    fn a_zone_that_cannot_be_found_is_utc_with_one_warning_and_a_later_one_is_used() {
+        let warned = AtomicBool::new(false);
+        let unknown = || TimeZone::get("No/Such_Zone");
+
+        assert_eq!(or_utc(unknown(), &warned), TimeZone::UTC);
+        assert!(warned.load(Ordering::Relaxed));
+        assert_eq!(or_utc(unknown(), &warned), TimeZone::UTC);
+        assert_eq!(or_utc(Ok(fixed(3)), &warned), fixed(3));
+    }
+
+    #[test]
     fn a_date_is_day_month_name_and_year() {
         assert_eq!(in_zone(0, &TimeZone::UTC), "1 Jan 1970");
         assert_eq!(in_zone(DEC_3, &TimeZone::UTC), "3 Dec 2026");
@@ -66,7 +85,7 @@ mod tests {
     #[test]
     fn the_local_date_has_the_same_form_and_follows_the_local_zone() {
         let midday = DEC_3 + 12 * 3_600_000;
-        assert_eq!(date(midday), in_zone(midday, system_zone()));
+        assert_eq!(date(midday), in_zone(midday, &system_zone()));
         let words: Vec<_> = date(midday).split(' ').map(str::to_owned).collect();
         assert_eq!(words.len(), 3);
         assert_eq!(words[1], "Dec");

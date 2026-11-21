@@ -39,7 +39,7 @@ early.
 
 The tray (or menu bar) icon opens a short summary with the same counts and the certificates that need attention.
 Choosing one opens the main window at that certificate. While any certificate needs attention, the icon changes to
-show it. While Identity Manager is locked, the summary shows no counts.
+show it, except while Identity Manager is locked. While it is locked, the summary shows no counts.
 
 ## Notifications
 

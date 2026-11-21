@@ -224,3 +224,23 @@ async fn the_log_of_a_summary_holds_counts_and_no_names() {
         assert!(!log.contains(&format!("{name}\"")), "{name} is logged");
     }
 }
+
+#[tokio::test]
+async fn the_matched_fingerprints_are_the_local_certificates_ilm_knows_and_none_before_a_check() {
+    let setup = Setup::new().await;
+    answering(&setup).await;
+    setup.inventory.set_local(&here());
+    assert!(setup.inventory.matched_fingerprints().is_empty());
+
+    setup
+        .inventory
+        .check_local(&setup.world.session, Trigger::Start, &here())
+        .await;
+
+    let mut matched = setup.inventory.matched_fingerprints();
+    matched.sort();
+    let mut expected = vec![print(1), print(3)];
+    expected.sort();
+    assert_eq!(matched, expected);
+    assert_eq!(setup.inventory.local_fingerprints().len(), 3);
+}

@@ -92,10 +92,11 @@ function Choice({
  * the person choose them. While it works it cannot be withdrawn; afterwards it says how each certificate fared.
  */
 export function AddToIlm({
-    certificates,
+    certificates: requested,
     system,
     onClose,
 }: Readonly<{ certificates: LocalCertificateView[]; system: System; onClose: () => void }>) {
+    const [certificates] = useState(requested);
     const titleId = useId();
     const groupId = useId();
     const profileId = useId();

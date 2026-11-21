@@ -84,11 +84,13 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
         .manage(summary::HiddenOnFocusLoss::default())
         .manage(self_check::Reports::default())
         .manage(settings_window::PendingSection::default())
+        .manage(bridge::PendingNavigation::default())
         .manage(settings_window::AwaitingHeight::default())
         .invoke_handler(tauri::generate_handler![
             bridge::app_info,
             bridge::report_ready,
             bridge::open_main_window,
+            bridge::pending_navigation,
             bridge::hide_summary,
             color_scheme::color_scheme,
             settings::settings,

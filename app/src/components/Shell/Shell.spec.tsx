@@ -244,11 +244,35 @@ test('a banner shows above the section and the section stays usable', async () =
     expect(container.querySelector('nav')).not.toBeNull();
 });
 
-const navigate = (to: unknown) => act(async () => emit('navigate', to));
+/** The places the main window was asked to show and has not taken yet; `pending_navigation` hands them out one by one. */
+const asked: unknown[] = [];
+const navigate = (to: unknown) =>
+    act(async () => {
+        asked.push(to);
+        await emit('navigate');
+    });
 const current = () => container.querySelector('nav [aria-current="page"]')?.textContent;
 
 describe('navigation', () => {
-    beforeEach(() => mockIPC(() => undefined, { shouldMockEvents: true }));
+    beforeEach(() => {
+        asked.length = 0;
+        mockIPC((command) => (command === 'pending_navigation' ? (asked.shift() ?? null) : undefined), {
+            shouldMockEvents: true,
+        });
+    });
+
+    test('a request made before the listener existed shows the certificate at mount and not again later', async () => {
+        asked.push({ to: 'certificate', fingerprint: 'FP:one' });
+        await render(sections);
+
+        expect(container.querySelector('main')?.textContent).toBe('Certificates content: FP:one');
+
+        await act(async () => (entries()[0] as HTMLElement).click());
+        await act(async () => root.render(null));
+        await render(sections);
+
+        expect(container.querySelector('main')?.textContent).toBe('Overview content');
+    });
 
     test('a request for a certificate opens Certificates with that certificate, again for the same one', async () => {
         await render(sections);

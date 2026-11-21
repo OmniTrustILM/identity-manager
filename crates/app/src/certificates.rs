@@ -8,7 +8,7 @@ use std::time::Duration;
 #[cfg(not(windows))]
 use im_core::identity::NoProviders;
 use im_core::identity::{
-    EmptyStore, IdentityStore, KeyProviders, LocalCertificate, LocalCertificateView,
+    EmptyStore, Fingerprint, IdentityStore, KeyProviders, LocalCertificate, LocalCertificateView,
     StoreUnreadable, system_store,
 };
 use im_core::inventory::{
@@ -47,6 +47,16 @@ fn providers() -> Arc<dyn KeyProviders> {
 #[cfg(not(windows))]
 fn providers() -> Arc<dyn KeyProviders> {
     Arc::new(NoProviders)
+}
+
+/// `summary` without the certificates that ILM does not know: only the others are notified.
+fn known_in_ilm(summary: &Summary, matched: &[Fingerprint]) -> Summary {
+    let mut known = summary.clone();
+    known.attention.retain(|item| {
+        item.fingerprint
+            .is_none_or(|print| matched.contains(&print))
+    });
+    known
 }
 
 /// What the person is told when the store cannot be read; the reason goes to the log.
@@ -176,7 +186,7 @@ impl<R: Runtime> Ilm<R> {
         if let Some(summary) = summary {
             let current = || self.inventory.summary().as_ref() == Some(&summary);
             self.notices.summary(
-                &summary,
+                &known_in_ilm(&summary, &self.inventory.matched_fingerprints()),
                 &self.inventory.local_fingerprints(),
                 current,
                 || current() && !self.guard.is_locked(),

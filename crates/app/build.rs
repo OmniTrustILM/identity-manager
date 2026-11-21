@@ -20,6 +20,7 @@ fn main() {
                 "app_info",
                 "report_ready",
                 "open_main_window",
+                "pending_navigation",
                 "hide_summary",
                 "color_scheme",
                 "settings",

@@ -48,9 +48,14 @@ export function openMainWindow(target?: string): Promise<void> {
     return invoke<void>('open_main_window', { target: target ?? null });
 }
 
-/** Calls the handler with what the main window is asked to show when another window opens it; returns the unlisten. */
-export function onNavigate(handler: (to: Navigation) => void): Promise<() => void> {
-    return listen<Navigation>('navigate', (event) => handler(event.payload));
+/** Calls the handler each time another window opens the main window with something to show; returns the unlisten. */
+export function onNavigate(handler: () => void): Promise<() => void> {
+    return listen('navigate', () => handler());
+}
+
+/** Takes what the main window was asked to show, if anything; it is handed out once. */
+export function pendingNavigation(): Promise<Navigation | null> {
+    return invoke<Navigation | null>('pending_navigation');
 }
 
 export function hideSummary(): Promise<void> {
