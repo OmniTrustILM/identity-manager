@@ -13,6 +13,8 @@ import { Shell } from './Shell';
 
 /** When set, the registration of the navigate listener resolves only once this is released. */
 let registration: Promise<void> | null = null;
+/** When set, the registration of the open-section listener resolves only once this is released. */
+let sectionRegistration: Promise<void> | null = null;
 vi.mock('../../bridge', async (original) => {
     const bridge = await original<typeof import('../../bridge')>();
     return {
@@ -20,6 +22,10 @@ vi.mock('../../bridge', async (original) => {
         onNavigate: (handler: () => void) => {
             const listening = bridge.onNavigate(handler);
             return registration ? listening.then((stop) => registration?.then(() => stop) ?? stop) : listening;
+        },
+        onOpenSection: (handler: (id: string) => void) => {
+            const listening = bridge.onOpenSection(handler);
+            return sectionRegistration ? listening.then((stop) => sectionRegistration?.then(() => stop) ?? stop) : listening;
         },
     };
 });
@@ -201,6 +207,25 @@ test('a request made before the listener existed opens Settings at mount and is 
 
     expect(settingsEntry()?.getAttribute('aria-current')).toBeNull();
     expect(entries()[0]?.getAttribute('aria-current')).toBe('page');
+});
+
+test('a Shell removed before its section listener is registered leaves the request for the next one', async () => {
+    mockRequests('settings');
+    let release = () => {};
+    sectionRegistration = new Promise<void>((resolve) => {
+        release = resolve;
+    });
+    await render(sections, 'windows', settingsSection('windows'));
+    await act(async () => root.render(null));
+
+    await act(async () => {
+        release();
+        await sectionRegistration;
+    });
+    sectionRegistration = null;
+    await render(sections, 'windows', settingsSection('windows'));
+
+    expect(settingsEntry()?.getAttribute('aria-current')).toBe('page');
 });
 
 test('listens for the request only where there is a Settings entry, and stops on unmount', async () => {

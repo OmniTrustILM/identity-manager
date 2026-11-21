@@ -76,18 +76,23 @@ export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
             return;
         }
         // The tray menu asks for the page this way; it is the only section it opens. The request is kept until taken,
-        // so a click made before this listener exists still opens it.
+        // so a click made before this listener exists still opens it. Once this effect is cleaned up the request is
+        // left for the next one.
+        let live = true;
         const take = () =>
             pendingSection()
                 .then((id) => id === bottom.id && setCurrent(id))
                 .catch(() => undefined);
-        const listening = onOpenSection(take)
+        const listening = onOpenSection(() => live && take())
             .then((stop) => {
-                void take();
+                if (live) {
+                    void take();
+                }
                 return stop;
             })
             .catch(() => () => undefined);
         return () => {
+            live = false;
             void listening.then((stop) => stop());
         };
     }, [bottom]);
