@@ -103,9 +103,15 @@ export function fromLocalInput(local: string): string {
         return '';
     }
     const at = new Date(local);
-    const minutes = Number.isNaN(at.getTime()) ? 0 : -at.getTimezoneOffset();
+    const valid = !Number.isNaN(at.getTime());
+    const minutes = valid ? -at.getTimezoneOffset() : 0;
     const offset = `${minutes < 0 ? '-' : '+'}${pad(Math.trunc(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
-    return `${parts[1]}:${parts[2] ?? '00'}.000${offset}`;
+    if (!valid) {
+        return `${parts[1]}:${parts[2] ?? '00'}.000${offset}`;
+    }
+    // A time the clock skips (daylight saving) moves on: the fields come from the date that carries the offset.
+    const day = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+    return `${day}T${pad(at.getHours())}:${pad(at.getMinutes())}:${pad(at.getSeconds())}.000${offset}`;
 }
 
 /** The bytes a base64 text stands for. */

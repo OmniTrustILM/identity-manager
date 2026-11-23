@@ -190,10 +190,9 @@ impl Session {
         if matches!(inventory.status(), Status::Offline { .. }) {
             return Err(ChangeError::Offline);
         }
-        let checked = form
-            .as_ref()
-            .map(|form| self.checked_form(form))
-            .transpose()?;
+        if let Some(form) = &form {
+            self.checked_form(form)?;
+        }
         let response = self
             .call_ilm_as(Some(&id), Some(&proceed), profile_request)
             .await?;
@@ -206,12 +205,15 @@ impl Session {
                 IlmError::Malformed => ChangeError::Malformed,
             })?
             .uuid;
-        let attributes = match (&form, checked) {
-            (Some(form), Some((definitions, values))) => {
-                self.take_form(&form.id).ok_or(ChangeError::FormGone)?;
+        let attributes = match &form {
+            Some(form) => {
+                let (definitions, values) =
+                    self.take_form_if(&form.id, ChangeError::FormGone, |definitions| {
+                        sendable(definitions, form)
+                    })?;
                 request(&definitions.fields, &values)
             }
-            _ => Vec::new(),
+            None => Vec::new(),
         };
         log::info!(
             "adding {} certificates to ILM (group chosen: {}, RA Profile chosen: {}, custom attributes: {})",
@@ -363,22 +365,27 @@ impl Session {
         })
     }
 
-    /// The definitions and values of an open form that can be sent; the form stays open.
-    fn checked_form(&self, form: &FormInput) -> Result<(Definitions, Values), ChangeError> {
+    /// Whether an open form can be sent with its values; the form stays open.
+    fn checked_form(&self, form: &FormInput) -> Result<(), ChangeError> {
         let definitions = self
             .form_definitions(&form.id)
             .map_err(|_| ChangeError::FormGone)?;
-        if definitions.blocked() {
-            return Err(ChangeError::FormBlocked);
-        }
-        let values =
-            parse_values(&definitions.fields, &form.values).map_err(|_| ChangeError::FormValues)?;
-        let problems = check(&definitions.fields, &values, &TimeZone::system());
-        if !problems.is_empty() {
-            return Err(ChangeError::FormProblems(problems));
-        }
-        Ok((definitions, values))
+        sendable(&definitions, form).map(drop)
     }
+}
+
+/// The values of `form` when `definitions` can be sent with them.
+fn sendable(definitions: &Definitions, form: &FormInput) -> Result<Values, ChangeError> {
+    if definitions.blocked() {
+        return Err(ChangeError::FormBlocked);
+    }
+    let values =
+        parse_values(&definitions.fields, &form.values).map_err(|_| ChangeError::FormValues)?;
+    let problems = check(&definitions.fields, &values, &TimeZone::system());
+    if !problems.is_empty() {
+        return Err(ChangeError::FormProblems(problems));
+    }
+    Ok(values)
 }
 
 /// The outcome as the log says it: the kind only, never ILM's messages.

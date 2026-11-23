@@ -84,8 +84,11 @@ for (const os of ['macos', 'windows'] as const) {
 test('every control has its role and its name, and the required ones say so', async ({ mount, page }) => {
     await open(page, mount, 'macos', 'light');
 
-    for (const name of ['Description', 'TestInt', 'Threshold', 'Review date', 'Window start', 'Valid until', 'Script', 'Settings']) {
+    for (const name of ['Description', 'TestInt', 'Threshold', 'Script', 'Settings']) {
         await expect(page.getByRole('textbox', { name, exact: true })).toBeVisible();
+    }
+    for (const name of ['Review date', 'Window start', 'Valid until']) {
+        await expect(page.getByLabel(name, { exact: true })).toBeVisible();
     }
     await expect(page.getByLabel('API key')).toHaveAttribute('type', 'password');
     await expect(page.getByRole('textbox', { name: 'Owner', exact: true })).toHaveAttribute('aria-required', 'true');
@@ -148,9 +151,9 @@ test('the keyboard alone fills the text fields, the switch, the selects and the 
 test('the date and time inputs give ILM the wall clock and the offset of this computer', async ({ mount, page }) => {
     await open(page, mount, 'macos', 'dark');
 
-    await page.getByRole('textbox', { name: 'Valid until' }).fill('2026-12-01T08:00');
-    await page.getByRole('textbox', { name: 'Review date' }).fill('2026-12-02');
-    await page.getByRole('textbox', { name: 'Window start' }).fill('09:15');
+    await page.getByLabel('Valid until', { exact: true }).fill('2026-12-01T08:00');
+    await page.getByLabel('Review date', { exact: true }).fill('2026-12-02');
+    await page.getByLabel('Window start', { exact: true }).fill('09:15');
 
     await expect(values(page)).toContainText(/"until":\{"kind":"dateTime","value":"2026-12-01T08:00:00\.000[+-]\d\d:\d\d"\}/);
     await expect(values(page)).toContainText('"review":{"kind":"date","value":"2026-12-02"}');
@@ -310,9 +313,9 @@ test('extensible lists take added numbers, dates and dates and times with the ke
     await expect(page.getByRole('combobox', { name: 'Extensible List Number' })).toHaveValue('added');
     await expect(page.getByRole('combobox', { name: 'Extensible List Number' }).locator('option')).toHaveText(['None', '1', '2', '42']);
 
-    await page.getByRole('textbox', { name: 'Add value to Extensible List Date', exact: true }).fill('2026-02-03');
+    await page.getByLabel('Add value to Extensible List Date', { exact: true }).fill('2026-02-03');
     await page.getByRole('button', { name: 'Add' }).nth(1).click();
-    await page.getByRole('textbox', { name: 'Add value to Extensible List DateTime' }).fill('2026-12-01T08:00');
+    await page.getByLabel('Add value to Extensible List DateTime', { exact: true }).fill('2026-12-01T08:00');
     await page.getByRole('button', { name: 'Add' }).nth(2).click();
 
     await expect(values(page)).toContainText('"number":{"kind":"added","value":{"kind":"integer","value":"42"}}');

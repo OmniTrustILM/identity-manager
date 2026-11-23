@@ -600,13 +600,31 @@ impl Session {
         lock(&self.forms.open).retain(|open| open.id != form);
     }
 
-    /// Closes the form and gives out what the core knows of it, for the request that sends it.
+    /// Closes the form and gives out what the core knows of it.
+    #[cfg(test)]
     pub(crate) fn take_form(&self, form: &str) -> Option<(FormContext, Definitions)> {
         let mut open = lock(&self.forms.open);
         let at = open.iter().position(|open| open.id == form)?;
         let taken = open.remove(at);
         let definitions = taken.definitions();
         Some((taken.context, definitions))
+    }
+
+    /// Closes the form and gives out its definitions, for the request that sends it, when `verify` accepts them.
+    /// Verifying and closing happen under one lock, so no callback can change the form in between; when `verify`
+    /// refuses, or the form is not open (`gone`), the form stays as it is.
+    pub(crate) fn take_form_if<T, E>(
+        &self,
+        form: &str,
+        gone: E,
+        verify: impl FnOnce(&Definitions) -> Result<T, E>,
+    ) -> Result<(Definitions, T), E> {
+        let mut open = lock(&self.forms.open);
+        let at = open.iter().position(|open| open.id == form).ok_or(gone)?;
+        let definitions = open[at].definitions();
+        let verified = verify(&definitions)?;
+        open.remove(at);
+        Ok((definitions, verified))
     }
 
     /// Closes every form, as when the application locks.

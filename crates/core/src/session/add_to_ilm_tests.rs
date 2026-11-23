@@ -911,6 +911,93 @@ async fn the_form_is_closed_by_the_add() {
 }
 
 #[tokio::test]
+async fn a_form_a_callback_changes_while_ilm_is_asked_is_checked_again_and_stays_open() {
+    let adding = Adding::new().await;
+    let attribute = |name: &str, properties: Value| {
+        let mut properties = properties;
+        properties["label"] = json!(format!("{name} label"));
+        json!({
+            "uuid": format!("u-{name}"),
+            "name": name,
+            "version": 3,
+            "schemaVersion": "v3",
+            "type": "data",
+            "contentType": "string",
+            "properties": properties,
+        })
+    };
+    let mut region = attribute("region", json!({ "list": true }));
+    region["content"] = json!([{ "data": "eu", "contentType": "string" }]);
+    let extras = json!({
+        "uuid": "u-extras",
+        "name": "extras",
+        "type": "group",
+        "attributeCallback": { "dependsOn": ["region"] },
+    });
+    adding.world.ilm.reset().await;
+    Mock::given(method("GET"))
+        .and(path(PROFILE))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({
+                    "uuid": "u-person",
+                    "username": "jdoe",
+                    "permissions": { "allowedListings": [], "allowedActions": [] },
+                }))
+                .set_delay(std::time::Duration::from_millis(300)),
+        )
+        .mount(&adding.world.ilm)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(
+            "/api/v2/operations/authorities/auth-1/raProfiles/ra-1/attributes/issue",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([region, extras])))
+        .mount(&adding.world.ilm)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v1/certificates/ra-1/callback"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!([attribute("email", json!({ "required": true }))])),
+        )
+        .mount(&adding.world.ilm)
+        .await;
+    adding.expect_no_upload().await;
+    let session = &adding.world.session;
+    let form = session
+        .open_form(crate::attributes::FormContext::Issue {
+            authority: "auth-1".into(),
+            ra_profile: "ra-1".into(),
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    let eu = crate::attributes::option_key(&json!({ "data": "eu", "contentType": "string" }));
+    let values = json!({ "region": { "kind": "option", "value": eu } });
+    let asked = vec![adding.jane.fingerprint().to_string()];
+
+    let adding_to_ilm = adding.add_form(&asked, &form.id, values.clone());
+    let changing = async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        session
+            .run_callback(&form.id, "extras", &values, 1)
+            .await
+            .unwrap();
+    };
+    let (refused, ()) = tokio::join!(adding_to_ilm, changing);
+
+    assert_eq!(
+        refused,
+        Err(ChangeError::FormProblems(vec![FieldProblem {
+            name: "email".to_owned(),
+            problem: Problem::Required
+        }]))
+    );
+    assert!(session.check_form(&form.id, &values).is_ok());
+}
+
+#[tokio::test]
 async fn the_log_counts_the_custom_attributes_and_never_shows_their_values() {
     capture_logs();
     let adding = Adding::new().await;

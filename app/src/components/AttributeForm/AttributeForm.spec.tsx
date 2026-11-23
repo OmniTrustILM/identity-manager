@@ -1030,7 +1030,7 @@ test('a read is void when a field the file field watches changes, though the fil
 
     await typeInto(control('Trigger'), 'go');
     await act(async () => readers[0]?.finish('QQ=='));
-    await wait(checkDelay);
+    await wait(callbackDelay + checkDelay);
 
     expect(last().values.f).toBeUndefined();
     expect(last().ready).toBe(true);
@@ -1286,6 +1286,54 @@ test('a check made against another revision than the snapshot drawn does not mak
     expect(last().ready).toBe(false);
 });
 
+test('the form is not ready while a callback is scheduled or running, and is once it has answered', async () => {
+    const run = holdAnswers();
+    await render(form([field({ name: 'a', label: 'A' }), watcher('b', 'a')]));
+    expect(last().ready).toBe(true);
+
+    await typeInto(control('A'), 'x');
+    await wait(checkDelay + 50);
+    expect(asked).toEqual([]);
+    expect(last().ready).toBe(false);
+
+    await wait(callbackDelay);
+    expect(asked).toHaveLength(1);
+    expect(last().ready).toBe(false);
+
+    await run.finish('b', 1, shown);
+    await wait(checkDelay + 50);
+    expect(last().ready).toBe(true);
+});
+
+test('a callback that failed no longer keeps the form from being ready', async () => {
+    const run = holdAnswers();
+    await render(form([field({ name: 'a', label: 'A' }), watcher('b', 'a')]));
+
+    await typeInto(control('A'), 'x');
+    await wait(callbackDelay);
+    await run.fail('b', 1);
+    await wait(checkDelay + 50);
+
+    expect(last().ready).toBe(true);
+});
+
+test('a scheduled callback that is run by a newer edit keeps the form not ready until the last run answers', async () => {
+    const run = holdAnswers();
+    await render(form([field({ name: 'a', label: 'A' }), watcher('b', 'a')]));
+
+    await typeInto(control('A'), 'x');
+    await wait(callbackDelay);
+    await typeInto(control('A'), 'xy');
+    await run.finish('b', 1, shown);
+    await wait(checkDelay + 50);
+    expect(last().ready).toBe(false);
+
+    await wait(callbackDelay);
+    await run.finish('b', 2, shown);
+    await wait(checkDelay + 50);
+    expect(last().ready).toBe(true);
+});
+
 test('a field the callbacks add to unchanged values is checked before the form is ready', async () => {
     const trigger = hidden('g', { kind: 'onChange', value: ['t'] });
     await render(form([field({ name: 't', label: 'T' }), trigger]));
@@ -1529,7 +1577,7 @@ test.each(heads)('a file read behind %s is dropped when the first one changes, a
     await selecting('a.csr');
     await typeInto(control('Source'), 'x');
     await act(async () => readers[0]?.finish('QQ=='));
-    await wait(checkDelay);
+    await wait(callbackDelay + checkDelay);
 
     expect(last().values.f).toBeUndefined();
     expect(last().ready).toBe(true);

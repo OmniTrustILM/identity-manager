@@ -90,10 +90,9 @@ test('a date and time without an offset keeps its wall clock for the input and g
     expect(fromLocalInput('')).toBe('');
 });
 
-/** Runs the check with the computer in India (+05:30, no daylight saving), so that no default is its own local time. */
-const inIndia = (check: () => void) => {
+const inZone = (zone: string, check: () => void) => {
     const before = process.env.TZ;
-    process.env.TZ = 'Asia/Kolkata';
+    process.env.TZ = zone;
     try {
         check();
     } finally {
@@ -104,6 +103,20 @@ const inIndia = (check: () => void) => {
         }
     }
 };
+
+/** Runs the check with the computer in India (+05:30, no daylight saving), so that no default is its own local time. */
+const inIndia = (check: () => void) => inZone('Asia/Kolkata', check);
+
+test('a local time that does not exist is sent as the time the input then shows, at the instant it stands for', () => {
+    inZone('America/New_York', () => {
+        const sent = fromLocalInput('2026-03-08T02:30:15');
+
+        expect(sent).toBe('2026-03-08T03:30:15.000-04:00');
+        expect(toLocalInput(sent)).toBe('2026-03-08T03:30:15');
+        expect(new Date(sent).getTime()).toBe(new Date('2026-03-08T02:30:15').getTime());
+        expect(fromLocalInput('2026-03-08T01:30')).toBe('2026-03-08T01:30:00.000-05:00');
+    });
+});
 
 test('a date and time with an offset is shown in this computer’s time and edited without moving the instant', () => {
     inIndia(() => {

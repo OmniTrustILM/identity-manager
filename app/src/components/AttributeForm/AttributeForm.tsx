@@ -91,6 +91,8 @@ export function AttributeForm({
     const [checked, setChecked] = useState<Checked | null>(null);
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
+    /** The fields whose callback is scheduled or running: until each has answered, the values and choices may be stale. */
+    const [active, setActive] = useState<ReadonlySet<string>>(new Set());
     const [refusal, setRefusal] = useState<{ problems: AttributeFieldProblem[]; values: FormValues } | null>(null);
     const headings = useId();
 
@@ -144,8 +146,22 @@ export function AttributeForm({
         timers.current.delete(name);
     };
 
+    const track = (name: string) => setActive((current) => (current.has(name) ? current : new Set(current).add(name)));
+
+    /** The callback of `name` has answered, failed or been dropped, unless a newer run is yet to start. */
+    const settle = (name: string) =>
+        setActive((current) => {
+            if (!current.has(name)) {
+                return current;
+            }
+            const rest = new Set(current);
+            rest.delete(name);
+            return rest;
+        });
+
     const schedule = (name: string) => {
         unschedule(name);
+        track(name);
         timers.current.set(
             name,
             setTimeout(() => {
@@ -169,6 +185,8 @@ export function AttributeForm({
         unschedule(name);
         const seq = (seqs.current[name] ?? 0) + 1;
         seqs.current[name] = seq;
+        track(name);
+        const settled = () => seqs.current[name] === seq && !timers.current.has(name) && settle(name);
         setAnswers((current) => {
             const { [name]: _, ...rest } = current;
             return name in current ? rest : current;
@@ -179,6 +197,7 @@ export function AttributeForm({
                     return;
                 }
                 take(result.form);
+                settled();
                 if (seqs.current[result.field] === result.seq) {
                     setAnswers((current) => {
                         const { [result.field]: _, ...rest } = current;
@@ -191,6 +210,9 @@ export function AttributeForm({
                 }
             },
             () => {
+                if (alive.current) {
+                    settled();
+                }
                 if (alive.current && seqs.current[name] === seq) {
                     setAnswers((current) => ({ ...current, [name]: strings.callbackFailed }));
                 }
@@ -243,6 +265,7 @@ export function AttributeForm({
         const gone = [...known.keys()].filter((name) => !present.has(name));
         for (const name of gone) {
             unschedule(name);
+            settle(name);
         }
         latest.current = { snapshot: next, values: typed };
         setSnapshot(next);
@@ -329,7 +352,8 @@ export function AttributeForm({
         checked.revision === revision &&
         checked.problems?.length === 0 &&
         !blocked &&
-        busy.size === 0;
+        busy.size === 0 &&
+        active.size === 0;
     useEffect(() => {
         onChange({ values, ready, blocked });
     }, [onChange, values, ready, blocked]);
