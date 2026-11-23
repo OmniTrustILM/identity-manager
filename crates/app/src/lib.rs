@@ -1,3 +1,4 @@
+mod attributes;
 mod bridge;
 mod certificates;
 mod color_scheme;
@@ -114,7 +115,11 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             certificates::make_sign_in_certificate,
             certificates::overview,
             certificates::add_to_ilm_choices,
-            certificates::add_to_ilm
+            certificates::add_to_ilm,
+            attributes::attribute_callback,
+            attributes::check_attributes,
+            attributes::close_form,
+            attributes::open_in_ilm
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)

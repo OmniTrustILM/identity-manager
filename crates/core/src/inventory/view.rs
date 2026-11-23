@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use super::{Counts, Item, Kind, Snapshot, Status, Summary};
+use crate::attributes::FormView;
 use crate::ilm::certificates::{CertificatePage, IlmCertificate};
 use crate::ilm::upload::{GroupChoice, RaProfileChoice};
 use crate::session::{AddChoices, AddOutcome, AddResult};
@@ -203,7 +204,7 @@ impl From<AddResult> for AddResultView {
 }
 
 /// What the person may choose a group and an RA Profile from; none when ILM does not let them list it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     any(test, feature = "ts"),
@@ -213,6 +214,7 @@ impl From<AddResult> for AddResultView {
 pub struct AddChoicesView {
     pub groups: Option<Vec<GroupChoice>>,
     pub ra_profiles: Option<Vec<RaProfileChoice>>,
+    pub custom_attributes: Option<FormView>,
 }
 
 impl From<AddChoices> for AddChoicesView {
@@ -220,6 +222,7 @@ impl From<AddChoices> for AddChoicesView {
         Self {
             groups: choices.groups,
             ra_profiles: choices.ra_profiles,
+            custom_attributes: choices.custom_attributes,
         }
     }
 }

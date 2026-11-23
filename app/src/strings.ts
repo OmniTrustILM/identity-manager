@@ -1,3 +1,7 @@
+import type { AttributeConstraintView } from './bridge/generated/AttributeConstraintView';
+import type { AttributeFieldKind } from './bridge/generated/AttributeFieldKind';
+import type { AttributeProblem } from './bridge/generated/AttributeProblem';
+
 const time = (at: number) => {
     const when = new Date(at);
     const today = when.toDateString() === new Date().toDateString();
@@ -10,6 +14,86 @@ const when = (date: string, days: number) => {
         return `today, ${date}`;
     }
     return days === 1 ? `tomorrow, ${date}` : `on ${date}, in ${days} days`;
+};
+
+const mebibytes = (bytes: number) => `${Math.round((bytes / (1024 * 1024)) * 10) / 10} MiB`;
+
+const required: Partial<Record<AttributeFieldKind, string>> = {
+    select: 'Choose a value.',
+    multiselect: 'Choose at least one value.',
+    date: 'Choose a date.',
+    time: 'Choose a time.',
+    datetime: 'Choose a date and time.',
+    file: 'Choose a file.',
+    code: 'Enter a script.',
+    json: 'Enter JSON.',
+};
+
+/** What is wrong with a field, in words; ILM's own text for the failed rule wins when it gave one. */
+const attributeProblem = (problem: AttributeProblem, kind: AttributeFieldKind | null): string => {
+    switch (problem.kind) {
+        case 'required':
+            return (kind && required[kind]) || 'Enter a value.';
+        case 'notInteger':
+            return 'Enter a whole number.';
+        case 'notNumber':
+            return 'Enter a number.';
+        case 'pattern':
+            return problem.message || 'Use the format ILM expects.';
+        case 'below':
+            return problem.message || `Use ${problem.min} or more.`;
+        case 'above':
+            return problem.message || `Use ${problem.max} or less.`;
+        case 'before':
+            return `Use ${problem.from} or later.`;
+        case 'after':
+            return `Use ${problem.to} or earlier.`;
+        case 'badDate':
+            return 'Choose a valid date.';
+        case 'badTime':
+            return 'Choose a valid time.';
+        case 'badDateTime':
+            return 'Choose a valid date and time.';
+        case 'badJson':
+            return 'Enter valid JSON.';
+        case 'badFile':
+            return 'Choose the file again.';
+        case 'fileTooLarge':
+            return `Choose a file of at most ${mebibytes(problem.max)}.`;
+        default:
+            return 'Choose one of the listed values.';
+    }
+};
+
+/** What the definition asks of a value, as a line under the field. */
+const attributeConstraint = (constraint: AttributeConstraintView): string | null => {
+    switch (constraint.kind) {
+        case 'pattern':
+            return constraint.description;
+        case 'range':
+            if (constraint.min !== null && constraint.max !== null) {
+                return `From ${constraint.min} to ${constraint.max}`;
+            }
+            if (constraint.min !== null) {
+                return `At least ${constraint.min}`;
+            }
+            return constraint.max !== null ? `At most ${constraint.max}` : null;
+        default:
+            if (constraint.from && constraint.to) {
+                return `From ${constraint.from} to ${constraint.to}`;
+            }
+            if (constraint.from) {
+                return `From ${constraint.from}`;
+            }
+            return constraint.to ? `Until ${constraint.to}` : null;
+    }
+};
+
+const fileSize = (bytes: number) => {
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+    return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 export const strings = {
@@ -174,6 +258,39 @@ export const strings = {
     addedNotManaged: (reasons: string) => (reasons ? `Added, not managed: ${reasons}` : 'Added, not managed'),
     notAdded: (reasons: string) => (reasons ? `Not added: ${reasons}` : 'Not added'),
     addFailed: 'The certificates could not be added.',
+    customAttributes: 'Custom attributes',
+    attributeProblem,
+    attributeConstraint,
+    attributeUnsupported: (label: string) =>
+        `${label}: Identity Manager cannot show this attribute. Fill it in in ILM\u2019s web interface.`,
+    openInIlm: 'Open in ILM',
+    openInIlmFailed: 'ILM\u2019s web interface could not be opened.',
+    formNeedsIlm: 'This form needs ILM\u2019s web interface.',
+    choicesUnavailable: 'ILM did not answer. Try again later.',
+    attributesNeedAttention: 'Some attributes need your attention.',
+    callbackFailed: 'ILM did not answer.',
+    attributeCheckFailed: 'The attributes could not be checked.',
+    attributeReadOnly: 'Set by ILM',
+    attributeRequired: 'required',
+    enterText: 'Enter text',
+    enterSecret: 'Enter secret',
+    enterScript: 'Enter script',
+    enterJson: 'Enter JSON',
+    wholeNumber: 'Whole number',
+    number: 'Number',
+    showSecret: 'Show',
+    chooseFile: 'Choose file\u2026',
+    noFileChosen: 'No file chosen',
+    remove: 'Remove',
+    removeFile: (label: string) => `Remove ${label} file`,
+    fileDescription: (name: string, bytes: number) => `${name}, ${fileSize(bytes)}`,
+    fileSize,
+    fileUnreadable: 'The file cannot be read.',
+    fileEmpty: 'The file is empty.',
+    selectValue: 'Select\u2026',
+    addValue: 'Add value',
+    addValueTo: (label: string) => `Add value to ${label}`,
+    add: 'Add',
     version: (version: string) => `Version ${version}`,
     loadError: 'Identity Manager could not load its details.',
     sessionLoadError: 'The sign-in state could not be loaded.',

@@ -3,7 +3,11 @@
 
 use std::sync::Arc;
 
-use super::{CallError, ChangeError, Session};
+use jiff::tz::TimeZone;
+use serde_json::Value;
+
+use super::{CallError, ChangeError, FormError, Session};
+use crate::attributes::{Definitions, FormContext, FormView, Values, check, parse_values, request};
 use crate::identity::Fingerprint;
 use crate::ilm::profile::profile_request;
 use crate::ilm::profile::{IlmError, read_profile};
@@ -43,10 +47,27 @@ pub struct AddResult {
 }
 
 /// What the person may choose from; none when ILM does not let them list it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AddChoices {
     pub groups: Option<Vec<GroupChoice>>,
     pub ra_profiles: Option<Vec<RaProfileChoice>>,
+    /// The custom attributes of certificates as an open form; none when the person may not read them.
+    pub custom_attributes: Option<FormView>,
+}
+
+/// The form the person filled in: the id of the open form and the values they gave.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct FormInput {
+    pub id: String,
+    pub values: Value,
+}
+
+/// What every certificate of one add is sent with.
+struct Details<'a> {
+    owner: &'a str,
+    group: Option<&'a str>,
+    ra_profile: Option<&'a str>,
+    attributes: &'a [Value],
 }
 
 fn not_added(reason: &str) -> AddOutcome {
@@ -114,6 +135,28 @@ fn code(error: &AddError) -> String {
     }
 }
 
+/// Why a form could not be opened, for the log.
+fn form_reason(error: FormError) -> String {
+    match error {
+        FormError::Unexpected(status) => format!("status {status}"),
+        FormError::Malformed => "an answer it does not understand".to_owned(),
+        _ => "no answer".to_owned(),
+    }
+}
+
+/// A form that cannot be opened fails the choices: an add must not go out without the form ILM asks for.
+impl From<FormError> for ChangeError {
+    fn from(error: FormError) -> Self {
+        match error {
+            FormError::SignedOut => Self::SignedOut,
+            FormError::Offline => Self::Offline,
+            FormError::Unexpected(status) => Self::Unexpected(status),
+            FormError::Gone => Self::Withdrawn,
+            FormError::Malformed | FormError::BadValues => Self::Malformed,
+        }
+    }
+}
+
 fn yes_no(chosen: bool) -> &'static str {
     if chosen { "yes" } else { "no" }
 }
@@ -123,6 +166,8 @@ impl Session {
     /// this computer; its DER is read from the store of this computer, never taken from the caller. When that
     /// store cannot be read, every certificate ends as `NotAdded` and nothing is sent. ILM is asked as the sign-in that asked, and the person in its profile
     /// becomes the owner of every certificate. `group` and `ra_profile` are UUIDs from [`Session::add_to_ilm_choices`].
+    /// With a `form`, the core checks it first and refuses with its problems before anything is sent; otherwise
+    /// every upload carries its custom attributes, and the form is closed afterwards.
     /// A check follows when something was added. A certificate matched by the latest check of `inventory`, or one
     /// ILM already holds (409), ends as `AlreadyInIlm`, which counts as added. `proceed` is asked before each certificate and before each time ILM is asked to
     /// change anything; when it says no, nothing more is sent and the certificates left end as `NotAdded`.
@@ -132,6 +177,7 @@ impl Session {
         fingerprints: Vec<String>,
         group: Option<String>,
         ra_profile: Option<String>,
+        form: Option<FormInput>,
         proceed: impl Fn() -> bool + Sync,
     ) -> Result<Vec<AddResult>, ChangeError> {
         let requested = self.departing()?.id;
@@ -143,6 +189,9 @@ impl Session {
         let who = self.signed_in_as().ok_or(ChangeError::SignedOut)?;
         if matches!(inventory.status(), Status::Offline { .. }) {
             return Err(ChangeError::Offline);
+        }
+        if let Some(form) = &form {
+            self.checked_form(form)?;
         }
         let response = self
             .call_ilm_as(Some(&id), Some(&proceed), profile_request)
@@ -156,11 +205,22 @@ impl Session {
                 IlmError::Malformed => ChangeError::Malformed,
             })?
             .uuid;
+        let attributes = match &form {
+            Some(form) => {
+                let (definitions, values) =
+                    self.take_form_if(&form.id, ChangeError::FormGone, |definitions| {
+                        sendable(definitions, form)
+                    })?;
+                request(&definitions.fields, &values)
+            }
+            None => Vec::new(),
+        };
         log::info!(
-            "adding {} certificates to ILM (group chosen: {}, RA Profile chosen: {})",
+            "adding {} certificates to ILM (group chosen: {}, RA Profile chosen: {}, custom attributes: {})",
             fingerprints.len(),
             yes_no(group.is_some()),
-            yes_no(ra_profile.is_some())
+            yes_no(ra_profile.is_some()),
+            attributes.len()
         );
         let local = match self.in_identities(|store| store.certificates()).await {
             Ok(local) => local,
@@ -174,6 +234,12 @@ impl Session {
                     })
                     .collect());
             }
+        };
+        let details = Details {
+            owner: &owner,
+            group: group.as_deref(),
+            ra_profile: ra_profile.as_deref(),
+            attributes: &attributes,
         };
         let locals: Vec<Fingerprint> = local.iter().map(|found| found.fingerprint).collect();
         let snapshot = inventory.snapshot();
@@ -189,17 +255,7 @@ impl Session {
                 {
                     AddOutcome::AlreadyInIlm
                 }
-                Ok(fingerprint) => {
-                    self.add_one(
-                        &id,
-                        fingerprint,
-                        &owner,
-                        group.as_deref(),
-                        ra_profile.as_deref(),
-                        &proceed,
-                    )
-                    .await
-                }
+                Ok(fingerprint) => self.add_one(&id, fingerprint, &details, &proceed).await,
                 Err(_) => not_added(NOT_ON_COMPUTER),
             };
             log::info!("a certificate was added to ILM: {}", describe(&outcome));
@@ -221,9 +277,7 @@ impl Session {
         &self,
         id: &Arc<()>,
         fingerprint: Fingerprint,
-        owner: &str,
-        group: Option<&str>,
-        ra_profile: Option<&str>,
+        details: &Details<'_>,
         proceed: &(dyn Fn() -> bool + Sync),
     ) -> AddOutcome {
         let Some(der) = self
@@ -234,7 +288,7 @@ impl Session {
         };
         let response = match self
             .call_ilm_as(Some(id), Some(proceed), |client, ilm| {
-                upload_request(client, ilm, &der)
+                upload_request(client, ilm, &der, details.attributes)
             })
             .await
         {
@@ -251,7 +305,14 @@ impl Session {
         };
         let response = match self
             .call_ilm_as(Some(id), Some(proceed), |client, ilm| {
-                update_request(client, ilm, &uuid, Some(owner), group, ra_profile)
+                update_request(
+                    client,
+                    ilm,
+                    &uuid,
+                    Some(details.owner),
+                    details.group,
+                    details.ra_profile,
+                )
             })
             .await
         {
@@ -276,6 +337,7 @@ impl Session {
     /// The groups and enabled RA Profiles the person may choose from, read now as the person.
     pub async fn add_to_ilm_choices(&self) -> Result<AddChoices, ChangeError> {
         let id = self.departing()?.id;
+        let generation = self.forms.generation();
         let groups = match self.call_ilm_as(Some(&id), None, groups_request).await {
             Ok(response) => read_groups(response).await,
             Err(error) => Err(call_failure_ilm(error)?),
@@ -286,11 +348,44 @@ impl Session {
         };
         let groups = choice(groups, "groups")?;
         let ra_profiles = choice(ra_profiles, "RA Profiles")?;
+        let custom_attributes = self
+            .open_form_since(FormContext::Custom, generation)
+            .await
+            .map_err(|error| {
+                log::warn!(
+                    "the custom attributes cannot be listed: {}",
+                    form_reason(error)
+                );
+                ChangeError::from(error)
+            })?;
         Ok(AddChoices {
             groups,
             ra_profiles,
+            custom_attributes,
         })
     }
+
+    /// Whether an open form can be sent with its values; the form stays open.
+    fn checked_form(&self, form: &FormInput) -> Result<(), ChangeError> {
+        let definitions = self
+            .form_definitions(&form.id)
+            .map_err(|_| ChangeError::FormGone)?;
+        sendable(&definitions, form).map(drop)
+    }
+}
+
+/// The values of `form` when `definitions` can be sent with them.
+fn sendable(definitions: &Definitions, form: &FormInput) -> Result<Values, ChangeError> {
+    if definitions.blocked() {
+        return Err(ChangeError::FormBlocked);
+    }
+    let values =
+        parse_values(&definitions.fields, &form.values).map_err(|_| ChangeError::FormValues)?;
+    let problems = check(&definitions.fields, &values, &TimeZone::system());
+    if !problems.is_empty() {
+        return Err(ChangeError::FormProblems(problems));
+    }
+    Ok(values)
 }
 
 /// The outcome as the log says it: the kind only, never ILM's messages.

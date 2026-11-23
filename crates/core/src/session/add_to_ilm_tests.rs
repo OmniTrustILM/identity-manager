@@ -13,7 +13,8 @@ use wiremock::{Mock, ResponseTemplate};
 
 use super::add_to_ilm::WITHDRAWN;
 use super::tests::{LOG, World, capture_logs};
-use super::{AddOutcome, AddResult, ChangeError, SessionView};
+use super::{AddOutcome, AddResult, ChangeError, FormInput, SessionView};
+use crate::attributes::{FieldProblem, FormView, Problem};
 use crate::http::client_for_tests;
 use crate::identity::testing::{Issue, StandInStore, TestCa, TestIdentity};
 use crate::identity::tls::CertificateAsked;
@@ -31,6 +32,7 @@ const UPLOAD: &str = "/api/v1/certificates/upload";
 const UPLOADED: &str = "/api/v1/certificates/u-new";
 const GROUPS: &str = "/api/v1/groups";
 const RA_PROFILES: &str = "/api/v1/raProfiles";
+const CUSTOM: &str = "/api/v1/attributes/custom/resources/certificates";
 
 struct Adding {
     world: World,
@@ -145,6 +147,7 @@ impl Adding {
                 fingerprints.to_vec(),
                 group.map(str::to_owned),
                 ra_profile.map(str::to_owned),
+                None,
                 proceed,
             )
             .await
@@ -650,7 +653,7 @@ async fn the_log_says_what_happened_without_names_or_messages() {
 
     let log = LOG.lock().unwrap().join("\n");
     assert!(
-        log.contains("adding 1 certificates to ILM (group chosen: yes, RA Profile chosen: no)")
+        log.contains("adding 1 certificates to ILM (group chosen: yes, RA Profile chosen: no, custom attributes: 0)")
     );
     assert!(log.contains("added, not managed"));
     assert!(log.contains("ILM refused the update (400 or 422)"));
@@ -663,4 +666,473 @@ async fn the_log_says_what_happened_without_names_or_messages() {
     ] {
         assert!(!log.contains(private), "{private} is in the log");
     }
+}
+
+fn definition(name: &str, properties: Value) -> Value {
+    let mut properties = properties;
+    properties["label"] = json!(format!("{name} label"));
+    json!({
+        "uuid": format!("u-{name}"),
+        "name": name,
+        "version": 3,
+        "schemaVersion": "v3",
+        "type": "custom",
+        "contentType": "string",
+        "properties": properties,
+    })
+}
+
+/// A required attribute to fill in, an optional one and a required read-only one.
+fn custom_definitions() -> Vec<Value> {
+    let mut fixed = definition("fixed", json!({ "required": true, "readOnly": true }));
+    fixed["content"] = json!([{ "data": "Fixed-Content", "contentType": "string" }]);
+    vec![
+        definition("dept", json!({ "required": true })),
+        definition("note", json!({})),
+        fixed,
+    ]
+}
+
+fn request_attributes(dept: &str) -> Value {
+    json!([
+        {
+            "uuid": "u-dept",
+            "name": "dept",
+            "contentType": "string",
+            "version": "v3",
+            "content": [{ "data": dept, "contentType": "string" }],
+        },
+        {
+            "uuid": "u-fixed",
+            "name": "fixed",
+            "contentType": "string",
+            "version": "v3",
+            "content": [{ "data": "Fixed-Content", "contentType": "string" }],
+        },
+    ])
+}
+
+impl Adding {
+    async fn serve_custom(&self, response: ResponseTemplate) {
+        Mock::given(method("GET"))
+            .and(path(CUSTOM))
+            .respond_with(response)
+            .mount(&self.world.ilm)
+            .await;
+    }
+
+    /// Opens the custom form of `definitions` through the choices.
+    async fn open_custom(&self, definitions: Vec<Value>) -> FormView {
+        self.serve_custom(ResponseTemplate::new(200).set_body_json(definitions))
+            .await;
+        self.world
+            .session
+            .add_to_ilm_choices()
+            .await
+            .unwrap()
+            .custom_attributes
+            .expect("the custom form is open")
+    }
+
+    async fn add_form(
+        &self,
+        fingerprints: &[String],
+        id: &str,
+        values: Value,
+    ) -> Result<Vec<AddResult>, ChangeError> {
+        self.world
+            .session
+            .add_to_ilm(
+                &self.inventory,
+                fingerprints.to_vec(),
+                None,
+                None,
+                Some(FormInput {
+                    id: id.to_owned(),
+                    values,
+                }),
+                || true,
+            )
+            .await
+    }
+
+    async fn expect_no_upload(&self) {
+        Mock::given(method("POST"))
+            .and(path(UPLOAD))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "uuid": "u-new" })))
+            .expect(0)
+            .mount(&self.world.ilm)
+            .await;
+    }
+}
+
+#[tokio::test]
+async fn the_choices_carry_the_custom_form() {
+    let adding = Adding::new().await;
+
+    let form = adding.open_custom(custom_definitions()).await;
+
+    let names: Vec<&str> = form
+        .groups
+        .iter()
+        .flat_map(|group| group.fields.iter().map(|field| field.name.as_str()))
+        .collect();
+    assert_eq!(names, ["dept", "note", "fixed"]);
+}
+
+#[tokio::test]
+async fn a_custom_listing_that_is_missing_leaves_the_form_out() {
+    for status in [403, 404] {
+        let adding = Adding::new().await;
+        adding.serve_custom(ResponseTemplate::new(status)).await;
+
+        let choices = adding.world.session.add_to_ilm_choices().await.unwrap();
+
+        assert_eq!(choices.custom_attributes, None, "status {status}");
+    }
+}
+
+#[tokio::test]
+async fn a_custom_listing_that_fails_fails_the_choices() {
+    let adding = Adding::new().await;
+    adding.serve_custom(ResponseTemplate::new(500)).await;
+
+    let choices = adding.world.session.add_to_ilm_choices().await;
+
+    assert_eq!(choices, Err(ChangeError::Unexpected(500)));
+}
+
+#[tokio::test]
+async fn every_upload_carries_the_request_attributes_of_the_form() {
+    let adding = Adding::new().await;
+    let form = adding.open_custom(custom_definitions()).await;
+    for who in [&adding.jane, &adding.john] {
+        Mock::given(method("POST"))
+            .and(path(UPLOAD))
+            .and(body_json(json!({
+                "certificate": STANDARD.encode(who.leaf().as_ref()),
+                "customAttributes": request_attributes("Sales"),
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "uuid": "u-new" })))
+            .expect(1)
+            .mount(&adding.world.ilm)
+            .await;
+    }
+    adding.answer_update(ResponseTemplate::new(200)).await;
+    let asked = vec![
+        adding.jane.fingerprint().to_string(),
+        adding.john.fingerprint().to_string(),
+    ];
+    let values = json!({
+        "dept": { "kind": "text", "value": "Sales" },
+        "fixed": { "kind": "text", "value": "Ignored" },
+    });
+
+    let results = adding.add_form(&asked, &form.id, values).await.unwrap();
+
+    assert!(
+        results
+            .iter()
+            .all(|result| result.outcome == AddOutcome::Added)
+    );
+}
+
+#[tokio::test]
+async fn a_form_with_problems_sends_nothing_and_stays_open() {
+    let adding = Adding::new().await;
+    let form = adding.open_custom(custom_definitions()).await;
+    adding.expect_no_upload().await;
+    let asked = vec![adding.jane.fingerprint().to_string()];
+
+    let refused = adding.add_form(&asked, &form.id, json!({})).await;
+
+    assert_eq!(
+        refused,
+        Err(ChangeError::FormProblems(vec![FieldProblem {
+            name: "dept".to_owned(),
+            problem: Problem::Required
+        }]))
+    );
+    assert!(
+        adding
+            .world
+            .session
+            .check_form(&form.id, &json!({}))
+            .is_ok()
+    );
+}
+
+#[tokio::test]
+async fn a_form_with_an_unsupported_required_attribute_sends_nothing() {
+    let adding = Adding::new().await;
+    let mut odd = definition("odd", json!({ "required": true }));
+    odd["contentType"] = json!("quaternion");
+    let form = adding.open_custom(vec![odd]).await;
+    adding.expect_no_upload().await;
+    let asked = vec![adding.jane.fingerprint().to_string()];
+
+    let refused = adding.add_form(&asked, &form.id, json!({})).await;
+
+    assert_eq!(refused, Err(ChangeError::FormBlocked));
+}
+
+#[tokio::test]
+async fn a_form_that_is_gone_is_refused() {
+    let adding = Adding::new().await;
+    adding.expect_no_upload().await;
+    let asked = vec![adding.jane.fingerprint().to_string()];
+
+    let refused = adding.add_form(&asked, "no-such-form", json!({})).await;
+
+    assert_eq!(refused, Err(ChangeError::FormGone));
+    assert_eq!(
+        ChangeError::FormGone.to_string(),
+        "This form is no longer open. Open Add to ILM again."
+    );
+}
+
+#[tokio::test]
+async fn the_form_is_closed_by_the_add() {
+    let adding = Adding::new().await;
+    let form = adding.open_custom(custom_definitions()).await;
+    adding.upload_ok().await;
+    adding.answer_update(ResponseTemplate::new(200)).await;
+    let asked = vec![adding.jane.fingerprint().to_string()];
+    let values = json!({ "dept": { "kind": "text", "value": "Sales" } });
+
+    adding
+        .add_form(&asked, &form.id, values.clone())
+        .await
+        .unwrap();
+    let again = adding.add_form(&asked, &form.id, values).await;
+
+    assert_eq!(again, Err(ChangeError::FormGone));
+    assert_eq!(adding.count("POST", UPLOAD).await, 1);
+}
+
+#[tokio::test]
+async fn a_form_a_callback_changes_while_ilm_is_asked_is_checked_again_and_stays_open() {
+    let adding = Adding::new().await;
+    let attribute = |name: &str, properties: Value| {
+        let mut properties = properties;
+        properties["label"] = json!(format!("{name} label"));
+        json!({
+            "uuid": format!("u-{name}"),
+            "name": name,
+            "version": 3,
+            "schemaVersion": "v3",
+            "type": "data",
+            "contentType": "string",
+            "properties": properties,
+        })
+    };
+    let mut region = attribute("region", json!({ "list": true }));
+    region["content"] = json!([{ "data": "eu", "contentType": "string" }]);
+    let extras = json!({
+        "uuid": "u-extras",
+        "name": "extras",
+        "type": "group",
+        "attributeCallback": { "dependsOn": ["region"] },
+    });
+    adding.world.ilm.reset().await;
+    Mock::given(method("GET"))
+        .and(path(PROFILE))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({
+                    "uuid": "u-person",
+                    "username": "jdoe",
+                    "permissions": { "allowedListings": [], "allowedActions": [] },
+                }))
+                .set_delay(std::time::Duration::from_millis(300)),
+        )
+        .mount(&adding.world.ilm)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(
+            "/api/v2/operations/authorities/auth-1/raProfiles/ra-1/attributes/issue",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([region, extras])))
+        .mount(&adding.world.ilm)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v1/certificates/ra-1/callback"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!([attribute("email", json!({ "required": true }))])),
+        )
+        .mount(&adding.world.ilm)
+        .await;
+    adding.expect_no_upload().await;
+    let session = &adding.world.session;
+    let form = session
+        .open_form(crate::attributes::FormContext::Issue {
+            authority: "auth-1".into(),
+            ra_profile: "ra-1".into(),
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    let eu = crate::attributes::option_key(&json!({ "data": "eu", "contentType": "string" }));
+    let values = json!({ "region": { "kind": "option", "value": eu } });
+    let asked = vec![adding.jane.fingerprint().to_string()];
+
+    let adding_to_ilm = adding.add_form(&asked, &form.id, values.clone());
+    let changing = async {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        session
+            .run_callback(&form.id, "extras", &values, 1)
+            .await
+            .unwrap();
+    };
+    let (refused, ()) = tokio::join!(adding_to_ilm, changing);
+
+    assert_eq!(
+        refused,
+        Err(ChangeError::FormProblems(vec![FieldProblem {
+            name: "email".to_owned(),
+            problem: Problem::Required
+        }]))
+    );
+    assert!(session.check_form(&form.id, &values).is_ok());
+}
+
+#[tokio::test]
+async fn the_log_counts_the_custom_attributes_and_never_shows_their_values() {
+    capture_logs();
+    let adding = Adding::new().await;
+    let form = adding.open_custom(custom_definitions()).await;
+    adding.upload_ok().await;
+    adding.answer_update(ResponseTemplate::new(200)).await;
+    let asked = vec![adding.jane.fingerprint().to_string()];
+    let values = json!({ "dept": { "kind": "text", "value": "Unique-Value-Z9" } });
+
+    adding.add_form(&asked, &form.id, values).await.unwrap();
+
+    let log = LOG.lock().unwrap().join("\n");
+    assert!(log.contains("custom attributes: 2)"));
+    for private in ["Unique-Value-Z9", "Fixed-Content"] {
+        assert!(!log.contains(private), "{private} is in the log");
+    }
+}
+
+#[tokio::test]
+async fn the_log_of_a_form_with_a_secret_a_callback_and_an_add_holds_no_value_option_file_name_or_message()
+ {
+    capture_logs();
+    let adding = Adding::new().await;
+    let attribute = |name: &str, content_type: &str, version: u8, properties: Value| {
+        let mut properties = properties;
+        properties["label"] = json!(format!("{name} label"));
+        json!({
+            "uuid": format!("u-{name}"),
+            "name": name,
+            "version": version,
+            "type": "data",
+            "contentType": content_type,
+            "properties": properties,
+        })
+    };
+    let mut chooser = attribute("region", "string", 3, json!({ "list": true }));
+    chooser["schemaVersion"] = json!("v3");
+    chooser["content"] = json!([{ "data": "Unique-Default-Z9", "contentType": "string" }]);
+    chooser["attributeCallback"] = json!({ "dependsOn": [] });
+    Mock::given(method("GET"))
+        .and(path(
+            "/api/v2/operations/authorities/auth-1/raProfiles/ra-1/attributes/issue",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            attribute("password", "secret", 2, json!({ "required": true })),
+            attribute("keystore", "file", 2, json!({})),
+            chooser,
+        ])))
+        .mount(&adding.world.ilm)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v1/certificates/ra-1/callback"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            { "reference": "Unique-Option-Z9", "data": "Unique-Option-Z9", "contentType": "string" }
+        ])))
+        .mount(&adding.world.ilm)
+        .await;
+    adding
+        .answer_upload(
+            ResponseTemplate::new(422).set_body_json(json!({ "message": "Unique-Message-Z9" })),
+        )
+        .await;
+    let form = adding
+        .world
+        .session
+        .open_form(crate::attributes::FormContext::Issue {
+            authority: "auth-1".into(),
+            ra_profile: "ra-1".into(),
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    let values = json!({
+        "password": { "kind": "text", "value": "Unique-Secret-Z9" },
+        "keystore": { "kind": "file", "value": {
+            "name": "Unique-File-Z9.p12", "mime": "application/x-pkcs12", "content": "VW5pcXVlLUJ5dGVzLVo5"
+        } },
+        "region": { "kind": "option", "value": crate::attributes::option_key(
+            &json!({ "reference": "Unique-Option-Z9", "data": "Unique-Option-Z9", "contentType": "string" })
+        ) },
+    });
+
+    adding
+        .world
+        .session
+        .run_callback(&form.id, "region", &values, 1)
+        .await
+        .unwrap();
+    let asked = vec![adding.jane.fingerprint().to_string()];
+    let results = adding.add_form(&asked, &form.id, values).await.unwrap();
+
+    assert!(matches!(results[0].outcome, AddOutcome::NotAdded(_)));
+    let log = LOG.lock().unwrap().join("\n");
+    assert!(log.contains("callback run for region: answered (200)"));
+    assert!(log.contains("custom attributes: "));
+    for private in [
+        "Unique-Secret-Z9",
+        "Unique-File-Z9",
+        "VW5pcXVlLUJ5dGVzLVo5",
+        "Unique-Default-Z9",
+        "Unique-Option-Z9",
+        "Unique-Message-Z9",
+    ] {
+        assert!(!log.contains(private), "{private} is in the log");
+    }
+}
+
+#[tokio::test]
+async fn a_lock_during_the_groups_listing_registers_no_form() {
+    let adding = Adding::new().await;
+    Mock::given(method("GET"))
+        .and(path(GROUPS))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!([]))
+                .set_delay(std::time::Duration::from_millis(300)),
+        )
+        .mount(&adding.world.ilm)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(RA_PROFILES))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .mount(&adding.world.ilm)
+        .await;
+    adding
+        .serve_custom(ResponseTemplate::new(200).set_body_json(custom_definitions()))
+        .await;
+    let session = &adding.world.session;
+
+    let choosing = session.add_to_ilm_choices();
+    let locking = async {
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        session.close_forms();
+    };
+    let (choices, ()) = tokio::join!(choosing, locking);
+
+    assert_eq!(choices, Err(ChangeError::Withdrawn));
 }

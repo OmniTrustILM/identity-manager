@@ -61,6 +61,15 @@ The person can add a certificate that is not in ILM from its details.
 - The person becomes the owner of the certificate in ILM.
 - The person can choose a group and an RA Profile when ILM lets them list these.
 - With an RA Profile, ILM manages the certificate and can renew it. Without one, ILM only tracks it.
-- ILM may refuse. Common reasons are a missing permission, custom attributes that ILM requires, or an RA Profile
-  whose authority cannot identify the certificate. Identity Manager shows the reason.
+- The person can fill in the custom attributes ILM defines for certificates when ILM lets them list these. The
+  attributes are grouped as in ILM, with ungrouped ones first under "Custom attributes". Defaults are filled in,
+  required values are marked, and values the administrator made read-only are shown with a lock and sent as defined.
+  The values apply to every certificate in that add.
+- Identity Manager checks the values as ILM does before anything is sent. A value with a problem says what is wrong,
+  and the certificates cannot be added until it is corrected.
+- An attribute Identity Manager cannot show is left out when it is optional. When it is required, the dialog says
+  so and the certificates cannot be added from Identity Manager. "Open in ILM" opens the Certificates page of ILM's
+  web interface in the browser, where the certificate can be imported with every attribute.
+- ILM may refuse. Common reasons are a missing permission or an RA Profile whose authority cannot identify the
+  certificate. Identity Manager shows the reason.
 - A certificate that is already in ILM counts as added.

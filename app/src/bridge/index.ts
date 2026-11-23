@@ -4,9 +4,15 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { AddChoicesView } from './generated/AddChoicesView';
 import type { AddResultView } from './generated/AddResultView';
 import type { AppInfo } from './generated/AppInfo';
+import type { AttributeCallbackResult } from './generated/AttributeCallbackResult';
+import type { AttributeCheck } from './generated/AttributeCheck';
+import type { AttributeFieldProblem } from './generated/AttributeFieldProblem';
+import type { AttributeValue } from './generated/AttributeValue';
+import type { FormProblems } from './generated/FormProblems';
 import type { CertificateChoice } from './generated/CertificateChoice';
 import type { Change } from './generated/Change';
 import type { IlmPageView } from './generated/IlmPageView';
+import type { IlmTarget } from './generated/IlmTarget';
 import type { InventoryView } from './generated/InventoryView';
 import type { LocalCertificateView } from './generated/LocalCertificateView';
 import type { Navigation } from './generated/Navigation';
@@ -20,6 +26,11 @@ import type { SummaryView } from './generated/SummaryView';
 export type { AppInfo, CertificateChoice, Change, LocalCertificateView, ProviderChoice, Scheme, SessionView, SettingsView, Shown };
 export type { IlmPageView, InventoryView };
 export type { AddChoicesView, AddResultView, Navigation, SummaryView };
+export type { AttributeCallbackResult, AttributeCheck, AttributeFieldProblem, AttributeValue, FormProblems, IlmTarget };
+export type { AttributeFieldKind } from './generated/AttributeFieldKind';
+export type { AttributeFieldView } from './generated/AttributeFieldView';
+export type { AttributeFormView } from './generated/AttributeFormView';
+export type { AttributeOptionView } from './generated/AttributeOptionView';
 export type { GroupChoice } from './generated/GroupChoice';
 export type { RaProfileChoice } from './generated/RaProfileChoice';
 export type { AttentionItemView } from './generated/AttentionItemView';
@@ -147,9 +158,48 @@ export function addToIlmChoices(): Promise<AddChoicesView> {
     return invoke<AddChoicesView>('add_to_ilm_choices');
 }
 
-/** Adds the certificates of this computer with these fingerprints to ILM and returns how each ended. */
-export function addToIlm(fingerprints: string[], group: string | null, raProfile: string | null): Promise<AddResultView[]> {
-    return invoke<AddResultView[]>('add_to_ilm', { fingerprints, group, raProfile });
+/** The values of a form by attribute name, as the person typed them. */
+export type FormValues = Record<string, AttributeValue>;
+
+/** The open form of an add and the values the person gave. */
+export interface AddForm {
+    id: string;
+    values: FormValues;
+}
+
+/** Adds the certificates of this computer with these fingerprints to ILM, with the form if there is one, and returns how each ended. Rejects with `FormProblems` when the form has problems; nothing is sent then. */
+export function addToIlm(
+    fingerprints: string[],
+    group: string | null,
+    raProfile: string | null,
+    form: AddForm | null,
+): Promise<AddResultView[]> {
+    return invoke<AddResultView[]>('add_to_ilm', { fingerprints, group, raProfile, form });
+}
+
+/** The problems a rejected `addToIlm` carries, or null when it was refused for another reason. */
+export function formProblems(error: unknown): AttributeFieldProblem[] | null {
+    return typeof error === 'object' && error !== null && 'problems' in error ? (error as FormProblems).problems : null;
+}
+
+/** Runs the callback of a field of an open form for the values given; `seq` numbers the runs of the field. The result carries the form as it is afterwards. */
+export function attributeCallback(id: string, field: string, values: FormValues, seq: number): Promise<AttributeCallbackResult> {
+    return invoke<AttributeCallbackResult>('attribute_callback', { id, field, values, seq });
+}
+
+/** The problem of every field of an open form that has one, for the values given, and the revision of the form they were checked against. */
+export function checkAttributes(id: string, values: FormValues): Promise<AttributeCheck> {
+    return invoke<AttributeCheck>('check_attributes', { id, values });
+}
+
+/** Closes an open form. */
+export function closeForm(id: string): Promise<void> {
+    return invoke<void>('close_form', { id });
+}
+
+/** Opens the page of ILM's web interface that the target names in the browser. */
+export function openInIlm(target: IlmTarget): Promise<void> {
+    return invoke<void>('open_in_ilm', { target });
 }
 
 /** Calls the handler, without data, each time the inventory or whether a check runs changes; read it with `ilmStatus`. */

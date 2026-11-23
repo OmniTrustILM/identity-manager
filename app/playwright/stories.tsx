@@ -4,6 +4,8 @@ import { AppInfoContext } from '../src/app-info';
 import type {
     AddChoicesView,
     AddResultView,
+    AttributeFieldProblem,
+    AttributeFormView,
     CertificateChoice,
     Change,
     IlmPageView,
@@ -18,6 +20,7 @@ import type {
 } from '../src/bridge';
 import { IlmWaitingContext } from '../src/ilm-waiting';
 import { LockNote } from '../src/components/Switch/LockNote';
+import { AttributeForm, type AttributeState } from '../src/components/AttributeForm/AttributeForm';
 import { Select } from '../src/components/Switch/Select';
 import { Shell } from '../src/components/Shell/Shell';
 import { Switch } from '../src/components/Switch/Switch';
@@ -331,22 +334,43 @@ type CertificatesProps = StoryProps &
 
 interface Adding {
     choices?: AddChoicesView;
+    /** Rejects the listing of the choices. */
+    refuseChoices?: boolean;
     results?: AddResultView[];
     /** Rejects the add with this reason. */
     refuse?: string;
     /** Milliseconds the add takes. */
     delay?: number;
+    /** What the check of the form finds. */
+    problems?: AttributeFieldProblem[];
+    /** Rejects the add with these problems of the form. */
+    refuseProblems?: AttributeFieldProblem[];
+    /** Told of the commands of the form and of the add. */
+    seen?: (command: string, args?: unknown) => void;
 }
 
-const noChoices: AddChoicesView = { groups: null, raProfiles: null };
+const noChoices: AddChoicesView = { groups: null, raProfiles: null, customAttributes: null };
 
-/** Answers the two commands of the Add to ILM dialog from `adding`; anything else is not its business. */
-function addAnswer(command: string, adding: Adding | undefined) {
-    if (command === 'add_to_ilm_choices') {
-        return adding?.choices ?? noChoices;
+/** Answers the commands of the Add to ILM dialog from `adding`; anything else is not its business. */
+function addAnswer(command: string, adding: Adding | undefined, args?: unknown) {
+    switch (command) {
+        case 'add_to_ilm_choices':
+            return adding?.refuseChoices ? Promise.reject('no') : (adding?.choices ?? noChoices);
+        case 'check_attributes':
+            return { revision: adding?.choices?.customAttributes?.revision ?? 0, problems: adding?.problems ?? [] };
+        case 'close_form':
+        case 'open_in_ilm':
+            adding?.seen?.(command, args);
+            return undefined;
+        default: {
+            adding?.seen?.(command, args);
+            if (adding?.refuseProblems) {
+                return Promise.reject({ problems: adding.refuseProblems });
+            }
+            const settle = () => (adding?.refuse ? Promise.reject(adding.refuse) : (adding?.results ?? []));
+            return adding?.delay ? new Promise((resolve) => setTimeout(resolve, adding.delay)).then(settle) : settle();
+        }
     }
-    const settle = () => (adding?.refuse ? Promise.reject(adding.refuse) : (adding?.results ?? []));
-    return adding?.delay ? new Promise((resolve) => setTimeout(resolve, adding.delay)).then(settle) : settle();
 }
 
 declare global {
@@ -468,7 +492,7 @@ type AddProps = StoryProps & Readonly<{ certificates: LocalCertificateView[]; ad
 export function AddToIlmStory({ platform, certificates, adding, onClose }: AddProps) {
     const [open, setOpen] = useState(true);
     useMemo(() => {
-        mockIPC((command) => addAnswer(command, adding));
+        mockIPC((command, args) => addAnswer(command, adding, args));
     }, [adding]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
@@ -487,6 +511,79 @@ export function AddToIlmStory({ platform, certificates, adding, onClose }: AddPr
                     />
                 )}
             </main>
+        </AppInfoContext.Provider>
+    );
+}
+
+/** What a field's callback answers with: a form, or what ILM said, after a delay; answers are used in turn and the last repeats. */
+export interface CallbackAnswer {
+    form?: AttributeFormView;
+    problem?: string;
+    delay?: number;
+}
+
+type FormProps = StoryProps &
+    Readonly<{
+        form: AttributeFormView;
+        /** What the check of the form finds. */
+        problems?: AttributeFieldProblem[];
+        answers?: Record<string, CallbackAnswer[]>;
+        submitted?: boolean;
+        disabled?: boolean;
+        seen?: (command: string, args?: unknown) => void;
+    }>;
+
+/** The attribute form on its own, against stand-ins for its commands; the values and whether the form may be sent are shown below it. */
+const noProblems: AttributeFieldProblem[] = [];
+const noAnswers: Record<string, CallbackAnswer[]> = {};
+
+export function AttributeFormStory({
+    platform,
+    form,
+    problems = noProblems,
+    answers = noAnswers,
+    submitted = false,
+    disabled = false,
+    seen,
+}: FormProps) {
+    const [state, setState] = useState<AttributeState>({ values: {}, ready: false, blocked: false });
+    useMemo(() => {
+        const used: Record<string, number> = {};
+        let revision = form.revision;
+        mockIPC((command, args) => {
+            seen?.(command, args);
+            if (command === 'check_attributes') {
+                return { revision, problems };
+            }
+            if (command === 'attribute_callback') {
+                const { field, seq } = args as { field: string; seq: number };
+                const list = answers[field] ?? [];
+                const turn = used[field] ?? 0;
+                used[field] = turn + 1;
+                const answer = list[Math.min(turn, list.length - 1)];
+                const next = answer?.form ?? form;
+                revision = Math.max(revision, next.revision);
+                const result = { seq, field, form: next, problem: answer?.problem ?? null };
+                if (!answer?.delay) {
+                    return result;
+                }
+                return new Promise((resolve) => setTimeout(resolve, answer.delay)).then(() => {
+                    seen?.('attribute_callback_answered', { field });
+                    return result;
+                });
+            }
+            return undefined;
+        });
+    }, [form, problems, answers, seen]);
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            <div className="flex w-form flex-col gap-s3 bg-surface p-s5 text-primary">
+                <AttributeForm form={form} target="addToIlm" disabled={disabled} submitted={submitted} onChange={setState} />
+                <p data-testid="ready">{state.ready ? 'ready' : 'not ready'}</p>
+                <pre data-testid="values" className="whitespace-pre-wrap break-all text-caption">
+                    {JSON.stringify(state.values)}
+                </pre>
+            </div>
         </AppInfoContext.Provider>
     );
 }

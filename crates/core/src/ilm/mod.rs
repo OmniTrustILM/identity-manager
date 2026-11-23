@@ -6,6 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use url::Url;
 
 pub mod actions;
+pub mod attributes;
 pub mod certificates;
 pub mod profile;
 pub mod resource;

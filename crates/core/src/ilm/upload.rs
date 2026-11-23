@@ -55,11 +55,18 @@ struct RawRaProfile {
     authority_instance_name: Option<String>,
 }
 
-/// The upload of one certificate, given as its DER.
-pub fn upload_request(client: &Client, ilm: &IlmUrl, der: &[u8]) -> RequestBuilder {
+/// The upload of one certificate, given as its DER, with the custom attributes as request attributes.
+pub fn upload_request(
+    client: &Client,
+    ilm: &IlmUrl,
+    der: &[u8],
+    custom_attributes: &[Value],
+) -> RequestBuilder {
     client
         .post(format!("{}/v1/certificates/upload", ilm.api()))
-        .json(&json!({ "certificate": STANDARD.encode(der), "customAttributes": [] }))
+        .json(
+            &json!({ "certificate": STANDARD.encode(der), "customAttributes": custom_attributes }),
+        )
 }
 
 /// The update of an uploaded certificate. Only what is given is sent, so ILM leaves the rest as it is.
@@ -199,7 +206,7 @@ mod tests {
 
     async fn upload(response: ResponseTemplate) -> Result<String, AddError> {
         let (_server, ilm) = serve("POST", "/api/v1/certificates/upload", response).await;
-        let sent = upload_request(&client_for_tests(), &ilm, &DER)
+        let sent = upload_request(&client_for_tests(), &ilm, &DER, &[])
             .send()
             .await
             .unwrap();
@@ -229,7 +236,35 @@ mod tests {
             .mount(&server)
             .await;
         let ilm = IlmUrl::for_tests(&server.uri());
-        let sent = upload_request(&client_for_tests(), &ilm, &DER)
+        let sent = upload_request(&client_for_tests(), &ilm, &DER, &[])
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(read_upload(sent).await.unwrap(), "c-1");
+    }
+
+    #[tokio::test]
+    async fn the_upload_carries_the_custom_attributes() {
+        let attributes = vec![json!({
+            "uuid": "11111111-1111-4111-8111-111111111111",
+            "name": "department",
+            "contentType": "string",
+            "version": "v3",
+            "content": [{ "data": "Sales", "contentType": "string" }]
+        })];
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/certificates/upload"))
+            .and(body_json(json!({
+                "certificate": STANDARD.encode(DER),
+                "customAttributes": attributes
+            })))
+            .respond_with(ResponseTemplate::new(201).set_body_json(json!({ "uuid": "c-1" })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let ilm = IlmUrl::for_tests(&server.uri());
+        let sent = upload_request(&client_for_tests(), &ilm, &DER, &attributes)
             .send()
             .await
             .unwrap();

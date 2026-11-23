@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod app_info;
+pub mod attributes;
 pub mod http;
 pub mod identity;
 pub mod ilm;
