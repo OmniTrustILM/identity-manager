@@ -3,6 +3,9 @@
 mod add_to_ilm;
 #[cfg(test)]
 mod add_to_ilm_tests;
+mod attributes;
+#[cfg(test)]
+mod attributes_tests;
 mod certificate;
 #[cfg(test)]
 mod certificate_tests;
@@ -31,7 +34,8 @@ use crate::oauth::metadata::{MetadataError, ProviderMetadata, provider_metadata}
 use crate::oauth::token::{TokenError, Tokens, exchange, refresh, revoke};
 use crate::settings::SignInMethod;
 use crate::token::AccessToken;
-pub use add_to_ilm::{AddChoices, AddOutcome, AddResult};
+pub use add_to_ilm::{AddChoices, AddOutcome, AddResult, FormInput};
+pub use attributes::FormError;
 pub use certificate::ChangeError;
 use certificate::certificate_choice;
 pub use store::{Item, KeyringStore, MemoryStore, RefreshStore, StoreError};
@@ -361,6 +365,8 @@ pub struct Session {
     unsaved: Mutex<Option<Item>>,
     /// Runs when a sign-in has ended, whoever ended it, before the view changes.
     on_signed_out: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
+    /// The attribute forms open now.
+    forms: attributes::Forms,
 }
 
 /// Whether the browser sign-in `attempt`, or with none the renewal at start, is still the one under way.
@@ -434,6 +440,7 @@ impl Session {
             changing: tokio::sync::Mutex::new(()),
             unsaved: Mutex::new(None),
             on_signed_out: Mutex::new(None),
+            forms: attributes::Forms::default(),
         }
     }
 
@@ -444,6 +451,7 @@ impl Session {
     }
 
     fn signed_out(&self) {
+        self.forms.clear();
         let hook = lock(&self.on_signed_out).clone();
         if let Some(hook) = hook {
             hook();

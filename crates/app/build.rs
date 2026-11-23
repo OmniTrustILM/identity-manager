@@ -45,6 +45,10 @@ fn main() {
                 "overview",
                 "add_to_ilm_choices",
                 "add_to_ilm",
+                "attribute_callback",
+                "check_attributes",
+                "close_form",
+                "open_in_ilm",
             ])),
     )
     .expect("the Tauri build failed");

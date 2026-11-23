@@ -4,10 +4,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
     addToIlm,
     addToIlmChoices,
+    attributeCallback,
     cancelSignIn,
     certificates,
+    checkAttributes,
+    closeForm,
     colorScheme,
     connect,
+    formProblems,
     getAppInfo,
     getSession,
     getSettings,
@@ -17,6 +21,7 @@ import {
     onOpenSection,
     onSignInChoices,
     onSessionChanged,
+    openInIlm,
     openMainWindow,
     openSettings,
     overview,
@@ -352,8 +357,46 @@ describe('bridge', () => {
             return results;
         });
 
-        await expect(addToIlm(['ab'], 'g', null)).resolves.toEqual(results);
-        expect(calls).toEqual([{ command: 'add_to_ilm', args: { fingerprints: ['ab'], group: 'g', raProfile: null } }]);
+        await expect(addToIlm(['ab'], 'g', null, null)).resolves.toEqual(results);
+        expect(calls).toEqual([{ command: 'add_to_ilm', args: { fingerprints: ['ab'], group: 'g', raProfile: null, form: null } }]);
+    });
+
+    it('the form functions call their commands with the form, the field and the values', async () => {
+        const calls: { command: string; args: unknown }[] = [];
+        mockIPC((command, args) => {
+            calls.push({ command, args });
+            return command === 'check_attributes' ? { revision: 3, problems: [{ name: 'dept', problem: 'required' }] } : null;
+        });
+        const values = { dept: { kind: 'text', value: 'x' } } as const;
+
+        await attributeCallback('f1', 'dept', values, 2);
+        await expect(checkAttributes('f1', values)).resolves.toEqual({ revision: 3, problems: [{ name: 'dept', problem: 'required' }] });
+        await closeForm('f1');
+        await openInIlm('addToIlm');
+
+        expect(calls).toEqual([
+            { command: 'attribute_callback', args: { id: 'f1', field: 'dept', values, seq: 2 } },
+            { command: 'check_attributes', args: { id: 'f1', values } },
+            { command: 'close_form', args: { id: 'f1' } },
+            { command: 'open_in_ilm', args: { target: 'addToIlm' } },
+        ]);
+    });
+
+    it('addToIlm sends the form and formProblems reads the problems of a refused form', async () => {
+        const problems = [{ name: 'dept', problem: 'required' }];
+        const calls: unknown[] = [];
+        mockIPC((_command, args) => {
+            calls.push(args);
+            return Promise.reject({ problems });
+        });
+        const form = { id: 'f1', values: { dept: { kind: 'text', value: '' } } } as const;
+
+        const refused = await addToIlm(['ab'], null, null, form).catch((error) => error);
+
+        expect(calls).toEqual([{ fingerprints: ['ab'], group: null, raProfile: null, form }]);
+        expect(formProblems(refused)).toEqual(problems);
+        expect(formProblems('ILM does not allow this.')).toBeNull();
+        expect(formProblems(null)).toBeNull();
     });
 
     it('windowLabel returns the label of the current window', () => {

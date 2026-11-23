@@ -12,6 +12,7 @@ use super::{
     Active, Again, CONNECT_FIRST, CallError, CertificateCall, CertificateChoice, Connection,
     Credential, Session, SessionView, SignInKind, State, is_current, lock,
 };
+use crate::attributes::FieldProblem;
 use crate::identity::certificate::epoch_millis;
 use crate::identity::{self, Fingerprint, IdentityStore, is_signing_refused};
 use crate::ilm::IlmUrl;
@@ -56,6 +57,14 @@ pub enum ChangeError {
     Malformed,
     /// The caller withdrew before ILM was asked to change anything.
     Withdrawn,
+    /// The form of the add is not open any more.
+    FormGone,
+    /// The form asks for an attribute this application cannot show.
+    FormBlocked,
+    /// The values of the form cannot be read.
+    FormValues,
+    /// The values of the form have these problems; nothing was sent.
+    FormProblems(Vec<FieldProblem>),
 }
 
 impl std::fmt::Display for ChangeError {
@@ -77,6 +86,14 @@ impl std::fmt::Display for ChangeError {
             ChangeError::Rejected(messages) => f.write_str(&messages.join(" ")),
             ChangeError::Unexpected(status) => write!(f, "ILM answered with an error ({status})."),
             ChangeError::Withdrawn => f.write_str("The change was not made."),
+            ChangeError::FormGone => {
+                f.write_str("This form is no longer open. Open Add to ILM again.")
+            }
+            ChangeError::FormBlocked => f.write_str("This form needs ILM's web interface."),
+            ChangeError::FormValues => f.write_str("The values of this form cannot be read."),
+            ChangeError::FormProblems(_) => {
+                f.write_str("The form has problems. Correct them and try again.")
+            }
             ChangeError::Malformed => {
                 f.write_str("ILM answered in a way this application does not understand.")
             }

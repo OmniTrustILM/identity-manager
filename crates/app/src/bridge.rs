@@ -732,6 +732,50 @@ mod tests {
     }
 
     #[test]
+    fn the_attributes_capability_grants_only_the_form_commands_to_the_main_window() {
+        let file = include_str!("../capabilities/attributes.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["windows"], serde_json::json!(["main"]));
+        assert!(parsed.get("platforms").is_none());
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!([
+                "allow-attribute-callback",
+                "allow-check-attributes",
+                "allow-close-form",
+                "allow-open-in-ilm"
+            ])
+        );
+    }
+
+    const FORM_COMMANDS: [(&str, &str); 4] = [
+        (
+            "attribute_callback",
+            r#"{"id":"x","field":"f","values":{},"seq":1}"#,
+        ),
+        ("check_attributes", r#"{"id":"x","values":{}}"#),
+        ("close_form", r#"{"id":"x"}"#),
+        ("open_in_ilm", r#"{"target":"addToIlm"}"#),
+    ];
+
+    #[test]
+    fn only_the_main_window_may_use_the_form_commands() {
+        for (command, body) in FORM_COMMANDS {
+            let body: serde_json::Value = serde_json::from_str(body).unwrap();
+            for label in ["main", "summary", "settings"] {
+                let answer = call_in(label, LOCAL_ORIGIN, command, body.clone());
+                assert_eq!(
+                    refused_by_capabilities(&answer),
+                    label != "main",
+                    "{label} {command}: {answer:?}"
+                );
+            }
+            let answer = call_from("https://example.com", command, body);
+            assert!(refused_by_capabilities(&answer), "{command}: {answer:?}");
+        }
+    }
+
+    #[test]
     fn the_overview_capability_grants_only_the_overview_to_the_main_window_and_the_summary() {
         let file = include_str!("../capabilities/overview.json");
         let parsed: serde_json::Value = serde_json::from_str(file).unwrap();

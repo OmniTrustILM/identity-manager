@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/experimental-ct-react';
 import type { Locator, Page } from '@playwright/test';
 import { keyboardReady } from '../../playwright/focus';
+import { attributeField, attributeForm, controlFields, unsupportedForm } from '../../playwright/attributes';
 import { attentionCertificates } from '../../playwright/ilm';
 import { AddToIlmStory } from '../../playwright/stories';
 import type { AddChoicesView, AddResultView, Platform } from '../bridge';
@@ -15,6 +16,7 @@ const choices: AddChoicesView = {
         { uuid: 'g-ops', name: 'Operations' },
     ],
     raProfiles: [{ uuid: 'ra-client', name: 'Client certificates', authority: 'Demo CA' }],
+    customAttributes: null,
 };
 const results: AddResultView[] = [
     { fingerprint: 'LO:wifi-corp', outcome: 'added', messages: [] },
@@ -94,7 +96,7 @@ test('on Windows the confirming button comes first', async ({ mount, page }) => 
 });
 
 test('without the listings there is no Group and no RA Profile', async ({ mount, page }) => {
-    await open(page, mount, 'macos', 'dark', { adding: { choices: { groups: null, raProfiles: null }, results } });
+    await open(page, mount, 'macos', 'dark', { adding: { choices: { groups: null, raProfiles: null, customAttributes: null }, results } });
 
     await expect(page.getByRole('dialog').getByRole('combobox')).toHaveCount(0);
     await expect(page.getByText('With an RA Profile')).toHaveCount(0);
@@ -152,6 +154,15 @@ test('Escape and Cancel close it before anything is added', async ({ mount, page
     await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('a listing of the choices that fails says so and leaves only Cancel', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', { adding: { refuseChoices: true } });
+
+    await expect(page.getByRole('alert')).toHaveText('ILM did not answer. Try again later.');
+    await expect(page.getByRole('dialog').getByRole('button')).toHaveText(['Cancel']);
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('a refusal from the command is said in words and the person can try again', async ({ mount, page }) => {
     await open(page, mount, 'macos', 'light', { adding: { choices, refuse: 'ILM cannot be reached.' } });
 
@@ -169,4 +180,109 @@ test('the page behind the dialog cannot take the focus', async ({ mount, page })
 
     await expect(page.getByRole('button', { name: 'Open' })).not.toBeFocused();
     await expect(page.getByRole('button', { name: 'Add 3 to ILM' })).toBeFocused();
+});
+
+const withForm = (form = attributeForm(controlFields)): AddChoicesView => ({ ...choices, customAttributes: form });
+
+for (const os of ['macos', 'windows'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+        test(`on ${os} in ${scheme} the form scrolls inside the dialog while the buttons stay in view and a problem has the colour of the tokens`, async ({
+            mount,
+            page,
+        }) => {
+            await open(page, mount, os, scheme, {
+                adding: { choices: withForm(), results, problems: [{ name: 'owner', problem: { kind: 'required' } }] },
+            });
+            const dialog = page.getByRole('dialog');
+            await expect(dialog.getByRole('heading', { name: 'Custom attributes' })).toBeAttached();
+
+            const owner = dialog.getByRole('textbox', { name: 'Owner', exact: true });
+            await owner.focus();
+            await dialog.getByRole('textbox', { name: 'Description', exact: true }).focus();
+
+            await expect(owner).toHaveAccessibleDescription(/Enter a value\./);
+            const colour = await owner.evaluate((input) => getComputedStyle(input).borderTopColor);
+            expect(colour).toBe(bad[os][scheme]);
+            await expect(dialog.getByRole('button', { name: 'Add 3 to ILM' })).toBeDisabled();
+            await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeInViewport();
+            const scrolls = await dialog.evaluate((element) => {
+                const body = [...element.querySelectorAll('div')].find(
+                    (item) => item.scrollHeight > item.clientHeight + 1 && getComputedStyle(item).overflowY === 'auto',
+                );
+                return { box: element.getBoundingClientRect().height <= window.innerHeight, scrolls: body !== undefined };
+            });
+            expect(scrolls).toEqual({ box: true, scrolls: true });
+        });
+    }
+}
+
+test('the form is sent with the values the person gave, and the add is not blocked by a form that is fine', async ({ mount, page }) => {
+    const seen: { command: string; args: unknown }[] = [];
+    await open(page, mount, 'macos', 'light', {
+        adding: {
+            choices: withForm(attributeForm([attributeField('owner', { label: 'Owner', required: true })])),
+            results,
+            seen: (command, args) => seen.push({ command, args }),
+        },
+    });
+    const dialog = page.getByRole('dialog');
+
+    await dialog.getByRole('textbox', { name: 'Owner', exact: true }).fill('Alex');
+    const add = dialog.getByRole('button', { name: 'Add 3 to ILM' });
+    await expect(add).toBeEnabled();
+    await add.click();
+
+    await expect(dialog.getByRole('list', { name: 'Results' })).toBeVisible();
+    const sent = seen.find((entry) => entry.command === 'add_to_ilm')?.args as { form: unknown };
+    expect(sent.form).toEqual({ id: 'form-1', values: { owner: { kind: 'text', value: 'Alex' } } });
+});
+
+test('a required attribute that cannot be shown keeps the add off and says what to do', async ({ mount, page }) => {
+    const seen: string[] = [];
+    await open(page, mount, 'windows', 'dark', {
+        adding: { choices: withForm(unsupportedForm), results, seen: (command) => seen.push(command) },
+    });
+    const dialog = page.getByRole('dialog');
+
+    await expect(dialog.getByText('This form needs ILM’s web interface.')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Add 3 to ILM' })).toBeDisabled();
+    await dialog.getByRole('button', { name: 'Open in ILM' }).click();
+
+    await expect.poll(() => seen).toContain('open_in_ilm');
+});
+
+test('the problems the add came back with show on the fields and the form stays', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'dark', {
+        adding: {
+            choices: withForm(attributeForm([attributeField('owner', { label: 'Owner' })])),
+            results,
+            refuseProblems: [{ name: 'owner', problem: { kind: 'pattern', message: 'Use a company name.' } }],
+        },
+    });
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox', { name: 'Owner', exact: true }).fill('x');
+
+    await dialog.getByRole('button', { name: 'Add 3 to ILM' }).click();
+
+    await expect(dialog.getByRole('alert').filter({ hasText: 'Some attributes need your attention.' })).toHaveCount(1);
+    await expect(dialog.getByRole('textbox', { name: 'Owner', exact: true })).toHaveAccessibleDescription('Use a company name.');
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible();
+});
+
+test('Cancel closes the form, and without custom attributes nothing is left to close', async ({ mount, page }) => {
+    const seen: { command: string; args: unknown }[] = [];
+    await open(page, mount, 'macos', 'light', {
+        adding: {
+            choices: withForm(attributeForm([attributeField('owner', { label: 'Owner' })])),
+            results,
+            seen: (command, args) => seen.push({ command, args }),
+        },
+    });
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    await expect
+        .poll(() => seen.filter((entry) => entry.command === 'close_form'))
+        .toEqual([{ command: 'close_form', args: { id: 'form-1' } }]);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
 });

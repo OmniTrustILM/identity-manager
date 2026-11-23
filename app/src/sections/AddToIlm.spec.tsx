@@ -2,8 +2,16 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import type { AddChoicesView, AddResultView, LocalCertificateView } from '../bridge';
+import type {
+    AddChoicesView,
+    AddResultView,
+    AttributeFieldProblem,
+    AttributeFieldView,
+    AttributeFormView,
+    LocalCertificateView,
+} from '../bridge';
 import { strings } from '../strings';
+import { checkDelay } from '../components/AttributeForm/AttributeForm';
 import { AddToIlm } from './AddToIlm';
 
 const at = new Date(2027, 5, 12).getTime();
@@ -34,6 +42,7 @@ const both: AddChoicesView = {
         { uuid: 'g-ops', name: 'Operations' },
     ],
     raProfiles: [{ uuid: 'ra-client', name: 'Client certificates', authority: 'Demo CA' }],
+    customAttributes: null,
 };
 
 let container: HTMLElement;
@@ -44,17 +53,28 @@ let result: AddResultView[] | string | 'later';
 let finish: (results: AddResultView[]) => void;
 let asked: unknown[];
 let closed: number;
+let checkProblems: AttributeFieldProblem[];
+let closedForms: unknown[];
 
 beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
-    choices = { groups: null, raProfiles: null };
+    choices = { groups: null, raProfiles: null, customAttributes: null };
     result = [];
     asked = [];
     closed = 0;
+    checkProblems = [];
+    closedForms = [];
     mockIPC((command, args) => {
+        if (command === 'check_attributes') {
+            return { revision: 0, problems: checkProblems };
+        }
+        if (command === 'close_form') {
+            closedForms.push(args);
+            return undefined;
+        }
         if (command === 'add_to_ilm_choices') {
             if (choices === 'later') {
                 return new Promise((resolve) => (release = resolve));
@@ -97,7 +117,7 @@ test('shows nothing until ILM has said what may be chosen', async () => {
     await render();
     expect(container.querySelector('dialog')).toBeNull();
 
-    await act(async () => release({ groups: null, raProfiles: null }));
+    await act(async () => release({ groups: null, raProfiles: null, customAttributes: null }));
 
     expect(dialog().open).toBe(true);
 });
@@ -166,12 +186,12 @@ test('shows a group and an RA Profile only when ILM lets the person list them', 
     expect(selects()).toHaveLength(0);
     expect(dialog().textContent).not.toContain(strings.raProfileHint);
 
-    choices = { groups: both.groups, raProfiles: null };
+    choices = { groups: both.groups, raProfiles: null, customAttributes: null };
     await act(async () => root.render(null));
     await render();
     expect(selects().map((select) => select.labels?.[0]?.textContent)).toEqual([strings.group]);
 
-    choices = { groups: null, raProfiles: both.raProfiles };
+    choices = { groups: null, raProfiles: both.raProfiles, customAttributes: null };
     await act(async () => root.render(null));
     await render();
     expect(selects().map((select) => select.labels?.[0]?.textContent)).toEqual([strings.raProfile]);
@@ -199,7 +219,7 @@ test('adds the checked certificates with the chosen group and RA Profile', async
 
     await act(async () => button('Add 2 to ILM')?.click());
 
-    expect(asked).toEqual([{ fingerprints: ['FP:wifi-corp', 'FP:Lab device'], group: 'g-ops', raProfile: 'ra-client' }]);
+    expect(asked).toEqual([{ fingerprints: ['FP:wifi-corp', 'FP:Lab device'], group: 'g-ops', raProfile: 'ra-client', form: null }]);
 });
 
 test('adds with no group and no RA Profile when none is chosen', async () => {
@@ -208,15 +228,23 @@ test('adds with no group and no RA Profile when none is chosen', async () => {
 
     await act(async () => button('Add 3 to ILM')?.click());
 
-    expect(asked).toEqual([{ fingerprints: ['FP:wifi-corp', 'FP:vpn-client', 'FP:Lab device'], group: null, raProfile: null }]);
+    expect(asked).toEqual([{ fingerprints: ['FP:wifi-corp', 'FP:vpn-client', 'FP:Lab device'], group: null, raProfile: null, form: null }]);
 });
 
-test('a refused listing of the choices leaves the dialog without them', async () => {
+test('a refused listing of the choices says so and offers no way to add', async () => {
     choices = 'refused';
     await render();
 
     expect(dialog().querySelector('h2')).not.toBeNull();
+    expect(dialog().querySelector('[role="alert"]')?.textContent).toBe(strings.choicesUnavailable);
+    expect(buttons()).toEqual([strings.cancel]);
+    expect(dialog().querySelector('input[type="checkbox"]')).toBeNull();
     expect(selects()).toHaveLength(0);
+    await act(async () => button(strings.cancel)?.click());
+    await act(async () => {
+        dialog().dispatchEvent(new Event('cancel', { cancelable: true }));
+    });
+    expect(closed).toBe(2);
 });
 
 test('while adding the button shows progress and nothing can be done or withdrawn', async () => {
@@ -332,10 +360,157 @@ test('keeps to the certificates it was opened for when the request changes while
     await render([wifi]);
     await render([vpn]);
 
-    await act(async () => release({ groups: null, raProfiles: null }));
+    await act(async () => release({ groups: null, raProfiles: null, customAttributes: null }));
 
     expect(dialog().textContent).toContain(wifi.name);
     expect(dialog().textContent).not.toContain(vpn.name);
     expect(boxes().map((box) => box.checked)).toEqual([true]);
     expect((button('Add 1 to ILM') as HTMLButtonElement).disabled).toBe(false);
+});
+
+const owner: AttributeFieldView = {
+    name: 'owner',
+    label: 'Owner',
+    description: null,
+    kind: 'textline',
+    required: true,
+    readOnly: false,
+    hidden: false,
+    extensible: false,
+    valueKind: null,
+    options: [],
+    value: null,
+    language: null,
+    constraints: [],
+    callback: { kind: 'none' },
+    changedAt: 0,
+    resetAt: 0,
+    valueSetAt: 0,
+};
+const attributes = (over: Partial<AttributeFormView> = {}): AttributeFormView => ({
+    id: 'form-1',
+    revision: 0,
+    groups: [{ title: null, fields: [owner] }],
+    unsupported: [],
+    web: null,
+    ...over,
+});
+const settle = (ms = 20) => act(async () => new Promise((resolve) => setTimeout(resolve, ms)));
+const field = () => dialog().querySelector('input[type="text"]') as HTMLInputElement;
+const typeInto = (input: HTMLInputElement, value: string) =>
+    act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+test('shows the custom attributes under Group and RA Profile', async () => {
+    choices = { ...both, customAttributes: attributes() };
+    await render();
+
+    const labels = [...dialog().querySelectorAll('label, h3')].map((item) => item.textContent);
+    expect(labels.slice(-3)).toEqual([strings.raProfile, strings.customAttributes, 'Owner*']);
+    await settle();
+    expect((button('Add 3 to ILM') as HTMLButtonElement).disabled).toBe(false);
+});
+
+test('the button stays off while the form has a problem', async () => {
+    checkProblems = [{ name: 'owner', problem: { kind: 'required' } }];
+    choices = { ...both, customAttributes: attributes() };
+    await render();
+    await settle();
+
+    expect((button('Add 3 to ILM') as HTMLButtonElement).disabled).toBe(true);
+});
+
+test('adds with the form and the values the person gave', async () => {
+    choices = { ...both, customAttributes: attributes() };
+    await render();
+    await typeInto(field(), 'Alex');
+    await settle(checkDelay + 50);
+
+    await act(async () => button('Add 3 to ILM')?.click());
+
+    expect(asked).toEqual([
+        {
+            fingerprints: ['FP:wifi-corp', 'FP:vpn-client', 'FP:Lab device'],
+            group: null,
+            raProfile: null,
+            form: { id: 'form-1', values: { owner: { kind: 'text', value: 'Alex' } } },
+        },
+    ]);
+});
+
+test('a required attribute that cannot be shown keeps the button off and says why', async () => {
+    choices = { ...both, customAttributes: attributes({ unsupported: ['Cost center'] }) };
+    await render();
+    await settle();
+
+    expect((button('Add 3 to ILM') as HTMLButtonElement).disabled).toBe(true);
+    expect(dialog().textContent).toContain(strings.formNeedsIlm);
+    expect(dialog().textContent).toContain(strings.attributeUnsupported('Cost center'));
+    expect(button(strings.openInIlm)).toBeDefined();
+});
+
+test('without custom attributes there is no hint and the dialog is as before', async () => {
+    choices = both;
+    await render();
+
+    expect(dialog().textContent).not.toContain(strings.formNeedsIlm);
+    expect(dialog().textContent).not.toContain(strings.customAttributes);
+});
+
+test('the problems the add came back with show on the fields and the person can correct and send again', async () => {
+    choices = { ...both, customAttributes: attributes() };
+    await render();
+    await typeInto(field(), 'Alex');
+    await settle(checkDelay + 50);
+    result = { problems: [{ name: 'owner', problem: { kind: 'pattern', message: 'Use a company name.' } }] } as never;
+    mockIPC((command, args) => {
+        if (command === 'add_to_ilm') {
+            asked.push(args);
+            return Promise.reject({ problems: [{ name: 'owner', problem: { kind: 'pattern', message: 'Use a company name.' } }] });
+        }
+        if (command === 'check_attributes') {
+            return { revision: 0, problems: [] };
+        }
+        return command === 'add_to_ilm_choices' ? choices : undefined;
+    });
+
+    await act(async () => button('Add 3 to ILM')?.click());
+
+    expect([...dialog().querySelectorAll('[role="alert"]')].map((item) => item.textContent)).toContain(strings.attributesNeedAttention);
+    expect(document.getElementById(field().getAttribute('aria-describedby') ?? '')?.textContent).toBe('Use a company name.');
+    expect(button(strings.cancel)).toBeDefined();
+    expect(closedForms).toEqual([]);
+});
+
+test('Cancel and Escape close the form, and a finished add does not', async () => {
+    choices = { ...both, customAttributes: attributes() };
+    await render();
+    await settle();
+
+    await act(async () => button(strings.cancel)?.click());
+    await act(async () => {
+        dialog().dispatchEvent(new Event('cancel', { cancelable: true }));
+    });
+
+    expect(closedForms).toEqual([{ id: 'form-1' }, { id: 'form-1' }]);
+    expect(closed).toBe(2);
+
+    result = [];
+    await act(async () => button('Add 3 to ILM')?.click());
+    await act(async () => button(strings.close)?.click());
+    expect(closedForms).toHaveLength(2);
+});
+
+test('a form that cannot be closed does not keep the dialog open', async () => {
+    choices = { ...both, customAttributes: attributes() };
+    await render();
+    mockIPC((command) =>
+        command === 'close_form' ? Promise.reject('locked') : command === 'check_attributes' ? { revision: 0, problems: [] } : undefined,
+    );
+
+    await act(async () => button(strings.cancel)?.click());
+
+    expect(closed).toBe(1);
 });

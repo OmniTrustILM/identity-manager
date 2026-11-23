@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
+use im_core::attributes::FieldProblem;
 #[cfg(not(windows))]
 use im_core::identity::NoProviders;
 use im_core::identity::{
@@ -15,7 +16,8 @@ use im_core::inventory::{
     AddChoicesView, AddResultView, IlmPageView, Inventory, InventoryView, Status, Summary,
     SummaryView, Trigger,
 };
-use im_core::session::{Session, SessionView};
+use im_core::session::{ChangeError, FormInput, Session, SessionView};
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::keep_alive::{Checks, renew};
@@ -86,6 +88,37 @@ async fn list(
             log::warn!("the certificates cannot be listed: {reason}");
             Err(unreadable_message(keychain).to_owned())
         }
+    }
+}
+
+/// What the interface gets when an add is refused: ILM's or the application's words, or the problems of the form,
+/// with which nothing was sent.
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum AddToIlmError {
+    Refused(String),
+    Problems(FormProblems),
+}
+
+/// The fields of the form that have a problem.
+#[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct FormProblems {
+    pub problems: Vec<FieldProblem>,
+}
+
+impl From<ChangeError> for AddToIlmError {
+    fn from(error: ChangeError) -> Self {
+        match error {
+            ChangeError::FormProblems(problems) => Self::Problems(FormProblems { problems }),
+            other => Self::Refused(other.to_string()),
+        }
+    }
+}
+
+impl From<String> for AddToIlmError {
+    fn from(message: String) -> Self {
+        Self::Refused(message)
     }
 }
 
@@ -256,8 +289,12 @@ impl<R: Runtime> Ilm<R> {
         }
     }
 
-    fn unlocked(&self) -> Result<(), String> {
+    pub(crate) fn unlocked(&self) -> Result<(), String> {
         self.guard.ensure_unlocked()
+    }
+
+    pub(crate) fn session(&self) -> &Session {
+        &self.session
     }
 
     async fn page(&self, number: u32, search: Option<String>) -> Result<IlmPageView, String> {
@@ -300,7 +337,8 @@ impl<R: Runtime> Ilm<R> {
         fingerprints: Vec<String>,
         group: Option<String>,
         ra_profile: Option<String>,
-    ) -> Result<Vec<AddResultView>, String> {
+        form: Option<FormInput>,
+    ) -> Result<Vec<AddResultView>, AddToIlmError> {
         self.unlocked()?;
         let added = self
             .working(self.session.add_to_ilm(
@@ -308,11 +346,12 @@ impl<R: Runtime> Ilm<R> {
                 fingerprints,
                 group,
                 ra_profile,
+                form,
                 || !self.guard.is_locked(),
             ))
             .await;
         self.unlocked()?;
-        let results = added.map_err(|error| error.to_string())?;
+        let results = added?;
         Ok(results.into_iter().map(AddResultView::from).collect())
     }
 
@@ -421,8 +460,9 @@ pub async fn add_to_ilm<R: Runtime>(
     fingerprints: Vec<String>,
     group: Option<String>,
     ra_profile: Option<String>,
-) -> Result<Vec<AddResultView>, String> {
-    ilm(&app).add(fingerprints, group, ra_profile).await
+    form: Option<FormInput>,
+) -> Result<Vec<AddResultView>, AddToIlmError> {
+    ilm(&app).add(fingerprints, group, ra_profile, form).await
 }
 
 #[tauri::command]
@@ -438,6 +478,7 @@ pub async fn local_certificates<R: Runtime>(
 mod tests {
     use super::*;
     use crate::lock::{NoPrompt, NoState, Surface};
+    use im_core::attributes::Problem;
     use im_core::identity::{
         ClientIdentity, Fingerprint, KeyAlgorithm, KeyLocation, LocalCertificate,
     };
@@ -490,6 +531,31 @@ mod tests {
         keychain: bool,
     ) -> Result<Vec<LocalCertificateView>, String> {
         tauri::async_runtime::block_on(list(&unlocked(), Arc::new(Fixed(store)), keychain))
+    }
+
+    #[test]
+    fn an_add_refused_for_its_form_carries_the_problems_and_any_other_refusal_stays_text() {
+        let problem = FieldProblem {
+            name: "dept".to_owned(),
+            problem: Problem::Required,
+        };
+        let with_problems = AddToIlmError::from(ChangeError::FormProblems(vec![problem.clone()]));
+        assert_eq!(
+            serde_json::to_value(with_problems).unwrap(),
+            serde_json::json!({ "problems": [serde_json::to_value(problem).unwrap()] })
+        );
+        let other = AddToIlmError::from(ChangeError::NotAllowed);
+        assert_eq!(
+            serde_json::to_value(other).unwrap(),
+            serde_json::json!("ILM does not allow this.")
+        );
+        assert_eq!(
+            serde_json::to_value(AddToIlmError::from(
+                "Unlock Identity Manager first.".to_owned()
+            ))
+            .unwrap(),
+            serde_json::json!("Unlock Identity Manager first.")
+        );
     }
 
     #[test]

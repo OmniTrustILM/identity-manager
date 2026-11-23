@@ -2,9 +2,11 @@ use std::future::Future;
 use std::sync::Arc;
 
 use im_core::identity::IdentityStore;
+use im_core::ilm::IlmUrl;
+use im_core::ilm::attributes::{WebTarget, web_url};
 use im_core::inventory::{Inventory, Trigger};
 use im_core::session::{
-    CertificateChoice, KeyringStore, MemoryStore, ProviderChoice, RefreshStore, Session,
+    CertificateChoice, FormError, KeyringStore, MemoryStore, ProviderChoice, RefreshStore, Session,
     SessionView, SignInAgain,
 };
 use im_core::{AppInfo, http};
@@ -128,6 +130,10 @@ pub fn manage<R: Runtime>(
         let ilm = ilm.clone();
         move || ilm.signed_out()
     });
+    guard.on_lock({
+        let session = session.clone();
+        move || session.close_forms()
+    });
     app.manage(ilm.clone());
     app.manage(SignIn {
         session: session.clone(),
@@ -188,6 +194,25 @@ pub fn manage_for_tests<R: Runtime>(app: &AppHandle<R>) {
         system_guard(app, Mode::SelfCheck),
         crate::certificates::system_identities(),
     );
+}
+
+impl SignIn {
+    /// Opens the page of ILM's web interface that `target` names, in the browser.
+    pub(crate) fn open_in_ilm(&self, target: &WebTarget) -> Result<(), String> {
+        self.guard.ensure_unlocked()?;
+        let who = self
+            .session
+            .signed_in_as()
+            .ok_or_else(|| FormError::SignedOut.to_string())?;
+        self.open_page(&who.ilm, target)
+    }
+
+    fn open_page(&self, ilm: &IlmUrl, target: &WebTarget) -> Result<(), String> {
+        let url = Url::parse(&web_url(ilm, target))
+            .map_err(|_| "ILM's web interface cannot be opened.".to_owned())?;
+        self.opener.open(&url);
+        Ok(())
+    }
 }
 
 fn state<R: Runtime>(app: &AppHandle<R>) -> State<'_, SignIn> {
@@ -399,7 +424,11 @@ mod tests {
                 crate::certificates::make_sign_in_certificate,
                 crate::certificates::overview,
                 crate::certificates::add_to_ilm_choices,
-                crate::certificates::add_to_ilm
+                crate::certificates::add_to_ilm,
+                crate::attributes::attribute_callback,
+                crate::attributes::check_attributes,
+                crate::attributes::close_form,
+                crate::attributes::open_in_ilm
             ])
             .build(mock_context(noop_assets()))
             .expect("the mock app builds");
@@ -793,6 +822,58 @@ mod tests {
         refused_as_locked(
             fixture.call("make_sign_in_certificate", fingerprint),
             "make_sign_in_certificate",
+        );
+    }
+
+    fn form_commands() -> [(&'static str, serde_json::Value); 4] {
+        [
+            (
+                "attribute_callback",
+                serde_json::json!({ "id": "x", "field": "f", "values": {}, "seq": 1 }),
+            ),
+            (
+                "check_attributes",
+                serde_json::json!({ "id": "x", "values": {} }),
+            ),
+            ("close_form", serde_json::json!({ "id": "x" })),
+            ("open_in_ilm", serde_json::json!({ "target": "addToIlm" })),
+        ]
+    }
+
+    #[test]
+    fn the_form_commands_refuse_while_locked_and_answer_otherwise() {
+        let fixture = fixture(Mode::SelfCheck);
+        let answers: Vec<_> = form_commands()
+            .into_iter()
+            .map(|(command, body)| fixture.call(command, body))
+            .collect();
+        assert!(answers[0].as_ref().unwrap_err().contains("not signed in"));
+        assert!(answers[1].as_ref().unwrap_err().contains("not open"));
+        assert!(answers[2].is_ok());
+        assert!(answers[3].as_ref().unwrap_err().contains("not signed in"));
+
+        fixture.lock();
+
+        for (command, body) in form_commands() {
+            refused_as_locked(fixture.call(command, body), command);
+        }
+        assert!(fixture.browser.0.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn open_in_ilm_opens_the_page_of_the_target_at_the_origin_of_the_ilm_address() {
+        let fixture = fixture(Mode::SelfCheck);
+        let ilm = IlmUrl::parse("ilm.example.com:8443/core/api").unwrap();
+
+        fixture
+            .app
+            .state::<SignIn>()
+            .open_page(&ilm, &crate::attributes::IlmTarget::AddToIlm.web())
+            .unwrap();
+
+        assert_eq!(
+            *fixture.browser.0.lock().unwrap(),
+            ["https://ilm.example.com:8443/administrator/#/certificates"]
         );
     }
 

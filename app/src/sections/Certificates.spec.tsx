@@ -803,7 +803,7 @@ test('under In ILM a certificate ILM does not know has Add to ILM, which adds it
     expect(container.querySelector('dialog h2')?.textContent).toBe(strings.addTitle(1));
     await act(async () => button(strings.addCount(1))?.click());
 
-    expect(asked).toEqual([{ fingerprints: ['FP:lab'], group: null, raProfile: null }]);
+    expect(asked).toEqual([{ fingerprints: ['FP:lab'], group: null, raProfile: null, form: null }]);
     expect(container.querySelector('dialog')?.textContent).toContain(strings.added);
     await act(async () => button(strings.close)?.click());
     expect(container.querySelector('dialog')).toBeNull();

@@ -1,0 +1,12 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "attributes",
+    "description": "The main window may run the callbacks and checks of an attribute form, close it and open ILM's web interface.",
+    "windows": ["main"],
+    "permissions": [
+        "allow-attribute-callback",
+        "allow-check-attributes",
+        "allow-close-form",
+        "allow-open-in-ilm"
+    ]
+}

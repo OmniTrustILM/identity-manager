@@ -84,6 +84,8 @@ pub struct Guard {
     /// should have hidden it.
     shown: Mutex<()>,
     listeners: Mutex<Vec<Listener>>,
+    /// Called each time the application locks.
+    on_lock: Mutex<Vec<Box<dyn Fn() + Send + Sync>>>,
 }
 
 fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -132,6 +134,7 @@ impl Guard {
             prompting: tokio::sync::Mutex::new(()),
             shown: Mutex::new(()),
             listeners: Mutex::default(),
+            on_lock: Mutex::default(),
         }
     }
 
@@ -160,6 +163,11 @@ impl Guard {
     /// Calls `listener` with every sign-in view as the session reported it, locked or not.
     pub fn listen(&self, listener: impl Fn(&SessionView) + Send + Sync + 'static) {
         locked(&self.listeners).push(Box::new(listener));
+    }
+
+    /// Calls `action` each time the application locks, for what must not outlive the person's presence.
+    pub fn on_lock(&self, action: impl Fn() + Send + Sync + 'static) {
+        locked(&self.on_lock).push(Box::new(action));
     }
 
     /// The last view the session reported, locked or not.
@@ -292,6 +300,9 @@ impl Guard {
             match change {
                 Change::Locked(reason) => {
                     log::info!("locked: {}", reason_name(reason));
+                    for action in locked(&self.on_lock).iter() {
+                        action();
+                    }
                     self.surface.hide_summary();
                     self.surface.show(&SessionView::Locked {});
                 }
@@ -616,6 +627,30 @@ mod tests {
 
             assert_eq!(view.unlock, expected);
         }
+    }
+
+    #[tokio::test]
+    async fn what_must_not_outlive_the_person_is_dropped_at_each_lock_and_not_at_an_unlock() {
+        let fixture = signed_in_fixture().await;
+        let locks = Arc::new(AtomicUsize::new(0));
+        let counted = locks.clone();
+        fixture.guard.on_lock(move || {
+            counted.fetch_add(1, Ordering::SeqCst);
+        });
+
+        fixture.state.set(Some(true), Some(Duration::ZERO));
+        fixture.guard.sample();
+        assert_eq!(locks.load(Ordering::SeqCst), 1);
+
+        fixture.prompt.queue(Confirmation::Confirmed);
+        fixture.guard.unlock().await.unwrap();
+        assert_eq!(locks.load(Ordering::SeqCst), 1);
+
+        fixture.state.set(Some(false), Some(Duration::ZERO));
+        fixture.guard.sample();
+        fixture.state.set(Some(true), Some(Duration::ZERO));
+        fixture.guard.sample();
+        assert_eq!(locks.load(Ordering::SeqCst), 2);
     }
 
     async fn locked_fixture() -> Fixture {
