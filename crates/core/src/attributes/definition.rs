@@ -258,6 +258,8 @@ pub struct Definitions {
     pub fields: Vec<Definition>,
     pub groups: Vec<GroupAttribute>,
     pub unsupported: Vec<Unsupported>,
+    /// The names of the fields and groups each group attribute's static content defined, by group name.
+    pub children: Vec<(String, Vec<String>)>,
 }
 
 enum Read {
@@ -292,8 +294,15 @@ impl Definitions {
                 Read::Group(group) => {
                     let content = item.get("content").and_then(Json::as_array);
                     let inner = content.map(|raw| Self::read_in(raw, &group.name));
+                    if let Some(inner) = &inner {
+                        let fields = inner.fields.iter().map(|field| &field.name);
+                        let groups = inner.groups.iter().map(|group| &group.name);
+                        let names = fields.chain(groups).cloned().collect();
+                        found.children.push((group.name.clone(), names));
+                    }
                     found.groups.push(group);
                     if let Some(inner) = inner {
+                        found.children.extend(inner.children);
                         found.fields.extend(inner.fields);
                         found.groups.extend(inner.groups);
                         found.unsupported.extend(inner.unsupported);

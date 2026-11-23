@@ -480,3 +480,34 @@ fn editable_fields_that_watch_each_other_stop_notifying_once_both_are_empty() {
     assert!(open.clear_current("a", 2, both(), &Values::new()));
     assert_eq!(open.revision, 1);
 }
+
+#[test]
+fn a_groups_answer_replaces_the_fields_its_static_content_defined() {
+    let mut raw = group("extras");
+    raw["content"] = json!([definition(
+        "initial",
+        json!({ "required": true }),
+        json!([]),
+        None
+    )]);
+    let mut open = Form::new(
+        "form".into(),
+        FormContext::Custom,
+        None,
+        Definitions::read(&[raw]),
+    );
+    assert_eq!(names(&open), ["extras", "initial"]);
+
+    let answer = vec![definition("email", json!({}), json!([]), None)];
+    assert!(open.apply("extras", CallbackAnswer::Definitions(answer)));
+
+    assert_eq!(names(&open), ["extras", "email"]);
+    let definitions = open.definitions();
+    assert!(
+        definitions
+            .fields
+            .iter()
+            .all(|field| field.name != "initial")
+    );
+    assert_eq!(open.view().unsupported, Vec::<String>::new());
+}

@@ -104,6 +104,9 @@ struct Form {
     context: FormContext,
     web: Option<String>,
     base: Definitions,
+    /// The names of the fields each group attribute's static content defined, by group name: the group's first
+    /// answer replaces them like it replaces what an earlier answer added.
+    statics: Vec<(String, Vec<String>)>,
     /// The fields each group attribute's callback added, by group name.
     added: Vec<(String, Definitions)>,
     stamps: Stamps,
@@ -115,12 +118,14 @@ struct Form {
 }
 
 impl Form {
-    fn new(id: String, context: FormContext, web: Option<String>, base: Definitions) -> Self {
+    fn new(id: String, context: FormContext, web: Option<String>, mut base: Definitions) -> Self {
+        let statics = std::mem::take(&mut base.children);
         Self {
             id,
             context,
             web,
             base,
+            statics,
             added: Vec::new(),
             stamps: Stamps::new(),
             latest: HashMap::new(),
@@ -187,6 +192,25 @@ impl Form {
             && seq > self.fenced.get(field).copied().unwrap_or(0)
     }
 
+    /// The fields and groups the static content of the group `group` defined, as long as they are in the form.
+    fn static_names<'a>(&'a self, group: &'a str) -> impl Iterator<Item = String> + 'a {
+        self.statics
+            .iter()
+            .filter(move |(owner, _)| owner == group)
+            .flat_map(|(_, names)| names.iter().cloned())
+    }
+
+    /// Removes the fields and groups the static content of each of `groups` defined.
+    fn drop_statics(&mut self, groups: &[String]) {
+        let gone: Vec<String> = groups
+            .iter()
+            .flat_map(|group| self.static_names(group))
+            .collect();
+        self.base.fields.retain(|field| !gone.contains(&field.name));
+        self.base.groups.retain(|group| !gone.contains(&group.name));
+        self.statics.retain(|(owner, _)| !groups.contains(owner));
+    }
+
     /// `names` and everything that goes with them: the fields a group among them added, and every dependant, in
     /// turn.
     fn closure(&self, names: Vec<String>) -> Vec<String> {
@@ -203,6 +227,7 @@ impl Form {
                     more.fields.iter().map(|field| &field.name).chain(groups)
                 })
                 .cloned();
+            let owned = owned.chain(self.static_names(&name));
             let dependants = cleared_with(&definitions, &name);
             for next in owned.chain(dependants) {
                 if !all.contains(&next) {
@@ -274,6 +299,7 @@ impl Form {
             }
         }
         self.added.retain(|(group, _)| !all.contains(group));
+        self.drop_statics(all);
         changes
     }
 
@@ -338,7 +364,11 @@ impl Form {
     /// with the values ILM defined.
     fn replace_fields(&mut self, group: &str, more: Definitions) {
         let old = self.added.iter().find(|(added, _)| added == group);
-        if old.map_or(more.is_empty(), |(_, old)| *old == more) {
+        let unchanged = match old {
+            Some((_, old)) => *old == more,
+            None => more.is_empty() && self.static_names(group).next().is_none(),
+        };
+        if unchanged {
             return;
         }
         let names = |definitions: &Definitions| -> Vec<String> {
@@ -347,6 +377,7 @@ impl Form {
             fields.chain(groups).cloned().collect()
         };
         let mut seeds = old.map(|(_, old)| names(old)).unwrap_or_default();
+        seeds.extend(self.static_names(group));
         let installed = names(&more);
         for name in &installed {
             if !seeds.contains(name) {
@@ -355,6 +386,7 @@ impl Form {
         }
         let all = self.closure(seeds);
         let mut changes = self.invalidate(&all, group, &|_, _| true);
+        self.drop_statics(&[group.to_owned()]);
         self.added.retain(|(added, _)| added != group);
         self.added.push((group.to_owned(), more));
         changes.push((group.to_owned(), Mark::Changed));
