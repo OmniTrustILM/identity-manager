@@ -1691,6 +1691,29 @@ test('Remove clears the size error', async () => {
     expect(button(strings.removeFile('Template'))).toBeUndefined();
 });
 
+test.each([
+    ['optional', false],
+    ['required', true],
+])('an empty file on an %s field is refused, keeps the form not ready, and Remove makes it ready', async (_kind, required) => {
+    await render(form([field({ name: 'f', label: 'Template', kind: 'file', required })]));
+
+    await choosing('empty.txt', 0);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, checkDelay + 50)));
+
+    expect(last().values.f).toBeUndefined();
+    expect(last().ready).toBe(false);
+    const chooser = button(strings.chooseFile) as HTMLButtonElement;
+    expect(describedBy(chooser)).toBe(strings.fileEmpty);
+    expect(chooser.parentElement?.getAttribute('aria-invalid')).toBe('true');
+    expect(container.textContent).not.toContain('empty.txt');
+
+    await click(button(strings.removeFile('Template')));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, checkDelay + 50)));
+
+    expect(describedBy(chooser)).toBe('');
+    expect(last().ready).toBe(true);
+});
+
 test('Remove after a failed read makes an optional form ready, and is reachable by the keyboard', async () => {
     const readers = slowReads();
     await render(form([field({ name: 'f', label: 'Template', kind: 'file' })]));

@@ -286,6 +286,7 @@ export const strings = {
     fileDescription: (name: string, bytes: number) => `${name}, ${fileSize(bytes)}`,
     fileSize,
     fileUnreadable: 'The file cannot be read.',
+    fileEmpty: 'The file is empty.',
     selectValue: 'Select\u2026',
     addValue: 'Add value',
     addValueTo: (label: string) => `Add value to ${label}`,

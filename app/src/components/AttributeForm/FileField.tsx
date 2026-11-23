@@ -32,7 +32,7 @@ export function FileField({ field, value, options, problem, disabled, changedAt,
     const input = useRef<HTMLInputElement>(null);
     const chooser = useRef<HTMLButtonElement>(null);
     /** What went wrong with the file chosen when the field had last changed at this moment; void once the field changes. */
-    const [local, setLocal] = useState<{ at: number; fault: 'tooLarge' | 'unreadable' } | null>(null);
+    const [local, setLocal] = useState<{ at: number; fault: 'tooLarge' | 'empty' | 'unreadable' } | null>(null);
     const selection = useRef(0);
     const busy = useRef(onBusy);
     busy.current = onBusy;
@@ -47,6 +47,8 @@ export function FileField({ field, value, options, problem, disabled, changedAt,
     let shown = problem;
     if (fault === 'tooLarge') {
         shown = strings.attributeProblem({ kind: 'fileTooLarge', max: maxBytes }, 'file');
+    } else if (fault === 'empty') {
+        shown = strings.fileEmpty;
     } else if (fault === 'unreadable') {
         shown = strings.fileUnreadable;
     }
@@ -62,8 +64,8 @@ export function FileField({ field, value, options, problem, disabled, changedAt,
         }
         const mine = ++selection.current;
         const at = changedAt();
-        if (chosen.size > maxBytes) {
-            setLocal({ at, fault: 'tooLarge' });
+        if (chosen.size > maxBytes || chosen.size === 0) {
+            setLocal({ at, fault: chosen.size === 0 ? 'empty' : 'tooLarge' });
             onBusy(true);
             onChange(undefined);
             return;
