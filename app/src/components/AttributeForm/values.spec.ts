@@ -211,3 +211,13 @@ test('the choices of a list that its options no longer offer go, and the rest st
     expect(withoutGoneOptions(values, field({ name: 'l', kind: 'textline' }))).toBe(values);
     expect(withoutGoneOptions({}, list)).toEqual({});
 });
+
+test('a name that shadows an object key is an own key of the values and of their copies', () => {
+    const values = initialValues([field({ name: '__proto__', value: text('x') })]);
+    const changed = withValue(values, 'constructor', text('y'));
+
+    expect(Object.keys(values)).toEqual(['__proto__']);
+    expect(Object.keys(changed)).toEqual(['__proto__', 'constructor']);
+    expect(JSON.stringify(changed)).toBe('{"__proto__":{"kind":"text","value":"x"},"constructor":{"kind":"text","value":"y"}}');
+    expect(withValue(changed, '__proto__', null)).not.toHaveProperty('__proto__');
+});

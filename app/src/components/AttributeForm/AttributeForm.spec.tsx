@@ -1824,3 +1824,35 @@ test('a field a group replaces under the same name keeps the keyboard focus', as
 
     expect(document.activeElement).toBe(control('X'));
 });
+
+test.each(['__proto__', 'constructor', 'toString'])(
+    'a field named %s renders, is checked, runs its callback with a number and sends its value',
+    async (name) => {
+        await render(form([field({ name, label: 'Odd', value: text('v'), callback: { kind: 'onOpen' } })]));
+
+        expect(control('Odd').value).toBe('v');
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+        expect(asked.map((call) => [call.field, call.seq])).toEqual([[name, 1]]);
+        expect(JSON.parse(JSON.stringify(asked[0]?.values))).toEqual(Object.fromEntries([[name, text('v')]]));
+
+        await typeInto(control('Odd'), 'w');
+        await wait(checkDelay);
+
+        expect(Object.keys(checks.at(-1) ?? {})).toEqual([name]);
+        expect(JSON.stringify(checks.at(-1))).toBe(JSON.stringify(Object.fromEntries([[name, text('w')]])));
+        expect(Object.keys(last().values)).toEqual([name]);
+        expect(last().ready).toBe(true);
+    },
+);
+
+test('a late failure of a callback of a field that is gone shows no alert', async () => {
+    const run = holdAnswers();
+    const kept = field({ name: 't', label: 'T', callback: { kind: 'onOpen' } });
+    await render(form([kept, field({ name: 'x', label: 'X', callback: { kind: 'onOpen' } })]));
+
+    await run.finish('t', 1, form([kept], { revision: 1 }));
+    await run.fail('x', 1);
+
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).not.toContain(strings.callbackFailed);
+});

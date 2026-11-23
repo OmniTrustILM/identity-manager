@@ -22,9 +22,12 @@ export function givenValue(field: AttributeFieldView): AttributeValue | null {
     return field.kind && field.kind !== 'info' && !field.hidden ? field.value : null;
 }
 
+/** An empty values map without a prototype, so that a name like `__proto__` or `constructor` is an ordinary key. */
+const noValues = (): FormValues => Object.create(null) as FormValues;
+
 /** What a form starts with: the definition's own value of every field that has a control. */
 export function initialValues(fields: AttributeFieldView[]): FormValues {
-    const values: FormValues = {};
+    const values = noValues();
     for (const field of fields) {
         const value = givenValue(field);
         if (value) {
@@ -40,7 +43,7 @@ export function withValue(values: FormValues, name: string, value: AttributeValu
     if (value == null ? current === undefined : current !== undefined && JSON.stringify(current) === JSON.stringify(value)) {
         return values;
     }
-    const next = { ...values };
+    const next = Object.assign(noValues(), values);
     if (value == null) {
         delete next[name];
     } else {

@@ -67,12 +67,17 @@ function withoutAbsent(values: FormValues, present: Set<string>): FormValues {
 }
 
 /** The answers with the problem a callback gave for a field, or without it when there is none; the same object when nothing changes. */
-function withAnswer(answers: Record<string, string>, name: string, problem: string | null): Record<string, string> {
-    const { [name]: _, ...rest } = answers;
-    if (problem !== null) {
-        return { ...rest, [name]: problem };
+function withAnswer(answers: ReadonlyMap<string, string>, name: string, problem: string | null): ReadonlyMap<string, string> {
+    if (answers.get(name) === problem || (problem === null && !answers.has(name))) {
+        return answers;
     }
-    return name in answers ? rest : answers;
+    const next = new Map(answers);
+    if (problem === null) {
+        next.delete(name);
+    } else {
+        next.set(name, problem);
+    }
+    return next;
 }
 
 const fieldsOf = (form: AttributeFormView): AttributeFieldView[] => form.groups.flatMap((group) => group.fields);
@@ -109,7 +114,7 @@ export function AttributeForm({
     const [values, setValues] = useState(() => initialValues(fieldsOf(form)));
     const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
     const [checked, setChecked] = useState<Checked | null>(null);
-    const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [answers, setAnswers] = useState<ReadonlyMap<string, string>>(new Map());
     const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
     /** The fields whose callback is scheduled or running: until each has answered, the values and choices may be stale. */
     const [active, setActive] = useState<ReadonlySet<string>>(new Set());
@@ -120,19 +125,19 @@ export function AttributeForm({
     const latest = useRef({ snapshot, values });
     const alive = useRef(false);
     /** The runs of each field so far; the core drops the answer of one that a newer run has replaced. */
-    const seqs = useRef<Record<string, number>>({});
+    const seqs = useRef(new Map<string, number>());
     /** The `valueSetAt` of each field that the typed values have taken. */
-    const adopted = useRef<Record<string, number>>({});
+    const adopted = useRef(new Map<string, number>());
     const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
     const checkedOnce = useRef(false);
 
     const fields = () => fieldsOf(latest.current.snapshot);
     /** How often a field's pending file read was voided by a change of a field its callback watches. */
-    const voided = useRef<Record<string, number>>({});
+    const voided = useRef(new Map<string, number>());
     /** Where a field stands: it grows when the field moves or a field it watches changes, so a file read begun before is dropped. */
     const changedAt = (name: string) => {
         const found = fields().find((field) => field.name === name);
-        return found ? movedAt(found) + (voided.current[name] ?? 0) : 0;
+        return found ? movedAt(found) + (voided.current.get(name) ?? 0) : 0;
     };
     /** Whether a field a callback depends on has a value; the core holds the content of a hidden or read-only one. */
     const hasValue = (name: string) => {
@@ -194,7 +199,7 @@ export function AttributeForm({
     /** Voids the file reads pending for `names`: their results are dropped, so the form need not wait for them. */
     const voidReads = (names: readonly string[]) => {
         for (const name of names) {
-            voided.current[name] = (voided.current[name] ?? 0) + 1;
+            voided.current.set(name, (voided.current.get(name) ?? 0) + 1);
         }
         setBusy((current) =>
             [...current].some((name) => names.includes(name)) ? new Set([...current].filter((name) => !names.includes(name))) : current,
@@ -203,10 +208,10 @@ export function AttributeForm({
 
     const run = (name: string) => {
         unschedule(name);
-        const seq = (seqs.current[name] ?? 0) + 1;
-        seqs.current[name] = seq;
+        const seq = (seqs.current.get(name) ?? 0) + 1;
+        seqs.current.set(name, seq);
         track(name);
-        const settled = () => seqs.current[name] === seq && !timers.current.has(name) && settle(name);
+        const settled = () => seqs.current.get(name) === seq && !timers.current.has(name) && settle(name);
         setAnswers((current) => withAnswer(current, name, null));
         attributeCallback(form.id, name, latest.current.values, seq).then(
             (result) => {
@@ -215,7 +220,7 @@ export function AttributeForm({
                 }
                 take(result.form);
                 settled();
-                if (seqs.current[result.field] === result.seq) {
+                if (seqs.current.get(result.field) === result.seq) {
                     setAnswers((current) => withAnswer(current, result.field, result.problem));
                 }
             },
@@ -223,8 +228,8 @@ export function AttributeForm({
                 if (alive.current) {
                     settled();
                 }
-                if (alive.current && seqs.current[name] === seq) {
-                    setAnswers((current) => ({ ...current, [name]: strings.callbackFailed }));
+                if (alive.current && seqs.current.get(name) === seq) {
+                    setAnswers((current) => withAnswer(current, name, strings.callbackFailed));
                 }
             },
         );
@@ -240,8 +245,8 @@ export function AttributeForm({
         const settling: AttributeFieldView[] = [];
         const reset: AttributeFieldView[] = [];
         for (const field of fieldsOf(next)) {
-            if (field.valueSetAt > (adopted.current[field.name] ?? 0)) {
-                adopted.current[field.name] = field.valueSetAt;
+            if (field.valueSetAt > (adopted.current.get(field.name) ?? 0)) {
+                adopted.current.set(field.name, field.valueSetAt);
                 const taken = withValue(typed, field.name, givenValue(field));
                 if (taken !== typed) {
                     // The typed value changed under the field's dependants, though ILM's own stamp may not have moved.
@@ -294,6 +299,8 @@ export function AttributeForm({
         for (const name of gone) {
             unschedule(name);
             settle(name);
+            // The answer of a run still under way is no longer wanted.
+            seqs.current.set(name, (seqs.current.get(name) ?? 0) + 1);
         }
         latest.current = { snapshot: next, values: typed };
         setSnapshot(next);
@@ -302,11 +309,7 @@ export function AttributeForm({
         // So is one of a field that watches a field that moved, however indirectly.
         const changed = new Set(moved.concat(settling).map((field) => field.name));
         voidReads([...gone, ...changed, ...downstream(changed)]);
-        setAnswers((current) =>
-            gone.some((name) => name in current)
-                ? Object.fromEntries(Object.entries(current).filter(([name]) => present.has(name)))
-                : current,
-        );
+        setAnswers((current) => gone.reduce((rest, name) => withAnswer(rest, name, null), current));
         followUp(reset, moved);
     };
 
@@ -395,7 +398,7 @@ export function AttributeForm({
     }
     const sections = sectionsOf(snapshot);
     const shown = new Set(sections.flatMap((section) => section.fields.filter(visible).map((field) => field.name)));
-    const unseen = Object.entries(answers).filter(([name]) => !shown.has(name));
+    const unseen = [...answers].filter(([name]) => !shown.has(name));
 
     const touch = (name: string) => setTouched((current) => (current.has(name) ? current : new Set(current).add(name)));
     const markBusy = (name: string, reading: boolean) =>
@@ -413,8 +416,9 @@ export function AttributeForm({
         });
     const problemOf = (field: AttributeFieldView) => {
         const problem = problems.get(field.name);
-        if (answers[field.name]) {
-            return answers[field.name] ?? null;
+        const answer = answers.get(field.name);
+        if (answer) {
+            return answer;
         }
         return problem && (submitted || touched.has(field.name)) ? strings.attributeProblem(problem, field.kind) : null;
     };
