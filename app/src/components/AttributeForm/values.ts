@@ -66,9 +66,10 @@ export function withoutGoneOptions(values: FormValues, field: AttributeFieldView
     }
     if (value?.kind === 'options') {
         const kept = value.value.filter(offered);
-        return kept.length === value.value.length
-            ? values
-            : withValue(values, field.name, kept.length ? { kind: 'options', value: kept } : null);
+        if (kept.length === value.value.length) {
+            return values;
+        }
+        return withValue(values, field.name, kept.length ? { kind: 'options', value: kept } : null);
     }
     return values;
 }
@@ -90,7 +91,8 @@ export function toLocalInput(value: string): string {
         const at = new Date(`${minute}${seconds ?? ':00'}${fraction ?? ''}${offset}`);
         if (!Number.isNaN(at.getTime())) {
             const day = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
-            return `${day}T${pad(at.getHours())}:${pad(at.getMinutes())}${seconds === undefined ? '' : `:${pad(at.getSeconds())}`}`;
+            const second = seconds === undefined ? '' : `:${pad(at.getSeconds())}`;
+            return `${day}T${pad(at.getHours())}:${pad(at.getMinutes())}${second}`;
         }
     }
     return wallClock.exec(value)?.[0] ?? '';
@@ -116,7 +118,12 @@ export function fromLocalInput(local: string): string {
 
 /** The bytes a base64 text stands for. */
 export function base64Size(content: string): number {
-    const padding = content.endsWith('==') ? 2 : content.endsWith('=') ? 1 : 0;
+    let padding = 0;
+    if (content.endsWith('==')) {
+        padding = 2;
+    } else if (content.endsWith('=')) {
+        padding = 1;
+    }
     return Math.floor((content.length * 3) / 4) - padding;
 }
 

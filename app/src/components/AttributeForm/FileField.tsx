@@ -13,7 +13,14 @@ const button =
 function readBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).replace(/^[^,]*,/, ''));
+        reader.onload = () => {
+            const result = reader.result;
+            if (typeof result === 'string') {
+                resolve(result.replace(/^[^,]*,/, ''));
+            } else {
+                reject(new Error('the file cannot be read'));
+            }
+        };
         reader.onerror = () => reject(new Error('the file cannot be read'));
         reader.readAsDataURL(file);
     });
@@ -37,12 +44,12 @@ export function FileField({ field, value, options, problem, disabled, changedAt,
         [],
     );
     const fault = local?.at === changedAt() ? local.fault : null;
-    const shown =
-        fault === 'tooLarge'
-            ? strings.attributeProblem({ kind: 'fileTooLarge', max: maxBytes }, 'file')
-            : fault === 'unreadable'
-              ? strings.fileUnreadable
-              : problem;
+    let shown = problem;
+    if (fault === 'tooLarge') {
+        shown = strings.attributeProblem({ kind: 'fileTooLarge', max: maxBytes }, 'file');
+    } else if (fault === 'unreadable') {
+        shown = strings.fileUnreadable;
+    }
     const file = value?.kind === 'file' ? value.value : null;
     if (field.readOnly) {
         return <ReadOnlyField field={field} text={readable(field, value, options)} />;
@@ -95,7 +102,7 @@ export function FileField({ field, value, options, problem, disabled, changedAt,
 
     return (
         <FieldFrame field={field} ids={{ ...ids, problemId: shown ? `${ids.id}-problem` : null }} problem={shown} spoken>
-            <div className="flex items-center gap-s2">
+            <div aria-invalid={shown ? true : undefined} className="flex items-center gap-s2">
                 <input
                     ref={input}
                     type="file"
@@ -113,7 +120,6 @@ export function FileField({ field, value, options, problem, disabled, changedAt,
                     type="button"
                     tabIndex={0}
                     aria-labelledby={`${ids.labelId} ${ids.id}`}
-                    aria-invalid={shown ? true : undefined}
                     aria-describedby={[ids.hintId, shown ? `${ids.id}-problem` : null].filter(Boolean).join(' ') || undefined}
                     disabled={disabled}
                     onClick={() => input.current?.click()}

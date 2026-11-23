@@ -564,7 +564,13 @@ export function AttributeFormStory({
                 const next = answer?.form ?? form;
                 revision = Math.max(revision, next.revision);
                 const result = { seq, field, form: next, problem: answer?.problem ?? null };
-                return answer?.delay ? new Promise((resolve) => setTimeout(resolve, answer.delay)).then(() => result) : result;
+                if (!answer?.delay) {
+                    return result;
+                }
+                return new Promise((resolve) => setTimeout(resolve, answer.delay)).then(() => {
+                    seen?.('attribute_callback_answered', { field });
+                    return result;
+                });
             }
             return undefined;
         });

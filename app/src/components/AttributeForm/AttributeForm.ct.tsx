@@ -250,19 +250,22 @@ test('a snapshot that comes after a newer one is ignored', async ({ mount, page 
         attributeField('a', { label: 'Server' }),
         attributeField('b', { label: 'Credential', kind: 'select', callback: { kind: 'onChange', value: ['a'] } }),
     ];
+    const seen: string[] = [];
     await open(page, mount, 'windows', 'light', {
         form: attributeForm(fields),
+        seen: (command) => seen.push(command),
         answers: { b: [{ form: answered(fields, 'b', ['Old'], 1), delay: 1500 }, { form: answered(fields, 'b', ['New'], 2) }] },
     });
     const server = page.getByRole('textbox', { name: 'Server' });
     const select = page.getByRole('combobox', { name: 'Credential' });
 
     await server.fill('x');
-    await page.waitForTimeout(700);
+    await expect.poll(() => seen.filter((command) => command === 'attribute_callback')).toHaveLength(1);
     await server.fill('xy');
 
     await expect(select.locator('option')).toHaveText(['None', 'New'], { timeout: 3000 });
-    await page.waitForTimeout(1500);
+    await expect.poll(() => seen).toContain('attribute_callback_answered');
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
     await expect(select.locator('option')).toHaveText(['None', 'New']);
 });
 

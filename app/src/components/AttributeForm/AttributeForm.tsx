@@ -55,6 +55,26 @@ type Checked = { values: FormValues; revision: number; problems: AttributeFieldP
 
 const noProblems: AttributeFieldProblem[] = [];
 
+/** The values with those of the fields that are not `present` cleared. */
+function withoutAbsent(values: FormValues, present: Set<string>): FormValues {
+    let typed = values;
+    for (const name of Object.keys(typed)) {
+        if (!present.has(name)) {
+            typed = withValue(typed, name, null);
+        }
+    }
+    return typed;
+}
+
+/** The answers with the problem a callback gave for a field, or without it when there is none; the same object when nothing changes. */
+function withAnswer(answers: Record<string, string>, name: string, problem: string | null): Record<string, string> {
+    const { [name]: _, ...rest } = answers;
+    if (problem !== null) {
+        return { ...rest, [name]: problem };
+    }
+    return name in answers ? rest : answers;
+}
+
 const fieldsOf = (form: AttributeFormView): AttributeFieldView[] => form.groups.flatMap((group) => group.fields);
 
 /** The groups as shown: the part without a title holds the rows of what cannot be shown. */
@@ -187,10 +207,7 @@ export function AttributeForm({
         seqs.current[name] = seq;
         track(name);
         const settled = () => seqs.current[name] === seq && !timers.current.has(name) && settle(name);
-        setAnswers((current) => {
-            const { [name]: _, ...rest } = current;
-            return name in current ? rest : current;
-        });
+        setAnswers((current) => withAnswer(current, name, null));
         attributeCallback(form.id, name, latest.current.values, seq).then(
             (result) => {
                 if (!alive.current) {
@@ -199,14 +216,7 @@ export function AttributeForm({
                 take(result.form);
                 settled();
                 if (seqs.current[result.field] === result.seq) {
-                    setAnswers((current) => {
-                        const { [result.field]: _, ...rest } = current;
-                        return result.problem === null
-                            ? result.field in current
-                                ? rest
-                                : current
-                            : { ...rest, [result.field]: result.problem };
-                    });
+                    setAnswers((current) => withAnswer(current, result.field, result.problem));
                 }
             },
             () => {
@@ -221,22 +231,11 @@ export function AttributeForm({
     };
 
     /**
-     * Takes a snapshot of the form if it is newer than the one drawn: fields take the value ILM set since, and the
-     * callbacks of reset fields and of fields watching a changed one are scheduled.
+     * The typed values with those ILM set since in `next`, and the fields of `next` that moved, are settling or were reset
+     * against the `known` ones.
      */
-    const take = (next: AttributeFormView) => {
-        const before = latest.current.snapshot;
-        if (next.revision <= before.revision) {
-            return;
-        }
-        const known = new Map(fieldsOf(before).map((field) => [field.name, field]));
-        const present = new Set(fieldsOf(next).map((field) => field.name));
-        let typed = latest.current.values;
-        for (const name of Object.keys(typed)) {
-            if (!present.has(name)) {
-                typed = withValue(typed, name, null);
-            }
-        }
+    const adoptValues = (next: AttributeFormView, known: Map<string, AttributeFieldView>, taking: FormValues) => {
+        let typed = taking;
         const moved: AttributeFieldView[] = [];
         const settling: AttributeFieldView[] = [];
         const reset: AttributeFieldView[] = [];
@@ -262,6 +261,35 @@ export function AttributeForm({
                 reset.push(field);
             }
         }
+        return { typed, moved, settling, reset };
+    };
+
+    /** Runs the callbacks of reset fields now, and schedules those of fields that watch a moved one. */
+    const followUp = (reset: AttributeFieldView[], moved: AttributeFieldView[]) => {
+        const now = new Set(reset.filter(due).map((field) => field.name));
+        const later = new Set(moved.flatMap((field) => watchers(field.name).map((watcher) => watcher.name)));
+        for (const name of now) {
+            run(name);
+        }
+        for (const name of later) {
+            if (!now.has(name)) {
+                schedule(name);
+            }
+        }
+    };
+
+    /**
+     * Takes a snapshot of the form if it is newer than the one drawn: fields take the value ILM set since, and the
+     * callbacks of reset fields and of fields watching a changed one are scheduled.
+     */
+    const take = (next: AttributeFormView) => {
+        const before = latest.current.snapshot;
+        if (next.revision <= before.revision) {
+            return;
+        }
+        const known = new Map(fieldsOf(before).map((field) => [field.name, field]));
+        const present = new Set(fieldsOf(next).map((field) => field.name));
+        const { typed, moved, settling, reset } = adoptValues(next, known, withoutAbsent(latest.current.values, present));
         const gone = [...known.keys()].filter((name) => !present.has(name));
         for (const name of gone) {
             unschedule(name);
@@ -279,16 +307,7 @@ export function AttributeForm({
                 ? Object.fromEntries(Object.entries(current).filter(([name]) => present.has(name)))
                 : current,
         );
-        const now = new Set(reset.filter(due).map((field) => field.name));
-        const later = new Set(moved.flatMap((field) => watchers(field.name).map((watcher) => watcher.name)));
-        for (const name of now) {
-            run(name);
-        }
-        for (const name of later) {
-            if (!now.has(name)) {
-                schedule(name);
-            }
-        }
+        followUp(reset, moved);
     };
 
     /** The person changed a value: the callbacks that watch it follow once it rests. */

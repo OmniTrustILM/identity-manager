@@ -104,12 +104,14 @@ export function SelectField({ field, value, options, problem, disabled, onChange
         return <ReadOnlyField field={field} text={readable(field, value, options)} />;
     }
     const added = value?.kind === 'added' ? addedText(value) : null;
-    const chosen = value?.kind === 'option' ? value.value : added === null ? none : addedKey;
+    const fallback = added === null ? none : addedKey;
+    const chosen = value?.kind === 'option' ? value.value : fallback;
     const labels = Object.fromEntries(options.map((option) => [option.key, option.label]));
     if (added !== null) {
         labels[addedKey] = added;
     }
     const keepsNone = !field.required || chosen === none;
+    const noneLabel = field.required ? strings.selectValue : strings.none;
     return (
         <FieldFrame field={field} ids={ids} problem={problem}>
             <Select
@@ -118,7 +120,7 @@ export function SelectField({ field, value, options, problem, disabled, onChange
                 disabled={disabled}
                 value={chosen}
                 options={keepsNone ? [none, ...Object.keys(labels)] : Object.keys(labels)}
-                label={(option) => (option === none ? (field.required ? strings.selectValue : strings.none) : (labels[option] ?? option))}
+                label={(option) => (option === none ? noneLabel : (labels[option] ?? option))}
                 onChange={(next) => {
                     if (next !== addedKey) {
                         onChange(next === none ? undefined : { kind: 'option', value: next });

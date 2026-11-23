@@ -303,7 +303,7 @@ test('a file over 1 MiB is refused with its words, and none is kept', async () =
     expect(last().values.f).toBeUndefined();
     const chooser = button(strings.chooseFile) as HTMLButtonElement;
     expect(describedBy(chooser)).toBe(strings.attributeProblem({ kind: 'fileTooLarge', max: 1048576 }, 'file'));
-    expect(chooser.getAttribute('aria-invalid')).toBe('true');
+    expect(chooser.parentElement?.getAttribute('aria-invalid')).toBe('true');
 });
 
 /** A FileReader the test finishes by hand, in any order. */
@@ -1189,7 +1189,7 @@ test('two fields whose callbacks watch each other stop calling once ILM repeats 
     const settled = asked.length;
     await wait(callbackDelay * 5);
 
-    expect(asked.length).toBe(settled);
+    expect(asked).toHaveLength(settled);
     expect(settled).toBeLessThanOrEqual(4);
 });
 
@@ -1480,7 +1480,7 @@ test('a file that cannot be read says so and keeps the form from being sent unti
     expect(last().ready).toBe(false);
     const chooser = button(strings.chooseFile) as HTMLButtonElement;
     expect(describedBy(chooser)).toBe(strings.fileUnreadable);
-    expect(chooser.getAttribute('aria-invalid')).toBe('true');
+    expect(chooser.parentElement?.getAttribute('aria-invalid')).toBe('true');
 
     await selecting('b.csr');
     await act(async () => readers[1]?.finish('Qg=='));
@@ -1488,6 +1488,32 @@ test('a file that cannot be read says so and keeps the form from being sent unti
 
     expect(last().ready).toBe(true);
     expect(describedBy(chooser)).toBe('');
+    vi.unstubAllGlobals();
+});
+
+test('a file the reader does not give as text is taken as unreadable', async () => {
+    const readers = slowReads();
+    await render(form([field({ name: 'f', label: 'Template', kind: 'file' })]));
+
+    await selecting('a.csr');
+    const result = new ArrayBuffer(1);
+    vi.stubGlobal(
+        'FileReader',
+        class {
+            result = result;
+            onload: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+            readAsDataURL() {
+                queueMicrotask(() => this.onload?.());
+            }
+        },
+    );
+    await selecting('b.csr');
+    await wait(checkDelay);
+
+    expect(readers).toHaveLength(1);
+    expect(last().values.f).toBeUndefined();
+    expect(describedBy(button(strings.chooseFile) as HTMLButtonElement)).toBe(strings.fileUnreadable);
     vi.unstubAllGlobals();
 });
 
@@ -1775,12 +1801,12 @@ test('the size error of a refused file does not outlive a replacement of the fie
     await choosing('big.bin', 1024 * 1024 + 1);
     vi.useFakeTimers();
     const chooser = button(strings.chooseFile) as HTMLButtonElement;
-    expect(chooser.getAttribute('aria-invalid')).toBe('true');
+    expect(chooser.parentElement?.getAttribute('aria-invalid')).toBe('true');
 
     await move();
 
     expect(button(strings.chooseFile)).toBe(chooser);
-    expect(chooser.getAttribute('aria-invalid')).toBeNull();
+    expect(chooser.parentElement?.getAttribute('aria-invalid')).toBeNull();
     expect(describedBy(chooser)).toBe('');
 });
 

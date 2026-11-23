@@ -6,11 +6,7 @@ import type { AddResultView } from './generated/AddResultView';
 import type { AppInfo } from './generated/AppInfo';
 import type { AttributeCallbackResult } from './generated/AttributeCallbackResult';
 import type { AttributeCheck } from './generated/AttributeCheck';
-import type { AttributeFieldKind } from './generated/AttributeFieldKind';
 import type { AttributeFieldProblem } from './generated/AttributeFieldProblem';
-import type { AttributeFieldView } from './generated/AttributeFieldView';
-import type { AttributeFormView } from './generated/AttributeFormView';
-import type { AttributeOptionView } from './generated/AttributeOptionView';
 import type { AttributeValue } from './generated/AttributeValue';
 import type { FormProblems } from './generated/FormProblems';
 import type { CertificateChoice } from './generated/CertificateChoice';
@@ -30,18 +26,11 @@ import type { SummaryView } from './generated/SummaryView';
 export type { AppInfo, CertificateChoice, Change, LocalCertificateView, ProviderChoice, Scheme, SessionView, SettingsView, Shown };
 export type { IlmPageView, InventoryView };
 export type { AddChoicesView, AddResultView, Navigation, SummaryView };
-export type {
-    AttributeCallbackResult,
-    AttributeCheck,
-    AttributeFieldKind,
-    AttributeFieldProblem,
-    AttributeFieldView,
-    AttributeFormView,
-    AttributeOptionView,
-    AttributeValue,
-    FormProblems,
-    IlmTarget,
-};
+export type { AttributeCallbackResult, AttributeCheck, AttributeFieldProblem, AttributeValue, FormProblems, IlmTarget };
+export type { AttributeFieldKind } from './generated/AttributeFieldKind';
+export type { AttributeFieldView } from './generated/AttributeFieldView';
+export type { AttributeFormView } from './generated/AttributeFormView';
+export type { AttributeOptionView } from './generated/AttributeOptionView';
 export type { GroupChoice } from './generated/GroupChoice';
 export type { RaProfileChoice } from './generated/RaProfileChoice';
 export type { AttentionItemView } from './generated/AttentionItemView';
