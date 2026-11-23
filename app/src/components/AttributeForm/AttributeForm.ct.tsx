@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/experimental-ct-react';
 import type { Locator, Page } from '@playwright/test';
 import { attributeField, attributeForm, controlFields, extensibleFields, issueForm, unsupportedForm } from '../../../playwright/attributes';
-import { keyboardReady } from '../../../playwright/focus';
+import { fileChooserOpenedBy, keyboardReady } from '../../../playwright/focus';
 import { AttributeFormStory } from '../../../playwright/stories';
 import type { AttributeFieldView, AttributeFormView, Platform } from '../../bridge';
 
@@ -166,14 +166,14 @@ test('the file button opens the chooser from the keyboard and shows the name and
     const chooser = page.getByRole('button', { name: 'Choose file…' });
     await chooser.focus();
 
-    const [dialog] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Enter')]);
+    const dialog = await fileChooserOpenedBy(page, () => page.keyboard.press('Enter'));
     await dialog.setFiles({ name: 'client.csr', mimeType: 'text/plain', buffer: Buffer.from('a'.repeat(2400)) });
 
     await expect(page.getByText('client.csr', { exact: true })).toBeVisible();
     await expect(page.getByText('2.3 KB', { exact: true })).toBeVisible();
     await expect(values(page)).toContainText('"template":{"kind":"file","value":{"name":"client.csr","mime":"text/plain"');
 
-    const [second] = await Promise.all([page.waitForEvent('filechooser'), chooser.click()]);
+    const second = await fileChooserOpenedBy(page, () => chooser.click());
     await second.setFiles({ name: 'big.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(1024 * 1024 + 1) });
     await expect(chooser).toHaveAccessibleDescription('Choose a file of at most 1 MiB.');
     await expect(values(page)).not.toContainText('"template"');
@@ -186,7 +186,7 @@ test('Remove is reached with the keyboard, clears the file and returns focus to 
     await expect(page.getByRole('button', { name: /^Remove .* file$/ })).toHaveCount(0);
     await chooser.focus();
 
-    const [dialog] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Enter')]);
+    const dialog = await fileChooserOpenedBy(page, () => page.keyboard.press('Enter'));
     await dialog.setFiles({ name: 'client.csr', mimeType: 'text/plain', buffer: Buffer.from('a'.repeat(2400)) });
     await expect(page.getByText('client.csr', { exact: true })).toBeVisible();
 
