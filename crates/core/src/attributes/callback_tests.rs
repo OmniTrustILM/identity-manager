@@ -240,6 +240,44 @@ fn a_field_the_person_does_not_edit_gives_what_ilm_defined() {
 }
 
 #[test]
+fn a_hidden_list_gives_what_ilm_defined_though_it_is_not_read_only() {
+    let hidden = |name: &str, multi: bool| {
+        with(
+            with(
+                data(
+                    name,
+                    "string",
+                    json!({ "list": true, "visible": false, "multiSelect": multi }),
+                    None,
+                ),
+                "content",
+                json!([{ "data": "one" }, { "data": "two" }]),
+            ),
+            "name",
+            json!(name),
+        )
+    };
+    let asking = |name: &str, from: &str| {
+        data(
+            name,
+            "string",
+            json!({}),
+            Some(legacy(json!([mapping(Some(from), Json::Null)]))),
+        )
+    };
+    let found = read(&[
+        hidden("single", false),
+        hidden("many", true),
+        asking("asks_one", "single"),
+        asking("asks_many", "many"),
+    ]);
+    let one = call(&found, "asks_one", &Values::new()).unwrap();
+    let many = call(&found, "asks_many", &Values::new()).unwrap();
+    assert_eq!(one.path_variable["out"], json!("one"));
+    assert_eq!(many.path_variable["out"], json!("one"));
+}
+
+#[test]
 fn a_dependency_free_callback_asks_at_once_and_one_with_dependencies_sends_theirs() {
     let found = read(&[
         list(

@@ -228,12 +228,17 @@ fn unwrap_object(value: &Json) -> Option<Json> {
     }
 }
 
-/// The value a field has: what the person gave, or for a field they do not edit, what ILM defined.
+/// The value a field has: what the person gave, or for a field they do not edit, what ILM defined. A hidden field
+/// is treated as read-only, as the interface sends no value for it.
 fn form_value(field: &Definition, values: &Values) -> Option<Json> {
     let value = if field.is_editable() {
         values.get(&field.name).cloned()
     } else {
-        defaults(std::slice::from_ref(field)).remove(&field.name)
+        let fixed = Definition {
+            read_only: true,
+            ..field.clone()
+        };
+        defaults(&[fixed]).remove(&field.name)
     }?;
     json_of(field, &value)
 }

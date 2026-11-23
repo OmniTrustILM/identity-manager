@@ -27,8 +27,10 @@ const CHOICES: &str = "sign-in-choices";
 
 /// Opens the sign-in page of the identity provider in the system browser.
 pub trait Opener: Send + Sync {
-    fn open(&self, url: &Url);
+    fn open(&self, url: &Url) -> Result<(), String>;
 }
+
+const BROWSER_UNAVAILABLE: &str = "The browser could not be opened.";
 
 pub struct SystemOpener<R: Runtime>(AppHandle<R>);
 
@@ -39,17 +41,16 @@ impl<R: Runtime> SystemOpener<R> {
 }
 
 impl<R: Runtime> Opener for SystemOpener<R> {
-    fn open(&self, url: &Url) {
+    fn open(&self, url: &Url) -> Result<(), String> {
         // The address carries the request of the sign-in, and the opener's error may hold it, so neither is
-        // logged.
-        if self
-            .0
+        // logged or returned.
+        self.0
             .opener()
             .open_url(url.as_str(), None::<&str>)
-            .is_err()
-        {
-            log::warn!("the browser could not be opened");
-        }
+            .map_err(|_| {
+                log::warn!("{}", BROWSER_UNAVAILABLE);
+                BROWSER_UNAVAILABLE.to_owned()
+            })
     }
 }
 
@@ -210,8 +211,9 @@ impl SignIn {
     fn open_page(&self, ilm: &IlmUrl, target: &WebTarget) -> Result<(), String> {
         let url = Url::parse(&web_url(ilm, target))
             .map_err(|_| "ILM's web interface cannot be opened.".to_owned())?;
-        self.opener.open(&url);
-        Ok(())
+        self.opener
+            .open(&url)
+            .map_err(|_| BROWSER_UNAVAILABLE.to_owned())
     }
 }
 
@@ -248,7 +250,9 @@ pub async fn sign_in<R: Runtime>(
     let (session, guard) = unlocked(&app)?;
     let opener = state(&app).opener.clone();
     let view = session
-        .sign_in(&provider_id, move |url| opener.open(url))
+        .sign_in(&provider_id, move |url| {
+            let _ = opener.open(url);
+        })
         .await;
     ilm(&app).after_sign_in(&view);
     Ok(guard.visible(view))
@@ -283,7 +287,7 @@ pub fn reopen_browser<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     unlocked(&app)?;
     let state = state(&app);
     if let Some(url) = state.session.browser_url() {
-        state.opener.open(&url);
+        let _ = state.opener.open(&url);
     }
     Ok(())
 }
@@ -319,7 +323,12 @@ pub async fn begin_sign_in_again<R: Runtime>(
     let (session, _) = unlocked(app)?;
     let opener = state(app).opener.clone();
     crate::show_main_window(app);
-    match session.sign_in_again(move |url| opener.open(url)).await {
+    match session
+        .sign_in_again(move |url| {
+            let _ = opener.open(url);
+        })
+        .await
+    {
         SignInAgain::View(view) => {
             ilm(app).after_sign_in(&view);
             Ok(Vec::new())
@@ -350,7 +359,7 @@ mod tests {
     use im_core::oauth::token::RefreshToken;
     use im_core::session::{ConnectionSettings, Item, PersonView};
     use std::sync::Mutex;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::mpsc::{Receiver, channel};
     use std::time::{Duration, SystemTime};
     use tauri::test::{MockRuntime, mock_builder, mock_context, noop_assets};
@@ -358,11 +367,15 @@ mod tests {
     use tauri::{Listener, WebviewUrl, WebviewWindowBuilder, ipc::CallbackFn};
 
     #[derive(Default)]
-    struct Browser(Mutex<Vec<String>>);
+    struct Browser(Mutex<Vec<String>>, AtomicBool);
 
     impl Opener for Arc<Browser> {
-        fn open(&self, url: &Url) {
+        fn open(&self, url: &Url) -> Result<(), String> {
+            if self.1.load(Ordering::SeqCst) {
+                return Err("no browser".to_owned());
+            }
             self.0.lock().unwrap().push(url.to_string());
+            Ok(())
         }
     }
 
@@ -875,6 +888,21 @@ mod tests {
             *fixture.browser.0.lock().unwrap(),
             ["https://ilm.example.com:8443/administrator/#/certificates"]
         );
+    }
+
+    #[test]
+    fn open_in_ilm_reports_a_browser_that_cannot_be_opened() {
+        let fixture = fixture(Mode::SelfCheck);
+        fixture.browser.1.store(true, Ordering::SeqCst);
+        let ilm = IlmUrl::parse("ilm.example.com/core/api").unwrap();
+
+        let error = fixture
+            .app
+            .state::<SignIn>()
+            .open_page(&ilm, &crate::attributes::IlmTarget::AddToIlm.web())
+            .unwrap_err();
+
+        assert_eq!(error, "The browser could not be opened.");
     }
 
     #[test]
