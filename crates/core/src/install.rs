@@ -5,6 +5,7 @@ use std::fmt;
 use x509_parser::error::X509Error;
 use x509_parser::extensions::ParsedExtension;
 use x509_parser::prelude::{FromDer, X509Certificate};
+use x509_parser::public_key::PublicKey;
 
 use crate::keys::KeyId;
 
@@ -48,7 +49,8 @@ pub fn is_for_key(leaf: &[u8], public_key: &[u8]) -> bool {
 
 /// `chain` (DER) without the certificates that sign themselves, the roots, and those that cannot be read; the
 /// order stays. A certificate signs itself when its own key verifies its signature, or, for a signature this
-/// application cannot verify, when its subject reads as its issuer and no other key is named as its authority.
+/// application cannot verify (an algorithm it does not have, or an RSA key below 2048 bits), when its subject reads
+/// as its issuer and no other key is named as its authority.
 pub fn intermediates(chain: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
     chain
         .into_iter()
@@ -66,6 +68,7 @@ fn signs_itself(certificate: &X509Certificate<'_>) -> bool {
     match certificate.verify_signature(None) {
         Ok(()) => return true,
         Err(X509Error::SignatureUnsupportedAlgorithm) => {}
+        Err(_) if has_small_rsa_key(certificate) => {}
         Err(_) => return false,
     }
     if certificate.subject().to_string() != certificate.issuer().to_string() {
@@ -83,6 +86,11 @@ fn signs_itself(certificate: &X509Certificate<'_>) -> bool {
         }
     }
     authority.is_none_or(|authority| Some(authority) == subject)
+}
+
+/// Whether the key is an RSA key too small for the verifier, which accepts 2048 bits and more.
+fn has_small_rsa_key(certificate: &X509Certificate<'_>) -> bool {
+    matches!(certificate.public_key().parsed(), Ok(PublicKey::RSA(rsa)) if rsa.key_size() < 2048)
 }
 
 /// The computer cannot install certificates: every installation fails as unavailable.
@@ -297,6 +305,15 @@ mod tests {
             intermediates(vec![middle.clone(), rollover.clone()]),
             [middle, rollover]
         );
+    }
+
+    #[test]
+    fn a_root_with_an_rsa_key_too_small_to_verify_is_dropped_by_its_names() {
+        let (_, middle, _, _) = pki();
+        let pem = include_str!("identity/testdata/rsa1024.pem");
+        let (_, root) = x509_parser::pem::parse_x509_pem(pem.as_bytes()).unwrap();
+
+        assert_eq!(intermediates(vec![middle.clone(), root.contents]), [middle]);
     }
 
     #[test]
