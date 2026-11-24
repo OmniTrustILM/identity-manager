@@ -22,7 +22,7 @@ pub fn system() -> Arc<dyn CertificateInstaller> {
     return Arc::new(NoInstaller);
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(target_os = "macos", windows)))]
 mod tests {
     use im_core::identity::{Fingerprint, KeyLocation, system_store};
     use im_core::keys::{
@@ -57,12 +57,6 @@ mod tests {
     use super::windows::{holds, remove};
     #[cfg(target_os = "macos")]
     use macos::{holds, remove};
-    #[cfg(not(any(target_os = "macos", windows)))]
-    fn remove(_: &[u8]) {}
-    #[cfg(not(any(target_os = "macos", windows)))]
-    fn holds(_: &[u8]) -> bool {
-        false
-    }
 
     fn location_of(storage: Storage) -> KeyLocation {
         match storage {
