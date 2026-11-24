@@ -362,10 +362,67 @@ fn a_value_of_another_shape_is_invalid() {
 }
 
 #[test]
-fn an_attribute_without_a_mapping_adds_nothing() {
+fn a_value_given_to_an_attribute_without_a_mapping_is_refused() {
     let raw = [definition(3, "data", "plain", "string", json!({}))];
-    let built = subject(&definitions(&raw), &values(&[("plain", text("x"))])).unwrap();
-    assert_eq!(built, RequestSubject::default());
+    assert_eq!(
+        subject(&definitions(&raw), &values(&[("plain", text("x"))])),
+        Err(Unmappable::Unsupported {
+            label: "plain label".into()
+        })
+    );
+}
+
+#[test]
+fn an_optional_attribute_without_a_mapping_and_a_value_is_fine() {
+    let raw = [definition(3, "data", "plain", "string", json!({}))];
+    let set = definitions(&raw);
+    assert_eq!(
+        subject(&set, &values(&[("plain", text(""))])).unwrap(),
+        RequestSubject::default()
+    );
+    assert_eq!(
+        subject(&set, &values(&[])).unwrap(),
+        RequestSubject::default()
+    );
+    assert!(unbuildable(&set).is_empty());
+}
+
+#[test]
+fn a_required_attribute_without_a_mapping_cannot_be_built() {
+    let raw = [definition(
+        3,
+        "data",
+        "plain",
+        "string",
+        json!({ "required": true }),
+    )];
+    let set = definitions(&raw);
+    let blocked = unbuildable(&set);
+    assert_eq!(blocked.len(), 1);
+    assert_eq!(blocked[0].name, "plain");
+    assert_eq!(
+        subject(&set, &values(&[("plain", text("x"))])),
+        Err(Unmappable::Unsupported {
+            label: "plain label".into()
+        })
+    );
+}
+
+#[test]
+fn an_info_attribute_without_a_mapping_is_not_in_the_way() {
+    let raw = [definition(
+        3,
+        "info",
+        "note",
+        "string",
+        json!({ "required": true }),
+    )];
+    let set = definitions(&raw);
+    assert!(unbuildable(&set).is_empty());
+    assert_eq!(
+        subject(&set, &values(&[])).unwrap(),
+        RequestSubject::default()
+    );
 }
 
 #[test]

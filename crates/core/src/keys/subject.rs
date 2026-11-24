@@ -16,7 +16,7 @@ const USER_PRINCIPAL_NAME: &str = "1.3.6.1.4.1.311.20.2.3";
 /// Why a request cannot be built from the attributes. The text is for the person.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Unmappable {
-    /// A required attribute goes somewhere this application cannot write.
+    /// An attribute goes nowhere, or somewhere this application cannot write.
     Unsupported { label: String },
     /// The value is not one a request can hold.
     Invalid { label: String },
@@ -135,13 +135,19 @@ fn text_of(item: &Json) -> Option<String> {
     }
 }
 
-/// A required attribute with a field this application cannot write blocks the request.
+/// A value the person gives that the attribute maps nowhere, so the request could not hold it.
+fn is_unmapped(definition: &Definition) -> bool {
+    definition.is_editable() && definition.mapping.is_empty()
+}
+
+/// A required attribute with no mapping, or with a field this application cannot write, blocks the request.
 fn is_unbuildable(definition: &Definition) -> bool {
     definition.required
-        && definition
-            .mapping
-            .iter()
-            .any(|field| target(field).is_none())
+        && (is_unmapped(definition)
+            || definition
+                .mapping
+                .iter()
+                .any(|field| target(field).is_none()))
 }
 
 /// The attributes that must be in the request and go somewhere this application cannot write.
@@ -188,6 +194,11 @@ pub fn subject(definitions: &[Definition], values: &Values) -> Result<RequestSub
             .iter()
             .map(|item| text_of(item).ok_or_else(invalid))
             .collect::<Result<_, _>>()?;
+        if is_unmapped(definition) && !texts.is_empty() {
+            return Err(Unmappable::Unsupported {
+                label: definition.label.clone(),
+            });
+        }
         for field in &definition.mapping {
             let order = order_of(field);
             let Some(target) = target(field) else {

@@ -222,7 +222,7 @@ pub enum Outcome {
 /// A request that was followed, and how it stands.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Followed {
-    pub certificate: Option<String>,
+    pub uuid: Option<String>,
     pub label: String,
     pub outcome: Outcome,
 }
@@ -336,12 +336,9 @@ impl Session {
             forms.issue.as_ref(),
             forms.custom.as_ref(),
         ])?;
-        let from_request = self.take(forms.request.as_ref())?;
+        let subject = self.request_subject(forms.request.as_ref())?;
+        self.take(forms.request.as_ref())?;
         let attributes = self.take_attributes(&forms)?;
-        let subject = match &from_request {
-            Some((definitions, values)) => subject(&definitions.fields, values)?,
-            None => RequestSubject::default(),
-        };
         let order = Order {
             ra_profile,
             authority,
@@ -358,7 +355,7 @@ impl Session {
     /// challenge ILM asks for is held for this call only.
     pub async fn complete(
         &self,
-        certificate: &str,
+        uuid: &str,
         ra_profile: &RaProfileChoice,
         forms: RequestInput,
         storage: Storage,
@@ -372,7 +369,7 @@ impl Session {
         let id = self.departing()?.id;
         let requests = self.requests.clone().ok_or(RequestError::NoStore)?;
         self.check_forms(&[forms.issue.as_ref(), forms.custom.as_ref()])?;
-        let registered = self.registered(&id, certificate).await?;
+        let registered = self.registered(&id, uuid).await?;
         let subject = registered_subject(
             registered.subject_dn.as_deref(),
             &registered.alternative_names,
@@ -384,10 +381,22 @@ impl Session {
             storage,
             key_type,
             subject,
-            registered: Some((certificate, challenge.as_ref())),
-            label: certificate,
+            registered: Some((uuid, challenge.as_ref())),
+            label: uuid,
         };
         self.submit(&id, &requests, &order, &attributes).await
+    }
+
+    /// The subject the request form gives, read without closing the form; empty without one.
+    fn request_subject(&self, form: Option<&FormInput>) -> Result<RequestSubject, RequestError> {
+        let Some(form) = form else {
+            return Ok(RequestSubject::default());
+        };
+        let definitions = self
+            .form_definitions(&form.id)
+            .map_err(|_| ChangeError::FormGone)?;
+        let values = sendable(&definitions, form)?;
+        Ok(subject(&definitions.fields, &values)?)
     }
 
     /// Whether every form given can be sent; none is closed.
@@ -428,11 +437,11 @@ impl Session {
     async fn registered(
         &self,
         id: &Arc<()>,
-        certificate: &str,
+        uuid: &str,
     ) -> Result<crate::ilm::issue::IssuedState, RequestError> {
         let response = self
             .call_ilm_as(Some(id), None, |client, ilm| {
-                state_request(client, ilm, certificate)
+                state_request(client, ilm, uuid)
             })
             .await?;
         let found = read_state(response).await.map_err(|error| match error {
@@ -462,6 +471,10 @@ impl Session {
             .current_sign_in()
             .filter(|who| Arc::ptr_eq(&who.id, id))
             .ok_or(RequestError::SignedOut)?;
+        requests.readable().map_err(|error| {
+            log::warn!("the waiting requests cannot be read: {error}");
+            RequestError::Store
+        })?;
         let (storage, key_type) = (order.storage, order.key_type);
         let key = self
             .in_keys(move |keys| keys.create(storage, key_type))
@@ -499,9 +512,7 @@ impl Session {
         let entry = Waiting {
             ilm: who.ilm,
             username: who.username,
-            certificate: order
-                .registered
-                .map(|(certificate, _)| certificate.to_owned()),
+            uuid: order.registered.map(|(uuid, _)| uuid.to_owned()),
             ra_profile: order.ra_profile.uuid.clone(),
             authority: order.authority.to_owned(),
             key: key_id.clone(),
@@ -531,14 +542,14 @@ impl Session {
                 })
                 .await?
             }
-            Some((certificate, challenge)) => {
+            Some((uuid, challenge)) => {
                 self.call_ilm_as(Some(id), None, |client, ilm| {
                     complete_request(
                         client,
                         ilm,
                         order.authority,
                         ra_profile,
-                        certificate,
+                        uuid,
                         &body,
                         challenge,
                     )
@@ -555,11 +566,11 @@ impl Session {
             order.key_type,
             yes_no(order.registered.is_some())
         );
-        if let Err(error) = requests.set_certificate(&key_id, &uuid) {
+        if let Err(error) = requests.set_uuid(&key_id, &uuid) {
             log::warn!("the certificate of the request cannot be written down: {error}");
         }
         Ok(Waiting {
-            certificate: Some(uuid),
+            uuid: Some(uuid),
             ..entry
         })
     }
@@ -614,11 +625,12 @@ impl Session {
         let (Some(requests), Some(who)) = (self.requests.clone(), self.current_sign_in()) else {
             return Vec::new();
         };
+        requests.save_pending();
         let mut found = Vec::new();
         for entry in requests.of(&who.ilm, &who.username) {
             if let Some(outcome) = self.follow_one(&who.id, &requests, &entry).await {
                 found.push(Followed {
-                    certificate: entry.certificate,
+                    uuid: entry.uuid,
                     label: entry.label,
                     outcome,
                 });
@@ -634,7 +646,7 @@ impl Session {
         entry: &Waiting,
     ) -> Option<Outcome> {
         let age = now_ms() - entry.since;
-        let Some(certificate) = entry.certificate.as_deref() else {
+        let Some(uuid) = entry.uuid.as_deref() else {
             return if age >= DAY_MS {
                 self.end(requests, entry, EndReason::NotSent).await
             } else {
@@ -643,7 +655,7 @@ impl Session {
         };
         let response = self
             .call_ilm_as(Some(id), None, |client, ilm| {
-                state_request(client, ilm, certificate)
+                state_request(client, ilm, uuid)
             })
             .await
             .ok()?;
@@ -660,8 +672,8 @@ impl Session {
         };
         match found.state {
             State::Issued => match found.content {
-                Some(leaf) => self.install(id, requests, entry, certificate, leaf).await,
-                None => Some(self.waiting(certificate, State::Issued)),
+                Some(leaf) => self.install(id, requests, entry, uuid, leaf).await,
+                None => Some(self.waiting(uuid, State::Issued)),
             },
             State::Failed => self.end(requests, entry, EndReason::Failed).await,
             State::Rejected => self.end(requests, entry, EndReason::Rejected).await,
@@ -675,17 +687,17 @@ impl Session {
                 self.end(requests, entry, EndReason::ReturnedToRegistered)
                     .await
             }
-            other => Some(self.waiting(certificate, other)),
+            other => Some(self.waiting(uuid, other)),
         }
     }
 
     /// Notes the state of a certificate that is still being made, and logs it when it changed.
-    fn waiting(&self, certificate: &str, state: State) -> Outcome {
+    fn waiting(&self, uuid: &str, state: State) -> Outcome {
         let to = state.code().to_owned();
-        let from = lock(&self.seen).insert(certificate.to_owned(), to.clone());
+        let from = lock(&self.seen).insert(uuid.to_owned(), to.clone());
         if from.as_deref() != Some(to.as_str()) {
             log::info!(
-                "request {certificate}: {} → {to}",
+                "request {uuid}: {} → {to}",
                 from.as_deref().unwrap_or("sent")
             );
         }
@@ -700,7 +712,7 @@ impl Session {
         entry: &Waiting,
         reason: EndReason,
     ) -> Option<Outcome> {
-        let uuid = entry.certificate.as_deref().unwrap_or("not sent");
+        let uuid = entry.uuid.as_deref().unwrap_or("not sent");
         if !self
             .forget(requests, &entry.key, &format!("request {uuid}"))
             .await
@@ -708,8 +720,8 @@ impl Session {
             return None;
         }
         log::info!("request {uuid} ended: {}", reason.text());
-        if let Some(certificate) = &entry.certificate {
-            lock(&self.seen).remove(certificate);
+        if let Some(uuid) = &entry.uuid {
+            lock(&self.seen).remove(uuid);
         }
         Some(Outcome::Ended(reason))
     }
@@ -720,12 +732,12 @@ impl Session {
         id: &Arc<()>,
         requests: &Requests,
         entry: &Waiting,
-        certificate: &str,
+        uuid: &str,
         leaf: Vec<u8>,
     ) -> Option<Outcome> {
         let response = self
             .call_ilm_as(Some(id), None, |client, ilm| {
-                chain_request(client, ilm, certificate)
+                chain_request(client, ilm, uuid)
             })
             .await
             .ok()?;
@@ -736,16 +748,16 @@ impl Session {
             Ok(Some(key)) => key,
             Ok(None) => return self.end(requests, entry, EndReason::KeyGone).await,
             Err(error) => {
-                log::warn!("the key of request {certificate} cannot be opened: {error}");
+                log::warn!("the key of request {uuid} cannot be opened: {error}");
                 return None;
             }
         };
         let Ok((_, parsed)) = X509Certificate::from_der(&leaf) else {
-            log::warn!("the certificate of request {certificate} cannot be read");
+            log::warn!("the certificate of request {uuid} cannot be read");
             return None;
         };
         if parsed.public_key().raw != key.public_key() {
-            log::warn!("the certificate {certificate} is not for the key of its request");
+            log::warn!("the certificate {uuid} is not for the key of its request");
             return Some(Outcome::Mismatch);
         }
         let intermediates = chain.len();
@@ -756,16 +768,16 @@ impl Session {
                 .await
                 .expect("the installer task does not panic");
         if let Err(error) = installed {
-            log::warn!("the certificate {certificate} could not be installed: {error}");
+            log::warn!("the certificate {uuid} could not be installed: {error}");
             return Some(Outcome::InstallFailed);
         }
         log::info!(
-            "certificate installed: {certificate}, {:?}, {intermediates} intermediates",
+            "certificate installed: {uuid}, {:?}, {intermediates} intermediates",
             entry.key.storage
         );
-        lock(&self.seen).remove(certificate);
+        lock(&self.seen).remove(uuid);
         if let Err(error) = requests.remove(&entry.key) {
-            log::warn!("request {certificate} could not be removed: {error}");
+            log::warn!("request {uuid} could not be removed: {error}");
         }
         Some(Outcome::Installed)
     }

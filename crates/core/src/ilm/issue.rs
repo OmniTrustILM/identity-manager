@@ -169,7 +169,7 @@ pub fn complete_request(
     ilm: &IlmUrl,
     authority: &str,
     ra_profile: &str,
-    certificate: &str,
+    uuid: &str,
     body: &IssueBody,
     challenge: Option<&Challenge>,
 ) -> RequestBuilder {
@@ -179,7 +179,7 @@ pub fn complete_request(
     }
     client
         .post(format!(
-            "{}/{certificate}/issue",
+            "{}/{uuid}/issue",
             certificates_path(ilm, authority, ra_profile)
         ))
         .json(&sent)
@@ -214,8 +214,8 @@ pub async fn read_issued(response: Response) -> Result<String, IssueError> {
     }
 }
 
-pub fn state_request(client: &Client, ilm: &IlmUrl, certificate: &str) -> RequestBuilder {
-    client.get(format!("{}/v1/certificates/{certificate}", ilm.api()))
+pub fn state_request(client: &Client, ilm: &IlmUrl, uuid: &str) -> RequestBuilder {
+    client.get(format!("{}/v1/certificates/{uuid}", ilm.api()))
 }
 
 fn decode(content: &str) -> Result<Vec<u8>, IlmError> {
@@ -264,9 +264,9 @@ pub async fn read_state(response: Response) -> Result<IssuedState, StateError> {
 }
 
 /// The request for the chain above a certificate, without the certificate itself.
-pub fn chain_request(client: &Client, ilm: &IlmUrl, certificate: &str) -> RequestBuilder {
+pub fn chain_request(client: &Client, ilm: &IlmUrl, uuid: &str) -> RequestBuilder {
     client.get(format!(
-        "{}/v1/certificates/{certificate}/chain?withEndCertificate=false",
+        "{}/v1/certificates/{uuid}/chain?withEndCertificate=false",
         ilm.api()
     ))
 }

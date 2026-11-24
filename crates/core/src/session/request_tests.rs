@@ -286,7 +286,7 @@ impl Requesting {
     }
 
     /// A key of this computer with a request for `certificate`, as an earlier run of the application left them.
-    fn seed(&self, certificate: Option<&str>, prepared: bool, since: i64) -> Waiting {
+    fn seed(&self, uuid: Option<&str>, prepared: bool, since: i64) -> Waiting {
         let key = self
             .keys
             .create(Storage::Software, KeyType::EcP256)
@@ -294,7 +294,7 @@ impl Requesting {
         let entry = Waiting {
             ilm: self.world.address(),
             username: "jdoe".into(),
-            certificate: certificate.map(str::to_owned),
+            uuid: uuid.map(str::to_owned),
             ra_profile: "ra-1".into(),
             authority: "auth-1".into(),
             key: key.id().clone(),
@@ -416,7 +416,7 @@ async fn the_request_goes_to_ilm_with_the_subject_of_the_form_and_the_attributes
     assert_eq!(body["customAttributes"][0]["name"], "department");
     assert!(body.get("csrAttributes").is_none());
     assert!(body.get("authorizationSecret").is_none());
-    assert_eq!(waiting.certificate.as_deref(), Some("c-1"));
+    assert_eq!(waiting.uuid.as_deref(), Some("c-1"));
     assert_eq!(waiting.label, "web.example.com");
     assert!(!waiting.prepared);
     assert_eq!(waiting.ra_profile, "ra-1");
@@ -493,6 +493,51 @@ async fn a_name_that_two_attributes_would_fill_creates_no_key() {
         RequestError::Unmappable(Unmappable::Repeated { .. })
     ));
     requesting.nothing_left();
+    assert!(requesting.received("POST", ISSUE).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_value_the_subject_cannot_hold_leaves_the_forms_open_to_be_corrected() {
+    let address = vec![mapped(
+        definition(3, "data", "address", "string", json!({})),
+        json!([{ "fieldType": "san", "generalNameType": "ip" }]),
+    )];
+    let requesting = Requesting::with(InMemoryStorage::new(&[Storage::Software]), address).await;
+    requesting.issue_accepted().await;
+    let forms = requesting.open(false).await;
+    let given = |value: &str| RequestInput {
+        request: Requesting::input(&forms.request, json!({ "address": text(value) })),
+        ..RequestInput::default()
+    };
+
+    let error = requesting.request_with(given("not an address")).await;
+
+    assert!(matches!(
+        error,
+        Err(RequestError::Unmappable(Unmappable::Invalid { .. }))
+    ));
+    requesting.nothing_left();
+    requesting.request_with(given("192.0.2.1")).await.unwrap();
+}
+
+#[tokio::test]
+async fn a_broken_store_stops_the_request_before_a_key_is_made() {
+    let folder = tempfile::tempdir().unwrap();
+    std::fs::write(folder.path().join("requests.json"), "{").unwrap();
+    let requests = Arc::new(Requests::new(folder.path()));
+    let requesting = Requesting::built(
+        InMemoryStorage::new(&[Storage::Software]),
+        default_request_set(),
+        folder,
+        requests,
+    )
+    .await;
+    requesting.issue_accepted().await;
+
+    let error = requesting.request().await.unwrap_err();
+
+    assert_eq!(error, RequestError::Store);
+    assert_eq!(requesting.keys.count(), 0);
     assert!(requesting.received("POST", ISSUE).await.is_empty());
 }
 
@@ -801,7 +846,7 @@ async fn a_registered_certificate_is_completed_with_the_subject_ilm_registered_a
     assert_eq!(body["attributes"][0]["name"], "validity");
     assert_eq!(body["customAttributes"][0]["name"], "department");
     assert!(body.get("csrAttributes").is_none());
-    assert_eq!(waiting.certificate.as_deref(), Some("c-9"));
+    assert_eq!(waiting.uuid.as_deref(), Some("c-9"));
     assert!(waiting.prepared);
     assert_eq!(waiting.label, "demo220");
     assert_eq!(requesting.requests.all(), [waiting]);
@@ -880,7 +925,7 @@ async fn a_completion_whose_answer_was_lost_is_kept_and_followed() {
         ));
         requesting.only_a_request_is_left();
         let kept = requesting.requests.all();
-        assert_eq!(kept[0].certificate.as_deref(), Some("c-9"));
+        assert_eq!(kept[0].uuid.as_deref(), Some("c-9"));
         assert!(kept[0].prepared);
     }
 }
@@ -971,7 +1016,7 @@ async fn an_issued_certificate_is_installed_with_its_chain_and_the_request_ends_
     let found = requesting.follow().await;
 
     assert_eq!(Requesting::outcomes(&found), [Outcome::Installed]);
-    assert_eq!(found[0].certificate.as_deref(), Some("c-1"));
+    assert_eq!(found[0].uuid.as_deref(), Some("c-1"));
     assert_eq!(found[0].label, "seeded");
     assert_eq!(
         requesting.installer.calls(),
@@ -1005,7 +1050,7 @@ async fn a_certificate_of_another_key_is_a_mismatch_and_nothing_is_installed_or_
 
     let mismatched: Vec<_> = found
         .iter()
-        .filter(|followed| followed.certificate.as_deref() == Some("c-1"))
+        .filter(|followed| followed.uuid.as_deref() == Some("c-1"))
         .map(|followed| followed.outcome.clone())
         .collect();
     assert_eq!(mismatched, [Outcome::Mismatch]);
@@ -1218,11 +1263,36 @@ async fn a_certificate_that_cannot_be_written_down_is_still_followed() {
 
     let waiting = requesting.request_with(forms).await.unwrap();
 
-    assert_eq!(waiting.certificate.as_deref(), Some("c-1"));
+    assert_eq!(waiting.uuid.as_deref(), Some("c-1"));
     assert_eq!(requesting.keys.count(), 1);
     let kept = requesting.requests.all();
     assert_eq!(kept.len(), 1);
-    assert_eq!(kept[0].certificate.as_deref(), Some("c-1"));
+    assert_eq!(kept[0].uuid.as_deref(), Some("c-1"));
+}
+
+#[tokio::test]
+async fn a_certificate_kept_only_in_memory_is_written_by_the_next_follow() {
+    let requesting = Requesting::new().await;
+    let file = requesting.folder.path().join("requests.json");
+    let forms = requesting.forms("web.example.com").await;
+    let broken = file.clone();
+    Mock::given(method("POST"))
+        .and(path(ISSUE))
+        .respond_with(move |_: &Request| {
+            std::fs::remove_file(&broken).unwrap();
+            std::fs::create_dir(&broken).unwrap();
+            ResponseTemplate::new(200).set_body_json(json!({ "uuid": "c-1" }))
+        })
+        .mount(&requesting.world.ilm)
+        .await;
+    requesting.request_with(forms).await.unwrap();
+    requesting.state_code("c-1", "pending_issue").await;
+    std::fs::remove_dir(&file).unwrap();
+
+    requesting.follow().await;
+
+    let written: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(written["waiting"][0]["uuid"], "c-1");
 }
 
 #[tokio::test]
@@ -1374,7 +1444,7 @@ async fn only_the_requests_of_the_person_signed_in_at_this_ilm_are_followed() {
     let other_person = Waiting {
         username: "someone-else".into(),
         key: key.id().clone(),
-        certificate: Some("c-2".into()),
+        uuid: Some("c-2".into()),
         ..mine.clone()
     };
     let key = requesting
@@ -1384,7 +1454,7 @@ async fn only_the_requests_of_the_person_signed_in_at_this_ilm_are_followed() {
     let other_ilm = Waiting {
         ilm: IlmUrl::parse("other.example.com").unwrap(),
         key: key.id().clone(),
-        certificate: Some("c-3".into()),
+        uuid: Some("c-3".into()),
         ..mine.clone()
     };
     requesting.requests.add(other_person.clone()).unwrap();
@@ -1492,7 +1562,7 @@ async fn a_request_that_has_no_installer_keeps_waiting_to_be_installed() {
         .add(Waiting {
             ilm: world.address(),
             username: "jdoe".into(),
-            certificate: Some("c-1".into()),
+            uuid: Some("c-1".into()),
             ra_profile: "ra-1".into(),
             authority: "auth-1".into(),
             key: key.id().clone(),

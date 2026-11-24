@@ -11,7 +11,7 @@ fn waiting(name: &str) -> Waiting {
     Waiting {
         ilm: ilm(),
         username: "jdoe".into(),
-        certificate: None,
+        uuid: None,
         ra_profile: "ra-1".into(),
         authority: "auth-1".into(),
         key: KeyId {
@@ -61,7 +61,7 @@ fn a_file_that_cannot_be_trusted_is_never_written_over() {
 
         assert!(requests.all().is_empty());
         assert!(requests.add(waiting("k-1")).is_err());
-        assert!(requests.set_certificate(&key("k-1"), "c-1").is_err());
+        assert!(requests.set_uuid(&key("k-1"), "c-1").is_err());
         assert!(requests.remove(&key("k-1")).is_err());
         assert!(requests.of(&ilm(), "jdoe").is_empty());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
@@ -77,9 +77,37 @@ fn a_certificate_is_kept_in_memory_when_the_file_cannot_be_written() {
     std::fs::remove_file(&path).unwrap();
     std::fs::create_dir(&path).unwrap();
 
-    assert!(requests.set_certificate(&key("k-1"), "c-1").is_err());
+    assert!(requests.set_uuid(&key("k-1"), "c-1").is_err());
 
-    assert_eq!(requests.all()[0].certificate.as_deref(), Some("c-1"));
+    assert_eq!(requests.all()[0].uuid.as_deref(), Some("c-1"));
+}
+
+#[test]
+fn a_certificate_kept_in_memory_is_written_when_the_file_can_be_written_again() {
+    let dir = tempdir().unwrap();
+    let requests = Requests::new(dir.path());
+    requests.add(waiting("k-1")).unwrap();
+    let path = dir.path().join("requests.json");
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    assert!(requests.set_uuid(&key("k-1"), "c-1").is_err());
+
+    requests.save_pending();
+    assert!(path.is_dir());
+
+    std::fs::remove_dir(&path).unwrap();
+    requests.save_pending();
+
+    let restarted = Requests::new(dir.path());
+    assert_eq!(restarted.all()[0].uuid.as_deref(), Some("c-1"));
+}
+
+#[test]
+fn a_file_that_cannot_be_trusted_is_not_readable() {
+    let dir = tempdir().unwrap();
+    std::fs::write(dir.path().join("requests.json"), "{").unwrap();
+    assert!(Requests::new(dir.path()).readable().is_err());
+    assert!(Requests::new(tempdir().unwrap().path()).readable().is_ok());
 }
 
 #[test]
@@ -132,10 +160,10 @@ fn the_certificate_is_set_for_its_key_only() {
     let requests = Requests::new(dir.path());
     requests.add(waiting("k-1")).unwrap();
     requests.add(waiting("k-2")).unwrap();
-    requests.set_certificate(&key("k-2"), "c-2").unwrap();
+    requests.set_uuid(&key("k-2"), "c-2").unwrap();
 
     let mut second = waiting("k-2");
-    second.certificate = Some("c-2".into());
+    second.uuid = Some("c-2".into());
     assert_eq!(Requests::new(dir.path()).all(), [waiting("k-1"), second]);
 }
 
