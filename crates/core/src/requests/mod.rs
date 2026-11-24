@@ -137,18 +137,21 @@ impl Requests {
         }
     }
 
-    /// Drops the request of `key`; one that is not there is fine.
+    /// Drops the request of `key`; one that is not there is fine. When the file cannot be written the removal is kept
+    /// in memory and written by `save_pending`, so the request is not followed again while the application runs.
     pub fn remove(&self, key: &KeyId) -> io::Result<()> {
-        let mut described = None;
-        self.change(|entries| {
-            if let Some(at) = entries.iter().position(|entry| &entry.key == key) {
-                described = Some(describe(&entries.remove(at)));
-            }
-        })?;
-        if let Some(described) = described {
+        let mut held = self.held()?;
+        let entries = held.entries.as_mut().expect("the entries are loaded");
+        let Some(at) = entries.iter().position(|entry| &entry.key == key) else {
+            return Ok(());
+        };
+        let described = describe(&entries.remove(at));
+        let written = store::write(&self.path, entries);
+        held.unsaved = written.is_err();
+        if written.is_ok() {
             log::info!("a waiting request is removed ({described})");
         }
-        Ok(())
+        written
     }
 }
 

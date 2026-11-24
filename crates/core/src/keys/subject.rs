@@ -5,6 +5,7 @@
 
 use std::net::IpAddr;
 
+use rcgen::string::{Ia5String, PrintableString};
 use serde_json::Value as Json;
 
 use super::request::{DOMAIN_COMPONENT, EMAIL_ADDRESS, SERIAL_NUMBER};
@@ -113,7 +114,31 @@ fn oid_arcs(code: &str) -> Option<Vec<u64>> {
         .split('.')
         .map(|arc| arc.parse().ok())
         .collect::<Option<_>>()?;
-    (arcs.len() >= 2).then_some(arcs)
+    let valid = match arcs.as_slice() {
+        [0 | 1, second, ..] => *second < 40,
+        [2, ..] => true,
+        _ => false,
+    };
+    (arcs.len() >= 2 && valid).then_some(arcs)
+}
+
+/// Whether the value fits the string type its name is written in.
+fn fits_name(kind: &NameType, text: &str) -> bool {
+    match kind {
+        NameType::Email | NameType::DomainComponent => Ia5String::try_from(text).is_ok(),
+        NameType::Country | NameType::SerialNumber => PrintableString::try_from(text).is_ok(),
+        _ => true,
+    }
+}
+
+/// Whether the value fits the string type its alternative name is written in.
+fn fits_alternative(name: &AlternativeName) -> bool {
+    match name {
+        AlternativeName::Dns(text) | AlternativeName::Email(text) | AlternativeName::Uri(text) => {
+            Ia5String::try_from(text.as_str()).is_ok()
+        }
+        AlternativeName::Upn(_) | AlternativeName::Ip(_) => true,
+    }
 }
 
 fn order_of(field: &MappedField) -> u32 {
@@ -212,10 +237,17 @@ pub fn subject(definitions: &[Definition], values: &Values) -> Result<RequestSub
             for text in &texts {
                 match &target {
                     Target::Name(kind) => {
+                        if !fits_name(kind, text) {
+                            return Err(invalid());
+                        }
                         names.push((order, kind.clone(), text.clone(), definition));
                     }
                     Target::Alternative(build) => {
-                        alternatives.push((order, build(text.clone())));
+                        let name = build(text.clone());
+                        if !fits_alternative(&name) {
+                            return Err(invalid());
+                        }
+                        alternatives.push((order, name));
                     }
                     Target::Address => {
                         let address: IpAddr = text.trim().parse().map_err(|_| invalid())?;

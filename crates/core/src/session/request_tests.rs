@@ -521,6 +521,33 @@ async fn a_value_the_subject_cannot_hold_leaves_the_forms_open_to_be_corrected()
 }
 
 #[tokio::test]
+async fn a_dns_name_outside_ia5_leaves_the_forms_open_to_be_corrected() {
+    let dns = vec![mapped(
+        definition(3, "data", "host", "string", json!({})),
+        json!([{ "fieldType": "san", "generalNameType": "dns" }]),
+    )];
+    let requesting = Requesting::with(InMemoryStorage::new(&[Storage::Software]), dns).await;
+    requesting.issue_accepted().await;
+    let forms = requesting.open(false).await;
+    let given = |value: &str| RequestInput {
+        request: Requesting::input(&forms.request, json!({ "host": text(value) })),
+        ..RequestInput::default()
+    };
+
+    let error = requesting.request_with(given("münich.example")).await;
+
+    assert!(matches!(
+        error,
+        Err(RequestError::Unmappable(Unmappable::Invalid { .. }))
+    ));
+    requesting.nothing_left();
+    requesting
+        .request_with(given("munich.example"))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
 async fn a_broken_store_stops_the_request_before_a_key_is_made() {
     let folder = tempfile::tempdir().unwrap();
     std::fs::write(folder.path().join("requests.json"), "{").unwrap();

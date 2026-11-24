@@ -178,6 +178,24 @@ fn a_request_is_removed_and_removing_an_absent_one_is_fine() {
 }
 
 #[test]
+fn a_removal_is_kept_in_memory_and_written_when_the_file_can_be_written_again() {
+    let dir = tempdir().unwrap();
+    let requests = Requests::new(dir.path());
+    requests.add(waiting("k-1")).unwrap();
+    let path = dir.path().join("requests.json");
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+
+    assert!(requests.remove(&key("k-1")).is_err());
+    assert!(requests.all().is_empty());
+
+    std::fs::remove_dir(&path).unwrap();
+    requests.save_pending();
+
+    assert!(Requests::new(dir.path()).all().is_empty());
+}
+
+#[test]
 fn a_failed_write_keeps_nothing_in_memory() {
     let dir = tempdir().unwrap();
     let blocker = dir.path().join("blocker");

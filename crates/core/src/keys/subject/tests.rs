@@ -87,6 +87,26 @@ fn every_name_code_gives_its_name_type() {
         let built = rdn_of(code, "value").unwrap();
         assert_eq!(built.names, names(&[(expected, "value")]), "{code}");
     }
+    assert_eq!(
+        rdn_of("2.999", "value").unwrap().names,
+        names(&[(NameType::Other(vec![2, 999]), "value")])
+    );
+    for code in ["3.1", "1.40"] {
+        assert!(rdn_of(code, "value").is_err(), "{code}");
+    }
+}
+
+#[test]
+fn a_value_outside_the_string_type_of_its_name_is_invalid() {
+    assert!(matches!(
+        rdn_of("DC", "café"),
+        Err(Unmappable::Invalid { .. })
+    ));
+    assert!(matches!(rdn_of("C", "ü"), Err(Unmappable::Invalid { .. })));
+    assert!(matches!(
+        san_of("dns", "münich.example"),
+        Err(Unmappable::Invalid { .. })
+    ));
 }
 
 #[test]
