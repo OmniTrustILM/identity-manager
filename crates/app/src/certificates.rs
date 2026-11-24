@@ -1,8 +1,8 @@
 //! The certificates of the person on this computer, for the Certificates section.
 
 use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use im_core::attributes::FieldProblem;
@@ -133,6 +133,9 @@ pub struct Ilm<R: Runtime> {
     notices: Arc<Notices>,
     /// How many checks, or changes that end in a check, are running.
     working: AtomicUsize,
+    /// Held from reading the warning days to giving them to the inventory, so days read before a change cannot
+    /// replace the changed ones.
+    configuring: Mutex<()>,
 }
 
 impl<R: Runtime> Ilm<R> {
@@ -154,6 +157,7 @@ impl<R: Runtime> Ilm<R> {
             local,
             notices,
             working: AtomicUsize::new(0),
+            configuring: Mutex::new(()),
         }
     }
 
@@ -191,6 +195,10 @@ impl<R: Runtime> Ilm<R> {
     /// Gives the inventory the warning days of the settings, which rebuilds the summary when they changed. ILM is
     /// not asked.
     fn configure(&self) {
+        let _configuring = self
+            .configuring
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         self.inventory.configure(self.settings.warn_days());
     }
 
