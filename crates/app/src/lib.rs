@@ -16,6 +16,7 @@ mod lock;
 mod main_window;
 mod mode;
 mod notice;
+mod request;
 mod self_check;
 mod session;
 mod settings;
@@ -123,7 +124,13 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             attributes::attribute_callback,
             attributes::check_attributes,
             attributes::close_form,
-            attributes::open_in_ilm
+            attributes::open_in_ilm,
+            request::request_choices,
+            request::open_request_forms,
+            request::request_offers,
+            request::request_certificate,
+            request::follow_request,
+            request::stop_following_request
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)

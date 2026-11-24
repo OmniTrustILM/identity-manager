@@ -10,3 +10,5 @@ Windows Registry Editor Version 5.00
 "ExpiryWarningDays"=dword:0000001e
 "SignInProvider"="Corporate"
 "SignInMethod"="oauth"
+"KeyStorages"="software,tpm"
+"DefaultKeyStorage"="software"

@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use auto_launch::{AutoLaunch, AutoLaunchBuilder, WindowsEnableMode};
 use im_core::identity::Fingerprint;
 use im_core::ilm::IlmUrl;
+use im_core::keys::{Offer, Storage};
 use im_core::session::{Connection, ConnectionSettings};
 use im_core::settings::{
     self, Change, Layer, LogLevel, RememberedCertificate, SettingsView, store,
@@ -142,6 +143,12 @@ impl Settings {
     pub fn warn_days(&self) -> settings::WarnDays {
         let (policy, person) = self.layers();
         settings::warn_days(&policy, &person)
+    }
+
+    /// The key storages policy lets this computer offer for a new key, and the one to preselect; read at each
+    /// call, so a policy change that arrived while the application runs takes effect.
+    pub fn allowed_offers(&self, offers: Vec<Offer>) -> (Vec<Offer>, Option<Storage>) {
+        settings::allowed_offers(offers, &(self.policy)())
     }
 
     pub fn change(&self, change: Change) -> Result<SettingsView, String> {

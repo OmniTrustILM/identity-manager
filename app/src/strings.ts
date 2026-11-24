@@ -339,4 +339,97 @@ export const strings = {
     minutes: (count: number) => `${count} minutes`,
     setUpHello: 'Set up Windows Hello to lock Identity Manager.',
     setUpPassword: 'Set a password for this Mac to lock Identity Manager.',
+
+    requestCertificate: 'Request certificate',
+    requestTitle: 'Request a certificate',
+    requestSteps: 'Steps',
+    requestStepNames: ['Profile', 'Attributes', 'Private key', 'Review'],
+    stepDone: 'done',
+    chooseProfile: 'Choose an RA profile',
+    chooseProfileHint: 'These are the RA profiles ILM lets you use.',
+    profiles: 'RA profiles',
+    authorityNamed: (name: string) => `Authority: ${name}`,
+    fillAttributes: 'Fill in the attributes',
+    certificateRequestGroup: 'Certificate request',
+    raProfileGroup: 'From the RA profile',
+    requestFormsLoading: 'Loading the attributes…',
+    requestFormsFailed: 'The attributes could not be loaded.',
+    keyHome: 'Where should the private key live?',
+    keyStaysHere: (platform: 'macos' | 'windows' | 'linux') =>
+        `The key is created on ${{ macos: 'this Mac', windows: 'this PC', linux: 'this computer' }[platform]} and never leaves it.`,
+    keyStorages: 'Key storage',
+    recommended: 'Recommended',
+    keyType: 'Key type',
+    offersLoading: 'Checking the key storages…',
+    offersFailed: 'The key storages could not be read.',
+    noKeyStorage: 'Your organization does not allow a key storage on this computer.',
+    storageName: (storage: string, platform: 'macos' | 'windows' | 'linux'): string => {
+        if (storage === 'software' && platform === 'windows') {
+            return 'Windows key store';
+        }
+        return ({ keychain: 'Keychain', tpm: 'TPM', software: 'Software key' } as Record<string, string>)[storage] ?? storage;
+    },
+    storageDescription: (storage: string, platform: 'macos' | 'windows' | 'linux') => {
+        if (storage === 'keychain') {
+            return 'In your login keychain, marked as not exportable.';
+        }
+        if (storage === 'tpm') {
+            return `Protected by the security chip in ${platform === 'windows' ? 'this PC' : 'this computer'}. Cannot be copied.`;
+        }
+        return platform === 'windows'
+            ? 'In your user profile, marked as not exportable.'
+            : 'Kept on this computer for your user account only.';
+    },
+    keyTypeNames: {
+        ecP256: 'EC P-256',
+        ecP384: 'EC P-384',
+        ecP521: 'EC P-521',
+        rsa2048: 'RSA 2048',
+        rsa3072: 'RSA 3072',
+        rsa4096: 'RSA 4096',
+        mlDsa44: 'ML-DSA-44',
+        mlDsa65: 'ML-DSA-65',
+        mlDsa87: 'ML-DSA-87',
+    } as Record<string, string>,
+    reviewTitle: 'Review and request',
+    reviewProfile: 'Profile',
+    reviewSubject: 'Subject',
+    reviewKey: 'Private key',
+    reviewKeyType: 'Key type',
+    reviewInstalledIn: 'Installed in',
+    reviewNewKey: (where: string) => `New, in ${where}`,
+    keyPlace: (storage: string, platform: 'macos' | 'windows' | 'linux') => {
+        if (storage === 'keychain') {
+            return 'the keychain';
+        }
+        if (storage === 'tpm') {
+            return 'the TPM';
+        }
+        return platform === 'windows' ? 'the Windows key store' : 'software';
+    },
+    installedPlace: (platform: 'macos' | 'windows' | 'linux') =>
+        platform === 'macos' ? 'Your login keychain' : 'Your personal certificate store',
+    requestPlan: (where: string) => [
+        `A new key is created in ${where}.`,
+        'A request signed with that key goes to ILM. The key itself is never sent.',
+        'ILM issues the certificate and this app installs it with its intermediates.',
+    ],
+    requestPlanName: 'What happens next',
+    requesting: 'Requesting…',
+    requestRefused: 'ILM did not accept the request',
+    requestFailed: 'The certificate could not be requested.',
+    installedTitle: 'Your certificate is installed',
+    installedIn: (label: string, platform: 'macos' | 'windows' | 'linux') =>
+        `${label} is in ${platform === 'macos' ? 'your login keychain' : 'your personal certificate store'}.`,
+    requestValidUntil: 'Valid until',
+    waitingForApproval: 'Waiting for approval',
+    beingIssued: 'Being issued',
+    requestsInProgress: 'Requests in progress',
+    issuing: 'ILM is issuing your certificate',
+    installWhenIssued: 'The app installs it when ILM issues it. You can close this window.',
+    requestRejected: 'ILM rejected the request.',
+    requestNotIssued: 'ILM could not issue the certificate.',
+    requestIssuedNotInstalled: 'ILM issued the certificate, but it could not be installed. The app will try again.',
+    requestOtherKey: 'ILM issued a certificate that does not match the key created for this request.',
+    done: 'Done',
 };

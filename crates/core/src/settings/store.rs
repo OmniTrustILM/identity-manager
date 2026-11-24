@@ -166,6 +166,8 @@ mod tests {
             warn_days: WarnDays::option(60),
             sign_in_provider: None,
             sign_in_method: None,
+            key_storages: None,
+            default_key_storage: None,
             sign_in_certificate: Some(remembered()),
         }
     }

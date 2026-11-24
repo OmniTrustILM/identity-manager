@@ -213,3 +213,37 @@ test('without the listing there is no Not in ILM tile and nothing to add', async
     ]);
     await expect(page.getByRole('button', { name: 'Add to ILM' })).toHaveCount(0);
 });
+
+for (const scheme of ['light', 'dark'] as const) {
+    test(`in ${scheme} requests in progress sit above what needs attention, with an accent hourglass and no button`, async ({
+        mount,
+        page,
+    }) => {
+        await open(page, mount, 'macos', scheme, {
+            summary: summary([
+                { kind: 'waiting', label: 'User mTLS', state: 'pendingApproval' },
+                { kind: 'waiting', label: 'Code signing', state: 'beingIssued' },
+                ...items,
+            ]),
+        });
+
+        const headings = await page.getByRole('heading', { level: 2 }).allTextContents();
+        expect(headings.slice(0, 2)).toEqual(['Requests in progress', 'Needs attention']);
+        const progress = page.getByRole('region', { name: 'Requests in progress' });
+        await expect(progress.getByRole('listitem')).toHaveText(['User mTLSWaiting for approval', 'Code signingBeing issued']);
+        await expect(progress.getByRole('button')).toHaveCount(0);
+        const { icon, accent } = await page.evaluate(() => {
+            const section = [...document.querySelectorAll('section')].find(
+                (each) => each.querySelector('h2')?.textContent === 'Requests in progress',
+            );
+            const style = (element: Element | null | undefined) => (element ? getComputedStyle(element).color : null);
+            const probe = document.createElement('span');
+            probe.className = 'text-accent';
+            document.body.append(probe);
+            const accent = style(probe);
+            probe.remove();
+            return { icon: style(section?.querySelector('svg')), accent };
+        });
+        expect(icon).toBe(accent);
+    });
+}

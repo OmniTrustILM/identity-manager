@@ -43,6 +43,8 @@ const expiring: AttentionItemView = {
     on: computedAt + 13 * day,
 };
 const tomorrow: AttentionItemView = { kind: 'expiring', fingerprint: 'FP:soon', name: 'Soon', days: 1, on: computedAt + day };
+const approval: AttentionItemView = { kind: 'waiting', label: 'User mTLS', state: 'pendingApproval' };
+const issuing: AttentionItemView = { kind: 'waiting', label: 'Code signing', state: 'beingIssued' };
 const unmatched = (count: number): AttentionItemView => ({ kind: 'notInIlm', count });
 
 const stand = (attention: AttentionItemView[], over: Partial<SummaryView> = {}): SummaryView => ({
@@ -216,6 +218,38 @@ test('each item that needs attention says what is the matter and has Show, named
         candidate.getAttribute('aria-label'),
     );
     expect(names).toEqual(['Show Build server', 'Show Smart card login', 'Show vpn.example.com', strings.addToIlm]);
+});
+
+const sections = () => [...container.querySelectorAll('section')];
+const headings = () => sections().map((section) => section.querySelector('h2')?.textContent);
+
+test('requests in progress are their own section between the counts and what needs attention, with no button', async () => {
+    summary = stand([approval, issuing, revoked]);
+    await render();
+
+    expect(headings().slice(0, 2)).toEqual([strings.requestsInProgress, strings.needsAttention]);
+    const progress = sections()[0];
+    expect([...(progress?.querySelectorAll('ul > li') ?? [])].map((row) => row.textContent)).toEqual([
+        `User mTLS${strings.waitingForApproval}`,
+        `Code signing${strings.beingIssued}`,
+    ]);
+    expect(progress?.querySelector('button')).toBeNull();
+    expect(sections()[1]?.textContent).not.toContain('User mTLS');
+    expect(sections()[1]?.textContent).toContain('Build server');
+});
+
+test('without requests in progress there is no such section', async () => {
+    await render();
+
+    expect(headings()).not.toContain(strings.requestsInProgress);
+});
+
+test('requests in progress alone leave nothing that needs attention', async () => {
+    summary = stand([issuing], { counts: { valid: 3, expiring: 0, expired: 0, notInIlm: 0 } });
+    await render();
+
+    expect(headings().slice(0, 2)).toEqual([strings.requestsInProgress, strings.needsAttention]);
+    expect(sections()[1]?.querySelector('p')?.textContent).toBe(strings.nothingNeedsAttention);
 });
 
 test('Show opens the certificate in Certificates', async () => {

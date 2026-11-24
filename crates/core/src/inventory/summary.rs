@@ -21,6 +21,15 @@ pub enum Kind {
     Revoked,
     /// Certificates on this computer that ILM does not know.
     NotInIlm { count: u32 },
+    /// A request for a certificate that ILM has not issued yet; the item's name is the request's label.
+    Waiting { state: WaitingState },
+}
+
+/// What ILM is doing with a request that is not yet a certificate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaitingState {
+    PendingApproval,
+    BeingIssued,
 }
 
 /// One thing that needs attention.
@@ -64,7 +73,8 @@ pub struct Summary {
 }
 
 impl Summary {
-    /// Whether any certificate is expiring, expired or revoked. Certificates not in ILM do not count.
+    /// Whether any certificate is expiring, expired or revoked. Certificates not in ILM and requests in progress do
+    /// not count.
     pub fn needs_attention(&self) -> bool {
         self.needing_attention() > 0
     }
@@ -73,8 +83,31 @@ impl Summary {
     pub fn needing_attention(&self) -> usize {
         self.attention
             .iter()
-            .filter(|item| !matches!(item.kind, Kind::NotInIlm { .. }))
+            .filter(|item| !matches!(item.kind, Kind::NotInIlm { .. } | Kind::Waiting { .. }))
             .count()
+    }
+
+    /// Lists the requests in progress, given as label and state, after what is expiring, expired or revoked and
+    /// before the certificates ILM does not know.
+    #[must_use]
+    pub fn with_waiting(
+        mut self,
+        waiting: impl IntoIterator<Item = (String, WaitingState)>,
+    ) -> Self {
+        let at = match self.attention.last() {
+            Some(Item {
+                kind: Kind::NotInIlm { .. },
+                ..
+            }) => self.attention.len() - 1,
+            _ => self.attention.len(),
+        };
+        let items = waiting.into_iter().map(|(name, state)| Item {
+            kind: Kind::Waiting { state },
+            fingerprint: None,
+            name,
+        });
+        self.attention.splice(at..at, items);
+        self
     }
 }
 
@@ -660,6 +693,58 @@ pub(super) mod tests {
                 }
             )]
         );
+    }
+
+    #[test]
+    fn requests_in_progress_are_listed_before_the_unknown_certificates_and_need_no_attention() {
+        let local = [
+            local("missing", 1, in_days(100)),
+            local("soon", 2, in_days(1)),
+        ];
+        let snapshot = snapshot(&[1, 2], &[(2, State::Issued)]);
+        let waiting = [
+            ("User mTLS".to_owned(), WaitingState::PendingApproval),
+            ("Code signing".to_owned(), WaitingState::BeingIssued),
+        ];
+
+        let summary =
+            summarize(&local, Some(&snapshot), days(30), now(), |_| 0).with_waiting(waiting);
+
+        let waiting_kinds: Vec<_> = summary
+            .attention
+            .iter()
+            .map(|item| (item.name.as_str(), item.kind))
+            .collect();
+        assert_eq!(
+            waiting_kinds[1..],
+            [
+                (
+                    "User mTLS",
+                    Kind::Waiting {
+                        state: WaitingState::PendingApproval
+                    }
+                ),
+                (
+                    "Code signing",
+                    Kind::Waiting {
+                        state: WaitingState::BeingIssued
+                    }
+                ),
+                ("", Kind::NotInIlm { count: 1 }),
+            ]
+        );
+        assert_eq!(summary.attention[1].fingerprint, None);
+        assert_eq!(summary.needing_attention(), 1);
+    }
+
+    #[test]
+    fn requests_in_progress_alone_do_not_switch_the_attention_on() {
+        let summary = summarize(&[], None, days(30), now(), |_| 0)
+            .with_waiting([("User mTLS".to_owned(), WaitingState::PendingApproval)]);
+
+        assert_eq!(summary.attention.len(), 1);
+        assert!(!summary.needs_attention());
+        assert_eq!(summary.needing_attention(), 0);
     }
 
     #[test]

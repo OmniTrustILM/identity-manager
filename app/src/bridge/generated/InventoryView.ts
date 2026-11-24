@@ -33,4 +33,8 @@ matches: { [key in string]: IlmCertificateView },
 /**
  * The fingerprint of the certificate ILM knows the person by.
  */
-signIn: string | null, firstPage: IlmPageView | null, };
+signIn: string | null, firstPage: IlmPageView | null, 
+/**
+ * Whether the signed-in person may ask ILM for a certificate.
+ */
+canRequest: boolean, };

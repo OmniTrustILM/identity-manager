@@ -1,8 +1,9 @@
 //! The Windows source: the values of a registry key.
 
 use super::{
-    CHECK_INTERVAL, EXPIRY_WARNING_DAYS, ILM_URL, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue,
-    REQUIRE_UNLOCK, RawMap, SIGN_IN_METHOD, SIGN_IN_PROVIDER, START_AT_LOGIN,
+    CHECK_INTERVAL, DEFAULT_KEY_STORAGE, EXPIRY_WARNING_DAYS, ILM_URL, KEY_STORAGES,
+    LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUIRE_UNLOCK, RawMap, SIGN_IN_METHOD,
+    SIGN_IN_PROVIDER, START_AT_LOGIN,
 };
 #[cfg(windows)]
 use crate::settings::Layer;
@@ -99,6 +100,8 @@ fn known_name(name: String) -> String {
         EXPIRY_WARNING_DAYS,
         SIGN_IN_PROVIDER,
         SIGN_IN_METHOD,
+        KEY_STORAGES,
+        DEFAULT_KEY_STORAGE,
     ]
     .into_iter()
     .find(|known| known.eq_ignore_ascii_case(&name))
@@ -158,6 +161,25 @@ mod tests {
             layer.sign_in_method,
             Some(crate::settings::SignInMethod::Certificate)
         );
+    }
+
+    #[test]
+    fn the_key_storage_strings_reach_the_layer() {
+        use crate::keys::Storage;
+        let layer = to_layer(
+            &parse(vec![
+                ("KEYSTORAGES", RegValue::Sz("tpm,software".into())),
+                ("defaultkeystorage", RegValue::Sz("software".into())),
+            ]),
+            "test",
+        );
+        assert_eq!(
+            layer.key_storages,
+            Some(vec![Storage::Tpm, Storage::Software])
+        );
+        assert_eq!(layer.default_key_storage, Some(Storage::Software));
+        let layer = to_layer(&parse(vec![("KeyStorages", RegValue::Dword(1))]), "test");
+        assert_eq!(layer.key_storages, None);
     }
 
     #[test]

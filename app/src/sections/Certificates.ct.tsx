@@ -471,3 +471,26 @@ for (const os of ['macos', 'windows'] as const) {
         });
     }
 }
+
+for (const os of ['macos', 'windows'] as const) {
+    test(`on ${os} the toolbar has Request certificate when the person may request, and it opens the sheet`, async ({ mount, page }) => {
+        await open(page, mount, os, 'light', 1000, list, {
+            inventory: known({ canRequest: true }),
+            requesting: {
+                profiles: [{ uuid: 'ra-1', name: 'User mTLS', description: null, authority: 'Example CA', authority_uuid: 'ca-1' }],
+            },
+        });
+
+        await expect(page.getByRole('button', { name: 'Request certificate' })).toBeVisible();
+        await page.getByRole('button', { name: 'Request certificate' }).click();
+        await expect(page.getByRole('dialog', { name: 'Request a certificate' })).toBeVisible();
+    });
+}
+
+test('the toolbar has no Request certificate without the permission or without profiles', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', 1000, list, {
+        inventory: known({ canRequest: false }),
+        requesting: { profiles: [{ uuid: 'ra-1', name: 'User mTLS', description: null, authority: null, authority_uuid: null }] },
+    });
+    await expect(page.getByRole('button', { name: 'Request certificate' })).toHaveCount(0);
+});

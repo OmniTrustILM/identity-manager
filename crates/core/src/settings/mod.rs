@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::identity::Fingerprint;
 use crate::ilm::IlmUrl;
+use crate::keys::{Offer, Storage};
 
 /// How much the application writes to its log.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -50,6 +51,16 @@ impl SignInMethod {
             "certificate" => Some(Self::Certificate),
             _ => None,
         }
+    }
+}
+
+/// The key storage a policy name stands for.
+pub fn parse_storage(text: &str) -> Option<Storage> {
+    match text.trim() {
+        "keychain" => Some(Storage::Keychain),
+        "software" => Some(Storage::Software),
+        "tpm" => Some(Storage::Tpm),
+        _ => None,
     }
 }
 
@@ -182,6 +193,10 @@ pub struct Layer {
     pub sign_in_provider: Option<String>,
     /// Which way of signing in is allowed; only policy sets it.
     pub sign_in_method: Option<SignInMethod>,
+    /// The key storages the organization offers for new keys; only policy sets it.
+    pub key_storages: Option<Vec<Storage>>,
+    /// The key storage preselected for new keys; only policy sets it.
+    pub default_key_storage: Option<Storage>,
     /// The certificate last used to sign in; only the person's layer holds it.
     pub sign_in_certificate: Option<RememberedCertificate>,
 }
@@ -358,6 +373,25 @@ fn warn_days_of(policy: &Layer, person: &Layer) -> (WarnDays, Source) {
 /// How many days before expiry a certificate counts as expiring, policy over the person's choice over the default.
 pub fn warn_days(policy: &Layer, person: &Layer) -> WarnDays {
     warn_days_of(policy, person).0
+}
+
+/// The offers policy allows, in their order, and the storage to preselect: the policy default when
+/// it is allowed, else the first allowed one.
+pub fn allowed_offers(offers: Vec<Offer>, policy: &Layer) -> (Vec<Offer>, Option<Storage>) {
+    let allowed: Vec<Offer> = offers
+        .into_iter()
+        .filter(|offer| {
+            policy
+                .key_storages
+                .as_ref()
+                .is_none_or(|storages| storages.contains(&offer.storage))
+        })
+        .collect();
+    let preselected = policy
+        .default_key_storage
+        .filter(|wanted| allowed.iter().any(|offer| offer.storage == *wanted))
+        .or_else(|| allowed.first().map(|offer| offer.storage));
+    (allowed, preselected)
 }
 
 /// Merges the layers: policy over the person's choice over the default.
@@ -774,6 +808,77 @@ mod tests {
         );
         assert_eq!(SignInMethod::parse("OAuth"), None);
         assert_eq!(SignInMethod::parse(""), None);
+    }
+
+    #[test]
+    fn storages_are_parsed_by_name() {
+        assert_eq!(parse_storage("keychain"), Some(Storage::Keychain));
+        assert_eq!(parse_storage(" software "), Some(Storage::Software));
+        assert_eq!(parse_storage("tpm"), Some(Storage::Tpm));
+        assert_eq!(parse_storage("TPM"), None);
+        assert_eq!(parse_storage(""), None);
+    }
+
+    fn offer(storage: Storage) -> Offer {
+        Offer {
+            storage,
+            types: Vec::new(),
+        }
+    }
+
+    fn offers() -> Vec<Offer> {
+        vec![
+            offer(Storage::Software),
+            offer(Storage::Keychain),
+            offer(Storage::Tpm),
+        ]
+    }
+
+    fn storages_of(offers: &[Offer]) -> Vec<Storage> {
+        offers.iter().map(|offer| offer.storage).collect()
+    }
+
+    #[test]
+    fn without_policy_every_offer_is_allowed_and_the_first_preselected() {
+        let (allowed, preselected) = allowed_offers(offers(), &Layer::default());
+        assert_eq!(allowed, offers());
+        assert_eq!(preselected, Some(Storage::Software));
+    }
+
+    #[test]
+    fn policy_limits_the_offers_and_keeps_their_order() {
+        let policy = Layer {
+            key_storages: Some(vec![Storage::Tpm, Storage::Software]),
+            ..Layer::default()
+        };
+        let (allowed, preselected) = allowed_offers(offers(), &policy);
+        assert_eq!(storages_of(&allowed), [Storage::Software, Storage::Tpm]);
+        assert_eq!(preselected, Some(Storage::Software));
+    }
+
+    #[test]
+    fn the_policy_default_is_preselected_only_when_allowed() {
+        let mut policy = Layer {
+            key_storages: Some(vec![Storage::Software, Storage::Tpm]),
+            default_key_storage: Some(Storage::Tpm),
+            ..Layer::default()
+        };
+        assert_eq!(allowed_offers(offers(), &policy).1, Some(Storage::Tpm));
+        policy.default_key_storage = Some(Storage::Keychain);
+        assert_eq!(allowed_offers(offers(), &policy).1, Some(Storage::Software));
+        let none_offered = allowed_offers(vec![offer(Storage::Keychain)], &policy);
+        assert_eq!(none_offered, (Vec::new(), None));
+    }
+
+    #[test]
+    fn a_default_that_is_not_offered_gives_the_first_allowed() {
+        let policy = Layer {
+            default_key_storage: Some(Storage::Tpm),
+            ..Layer::default()
+        };
+        let (allowed, preselected) = allowed_offers(vec![offer(Storage::Keychain)], &policy);
+        assert_eq!(storages_of(&allowed), [Storage::Keychain]);
+        assert_eq!(preselected, Some(Storage::Keychain));
     }
 
     #[test]

@@ -1,0 +1,14 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "request",
+    "description": "The main window may list the RA Profiles to ask, open the forms of a request, read the key storages on offer, ask for a certificate, follow the request and stop following it.",
+    "windows": ["main"],
+    "permissions": [
+        "allow-request-choices",
+        "allow-open-request-forms",
+        "allow-request-offers",
+        "allow-request-certificate",
+        "allow-follow-request",
+        "allow-stop-following-request"
+    ]
+}

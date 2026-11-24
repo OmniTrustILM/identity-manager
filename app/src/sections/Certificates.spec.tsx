@@ -1018,3 +1018,41 @@ test.each([
     expect(locations()).toEqual(['Smart card', 'Smart card']);
     expect(options()[0]?.getAttribute('aria-label')).toContain(', Smart card, ');
 });
+
+const ra = { uuid: 'ra-1', name: 'User mTLS', description: null, authority: 'Example CA', authority_uuid: 'ca-1' };
+const withRequest = (current: InventoryView, profiles: unknown) =>
+    withInventory(current, (command) =>
+        command === 'request_choices' ? (profiles === 'fail' ? Promise.reject('no') : profiles) : undefined,
+    );
+
+test('the toolbar offers Request certificate when the person may request, ILM is reachable and a profile is listed', async () => {
+    withRequest(inventory({ canRequest: true }), [ra]);
+    await render();
+
+    expect(button('Request certificate')).toBeDefined();
+    await act(async () => button('Request certificate')?.click());
+
+    expect(container.querySelector('dialog')?.getAttribute('aria-labelledby')).not.toBeNull();
+    expect(text()).toContain('Request a certificate');
+});
+
+test('the toolbar has no Request certificate without the permission, offline, without profiles or when they cannot be listed', async () => {
+    withRequest(inventory({ canRequest: false }), [ra]);
+    await render();
+    expect(button('Request certificate')).toBeUndefined();
+
+    await act(async () => root.render(null));
+    withRequest(inventory({ canRequest: true, status: { state: 'offline', since: null, reason: 'down', unreachable: true } }), [ra]);
+    await render();
+    expect(button('Request certificate')).toBeUndefined();
+
+    await act(async () => root.render(null));
+    withRequest(inventory({ canRequest: true }), []);
+    await render();
+    expect(button('Request certificate')).toBeUndefined();
+
+    await act(async () => root.render(null));
+    withRequest(inventory({ canRequest: true }), 'fail');
+    await render();
+    expect(button('Request certificate')).toBeUndefined();
+});

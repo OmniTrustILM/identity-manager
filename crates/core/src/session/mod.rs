@@ -28,7 +28,9 @@ use url::Url;
 
 use crate::identity::tls::CertificateAsked;
 use crate::identity::{ClientIdentity, EmptyStore, Fingerprint, IdentityStore};
-use crate::ilm::profile::{IlmError, Person, profile, profile_request, read_profile};
+use crate::ilm::profile::{
+    IlmError, Person, ResourceActions, profile, profile_request, read_profile,
+};
 use crate::ilm::resource::{PublishedProvider, discover};
 use crate::ilm::{AddressError, IlmUrl};
 use crate::install::{CertificateInstaller, NoInstaller};
@@ -44,7 +46,9 @@ pub use add_to_ilm::{AddChoices, AddOutcome, AddResult, FormInput};
 pub use attributes::FormError;
 pub use certificate::ChangeError;
 use certificate::certificate_choice;
-pub use request::{EndReason, Followed, Outcome, RequestError, RequestForms, RequestInput};
+pub use request::{
+    EndReason, Followed, Installed, Outcome, RequestError, RequestForms, RequestInput,
+};
 pub use store::{Item, KeyringStore, MemoryStore, RefreshStore, StoreError};
 
 /// An access token that expires sooner than this is renewed before it is used.
@@ -185,9 +189,18 @@ pub struct SignedInAs {
     pub ilm: IlmUrl,
     pub username: String,
     pub allowed_listings: Vec<String>,
+    pub allowed_actions: Vec<ResourceActions>,
 }
 
 impl SignedInAs {
+    /// Whether ILM lets the person ask for certificates.
+    pub fn creates_certificates(&self) -> bool {
+        self.allowed_actions.iter().any(|allowed| {
+            allowed.resource == "certificates"
+                && allowed.actions.iter().any(|action| action == "create")
+        })
+    }
+
     /// Whether ILM lets the person list its certificates.
     pub fn lists_certificates(&self) -> bool {
         self.allowed_listings
@@ -486,6 +499,7 @@ impl Session {
                 ilm: active.ilm.clone(),
                 username: active.person.username.clone(),
                 allowed_listings: active.person.allowed_listings.clone(),
+                allowed_actions: active.person.allowed_actions.clone(),
             }),
             _ => None,
         }

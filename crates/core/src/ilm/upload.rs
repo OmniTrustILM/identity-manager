@@ -36,6 +36,7 @@ pub struct GroupChoice {
 pub struct RaProfileChoice {
     pub uuid: String,
     pub name: String,
+    pub description: Option<String>,
     /// The authority the profile issues from.
     pub authority: Option<String>,
     /// The UUID of that authority, which ILM's issuing paths name.
@@ -52,6 +53,7 @@ struct Uploaded {
 struct RawRaProfile {
     uuid: String,
     name: String,
+    description: Option<String>,
     #[serde(default)]
     enabled: bool,
     authority_instance_name: Option<String>,
@@ -181,6 +183,7 @@ pub async fn read_ra_profiles(
                 .map(|profile| RaProfileChoice {
                     uuid: profile.uuid,
                     name: profile.name,
+                    description: profile.description,
                     authority: profile.authority_instance_name,
                     authority_uuid: profile.authority_instance_uuid,
                 })
@@ -414,7 +417,7 @@ mod tests {
             .and(path("/api/v1/raProfiles"))
             .and(query_param("enabled", "true"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-                { "uuid": "r-1", "name": "TLS", "enabled": true, "authorityInstanceName": "Corp CA", "authorityInstanceUuid": "a-1" },
+                { "uuid": "r-1", "name": "TLS", "description": "For servers", "enabled": true, "authorityInstanceName": "Corp CA", "authorityInstanceUuid": "a-1" },
                 { "uuid": "r-2", "name": "Old", "enabled": false, "authorityInstanceName": "Corp CA" },
                 { "uuid": "r-3", "name": "Bare", "enabled": true }
             ])))
@@ -433,12 +436,14 @@ mod tests {
                 RaProfileChoice {
                     uuid: "r-1".into(),
                     name: "TLS".into(),
+                    description: Some("For servers".into()),
                     authority: Some("Corp CA".into()),
                     authority_uuid: Some("a-1".into())
                 },
                 RaProfileChoice {
                     uuid: "r-3".into(),
                     name: "Bare".into(),
+                    description: None,
                     authority: None,
                     authority_uuid: None
                 },

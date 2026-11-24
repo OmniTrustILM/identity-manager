@@ -445,7 +445,13 @@ mod tests {
                 crate::attributes::attribute_callback,
                 crate::attributes::check_attributes,
                 crate::attributes::close_form,
-                crate::attributes::open_in_ilm
+                crate::attributes::open_in_ilm,
+                crate::request::request_choices,
+                crate::request::open_request_forms,
+                crate::request::request_offers,
+                crate::request::request_certificate,
+                crate::request::follow_request,
+                crate::request::stop_following_request
             ])
             .build(mock_context(noop_assets()))
             .expect("the mock app builds");
@@ -877,6 +883,60 @@ mod tests {
         assert!(fixture.browser.0.lock().unwrap().is_empty());
     }
 
+    fn request_commands() -> [(&'static str, serde_json::Value); 5] {
+        [
+            ("request_choices", serde_json::json!({})),
+            (
+                "open_request_forms",
+                serde_json::json!({ "raProfile": "ra-1" }),
+            ),
+            ("request_offers", serde_json::json!({})),
+            (
+                "request_certificate",
+                serde_json::json!({
+                    "raProfile": "ra-1", "forms": {}, "storage": "software", "keyType": "ecP256"
+                }),
+            ),
+            (
+                "follow_request",
+                serde_json::json!({ "certificate": "c-1" }),
+            ),
+        ]
+    }
+
+    #[test]
+    fn the_request_commands_refuse_while_locked_and_when_nobody_is_signed_in() {
+        let fixture = fixture(Mode::SelfCheck);
+        for (command, body) in request_commands() {
+            let answer = fixture.call(command, body);
+            assert!(
+                answer
+                    .as_ref()
+                    .is_err_and(|error| error.contains("not signed in")),
+                "{command}: {answer:?}"
+            );
+        }
+
+        fixture.lock();
+
+        for (command, body) in request_commands() {
+            refused_as_locked(fixture.call(command, body), command);
+        }
+    }
+
+    #[test]
+    fn the_wizard_can_stop_following_a_request_while_locked() {
+        let fixture = fixture(Mode::SelfCheck);
+        fixture.lock();
+
+        let answer = fixture.call(
+            "stop_following_request",
+            serde_json::json!({ "certificate": "c-1" }),
+        );
+
+        assert!(answer.is_ok(), "{answer:?}");
+    }
+
     #[test]
     fn open_in_ilm_opens_the_page_of_the_target_at_the_origin_of_the_ilm_address() {
         let fixture = fixture(Mode::SelfCheck);
@@ -946,14 +1006,14 @@ mod tests {
 
         let done = tauri::async_runtime::block_on(async {
             ilm.working(async {
-                assert!(ilm.view().checking);
+                assert!(ilm.view().await.checking);
                 7
             })
             .await
         });
 
         assert_eq!(done, 7);
-        assert!(!ilm.view().checking);
+        assert!(!tauri::async_runtime::block_on(ilm.view()).checking);
         for _ in 0..2 {
             assert_eq!(events.recv_timeout(Duration::from_secs(5)).unwrap(), "null");
         }

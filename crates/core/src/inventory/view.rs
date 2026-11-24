@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use super::{Counts, Item, Kind, Snapshot, Status, Summary};
+use super::{Counts, Item, Kind, Snapshot, Status, Summary, WaitingState};
 use crate::attributes::FormView;
 use crate::ilm::certificates::{CertificatePage, IlmCertificate};
 use crate::ilm::upload::{GroupChoice, RaProfileChoice};
@@ -136,6 +136,8 @@ pub struct InventoryView {
     /// The fingerprint of the certificate ILM knows the person by.
     pub sign_in: Option<String>,
     pub first_page: Option<IlmPageView>,
+    /// Whether the signed-in person may ask ILM for a certificate.
+    pub can_request: bool,
 }
 
 /// Whether the person may list certificates: what the latest check read, else what the session knows.
@@ -145,7 +147,13 @@ pub fn listed_by(snapshot: Option<&Snapshot>, session_lists: bool) -> bool {
 
 impl InventoryView {
     /// `listed` is what the session knows, used while there is no snapshot.
-    pub fn new(status: Status, snapshot: Option<&Snapshot>, checking: bool, listed: bool) -> Self {
+    pub fn new(
+        status: Status,
+        snapshot: Option<&Snapshot>,
+        checking: bool,
+        listed: bool,
+        can_request: bool,
+    ) -> Self {
         Self {
             status,
             checking,
@@ -167,6 +175,7 @@ impl InventoryView {
             first_page: snapshot
                 .and_then(|snapshot| snapshot.first_page.as_ref())
                 .map(Into::into),
+            can_request,
         }
     }
 }
@@ -296,6 +305,24 @@ pub enum AttentionItemView {
     NotInIlm {
         count: u32,
     },
+    /// A request that ILM has not finished yet.
+    Waiting {
+        label: String,
+        state: WaitingStateView,
+    },
+}
+
+/// What ILM is doing with a request that is not yet a certificate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub enum WaitingStateView {
+    PendingApproval,
+    BeingIssued,
 }
 
 impl From<&Item> for AttentionItemView {
@@ -323,6 +350,13 @@ impl From<&Item> for AttentionItemView {
                 name: name(),
             },
             Kind::NotInIlm { count } => Self::NotInIlm { count },
+            Kind::Waiting { state } => Self::Waiting {
+                label: name(),
+                state: match state {
+                    WaitingState::PendingApproval => WaitingStateView::PendingApproval,
+                    WaitingState::BeingIssued => WaitingStateView::BeingIssued,
+                },
+            },
         }
     }
 }
@@ -408,6 +442,24 @@ mod tests {
     }
 
     #[test]
+    fn a_request_in_progress_is_an_attention_item_with_its_label_and_state() {
+        let item = Item {
+            kind: Kind::Waiting {
+                state: WaitingState::PendingApproval,
+            },
+            fingerprint: None,
+            name: "User mTLS".to_owned(),
+        };
+
+        let json = serde_json::to_value(AttentionItemView::from(&item)).unwrap();
+
+        assert_eq!(
+            json,
+            json!({ "kind": "waiting", "label": "User mTLS", "state": "pendingApproval" })
+        );
+    }
+
+    #[test]
     fn a_snapshot_shows_its_matches_codes_and_sign_in_but_no_actions() {
         let page = CertificatePage {
             certificates: vec![certificate(Fingerprint::of(b"b"))],
@@ -421,6 +473,7 @@ mod tests {
             Some(&snapshot(Some(page))),
             true,
             true,
+            true,
         );
         let json = serde_json::to_value(&view).unwrap();
         let key = Fingerprint::of(b"a").to_string();
@@ -428,6 +481,7 @@ mod tests {
         assert_eq!(json["checking"], true);
         assert_eq!(json["checkedAt"], 5);
         assert_eq!(json["listed"], true);
+        assert_eq!(json["canRequest"], true);
         assert_eq!(json["checked"], json!([key]));
         assert_eq!(json["signIn"], key);
         assert_eq!(json["matches"][&key]["state"], "issued");
@@ -439,7 +493,7 @@ mod tests {
 
     #[test]
     fn without_a_first_page_certificates_are_not_listed() {
-        let view = InventoryView::new(Status::Never, Some(&snapshot(None)), false, false);
+        let view = InventoryView::new(Status::Never, Some(&snapshot(None)), false, false, false);
         assert!(!view.listed);
         assert!(view.first_page.is_none());
     }
@@ -451,14 +505,14 @@ mod tests {
             listed: true,
             ..listing
         };
-        assert!(InventoryView::new(Status::Never, Some(&listing), false, false).listed);
+        assert!(InventoryView::new(Status::Never, Some(&listing), false, false, false).listed);
         listing.listed = false;
-        assert!(!InventoryView::new(Status::Never, Some(&listing), false, true).listed);
+        assert!(!InventoryView::new(Status::Never, Some(&listing), false, true, false).listed);
     }
 
     #[test]
     fn before_the_first_check_there_is_nothing() {
-        let view = InventoryView::new(Status::Never, None, false, true);
+        let view = InventoryView::new(Status::Never, None, false, true, false);
         assert!(view.listed);
         assert_eq!(view.checked_at, None);
         assert!(view.matches.is_empty() && view.sign_in.is_none() && view.checked.is_empty());

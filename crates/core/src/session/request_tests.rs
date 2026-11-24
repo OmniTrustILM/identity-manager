@@ -18,7 +18,9 @@ use x509_parser::certification_request::X509CertificationRequest;
 use x509_parser::prelude::FromDer;
 
 use super::tests::{LOG, World, capture_logs};
-use super::{EndReason, Followed, Outcome, RequestError, RequestForms, RequestInput, SessionView};
+use super::{
+    EndReason, Followed, Installed, Outcome, RequestError, RequestForms, RequestInput, SessionView,
+};
 use crate::attributes::FormView;
 use crate::attributes::fixtures::{default_request_set, definition, demo_request_set, mapped};
 use crate::ilm::IlmUrl;
@@ -57,9 +59,15 @@ fn choice() -> RaProfileChoice {
     RaProfileChoice {
         uuid: "ra-1".into(),
         name: "Servers".into(),
+        description: None,
         authority: Some("Corporate CA".into()),
         authority_uuid: Some("auth-1".into()),
     }
+}
+
+fn leaf_not_after(leaf: &[u8]) -> i64 {
+    let (_, parsed) = x509_parser::certificate::X509Certificate::from_der(leaf).unwrap();
+    parsed.validity().not_after.timestamp() * 1000
 }
 
 fn state_path(uuid: &str) -> String {
@@ -407,6 +415,93 @@ async fn an_optional_request_attribute_that_cannot_be_written_does_not_block_the
     assert!(forms.request.unwrap().unsupported.is_empty());
 }
 
+#[tokio::test]
+async fn an_optional_request_attribute_that_cannot_be_written_is_not_in_the_form() {
+    let requesting = Requesting::with(
+        InMemoryStorage::new(&[Storage::Software]),
+        demo_request_set(),
+    )
+    .await;
+
+    let forms = requesting.open(false).await;
+
+    let names: Vec<String> = forms
+        .request
+        .unwrap()
+        .groups
+        .into_iter()
+        .flat_map(|group| group.fields)
+        .map(|field| field.name)
+        .collect();
+    assert_eq!(names, ["common-name", "san"]);
+}
+
+// The profiles to ask.
+
+#[tokio::test]
+async fn the_profiles_to_ask_are_the_enabled_ones_with_an_authority() {
+    let requesting = Requesting::new().await;
+    requesting
+        .answer(
+            "GET",
+            "/api/v1/raProfiles",
+            ResponseTemplate::new(200).set_body_json(json!([
+                { "uuid": "ra-1", "name": "Servers", "description": "For servers", "enabled": true,
+                  "authorityInstanceName": "Corporate CA", "authorityInstanceUuid": "auth-1" },
+                { "uuid": "ra-2", "name": "Bare", "enabled": true },
+                { "uuid": "ra-3", "name": "Off", "enabled": false, "authorityInstanceUuid": "auth-1" }
+            ])),
+        )
+        .await;
+
+    let listed = requesting.world.session.request_profiles().await.unwrap();
+
+    assert_eq!(
+        listed,
+        [RaProfileChoice {
+            description: Some("For servers".into()),
+            ..choice()
+        }]
+    );
+}
+
+#[tokio::test]
+async fn a_list_the_person_may_not_see_is_empty_and_a_refused_sign_in_is_an_error() {
+    let requesting = Requesting::new().await;
+    requesting
+        .answer("GET", "/api/v1/raProfiles", ResponseTemplate::new(403))
+        .await;
+    assert_eq!(
+        requesting.world.session.request_profiles().await,
+        Ok(Vec::new())
+    );
+    let requesting = Requesting::new().await;
+    requesting
+        .answer("GET", "/api/v1/raProfiles", ResponseTemplate::new(500))
+        .await;
+    assert_eq!(
+        requesting.world.session.request_profiles().await,
+        Err(RequestError::Unexpected(500))
+    );
+}
+
+#[test]
+fn a_person_asks_for_certificates_only_with_create_allowed_on_certificates() {
+    use crate::ilm::profile::ResourceActions;
+    let allowed = |resource: &str, actions: &[&str]| super::SignedInAs {
+        ilm: IlmUrl::for_tests("https://ilm.example.com"),
+        username: "jdoe".into(),
+        allowed_listings: Vec::new(),
+        allowed_actions: vec![ResourceActions {
+            resource: resource.into(),
+            actions: actions.iter().map(|action| (*action).into()).collect(),
+        }],
+    };
+    assert!(allowed("certificates", &["list", "create"]).creates_certificates());
+    assert!(!allowed("certificates", &["list"]).creates_certificates());
+    assert!(!allowed("groups", &["create"]).creates_certificates());
+}
+
 // A new request.
 
 #[tokio::test]
@@ -670,6 +765,67 @@ async fn a_problem_in_a_later_form_takes_none_of_the_forms() {
                 &json!({ "commonName": text("a") })
             )
             .is_ok()
+    );
+}
+
+#[tokio::test]
+async fn a_request_that_fails_leaves_its_forms_open_to_be_sent_again() {
+    let requesting = Requesting::new().await;
+    Mock::given(method("POST"))
+        .and(path(ISSUE))
+        .respond_with(ResponseTemplate::new(422).set_body_json(json!(["The name is taken."])))
+        .up_to_n_times(1)
+        .mount(&requesting.world.ilm)
+        .await;
+    let forms = requesting.forms("web.example.com").await;
+
+    let error = requesting.request_with(forms.clone()).await.unwrap_err();
+    assert_eq!(
+        error,
+        RequestError::Refused(vec!["The name is taken.".into()])
+    );
+
+    requesting.issue_accepted().await;
+    assert!(requesting.request_with(forms).await.is_ok());
+}
+
+#[tokio::test]
+async fn a_form_that_cannot_be_taken_leaves_the_forms_taken_before_it_open() {
+    let requesting = Requesting::new().await;
+    requesting.issue_accepted().await;
+    let forms = requesting.forms("web.example.com").await;
+    let twice = RequestInput {
+        issue: forms.request.clone(),
+        ..forms.clone()
+    };
+
+    assert_eq!(
+        requesting.request_with(twice).await.unwrap_err(),
+        RequestError::FormGone
+    );
+
+    assert!(requesting.request_with(forms).await.is_ok());
+}
+
+#[tokio::test]
+async fn forms_closed_while_a_request_fails_stay_closed() {
+    let requesting = Requesting::new().await;
+    requesting
+        .issue_answers(ResponseTemplate::new(500).set_delay(Duration::from_millis(300)))
+        .await;
+    let forms = requesting.forms("web.example.com").await;
+    let closing = async {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        requesting.world.session.close_forms();
+    };
+
+    let (sent, ()) = tokio::join!(requesting.request_with(forms.clone()), closing);
+
+    assert_eq!(sent.unwrap_err(), RequestError::Unexpected(500));
+
+    assert_eq!(
+        requesting.request_with(forms).await.unwrap_err(),
+        RequestError::FormGone
     );
 }
 
@@ -1052,7 +1208,13 @@ async fn an_issued_certificate_is_installed_with_its_chain_and_the_request_ends_
 
     let found = requesting.follow().await;
 
-    assert_eq!(Requesting::outcomes(&found), [Outcome::Installed]);
+    assert_eq!(
+        Requesting::outcomes(&found),
+        [Outcome::Installed(Installed {
+            storage: Storage::Software,
+            not_after: leaf_not_after(&leaf),
+        })]
+    );
     assert_eq!(found[0].uuid.as_deref(), Some("c-1"));
     assert_eq!(found[0].label, "seeded");
     assert_eq!(
@@ -1120,10 +1282,10 @@ async fn an_installer_that_fails_keeps_the_key_and_the_request() {
     assert_eq!(Requesting::outcomes(&found), [Outcome::InstallFailed]);
     requesting.only_a_request_is_left();
     requesting.installer.fail(false);
-    assert_eq!(
-        Requesting::outcomes(&requesting.follow().await),
-        [Outcome::Installed]
-    );
+    assert!(matches!(
+        Requesting::outcomes(&requesting.follow().await)[..],
+        [Outcome::Installed(_)]
+    ));
 }
 
 #[tokio::test]
@@ -1669,6 +1831,137 @@ async fn every_check_of_ilm_follows_the_requests_and_forgetting_clears_what_it_f
         inventory.forget();
         assert!(inventory.followed().is_empty());
     }
+}
+
+#[tokio::test]
+async fn the_summary_lists_the_requests_still_waiting_and_drops_them_when_they_are_done() {
+    use crate::inventory::{Kind, WaitingState};
+    let requesting = Requesting::new().await;
+    requesting.seed(Some("c-1"), false, now());
+    requesting.state_code("c-1", "pending_approval").await;
+    requesting
+        .answer(
+            "POST",
+            "/api/v1/certificates",
+            ResponseTemplate::new(200).set_body_json(json!({
+                "certificates": [], "pageNumber": 1, "totalPages": 1, "totalItems": 0
+            })),
+        )
+        .await;
+    let folder = tempfile::tempdir().unwrap();
+    let inventory = Inventory::new(folder.path());
+    inventory.set_local(&[]);
+    let session = &requesting.world.session;
+
+    inventory.check(session, Trigger::Interval, &[]).await;
+
+    let summary = inventory.summary().unwrap();
+    assert_eq!(summary.attention.len(), 1);
+    assert_eq!(
+        summary.attention[0].kind,
+        Kind::Waiting {
+            state: WaitingState::PendingApproval
+        }
+    );
+    assert_eq!(summary.attention[0].name, "seeded");
+    assert!(!summary.needs_attention());
+    inventory.forget();
+    assert!(inventory.summary().is_none());
+}
+
+#[tokio::test]
+async fn following_on_its_own_puts_the_request_in_the_summary_at_once() {
+    use crate::inventory::{Kind, WaitingState};
+    let requesting = Requesting::new().await;
+    requesting.seed(Some("c-1"), false, now());
+    requesting.state_code("c-1", "pending_approval").await;
+    let folder = tempfile::tempdir().unwrap();
+    let inventory = Inventory::new(folder.path());
+    let session = &requesting.world.session;
+    inventory.adopt(session);
+    inventory.set_local(&[]);
+    assert!(inventory.summary().unwrap().attention.is_empty());
+
+    let (found, changed) = inventory.follow(session).await;
+
+    assert_eq!(
+        Requesting::outcomes(&found),
+        [Outcome::Waiting(State::PendingApproval)]
+    );
+    assert!(changed);
+    assert_eq!(
+        inventory.summary().unwrap().attention[0].kind,
+        Kind::Waiting {
+            state: WaitingState::PendingApproval
+        }
+    );
+    let (_, again) = inventory.follow(session).await;
+    assert!(!again, "nothing changed");
+}
+
+#[tokio::test]
+async fn a_follow_that_cannot_ask_ilm_keeps_the_requests_found_waiting_before() {
+    use crate::inventory::Kind;
+    let requesting = Requesting::new().await;
+    requesting.seed(Some("c-1"), false, now());
+    Mock::given(method("GET"))
+        .and(path(state_path("c-1")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "state": "pending_issue" })))
+        .up_to_n_times(1)
+        .mount(&requesting.world.ilm)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(state_path("c-1")))
+        .respond_with(ResponseTemplate::new(503))
+        .mount(&requesting.world.ilm)
+        .await;
+    let folder = tempfile::tempdir().unwrap();
+    let inventory = Inventory::new(folder.path());
+    let session = &requesting.world.session;
+    inventory.adopt(session);
+    inventory.set_local(&[]);
+    inventory.follow(session).await;
+
+    let (found, changed) = inventory.follow(session).await;
+
+    assert!(found.is_empty());
+    assert!(!changed);
+    assert!(matches!(
+        inventory.summary().unwrap().attention[0].kind,
+        Kind::Waiting { .. }
+    ));
+    assert_eq!(inventory.followed().len(), 1);
+}
+
+#[tokio::test]
+async fn a_request_that_is_issued_is_listed_as_being_issued() {
+    use crate::inventory::{Kind, WaitingState};
+    let requesting = Requesting::new().await;
+    requesting.seed(Some("c-1"), false, now());
+    requesting.state_code("c-1", "pending_issue").await;
+    requesting
+        .answer(
+            "POST",
+            "/api/v1/certificates",
+            ResponseTemplate::new(200).set_body_json(json!({
+                "certificates": [], "pageNumber": 1, "totalPages": 1, "totalItems": 0
+            })),
+        )
+        .await;
+    let folder = tempfile::tempdir().unwrap();
+    let inventory = Inventory::new(folder.path());
+    inventory.set_local(&[]);
+
+    inventory
+        .check(&requesting.world.session, Trigger::Interval, &[])
+        .await;
+
+    assert_eq!(
+        inventory.summary().unwrap().attention[0].kind,
+        Kind::Waiting {
+            state: WaitingState::BeingIssued
+        }
+    );
 }
 
 #[tokio::test]

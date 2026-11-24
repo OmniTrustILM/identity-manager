@@ -16,7 +16,7 @@ use im_core::inventory::{
     AddChoicesView, AddResultView, IlmPageView, Inventory, InventoryView, Status, Summary,
     SummaryView, Trigger,
 };
-use im_core::session::{ChangeError, FormInput, Session, SessionView};
+use im_core::session::{ChangeError, Followed, FormInput, Session, SessionView, SignedInAs};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
@@ -64,6 +64,12 @@ fn known_in_ilm(summary: &Summary, matched: &[Fingerprint]) -> Summary {
             .is_none_or(|print| matched.contains(&print))
     });
     known
+}
+
+/// Whether the person may ask ILM for a certificate and this computer has a key storage to keep its key in; what
+/// the organization's policy allows of that storage is told at the step that chooses it.
+fn can_request(who: Option<&SignedInAs>, stores_keys: bool) -> bool {
+    stores_keys && who.is_some_and(SignedInAs::creates_certificates)
 }
 
 /// What the person is told when the store cannot be read; the reason goes to the log.
@@ -166,14 +172,15 @@ impl<R: Runtime> Ilm<R> {
         }
     }
 
-    pub(crate) fn view(&self) -> InventoryView {
+    pub(crate) async fn view(&self) -> InventoryView {
+        let who = self.session.signed_in_as();
+        let stores_keys = !self.session.key_offers().await.is_empty();
         InventoryView::new(
             self.inventory.status(),
             self.inventory.snapshot().as_ref(),
             self.working.load(Ordering::SeqCst) > 0,
-            self.session
-                .signed_in_as()
-                .is_some_and(|who| who.lists_certificates()),
+            who.as_ref().is_some_and(SignedInAs::lists_certificates),
+            can_request(who.as_ref(), stores_keys),
         )
     }
 
@@ -237,6 +244,10 @@ impl<R: Runtime> Ilm<R> {
                 current,
                 || current() && !self.guard.is_locked(),
             );
+            self.notices
+                .followed(&self.inventory.followed(), current, || {
+                    current() && !self.guard.is_locked()
+                });
             if self.inventory.summary().is_none() {
                 // Signed out meanwhile: the write above must not leave the notices file behind.
                 self.notices.forget();
@@ -310,6 +321,25 @@ impl<R: Runtime> Ilm<R> {
         &self.session
     }
 
+    /// How the requests stood at the latest check of ILM.
+    pub(crate) fn followed(&self) -> Vec<Followed> {
+        self.inventory.followed()
+    }
+
+    /// Follows the requests for certificates, and tells the windows and the tray when how they stand changed.
+    pub(crate) async fn follow(&self) -> Vec<Followed> {
+        let (found, changed) = self.inventory.follow(&self.session).await;
+        if changed {
+            self.publish_summary();
+            self.changed();
+        }
+        found
+    }
+
+    pub(crate) fn notices(&self) -> &Notices {
+        &self.notices
+    }
+
     async fn page(&self, number: u32, search: Option<String>) -> Result<IlmPageView, String> {
         self.unlocked()?;
         let page = self
@@ -320,13 +350,19 @@ impl<R: Runtime> Ilm<R> {
         Ok((&page.map_err(|error| error.to_string())?).into())
     }
 
+    /// The inventory, unless the application locked while it was read.
+    async fn locked_view(&self) -> Result<InventoryView, String> {
+        let view = self.view().await;
+        self.unlocked()?;
+        Ok(view)
+    }
+
     async fn sync(&self) -> Result<InventoryView, String> {
         self.unlocked()?;
         if matches!(renew(self).await, SessionView::SignedIn { .. }) {
             self.check_inventory(Trigger::SyncNow).await?;
         }
-        self.unlocked()?;
-        Ok(self.view())
+        self.locked_view().await
     }
 
     fn overview(&self) -> Result<Option<SummaryView>, String> {
@@ -379,7 +415,7 @@ impl<R: Runtime> Ilm<R> {
             .await;
         self.unlocked()?;
         changed.map_err(|error| error.to_string())?;
-        Ok(self.view())
+        self.locked_view().await
     }
 }
 
@@ -429,10 +465,10 @@ pub fn ilm<R: Runtime>(app: &AppHandle<R>) -> Arc<Ilm<R>> {
 }
 
 #[tauri::command]
-pub fn ilm_status<R: Runtime>(app: AppHandle<R>) -> Result<InventoryView, String> {
+pub async fn ilm_status<R: Runtime>(app: AppHandle<R>) -> Result<InventoryView, String> {
     let ilm = ilm(&app);
     ilm.unlocked()?;
-    Ok(ilm.view())
+    ilm.locked_view().await
 }
 
 #[tauri::command]
@@ -495,8 +531,31 @@ mod tests {
     use im_core::identity::{
         ClientIdentity, Fingerprint, KeyAlgorithm, KeyLocation, LocalCertificate,
     };
+    use im_core::ilm::IlmUrl;
+    use im_core::ilm::profile::ResourceActions;
     use im_core::session::SessionView;
     use std::time::UNIX_EPOCH;
+
+    fn person(actions: &[&str]) -> SignedInAs {
+        SignedInAs {
+            ilm: IlmUrl::parse("ilm.example.com").unwrap(),
+            username: "ada".to_owned(),
+            allowed_listings: Vec::new(),
+            allowed_actions: vec![ResourceActions {
+                resource: "certificates".to_owned(),
+                actions: actions.iter().map(|action| (*action).to_owned()).collect(),
+            }],
+        }
+    }
+
+    #[test]
+    fn a_request_needs_the_right_in_ilm_and_a_key_storage_on_this_computer() {
+        let may = person(&["list", "create"]);
+        assert!(can_request(Some(&may), true));
+        assert!(!can_request(Some(&may), false));
+        assert!(!can_request(Some(&person(&["list"])), true));
+        assert!(!can_request(None, true));
+    }
 
     struct Nowhere;
 

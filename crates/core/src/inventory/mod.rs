@@ -6,11 +6,11 @@ mod summary;
 mod tests;
 mod view;
 
-pub use summary::{Counts, Item, Kind, Summary, summarize};
+pub use summary::{Counts, Item, Kind, Summary, WaitingState, summarize};
 use view::listed_by;
 pub use view::{
     AddChoicesView, AddResultView, AttentionItemView, CountsView, IlmCertificateView, IlmPageView,
-    IlmRaProfileView, InventoryView, SummaryView,
+    IlmRaProfileView, InventoryView, SummaryView, WaitingStateView,
 };
 
 use std::collections::{HashMap, HashSet};
@@ -26,9 +26,9 @@ use serde::{Deserialize, Serialize};
 use crate::identity::{Fingerprint, LocalCertificate};
 use crate::ilm::IlmUrl;
 use crate::ilm::actions::{self, MAX_UUIDS, Outcome};
-use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, MATCH_LIMIT, Search};
+use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, MATCH_LIMIT, Search, State};
 use crate::ilm::profile::{IlmError, SignInCertificate, profile_request, read_profile};
-use crate::session::{CallError, Followed, Session, SignedInAs};
+use crate::session::{CallError, Followed, Outcome as FollowOutcome, Session, SignedInAs};
 use crate::settings::WarnDays;
 
 const UNREACHABLE: &str = "ILM cannot be reached.";
@@ -173,14 +173,29 @@ struct Held {
 }
 
 impl Held {
+    /// The requests the latest check found still waiting for ILM, by label.
+    fn waiting(&self) -> Vec<(String, WaitingState)> {
+        self.followed
+            .iter()
+            .filter_map(|followed| match &followed.outcome {
+                FollowOutcome::Waiting(State::PendingApproval) => {
+                    Some((followed.label.clone(), WaitingState::PendingApproval))
+                }
+                FollowOutcome::Waiting(_) => {
+                    Some((followed.label.clone(), WaitingState::BeingIssued))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Builds the summary again from what is held; none while nobody's sign-in is bound or the certificates on
     /// this computer are not known yet.
     fn rebuild(&mut self, zone: Zone) {
-        self.summary = self
-            .bound
-            .as_ref()
-            .and(self.local.as_ref())
-            .map(|local| summarize(local, self.snapshot.as_ref(), self.days, now(), zone));
+        self.summary = self.bound.as_ref().and(self.local.as_ref()).map(|local| {
+            summarize(local, self.snapshot.as_ref(), self.days, now(), zone)
+                .with_waiting(self.waiting())
+        });
         if let Some(summary) = &self.summary {
             let counts = &summary.counts;
             log::info!(
@@ -207,6 +222,8 @@ pub struct Inventory {
     held: Mutex<Held>,
     /// Held for a whole check: a call that arrives meanwhile waits and takes that check's answer.
     running: tokio::sync::Mutex<()>,
+    /// Held while a follow runs and its result is kept, so an older result never replaces a newer one.
+    following: tokio::sync::Mutex<()>,
     completed: AtomicU64,
     /// What the latest check asked: whose sign-in and which local certificates.
     asked: Mutex<Option<Asked>>,
@@ -262,6 +279,7 @@ impl Inventory {
             zone: |_| 0,
             held: Mutex::default(),
             running: tokio::sync::Mutex::new(()),
+            following: tokio::sync::Mutex::new(()),
             completed: AtomicU64::new(0),
             asked: Mutex::new(None),
         }
@@ -439,18 +457,40 @@ impl Inventory {
         {
             return self.status();
         }
-        let epoch = held(&self.held).epoch;
         let asked = self.run(session, trigger, local).await;
-        let followed = session.follow().await;
-        {
-            let mut held = held(&self.held);
-            if held.epoch == epoch {
-                held.followed = followed;
-            }
-        }
+        self.follow(session).await;
         *self.asked.lock().unwrap_or_else(PoisonError::into_inner) = asked;
         self.completed.fetch_add(1, Ordering::SeqCst);
         self.status()
+    }
+
+    /// Follows the requests for certificates and keeps how they stand. What `session` could not ask ILM about
+    /// stays as it stood before. Gives what the follow found, and whether the standing of the requests changed.
+    pub async fn follow(&self, session: &Session) -> (Vec<Followed>, bool) {
+        let _following = self.following.lock().await;
+        let epoch = held(&self.held).epoch;
+        let found = session.follow().await;
+        let mut held = held(&self.held);
+        if held.epoch != epoch {
+            return (found, false);
+        }
+        let mut kept = found.clone();
+        kept.extend(
+            held.followed
+                .iter()
+                .filter(|before| {
+                    !found
+                        .iter()
+                        .any(|now| now.uuid.is_some() && now.uuid == before.uuid)
+                })
+                .cloned(),
+        );
+        let changed = kept != held.followed;
+        held.followed = kept;
+        if changed {
+            held.rebuild(self.zone);
+        }
+        (found, changed)
     }
 
     async fn run(

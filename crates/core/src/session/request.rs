@@ -12,6 +12,7 @@ use serde_json::Value;
 use x509_parser::prelude::{FromDer, X509Certificate};
 
 use super::add_to_ilm::sendable;
+use super::attributes::Form;
 use super::{CallError, ChangeError, FormError, FormInput, Session, State as SignIn, lock};
 use crate::attributes::{Definitions, FieldProblem, FormContext, FormView, Values, request};
 use crate::ilm::IlmUrl;
@@ -21,7 +22,7 @@ use crate::ilm::issue::{
     read_chain, read_issued, read_state, state_request,
 };
 use crate::ilm::profile::IlmError;
-use crate::ilm::upload::RaProfileChoice;
+use crate::ilm::upload::{RaProfileChoice, ra_profiles_request, read_ra_profiles};
 use crate::install::{intermediates, is_for_key};
 use crate::keys::{
     KeyError, KeyId, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable,
@@ -212,12 +213,20 @@ pub enum Outcome {
     /// ILM is still working on it.
     Waiting(State),
     /// The certificate is installed and the request is done.
-    Installed,
+    Installed(Installed),
     Ended(EndReason),
     /// ILM issued a certificate for another key; nothing is installed.
     Mismatch,
     /// The installation failed; the request stays, and the next follow tries again.
     InstallFailed,
+}
+
+/// What an installed certificate is: where its key is kept, and until when it is valid.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Installed {
+    pub storage: Storage,
+    /// Milliseconds since 1970 UTC.
+    pub not_after: i64,
 }
 
 /// A request that was followed, and how it stands.
@@ -258,6 +267,21 @@ fn yes_no(chosen: bool) -> &'static str {
 }
 
 impl Session {
+    /// The enabled RA Profiles the person may ask for a certificate; those without an authority are left out,
+    /// because ILM's issuing paths name it.
+    pub async fn request_profiles(&self) -> Result<Vec<RaProfileChoice>, RequestError> {
+        let id = self.departing()?.id;
+        let response = self
+            .call_ilm_as(Some(&id), None, ra_profiles_request)
+            .await?;
+        let listed = read_ra_profiles(response).await?;
+        Ok(listed
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|profile| profile.authority_uuid.is_some())
+            .collect())
+    }
+
     /// Opens the forms of a request to the RA Profile `ra_profile` of `authority`. A certificate registered in
     /// advance (`prepared`) has no request form, because its subject is ILM's.
     pub async fn open_request_forms(
@@ -338,8 +362,12 @@ impl Session {
             forms.custom.as_ref(),
         ])?;
         let subject = self.request_subject(forms.request.as_ref())?;
-        self.take(forms.request.as_ref())?;
-        let attributes = self.take_attributes(&forms)?;
+        let generation = self.forms.generation();
+        let mut taken = Vec::new();
+        let attributes = self
+            .take(forms.request.as_ref(), &mut taken)
+            .and_then(|_| self.take_attributes(&forms, &mut taken));
+        let attributes = self.reopen_on_error(attributes, &mut taken, generation)?;
         let order = Order {
             ra_profile,
             authority,
@@ -349,7 +377,8 @@ impl Session {
             registered: None,
             label: &ra_profile.name,
         };
-        self.submit(&id, &requests, &order, &attributes).await
+        let sent = self.submit(&id, &requests, &order, &attributes).await;
+        self.reopen_on_error(sent, &mut taken, generation)
     }
 
     /// Completes the certificate registered in advance with a new key. Its subject is what ILM registered. A
@@ -375,7 +404,10 @@ impl Session {
             registered.subject_dn.as_deref(),
             &registered.alternative_names,
         )?;
-        let attributes = self.take_attributes(&forms)?;
+        let generation = self.forms.generation();
+        let mut taken = Vec::new();
+        let attributes = self.take_attributes(&forms, &mut taken);
+        let attributes = self.reopen_on_error(attributes, &mut taken, generation)?;
         let order = Order {
             ra_profile,
             authority,
@@ -385,7 +417,8 @@ impl Session {
             registered: Some((uuid, challenge.as_ref())),
             label: uuid,
         };
-        self.submit(&id, &requests, &order, &attributes).await
+        let sent = self.submit(&id, &requests, &order, &attributes).await;
+        self.reopen_on_error(sent, &mut taken, generation)
     }
 
     /// The subject the request form gives, read without closing the form; empty without one.
@@ -408,29 +441,52 @@ impl Session {
         Ok(())
     }
 
-    /// Closes the form and gives out its definitions and values, when it can be sent.
+    /// Closes the form and gives out its definitions and values, when it can be sent; the closed form is added to
+    /// `taken`.
     fn take(
         &self,
         form: Option<&FormInput>,
+        taken: &mut Vec<Form>,
     ) -> Result<Option<(Definitions, Values)>, RequestError> {
         form.map(|form| {
-            self.take_form_if(&form.id, ChangeError::FormGone, |definitions| {
-                sendable(definitions, form)
-            })
-            .map_err(RequestError::from)
+            let (closed, definitions, values) = self
+                .take_form_if(&form.id, ChangeError::FormGone, |definitions| {
+                    sendable(definitions, form)
+                })
+                .map_err(RequestError::from)?;
+            taken.push(closed);
+            Ok((definitions, values))
         })
         .transpose()
     }
 
-    fn take_attributes(&self, forms: &RequestInput) -> Result<Attributes, RequestError> {
+    /// Opens the `taken` forms again when `result` is a failure, so the person can correct the request and send it
+    /// again; not when every form was closed meanwhile, as by a lock.
+    fn reopen_on_error<T>(
+        &self,
+        result: Result<T, RequestError>,
+        taken: &mut Vec<Form>,
+        generation: u64,
+    ) -> Result<T, RequestError> {
+        if result.is_err() {
+            self.forms.restore(std::mem::take(taken), generation);
+        }
+        result
+    }
+
+    fn take_attributes(
+        &self,
+        forms: &RequestInput,
+        taken: &mut Vec<Form>,
+    ) -> Result<Attributes, RequestError> {
         let attributes = |taken: Option<(Definitions, Values)>| {
             taken.map_or_else(Vec::new, |(definitions, values)| {
                 request(&definitions.fields, &values)
             })
         };
         Ok(Attributes {
-            issue: attributes(self.take(forms.issue.as_ref())?),
-            custom: attributes(self.take(forms.custom.as_ref())?),
+            issue: attributes(self.take(forms.issue.as_ref(), taken)?),
+            custom: attributes(self.take(forms.custom.as_ref(), taken)?),
         })
     }
 
@@ -753,10 +809,11 @@ impl Session {
                 return None;
             }
         };
-        if X509Certificate::from_der(&leaf).is_err() {
+        let Ok((_, parsed)) = X509Certificate::from_der(&leaf) else {
             log::warn!("the certificate of request {uuid} cannot be read");
             return None;
-        }
+        };
+        let not_after = parsed.validity().not_after.timestamp() * 1000;
         if !is_for_key(&leaf, key.public_key()) {
             log::warn!("the certificate {uuid} is not for the key of its request");
             return Some(Outcome::Mismatch);
@@ -781,7 +838,10 @@ impl Session {
         if let Err(error) = requests.remove(&entry.key) {
             log::warn!("request {uuid} could not be removed: {error}");
         }
-        Some(Outcome::Installed)
+        Some(Outcome::Installed(Installed {
+            storage: entry.key.storage,
+            not_after,
+        }))
     }
 }
 

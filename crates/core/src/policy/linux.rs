@@ -120,6 +120,20 @@ mod tests {
     }
 
     #[test]
+    fn key_storage_strings_reach_the_layer() {
+        use crate::keys::Storage;
+        let json = br#"{"KeyStorages": "software, tpm", "DefaultKeyStorage": "tpm"}"#;
+        let layer = to_layer(&parse_json(json, "test"), "test");
+        assert_eq!(
+            layer.key_storages,
+            Some(vec![Storage::Software, Storage::Tpm])
+        );
+        assert_eq!(layer.default_key_storage, Some(Storage::Tpm));
+        let layer = to_layer(&parse_json(br#"{"KeyStorages": ["tpm"]}"#, "test"), "test");
+        assert_eq!(layer.key_storages, None);
+    }
+
+    #[test]
     fn the_example_policy_file_parses_to_its_documented_values() {
         let bytes = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -141,5 +155,16 @@ mod tests {
         assert_eq!(layer.lock_after_idle, crate::settings::IdleMinutes::new(15));
         assert_eq!(layer.check_every.map(|m| m.get()), Some(30));
         assert_eq!(layer.warn_days.map(|d| d.get()), Some(30));
+        assert_eq!(
+            layer.key_storages,
+            Some(vec![
+                crate::keys::Storage::Software,
+                crate::keys::Storage::Tpm
+            ])
+        );
+        assert_eq!(
+            layer.default_key_storage,
+            Some(crate::keys::Storage::Software)
+        );
     }
 }

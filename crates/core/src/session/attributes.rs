@@ -100,7 +100,7 @@ enum Mark {
 
 /// An open form: what ILM defined, what callbacks added, when each field last changed, and the newest callback run
 /// per field. Never values.
-struct Form {
+pub(super) struct Form {
     id: String,
     context: FormContext,
     web: Option<String>,
@@ -422,6 +422,13 @@ impl Forms {
         true
     }
 
+    /// Opens the forms again as they were, unless every form was closed since `generation` was read.
+    pub(super) fn restore(&self, forms: Vec<Form>, generation: u64) {
+        for form in forms {
+            self.add(form, generation);
+        }
+    }
+
     fn with<T>(&self, id: &str, work: impl FnOnce(&mut Form) -> T) -> Result<T, FormError> {
         let mut open = lock(&self.open);
         let form = open
@@ -498,6 +505,7 @@ impl Session {
             definitions
                 .unsupported
                 .extend(keys::unbuildable(&definitions.fields));
+            keys::without_unwritable(&mut definitions.fields);
         }
         for unsupported in &definitions.unsupported {
             log::warn!("the attribute {} cannot be shown", unsupported.name);
@@ -662,19 +670,20 @@ impl Session {
 
     /// Closes the form and gives out its definitions, for the request that sends it, when `verify` accepts them.
     /// Verifying and closing happen under one lock, so no callback can change the form in between; when `verify`
-    /// refuses, or the form is not open (`gone`), the form stays as it is.
-    pub(crate) fn take_form_if<T, E>(
+    /// refuses, or the form is not open (`gone`), the form stays as it is. The closed form is given back too, to
+    /// be opened again with `Forms::restore`.
+    pub(super) fn take_form_if<T, E>(
         &self,
         form: &str,
         gone: E,
         verify: impl FnOnce(&Definitions) -> Result<T, E>,
-    ) -> Result<(Definitions, T), E> {
+    ) -> Result<(Form, Definitions, T), E> {
         let mut open = lock(&self.forms.open);
         let at = open.iter().position(|open| open.id == form).ok_or(gone)?;
         let definitions = open[at].definitions();
         let verified = verify(&definitions)?;
-        open.remove(at);
-        Ok((definitions, verified))
+        let taken = open.remove(at);
+        Ok((taken, definitions, verified))
     }
 
     /// Closes every form, as when the application locks.

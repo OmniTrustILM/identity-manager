@@ -8,7 +8,7 @@ import {
     onInventoryChanged,
     type SummaryView,
 } from '../bridge';
-import { attentionDetail, attentionLook } from '../attention';
+import { attentionDetail, attentionLook, waitingDetail } from '../attention';
 import { ExpiredIcon, ExpiringIcon, FineIcon, type Icon, NotInIlmIcon, SignInKeyIcon } from '../design-system/icons';
 import { useIlmWaiting } from '../ilm-waiting';
 import { useNavigation } from '../navigation';
@@ -50,6 +50,12 @@ function Tiles({ summary }: Readonly<{ summary: SummaryView }>) {
     );
 }
 
+type Waiting = Extract<AttentionItemView, { kind: 'waiting' }>;
+type Problem = Exclude<AttentionItemView, Waiting>;
+
+const isWaiting = (item: AttentionItemView): item is Waiting => item.kind === 'waiting';
+const isProblem = (item: AttentionItemView): item is Problem => item.kind !== 'waiting';
+
 interface Unmatched {
     certificates: LocalCertificateView[];
     /** Whether ILM can be asked now, so that they can be added. */
@@ -57,7 +63,7 @@ interface Unmatched {
     onAdd: () => void;
 }
 
-function Row({ item, unmatched, system }: Readonly<{ item: AttentionItemView; unmatched: Unmatched; system: System }>) {
+function Row({ item, unmatched, system }: Readonly<{ item: Problem; unmatched: Unmatched; system: System }>) {
     const { showCertificate } = useNavigation();
     const { Icon, tone, textTone } = attentionLook(item);
     const names = unmatched.certificates.map((certificate) => certificate.name);
@@ -89,21 +95,46 @@ function Row({ item, unmatched, system }: Readonly<{ item: AttentionItemView; un
     );
 }
 
-function Attention({ summary, unmatched, system }: Readonly<{ summary: SummaryView; unmatched: Unmatched; system: System }>) {
+function Progress({ requests }: Readonly<{ requests: Waiting[] }>) {
+    const id = useId();
+    return (
+        <section aria-labelledby={id} className="flex flex-col gap-s2">
+            <h2 id={id} className={heading}>
+                {strings.requestsInProgress}
+            </h2>
+            <ul className={`flex flex-col divide-y divide-separator ${panel}`}>
+                {requests.map((item) => {
+                    const { Icon, tone, textTone } = attentionLook(item);
+                    return (
+                        <li key={item.label} className="flex items-center gap-s3 px-s3 py-s2">
+                            <Icon aria-hidden className={`size-icon shrink-0 ${tone}`} />
+                            <div className="flex min-w-0 flex-1 flex-col">
+                                <span className="text-body text-primary">{item.label}</span>
+                                <span className={`text-caption ${textTone}`}>{waitingDetail(item)}</span>
+                            </div>
+                        </li>
+                    );
+                })}
+            </ul>
+        </section>
+    );
+}
+
+function Attention({ items, unmatched, system }: Readonly<{ items: Problem[]; unmatched: Unmatched; system: System }>) {
     const id = useId();
     return (
         <section aria-labelledby={id} className="flex flex-col gap-s2">
             <h2 id={id} className={heading}>
                 {strings.needsAttention}
             </h2>
-            {summary.attention.length === 0 ? (
+            {items.length === 0 ? (
                 <p className={`flex items-center gap-s2 px-s3 py-s3 text-body text-primary ${panel}`}>
                     <FineIcon aria-hidden className="size-icon shrink-0 text-fine" />
                     {strings.nothingNeedsAttention}
                 </p>
             ) : (
                 <ul className={`flex flex-col divide-y divide-separator ${panel}`}>
-                    {summary.attention.map((item) => (
+                    {items.map((item) => (
                         <Row
                             key={item.kind === 'notInIlm' ? item.kind : `${item.kind}:${item.fingerprint}`}
                             item={item}
@@ -199,8 +230,10 @@ export function Overview() {
     const unmatched = local.filter((certificate) => lookedUp(inventory, certificate.fingerprint));
     const waiting = useIlmWaiting();
     const canAdd = inventory !== null && inventory.status.state !== 'offline' && !waiting;
+    const requests = summary?.attention.filter(isWaiting) ?? [];
+    const problems = summary?.attention.filter(isProblem) ?? [];
     const empty =
-        summary !== null && summary.attention.length === 0 && summary.counts.valid + summary.counts.expiring + summary.counts.expired === 0;
+        summary !== null && problems.length === 0 && summary.counts.valid + summary.counts.expiring + summary.counts.expired === 0;
 
     return (
         <div className="flex flex-col gap-s4">
@@ -214,6 +247,7 @@ export function Overview() {
                 )}
             </header>
             {summary && <Tiles summary={summary} />}
+            {requests.length > 0 && <Progress requests={requests} />}
             {summary && empty && (
                 <p className={`flex items-center gap-s2 px-s3 py-s3 text-body text-secondary ${panel}`}>
                     <SignInKeyIcon aria-hidden className="size-icon shrink-0" />
@@ -223,7 +257,7 @@ export function Overview() {
             {summary && !empty && (
                 <>
                     <Attention
-                        summary={summary}
+                        items={problems}
                         unmatched={{ certificates: unmatched, canAdd, onAdd: () => setAdding(unmatched) }}
                         system={system}
                     />
