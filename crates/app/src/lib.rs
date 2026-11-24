@@ -8,7 +8,6 @@ mod keep_alive;
 mod key_origin_macos;
 #[cfg(windows)]
 mod key_provider;
-#[cfg_attr(not(test), allow(dead_code))]
 mod key_storage;
 mod local_time;
 mod lock;

@@ -1,7 +1,7 @@
 //! A key storage with keys in memory, made by aws-lc through rcgen, and the checks every storage must pass.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use aws_lc_rs::signature::{
@@ -34,6 +34,7 @@ const TYPES: [KeyType; 9] = [
 pub struct InMemoryStorage {
     storages: Vec<Storage>,
     refuse_signing: bool,
+    deleting_fails: AtomicBool,
     next: AtomicU64,
     keys: Mutex<HashMap<KeyId, (KeyType, Arc<KeyPair>)>>,
 }
@@ -43,6 +44,7 @@ impl InMemoryStorage {
         Self {
             storages: storages.to_vec(),
             refuse_signing: false,
+            deleting_fails: AtomicBool::new(false),
             next: AtomicU64::new(1),
             keys: Mutex::new(HashMap::new()),
         }
@@ -52,6 +54,16 @@ impl InMemoryStorage {
     pub fn refusing_to_sign(mut self) -> Self {
         self.refuse_signing = true;
         self
+    }
+
+    /// While set, deleting a key fails with [`KeyError::Failed`] and the key stays.
+    pub fn fail_deleting(&self, fail: bool) {
+        self.deleting_fails.store(fail, Ordering::Relaxed);
+    }
+
+    /// How many keys this storage holds.
+    pub fn count(&self) -> usize {
+        self.keys.lock().unwrap().len()
     }
 
     fn stored(&self, id: KeyId, key_type: KeyType, pair: Arc<KeyPair>) -> Box<dyn StoredKey> {
@@ -119,6 +131,9 @@ impl KeyStorage for InMemoryStorage {
     }
 
     fn delete(&self, id: &KeyId) -> Result<(), KeyError> {
+        if self.deleting_fails.load(Ordering::Relaxed) {
+            return Err(KeyError::Failed("the key cannot be deleted".into()));
+        }
         self.keys.lock().unwrap().remove(id);
         Ok(())
     }

@@ -12,8 +12,9 @@ use x509_parser::x509::SubjectPublicKeyInfo;
 
 use super::{KeyError, KeyType, StoredKey};
 
-const EMAIL_ADDRESS: [u64; 7] = [1, 2, 840, 113549, 1, 9, 1];
-const SERIAL_NUMBER: [u64; 4] = [2, 5, 4, 5];
+pub(super) const EMAIL_ADDRESS: [u64; 7] = [1, 2, 840, 113549, 1, 9, 1];
+pub(super) const SERIAL_NUMBER: [u64; 4] = [2, 5, 4, 5];
+pub(super) const DOMAIN_COMPONENT: [u64; 7] = [0, 9, 2342, 19200300, 100, 1, 25];
 const USER_PRINCIPAL_NAME: [u64; 10] = [1, 3, 6, 1, 4, 1, 311, 20, 2, 3];
 
 /// A kind of name in the subject of a request.
@@ -27,6 +28,7 @@ pub enum NameType {
     Locality,
     Email,
     SerialNumber,
+    DomainComponent,
     /// Any other attribute type, by the arcs of its OBJECT IDENTIFIER.
     Other(Vec<u64>),
 }
@@ -102,6 +104,10 @@ fn distinguished_name(names: &[(NameType, String)]) -> Result<DistinguishedName,
                 DnValue::PrintableString(
                     PrintableString::try_from(value.as_str()).map_err(failed)?,
                 ),
+            ),
+            NameType::DomainComponent => (
+                DnType::CustomDnType(DOMAIN_COMPONENT.to_vec()),
+                DnValue::Ia5String(Ia5String::try_from(value.as_str()).map_err(failed)?),
             ),
             NameType::Other(oid) => (DnType::CustomDnType(oid.clone()), value.as_str().into()),
         };

@@ -338,6 +338,20 @@ fn custom_attributes_and_attributes_without_a_callback_make_no_call() {
 }
 
 #[test]
+fn request_attributes_have_no_callback_route() {
+    let found = read(&[data("asks", "string", json!({}), Some(next(&[])))]);
+    let request = FormContext::Request {
+        authority: "auth-1".into(),
+        ra_profile: "ra-1".into(),
+    };
+    assert_eq!(request.kind(), "request attributes");
+    assert_eq!(
+        resolve(&request, &found, "asks", &Values::new()),
+        Resolution::Skip
+    );
+}
+
+#[test]
 fn a_group_attribute_runs_its_callback_by_its_own_name_and_uuid() {
     let found = read(&[json!({
         "uuid": "g-1",

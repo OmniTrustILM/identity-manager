@@ -138,6 +138,23 @@ pub struct Constraint {
     pub rule: Rule,
 }
 
+/// A place in the certificate a request attribute's value goes to. The codes are ILM's, as sent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MappedField {
+    /// A name of the subject: a short code such as `CN`, or a dotted OID.
+    Rdn { rdn: String, order: Option<u32> },
+    /// A name of the subject alternative name, with the OID of an `otherName`.
+    San {
+        general_name: String,
+        other_name_oid: Option<String>,
+        /// How the value of an `otherName` is encoded; none when ILM does not say.
+        other_name_encoding: Option<String>,
+        order: Option<u32>,
+    },
+    /// An extension, a key usage or anything this application does not know.
+    Other,
+}
+
 /// An attribute a form can show.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
@@ -164,6 +181,8 @@ pub struct Definition {
     pub callback: Option<Callback>,
     /// A callback of ILM gave the content, which then names a field's value by its reference.
     pub answered: bool,
+    /// What the value is put into in a certificate request, in ILM's order; empty when it is put nowhere.
+    pub mapping: Vec<MappedField>,
 }
 
 impl Definition {
@@ -456,11 +475,52 @@ fn read_one(raw: &Json) -> Read {
             None
         },
         answered: false,
+        mapping: read_mapping_fields(object),
     };
     if field.is_unshowable() && field.callback.is_none() {
         return unsupported();
     }
     Read::Field(Box::new(field))
+}
+
+/// The fields of a mapping onto a certificate; a mapping onto anything else is none.
+fn read_mapping_fields(object: &Map<String, Json>) -> Vec<MappedField> {
+    let Some(mapping) = object.get("fieldMapping") else {
+        return Vec::new();
+    };
+    if mapping.get("objectType").and_then(Json::as_str) != Some("x509Certificate") {
+        return Vec::new();
+    }
+    let fields = mapping.get("fields").and_then(Json::as_array);
+    fields
+        .map(|fields| fields.iter().map(read_mapped_field).collect())
+        .unwrap_or_default()
+}
+
+fn read_mapped_field(raw: &Json) -> MappedField {
+    let Some(object) = raw.as_object() else {
+        return MappedField::Other;
+    };
+    let order = object
+        .get("order")
+        .and_then(Json::as_u64)
+        .and_then(|order| u32::try_from(order).ok());
+    match (object.get("fieldType").and_then(Json::as_str), object) {
+        (Some("rdn"), object) => {
+            text(object, "rdn").map_or(MappedField::Other, |rdn| MappedField::Rdn { rdn, order })
+        }
+        (Some("san"), object) => {
+            text(object, "generalNameType").map_or(MappedField::Other, |general_name| {
+                MappedField::San {
+                    general_name,
+                    other_name_oid: text(object, "otherNameOid"),
+                    other_name_encoding: text(object, "otherNameValueEncoding"),
+                    order,
+                }
+            })
+        }
+        _ => MappedField::Other,
+    }
 }
 
 fn strings(raw: &Json) -> Vec<String> {

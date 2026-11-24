@@ -15,11 +15,12 @@ use crate::attributes::{
     required_unsupported, resolve,
 };
 use crate::ilm::attributes::{
-    CallbackAnswer, CallbackError, WebTarget, callback_request, custom_attributes_request,
-    issue_attributes_request, read_callback, read_custom_attributes, read_issue_attributes,
-    web_url,
+    CallbackAnswer, CallbackError, WebTarget, callback_request, csr_attributes_request,
+    custom_attributes_request, issue_attributes_request, read_callback, read_csr_attributes,
+    read_custom_attributes, read_issue_attributes, web_url,
 };
 use crate::ilm::profile::IlmError;
+use crate::keys;
 
 /// How many forms stay open; the oldest makes room.
 const MAX_FORMS: usize = 8;
@@ -483,8 +484,21 @@ impl Session {
                     .await?;
                 read_issue_attributes(response).await?
             }
+            FormContext::Request { ra_profile, .. } => {
+                let response = self
+                    .call_ilm_as(Some(&id), None, |client, ilm| {
+                        csr_attributes_request(client, ilm, ra_profile)
+                    })
+                    .await?;
+                read_csr_attributes(response).await?
+            }
         };
-        let definitions = Definitions::read(&raw);
+        let mut definitions = Definitions::read(&raw);
+        if matches!(context, FormContext::Request { .. }) {
+            definitions
+                .unsupported
+                .extend(keys::unbuildable(&definitions.fields));
+        }
         for unsupported in &definitions.unsupported {
             log::warn!("the attribute {} cannot be shown", unsupported.name);
         }
@@ -492,6 +506,10 @@ impl Session {
         let target = match &context {
             FormContext::Custom => WebTarget::AddToIlm,
             FormContext::Issue {
+                authority,
+                ra_profile,
+            }
+            | FormContext::Request {
                 authority,
                 ra_profile,
             } => WebTarget::RaProfile {

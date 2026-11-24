@@ -366,7 +366,7 @@ impl Session {
     }
 
     /// Whether an open form can be sent with its values; the form stays open.
-    fn checked_form(&self, form: &FormInput) -> Result<(), ChangeError> {
+    pub(super) fn checked_form(&self, form: &FormInput) -> Result<(), ChangeError> {
         let definitions = self
             .form_definitions(&form.id)
             .map_err(|_| ChangeError::FormGone)?;
@@ -375,7 +375,7 @@ impl Session {
 }
 
 /// The values of `form` when `definitions` can be sent with them.
-fn sendable(definitions: &Definitions, form: &FormInput) -> Result<Values, ChangeError> {
+pub(super) fn sendable(definitions: &Definitions, form: &FormInput) -> Result<Values, ChangeError> {
     if definitions.blocked() {
         return Err(ChangeError::FormBlocked);
     }

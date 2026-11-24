@@ -2,8 +2,8 @@ use jiff::tz::{Offset, TimeZone};
 use serde_json::{Value as Json, json};
 
 use super::fixtures::{
-    certificate_custom, definition, every_type, issue_attributes, odd_ones, read,
-    request_attributes, with,
+    certificate_custom, default_request_set, definition, demo_request_set, every_type,
+    issue_attributes, mapped, odd_ones, read, request_attributes, upn_request_set, with,
 };
 use super::*;
 
@@ -1946,4 +1946,81 @@ mod views {
         let on_change = serde_json::to_value(CallbackView::OnChange(vec!["a".into()])).unwrap();
         assert_eq!(on_change, json!({ "kind": "onChange", "value": ["a"] }));
     }
+}
+
+fn rdn(code: &str, order: Option<u32>) -> MappedField {
+    MappedField::Rdn {
+        rdn: code.to_owned(),
+        order,
+    }
+}
+
+#[test]
+fn the_default_request_set_maps_each_attribute_to_one_name() {
+    let found = read(&default_request_set());
+    let codes: Vec<_> = found
+        .fields
+        .iter()
+        .map(|field| field.mapping.clone())
+        .collect();
+    let expected: Vec<_> = ["CN", "OU", "O", "L", "ST", "C"]
+        .into_iter()
+        .map(|code| vec![rdn(code, None)])
+        .collect();
+    assert_eq!(codes, expected);
+}
+
+#[test]
+fn one_attribute_maps_to_several_fields() {
+    let found = read(&demo_request_set());
+    assert_eq!(
+        field(&found, "common-name").mapping,
+        vec![
+            rdn("CN", Some(1)),
+            MappedField::San {
+                general_name: "dns".into(),
+                other_name_oid: None,
+                other_name_encoding: None,
+                order: Some(1)
+            }
+        ]
+    );
+    assert_eq!(
+        field(&found, "service-entitlement").mapping,
+        vec![MappedField::Other]
+    );
+}
+
+#[test]
+fn an_other_name_keeps_its_oid_and_encoding() {
+    let found = read(&upn_request_set());
+    assert_eq!(
+        found.fields[0].mapping,
+        vec![MappedField::San {
+            general_name: "otherName".into(),
+            other_name_oid: Some("1.3.6.1.4.1.311.20.2.3".into()),
+            other_name_encoding: Some("UTF8String".into()),
+            order: None
+        }]
+    );
+}
+
+#[test]
+fn other_kinds_of_field_and_other_objects_are_not_read() {
+    let kinds = mapped(
+        definition(3, "data", "kinds", "string", json!({})),
+        json!([
+            { "fieldType": "keyUsage" },
+            { "fieldType": "extendedKeyUsage" },
+            { "fieldType": "future" }
+        ]),
+    );
+    assert_eq!(one(kinds).mapping, vec![MappedField::Other; 3]);
+    let mut ssh = mapped(
+        definition(3, "data", "ssh", "string", json!({})),
+        json!([{ "fieldType": "rdn", "rdn": "CN" }]),
+    );
+    ssh["fieldMapping"]["objectType"] = json!("sshCertificate");
+    assert!(one(ssh).mapping.is_empty());
+    assert!(data("string", json!({})).mapping.is_empty());
 }

@@ -110,6 +110,79 @@ pub fn request_attributes() -> Vec<Value> {
     ]
 }
 
+/// A field mapping onto the certificate, with the fields as ILM sends them.
+pub fn mapped(definition: Value, fields: Value) -> Value {
+    with(
+        definition,
+        "fieldMapping",
+        json!({ "objectType": "x509Certificate", "fields": fields }),
+    )
+}
+
+/// The platform's default request set: six strings, each one name of the subject.
+pub fn default_request_set() -> Vec<Value> {
+    [
+        ("commonName", "CN", true),
+        ("organizationalUnit", "OU", false),
+        ("organization", "O", false),
+        ("locality", "L", false),
+        ("state", "ST", false),
+        ("country", "C", false),
+    ]
+    .into_iter()
+    .map(|(name, rdn, required)| {
+        mapped(
+            definition(3, "data", name, "string", json!({ "required": required })),
+            json!([{ "fieldType": "rdn", "rdn": rdn }]),
+        )
+    })
+    .collect()
+}
+
+/// A request set with a read-only common name that is also a DNS name, a further DNS name and an extension.
+pub fn demo_request_set() -> Vec<Value> {
+    vec![
+        with(
+            mapped(
+                definition(
+                    3,
+                    "data",
+                    "common-name",
+                    "string",
+                    json!({ "required": true, "readOnly": true }),
+                ),
+                json!([
+                    { "fieldType": "rdn", "rdn": "CN", "order": 1 },
+                    { "fieldType": "san", "generalNameType": "dns", "order": 1 }
+                ]),
+            ),
+            "content",
+            json!([{ "data": "demo220", "contentType": "string" }]),
+        ),
+        mapped(
+            definition(3, "data", "san", "string", json!({})),
+            json!([{ "fieldType": "san", "generalNameType": "dns", "order": 2 }]),
+        ),
+        mapped(
+            definition(3, "data", "service-entitlement", "string", json!({})),
+            json!([{ "fieldType": "extension", "extensionOid": "1.3.6.1.5.5.7.1.24", "criticalOverridable": false }]),
+        ),
+    ]
+}
+
+/// One optional attribute that is a user principal name of Windows.
+pub fn upn_request_set() -> Vec<Value> {
+    vec![mapped(
+        definition(3, "data", "upn", "string", json!({})),
+        json!([{
+            "fieldType": "san",
+            "generalNameType": "otherName",
+            "otherNameOid": "1.3.6.1.4.1.311.20.2.3",
+            "otherNameValueEncoding": "UTF8String"
+        }]),
+    )]
+}
+
 /// The issue attributes of an RA Profile: version 2, one with a callback.
 pub fn issue_attributes() -> Vec<Value> {
     vec![

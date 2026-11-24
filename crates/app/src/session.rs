@@ -4,7 +4,9 @@ use std::sync::Arc;
 use im_core::identity::IdentityStore;
 use im_core::ilm::IlmUrl;
 use im_core::ilm::attributes::{WebTarget, web_url};
+use im_core::install::NoInstaller;
 use im_core::inventory::{Inventory, Trigger};
+use im_core::requests::Requests;
 use im_core::session::{
     CertificateChoice, FormError, KeyringStore, MemoryStore, ProviderChoice, RefreshStore, Session,
     SessionView, SignInAgain,
@@ -114,7 +116,10 @@ pub fn manage<R: Runtime>(
             views.publish(view);
             announcing.view(view);
         })
-        .with_identities(identities.clone()),
+        .with_identities(identities.clone())
+        .with_key_storage(Arc::from(crate::key_storage::system()))
+        .with_installer(Arc::new(NoInstaller))
+        .with_requests(Arc::new(Requests::new(settings.folder()))),
     );
     let inventory =
         Arc::new(Inventory::new(settings.folder()).with_zone(crate::local_time::utc_offset_at));

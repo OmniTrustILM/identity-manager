@@ -551,7 +551,7 @@ async fn the_choices_are_the_groups_and_the_enabled_ra_profiles() {
     Mock::given(method("GET"))
         .and(path(RA_PROFILES))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-            { "uuid": "ra-1", "name": "Staff", "enabled": true, "authorityInstanceName": "Corporate CA" },
+            { "uuid": "ra-1", "name": "Staff", "enabled": true, "authorityInstanceName": "Corporate CA", "authorityInstanceUuid": "auth-1" },
             { "uuid": "ra-2", "name": "Off", "enabled": false }
         ])))
         .mount(&adding.world.ilm)
@@ -571,7 +571,8 @@ async fn the_choices_are_the_groups_and_the_enabled_ra_profiles() {
         Some(vec![RaProfileChoice {
             uuid: "ra-1".to_owned(),
             name: "Staff".to_owned(),
-            authority: Some("Corporate CA".to_owned())
+            authority: Some("Corporate CA".to_owned()),
+            authority_uuid: Some("auth-1".to_owned())
         }])
     );
 }

@@ -28,7 +28,7 @@ use crate::ilm::IlmUrl;
 use crate::ilm::actions::{self, MAX_UUIDS, Outcome};
 use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, MATCH_LIMIT, Search};
 use crate::ilm::profile::{IlmError, SignInCertificate, profile_request, read_profile};
-use crate::session::{CallError, Session, SignedInAs};
+use crate::session::{CallError, Followed, Session, SignedInAs};
 use crate::settings::WarnDays;
 
 const UNREACHABLE: &str = "ILM cannot be reached.";
@@ -168,6 +168,8 @@ struct Held {
     local: Option<Vec<LocalCertificate>>,
     days: WarnDays,
     summary: Option<Summary>,
+    /// How the requests for certificates stood at the latest check.
+    followed: Vec<Followed>,
 }
 
 impl Held {
@@ -291,6 +293,11 @@ impl Inventory {
 
     pub fn status(&self) -> Status {
         held(&self.held).status.clone()
+    }
+
+    /// The requests for certificates the latest check followed, and how each stood.
+    pub fn followed(&self) -> Vec<Followed> {
+        held(&self.held).followed.clone()
     }
 
     pub fn snapshot(&self) -> Option<Snapshot> {
@@ -432,7 +439,15 @@ impl Inventory {
         {
             return self.status();
         }
+        let epoch = held(&self.held).epoch;
         let asked = self.run(session, trigger, local).await;
+        let followed = session.follow().await;
+        {
+            let mut held = held(&self.held);
+            if held.epoch == epoch {
+                held.followed = followed;
+            }
+        }
         *self.asked.lock().unwrap_or_else(PoisonError::into_inner) = asked;
         self.completed.fetch_add(1, Ordering::SeqCst);
         self.status()

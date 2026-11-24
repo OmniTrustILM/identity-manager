@@ -8,6 +8,7 @@ use url::Url;
 pub mod actions;
 pub mod attributes;
 pub mod certificates;
+pub mod issue;
 pub mod profile;
 pub mod resource;
 pub mod upload;

@@ -2,13 +2,17 @@
 //! find, sign with and delete a key.
 
 pub mod encoding;
+mod registered;
 mod request;
+mod subject;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
 use serde::{Deserialize, Serialize};
 
+pub use registered::registered_subject;
 pub use request::{AlternativeName, NameType, RequestSubject, signing_request};
+pub use subject::{Unmappable, subject, unbuildable};
 
 /// A place on this computer that keeps private keys.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
