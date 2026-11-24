@@ -42,17 +42,17 @@ pub fn system_identities() -> Arc<dyn IdentityStore> {
 }
 
 #[cfg(windows)]
-fn origins() -> Arc<dyn KeyOrigins> {
+pub(crate) fn origins() -> Arc<dyn KeyOrigins> {
     Arc::new(crate::key_provider::WindowsKeyOrigins)
 }
 
 #[cfg(target_os = "macos")]
-fn origins() -> Arc<dyn KeyOrigins> {
+pub(crate) fn origins() -> Arc<dyn KeyOrigins> {
     Arc::new(crate::key_origin_macos::TokenKeyOrigins)
 }
 
 #[cfg(not(any(windows, target_os = "macos")))]
-fn origins() -> Arc<dyn KeyOrigins> {
+pub(crate) fn origins() -> Arc<dyn KeyOrigins> {
     Arc::new(NoOrigins)
 }
 

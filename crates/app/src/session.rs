@@ -4,7 +4,6 @@ use std::sync::Arc;
 use im_core::identity::IdentityStore;
 use im_core::ilm::IlmUrl;
 use im_core::ilm::attributes::{WebTarget, web_url};
-use im_core::install::NoInstaller;
 use im_core::inventory::{Inventory, Trigger};
 use im_core::requests::Requests;
 use im_core::session::{
@@ -118,7 +117,7 @@ pub fn manage<R: Runtime>(
         })
         .with_identities(identities.clone())
         .with_key_storage(Arc::from(crate::key_storage::system()))
-        .with_installer(Arc::new(NoInstaller))
+        .with_installer(crate::install::system())
         .with_requests(Arc::new(Requests::new(settings.folder()))),
     );
     let inventory =

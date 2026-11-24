@@ -5,6 +5,9 @@ mod macos;
 #[cfg(windows)]
 mod windows;
 
+#[cfg(target_os = "macos")]
+pub(crate) use macos::application_label;
+
 use im_core::keys::KeyStorage;
 #[cfg(not(any(target_os = "macos", windows)))]
 use im_core::keys::NoKeyStorage;

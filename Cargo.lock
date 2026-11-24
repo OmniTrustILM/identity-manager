@@ -2155,6 +2155,8 @@ dependencies = [
  "objc2-crypto-token-kit",
  "objc2-foundation",
  "objc2-local-authentication",
+ "rcgen",
+ "rustls",
  "security-framework",
  "security-framework-sys",
  "serde",

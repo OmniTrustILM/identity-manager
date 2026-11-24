@@ -290,7 +290,7 @@ fn key_id(application_label: &[u8]) -> KeyId {
 }
 
 /// The application label a key name holds, if it is one of ours.
-fn application_label(id: &KeyId) -> Option<Vec<u8>> {
+pub(crate) fn application_label(id: &KeyId) -> Option<Vec<u8>> {
     let hex = id.name.strip_prefix(LABEL)?.strip_prefix(':')?;
     if hex.is_empty() || hex.len() % 2 != 0 {
         return None;

@@ -75,20 +75,30 @@ fn subject_of(der: &[u8]) -> String {
     request.certification_request_info.subject.to_string()
 }
 
-/// A certificate for the key that signed `csr`, and the certificate of the authority that issued it.
-fn issued_for(csr: &[u8]) -> (Vec<u8>, Vec<u8>) {
-    let authority_key = KeyPair::generate().unwrap();
+fn authority(name: &str) -> (CertificateParams, KeyPair) {
     let mut params = CertificateParams::default();
     params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     params.distinguished_name = DistinguishedName::new();
-    params
-        .distinguished_name
-        .push(DnType::CommonName, "Test CA");
-    let authority = params.self_signed(&authority_key).unwrap();
+    params.distinguished_name.push(DnType::CommonName, name);
+    (params, KeyPair::generate().unwrap())
+}
+
+/// A certificate for the key that signed `csr`, the certificate of the authority that issued it, and the
+/// self-signed root above that authority.
+fn issued_for(csr: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    let (root_params, root_key) = authority("Test Root");
+    let root = root_params.self_signed(&root_key).unwrap();
+    let root_issuer = Issuer::new(root_params, root_key);
+    let (params, authority_key) = authority("Test CA");
+    let intermediate = params.signed_by(&authority_key, &root_issuer).unwrap();
     let request = CertificateSigningRequestParams::from_der(&csr.to_vec().into()).unwrap();
     let issuer = Issuer::new(params, authority_key);
     let leaf = request.signed_by(&issuer).unwrap();
-    (leaf.der().to_vec(), authority.der().to_vec())
+    (
+        leaf.der().to_vec(),
+        intermediate.der().to_vec(),
+        root.der().to_vec(),
+    )
 }
 
 /// Answers the issue request and tells what was on disk when it arrived.
@@ -314,13 +324,13 @@ impl Requesting {
             alternative_names: Vec::new(),
         };
         let csr = signing_request(key.as_ref(), &subject).unwrap();
-        let (leaf, authority) = issued_for(&csr);
+        let (leaf, authority, root) = issued_for(&csr);
         self.state_is(
             uuid,
             json!({ "state": "issued", "certificateContent": STANDARD.encode(&leaf) }),
         )
         .await;
-        self.chain_is(uuid, &[&authority]).await;
+        self.chain_is(uuid, &[&authority, &root]).await;
         (leaf, authority)
     }
 
@@ -1139,7 +1149,7 @@ async fn a_chain_that_cannot_be_read_leaves_everything_as_it_is() {
     let entry = requesting.seed(Some("c-1"), false, now());
     let key = requesting.keys.open(&entry.key).unwrap().unwrap();
     let csr = signing_request(key.as_ref(), &RequestSubject::default()).unwrap();
-    let (leaf, _) = issued_for(&csr);
+    let (leaf, _, _) = issued_for(&csr);
     requesting
         .state_is(
             "c-1",
@@ -1584,7 +1594,7 @@ async fn a_request_that_has_no_installer_keeps_waiting_to_be_installed() {
     let key = keys.create(Storage::Software, KeyType::EcP256).unwrap();
     let subject = RequestSubject::default();
     let csr = signing_request(key.as_ref(), &subject).unwrap();
-    let (leaf, authority) = issued_for(&csr);
+    let (leaf, authority, _) = issued_for(&csr);
     requests
         .add(Waiting {
             ilm: world.address(),

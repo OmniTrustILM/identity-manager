@@ -22,6 +22,7 @@ use crate::ilm::issue::{
 };
 use crate::ilm::profile::IlmError;
 use crate::ilm::upload::RaProfileChoice;
+use crate::install::{intermediates, is_for_key};
 use crate::keys::{
     KeyError, KeyId, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable,
     registered_subject, signing_request, subject,
@@ -752,15 +753,16 @@ impl Session {
                 return None;
             }
         };
-        let Ok((_, parsed)) = X509Certificate::from_der(&leaf) else {
+        if X509Certificate::from_der(&leaf).is_err() {
             log::warn!("the certificate of request {uuid} cannot be read");
             return None;
-        };
-        if parsed.public_key().raw != key.public_key() {
+        }
+        if !is_for_key(&leaf, key.public_key()) {
             log::warn!("the certificate {uuid} is not for the key of its request");
             return Some(Outcome::Mismatch);
         }
-        let intermediates = chain.len();
+        let chain = intermediates(chain);
+        let count = chain.len();
         let installer = self.installer.clone();
         let key_id = entry.key.clone();
         let installed =
@@ -772,7 +774,7 @@ impl Session {
             return Some(Outcome::InstallFailed);
         }
         log::info!(
-            "certificate installed: {uuid}, {:?}, {intermediates} intermediates",
+            "certificate installed: {uuid}, {:?}, {count} intermediates",
             entry.key.storage
         );
         lock(&self.seen).remove(uuid);
