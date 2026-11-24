@@ -364,13 +364,13 @@ export const strings = {
     offersLoading: 'Checking the key storages…',
     offersFailed: 'The key storages could not be read.',
     noKeyStorage: 'Your organization does not allow a key storage on this computer.',
-    storageName: (storage: string, platform: 'macos' | 'windows' | 'linux'): string => {
+    storageName: (storage: string, platform: Platform): string => {
         if (storage === 'software' && platform === 'windows') {
             return 'Windows key store';
         }
         return ({ keychain: 'Keychain', tpm: 'TPM', software: 'Software key' } as Record<string, string>)[storage] ?? storage;
     },
-    storageDescription: (storage: string, platform: 'macos' | 'windows' | 'linux') => {
+    storageDescription: (storage: string, platform: Platform) => {
         if (storage === 'keychain') {
             return 'In your login keychain, marked as not exportable.';
         }
@@ -399,7 +399,7 @@ export const strings = {
     reviewKeyType: 'Key type',
     reviewInstalledIn: 'Installed in',
     reviewNewKey: (where: string) => `New, in ${where}`,
-    keyPlace: (storage: string, platform: 'macos' | 'windows' | 'linux') => {
+    keyPlace: (storage: string, platform: Platform) => {
         if (storage === 'keychain') {
             return 'the keychain';
         }
@@ -408,7 +408,7 @@ export const strings = {
         }
         return platform === 'windows' ? 'the Windows key store' : 'software';
     },
-    installedPlace: (platform: 'macos' | 'windows' | 'linux') =>
+    installedPlace: (platform: Platform) =>
         platform === 'macos' ? 'Your login keychain' : 'Your personal certificate store',
     requestPlan: (where: string) => [
         `A new key is created in ${where}.`,
@@ -420,7 +420,7 @@ export const strings = {
     requestRefused: 'ILM did not accept the request',
     requestFailed: 'The certificate could not be requested.',
     installedTitle: 'Your certificate is installed',
-    installedIn: (label: string, platform: 'macos' | 'windows' | 'linux') =>
+    installedIn: (label: string, platform: Platform) =>
         `${label} is in ${platform === 'macos' ? 'your login keychain' : 'your personal certificate store'}.`,
     requestValidUntil: 'Valid until',
     waitingForApproval: 'Waiting for approval',
