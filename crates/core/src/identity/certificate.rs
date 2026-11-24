@@ -123,6 +123,8 @@ pub struct LocalCertificate {
     pub alternative_names: Vec<String>,
     pub key: KeyAlgorithm,
     pub location: KeyLocation,
+    /// The smart card that holds the key, when the location is a smart card and the card is named.
+    pub card: Option<String>,
     /// Whether the certificate can sign in to ILM at the time of the description, else why not.
     pub sign_in: Result<(), Rejection>,
 }
@@ -152,6 +154,7 @@ pub struct LocalCertificateView {
     pub alternative_names: Vec<String>,
     pub key: KeyAlgorithm,
     pub location: KeyLocation,
+    pub card_name: Option<String>,
     pub can_sign_in: bool,
     /// Why the certificate cannot sign in, else none.
     pub sign_in_problem: Option<String>,
@@ -172,6 +175,7 @@ impl From<&LocalCertificate> for LocalCertificateView {
             alternative_names: found.alternative_names.clone(),
             key: found.key.clone(),
             location: found.location,
+            card_name: found.card.clone(),
             can_sign_in: found.sign_in.is_ok(),
             sign_in_problem: found.sign_in.err().map(|reason| reason.to_string()),
         }
@@ -205,6 +209,7 @@ pub fn describe(der: &[u8], location: KeyLocation, now: SystemTime) -> Option<Lo
         alternative_names: alternative_names(&cert),
         key: key_algorithm(&cert),
         location,
+        card: None,
         sign_in: assess(der, now).map(|_| ()),
     })
 }
@@ -223,23 +228,33 @@ pub(crate) fn mark_unreachable(listed: &mut [LocalCertificate], unreachable: &[F
     }
 }
 
-/// Describes each certificate of `items` with where its key is, in list order: by name, then the latest expiry,
-/// then fingerprint. A certificate that cannot be parsed is skipped with a debug log.
+/// Describes each certificate of `items` with where its key is and, for a smart card, the card's name, in list
+/// order: by name, then the latest expiry, then fingerprint. A certificate that cannot be parsed is skipped with a
+/// debug log.
 pub fn describe_all<'a>(
-    items: impl IntoIterator<Item = (&'a [u8], KeyLocation)>,
+    items: impl IntoIterator<Item = (&'a [u8], KeyLocation, Option<String>)>,
     now: SystemTime,
 ) -> Vec<LocalCertificate> {
     let mut listed: Vec<LocalCertificate> = items
         .into_iter()
-        .filter_map(|(der, location)| {
-            let described = describe(der, location, now);
-            if described.is_none() {
+        .filter_map(|(der, location, card)| {
+            let Some(mut described) = describe(der, location, now) else {
                 log::debug!(
                     "certificate {} cannot be parsed; not listed",
                     Fingerprint::of(der)
                 );
+                return None;
+            };
+            if location == KeyLocation::SmartCard {
+                if let Some(name) = &card {
+                    log::debug!(
+                        "certificate {} is on the card {name}",
+                        described.fingerprint
+                    );
+                }
+                described.card = card;
             }
-            described
+            Some(described)
         })
         .collect();
     listed.sort_by(|a, b| {

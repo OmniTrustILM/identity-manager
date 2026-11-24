@@ -19,22 +19,35 @@ use security_framework::trust::SecTrust;
 
 use super::certificate::{KeyLocation, describe_all, read_logged};
 use super::{
-    ClientIdentity, Fingerprint, IdentityStore, KeyKind, LocalCertificate, StoreUnreadable,
-    signing_refused, usable,
+    ClientIdentity, Fingerprint, IdentityStore, KeyKind, KeyOrigins, LocalCertificate,
+    StoreUnreadable, signing_refused, usable,
 };
 
 const ERR_SEC_ITEM_NOT_FOUND: i32 = -25300;
 
-pub struct KeychainStore;
+pub struct KeychainStore {
+    pub origins: Arc<dyn KeyOrigins>,
+}
 
 impl IdentityStore for KeychainStore {
     fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
         read_logged("the keychain", || {
             let identities = identities()?;
+            let on_cards: Vec<&[u8]> = identities
+                .iter()
+                .filter(|(_, location, _)| *location == KeyLocation::SmartCard)
+                .map(|(der, _, _)| der.as_slice())
+                .collect();
+            let mut cards = self.origins.origins(&on_cards).into_iter();
             Ok(describe_all(
-                identities
-                    .iter()
-                    .map(|(der, location, _)| (der.as_slice(), *location)),
+                identities.iter().map(|(der, location, _)| {
+                    let card = if *location == KeyLocation::SmartCard {
+                        cards.next().and_then(|origin| origin.card)
+                    } else {
+                        None
+                    };
+                    (der.as_slice(), *location, card)
+                }),
                 SystemTime::now(),
             ))
         })
@@ -242,6 +255,9 @@ mod tests {
     #[tokio::test]
     #[ignore = "reads the real keychain; runs in the system-store job only"]
     async fn system_store_lists_and_signs() {
-        super::super::testing::check_system_store(&KeychainStore).await;
+        let store = KeychainStore {
+            origins: Arc::new(super::super::NoOrigins),
+        };
+        super::super::testing::check_system_store(&store).await;
     }
 }

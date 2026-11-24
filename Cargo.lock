@@ -874,7 +874,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d045de693cb712d0b22c6a64be5b953f67b3ce00ab5ad3dd5d8b441886ab8e1a"
 dependencies = [
  "quote",
- "syn 2.0.119",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -2144,14 +2144,19 @@ version = "0.1.0"
 dependencies = [
  "auto-launch",
  "block2",
+ "core-foundation",
+ "getrandom 0.4.3",
  "im-core",
  "jiff",
  "log",
  "objc2",
  "objc2-core-foundation",
  "objc2-core-graphics",
+ "objc2-crypto-token-kit",
  "objc2-foundation",
  "objc2-local-authentication",
+ "security-framework",
+ "security-framework-sys",
  "serde",
  "serde_json",
  "tauri",
@@ -2195,6 +2200,7 @@ name = "im-core"
 version = "0.1.0"
 dependencies = [
  "apple-native-keyring-store",
+ "aws-lc-rs",
  "base64 0.23.1",
  "getrandom 0.4.3",
  "jiff",
@@ -3039,6 +3045,16 @@ dependencies = [
  "objc2",
  "objc2-core-foundation",
  "objc2-core-graphics",
+]
+
+[[package]]
+name = "objc2-crypto-token-kit"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b52ed1d020c7eb084aea70ec9b8779b745f507decaec13395de8ef4434a9da11"
+dependencies = [
+ "objc2",
+ "objc2-foundation",
 ]
 
 [[package]]

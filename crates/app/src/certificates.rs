@@ -6,10 +6,10 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use im_core::attributes::FieldProblem;
-#[cfg(not(windows))]
-use im_core::identity::NoProviders;
+#[cfg(not(any(windows, target_os = "macos")))]
+use im_core::identity::NoOrigins;
 use im_core::identity::{
-    EmptyStore, Fingerprint, IdentityStore, KeyProviders, LocalCertificate, LocalCertificateView,
+    EmptyStore, Fingerprint, IdentityStore, KeyOrigins, LocalCertificate, LocalCertificateView,
     StoreUnreadable, system_store,
 };
 use im_core::inventory::{
@@ -37,18 +37,23 @@ pub fn system_identities() -> Arc<dyn IdentityStore> {
     if cfg!(test) {
         Arc::new(EmptyStore)
     } else {
-        system_store(providers())
+        system_store(origins())
     }
 }
 
 #[cfg(windows)]
-fn providers() -> Arc<dyn KeyProviders> {
-    Arc::new(crate::key_provider::WindowsKeyProviders)
+fn origins() -> Arc<dyn KeyOrigins> {
+    Arc::new(crate::key_provider::WindowsKeyOrigins)
 }
 
-#[cfg(not(windows))]
-fn providers() -> Arc<dyn KeyProviders> {
-    Arc::new(NoProviders)
+#[cfg(target_os = "macos")]
+fn origins() -> Arc<dyn KeyOrigins> {
+    Arc::new(crate::key_origin_macos::TokenKeyOrigins)
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+fn origins() -> Arc<dyn KeyOrigins> {
+    Arc::new(NoOrigins)
 }
 
 /// `summary` without the certificates that ILM does not know: only the others are notified.
@@ -530,6 +535,7 @@ mod tests {
             alternative_names: Vec::new(),
             key: KeyAlgorithm::Ed25519,
             location: KeyLocation::Keychain,
+            card: None,
             sign_in: Ok(()),
         }
     }

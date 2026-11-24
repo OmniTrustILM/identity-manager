@@ -61,6 +61,7 @@ export const localCertificate = (name: string, over: Partial<LocalCertificateVie
     location: 'keychain',
     canSignIn: true,
     signInProblem: null,
+    cardName: null,
     ...over,
 });
 

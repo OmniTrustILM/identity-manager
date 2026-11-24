@@ -11,12 +11,12 @@ use rustls_cng::store::{CertStore, CertStoreType};
 
 use super::certificate::{KeyLocation, describe_all, mark_unreachable, read_logged};
 use super::{
-    ClientIdentity, Fingerprint, IdentityStore, KeyProviders, LocalCertificate, StoreUnreadable,
+    ClientIdentity, Fingerprint, IdentityStore, KeyOrigins, LocalCertificate, StoreUnreadable,
     signing_refused, usable,
 };
 
 pub struct PersonalStore {
-    pub providers: Arc<dyn KeyProviders>,
+    pub origins: Arc<dyn KeyOrigins>,
 }
 
 impl IdentityStore for PersonalStore {
@@ -24,12 +24,12 @@ impl IdentityStore for PersonalStore {
         read_logged("the personal certificate store", || {
             let all = all_certificates()?;
             let ders: Vec<&[u8]> = all.iter().map(|(der, _)| der.as_slice()).collect();
-            let providers = self.providers.provider_names(&ders);
+            let origins = self.origins.origins(&ders);
             let mut located = Vec::new();
             let mut unreachable = Vec::new();
-            for ((der, context), provider) in all.iter().zip(providers) {
+            for ((der, context), origin) in all.iter().zip(origins) {
                 if context.acquire_key(true).is_err() {
-                    let Some(name) = &provider else {
+                    let Some(name) = &origin.provider else {
                         continue;
                     };
                     log::debug!(
@@ -38,7 +38,7 @@ impl IdentityStore for PersonalStore {
                     );
                     unreachable.push(Fingerprint::of(der));
                 }
-                located.push((der.as_slice(), location(der, provider)));
+                located.push((der.as_slice(), location(der, origin.provider), origin.card));
             }
             let mut listed = describe_all(located, SystemTime::now());
             mark_unreachable(&mut listed, &unreachable);
@@ -151,7 +151,7 @@ mod tests {
     #[ignore = "reads the real certificate store; runs in the system-store job only"]
     async fn system_store_lists_and_signs() {
         let store = PersonalStore {
-            providers: Arc::new(super::super::NoProviders),
+            origins: Arc::new(super::super::NoOrigins),
         };
         super::super::testing::check_system_store(&store).await;
     }

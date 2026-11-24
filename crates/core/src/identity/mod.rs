@@ -453,30 +453,41 @@ impl IdentityStore for EmptyStore {
     }
 }
 
-/// Where the key of a certificate is kept, where the store itself cannot tell.
-pub trait KeyProviders: Send + Sync {
-    /// The name of the key storage provider of each certificate with these DERs, in the same order, when it
-    /// is known.
-    fn provider_names(&self, ders: &[&[u8]]) -> Vec<Option<String>>;
+/// What the store itself does not tell about the key of a certificate.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct KeyOrigin {
+    /// The name of the key storage provider (Windows).
+    pub provider: Option<String>,
+    /// The name of the smart card or its reader that holds the key.
+    pub card: Option<String>,
+}
+
+/// Where the key of a certificate is kept, where the store itself cannot tell. Lookups are silent: nothing that
+/// would ask the person for a PIN or a confirmation.
+pub trait KeyOrigins: Send + Sync {
+    /// The origin of the key of each certificate with these DERs, in the same order; a field is `None` when it
+    /// is not known.
+    fn origins(&self, ders: &[&[u8]]) -> Vec<KeyOrigin>;
 }
 
 /// No lookup: every key location the store cannot tell is unknown.
-pub struct NoProviders;
+pub struct NoOrigins;
 
-impl KeyProviders for NoProviders {
-    fn provider_names(&self, ders: &[&[u8]]) -> Vec<Option<String>> {
-        vec![None; ders.len()]
+impl KeyOrigins for NoOrigins {
+    fn origins(&self, ders: &[&[u8]]) -> Vec<KeyOrigin> {
+        vec![KeyOrigin::default(); ders.len()]
     }
 }
 
 /// The store of this system: the default keychain and smart cards on macOS, the personal store of the current
-/// user on Windows, none on Linux. `providers` names the key providers on Windows and is not used elsewhere.
-#[cfg_attr(not(windows), allow(unused_variables))]
-pub fn system_store(providers: Arc<dyn KeyProviders>) -> Arc<dyn IdentityStore> {
+/// user on Windows, none on Linux. `origins` names the key provider (Windows) and the card (macOS and Windows)
+/// and is not used elsewhere.
+#[cfg_attr(not(any(windows, target_os = "macos")), allow(unused_variables))]
+pub fn system_store(origins: Arc<dyn KeyOrigins>) -> Arc<dyn IdentityStore> {
     #[cfg(target_os = "macos")]
-    return Arc::new(macos::KeychainStore);
+    return Arc::new(macos::KeychainStore { origins });
     #[cfg(windows)]
-    return Arc::new(windows::PersonalStore { providers });
+    return Arc::new(windows::PersonalStore { origins });
     #[cfg(not(any(target_os = "macos", windows)))]
     return Arc::new(EmptyStore);
 }

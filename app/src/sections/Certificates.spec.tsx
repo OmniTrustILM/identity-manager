@@ -30,6 +30,7 @@ const view = (name: string, over: Partial<LocalCertificateView> = {}): LocalCert
     location: 'keychain',
     canSignIn: true,
     signInProblem: null,
+    cardName: null,
     ...over,
 });
 
@@ -39,7 +40,7 @@ let requests: number;
 
 beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
     vi.setSystemTime(now);
     container = document.createElement('div');
     document.body.append(container);
@@ -272,9 +273,104 @@ test('focus and visibility ask again, at most once in 2 seconds', async () => {
     expect(requests).toBe(2);
     await advance(1500);
     expect(requests).toBe(3);
+});
 
+const hide = (state: DocumentVisibilityState) => vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(state);
+
+test('the list is read again every 5 seconds while the window is visible', async () => {
+    answer(() => [view('A')]);
+    await render();
+
+    await advance(4999);
+    expect(requests).toBe(1);
+    await advance(1);
+    expect(requests).toBe(2);
     await advance(5000);
     expect(requests).toBe(3);
+});
+
+test('a slow read is not overtaken by the periodic reading', async () => {
+    let release: (items: LocalCertificateView[]) => void = () => undefined;
+    const slow = new Promise<LocalCertificateView[]>((resolve) => {
+        release = resolve;
+    });
+    const replies = [slow];
+    answer(() => replies.shift() ?? [view('B')]);
+    await render();
+
+    await advance(15000);
+    expect(requests).toBe(1);
+
+    await act(async () => release([view('A')]));
+    expect(options()).toHaveLength(1);
+    await advance(5000);
+    expect(requests).toBe(2);
+});
+
+test('a hidden window reads nothing, and the reading resumes when it is visible again', async () => {
+    answer(() => [view('A')]);
+    await render();
+    const spy = hide('hidden');
+
+    await advance(20000);
+    expect(requests).toBe(1);
+
+    spy.mockRestore();
+    await advance(5000);
+    expect(requests).toBe(2);
+});
+
+test('a read put off by the 2 seconds is dropped when the window is hidden meanwhile', async () => {
+    answer(() => [view('A')]);
+    await render();
+    await advance(4000);
+    await focusEvent();
+    expect(requests).toBe(2);
+
+    await advance(1000);
+    const spy = hide('hidden');
+    await advance(1000);
+
+    expect(requests).toBe(2);
+    spy.mockRestore();
+});
+
+test('an unchanged answer keeps the selection and shows no loading state', async () => {
+    answer(() => [view('A'), view('B')]);
+    await render();
+    await act(async () => options()[1]?.click());
+    const row = selected();
+
+    await advance(5000);
+
+    expect(requests).toBe(2);
+    expect(selected()).toBe(row);
+    expect(selected()?.textContent).toContain('B');
+    expect(container.querySelector('[role="status"]')).toBeNull();
+    expect(options()).toHaveLength(2);
+});
+
+test('a certificate that appears on a card shows up without leaving the window', async () => {
+    const replies = [[view('A')], [view('A'), card('On the card', 'YubiKey 5 NFC')]];
+    answer(() => replies.shift() ?? replies[0]);
+    await render();
+    expect(options()).toHaveLength(1);
+
+    await advance(5000);
+
+    expect(options()).toHaveLength(2);
+    expect(selected()?.textContent).toContain('A');
+});
+
+test('the periodic reading stops when the section is left', async () => {
+    answer(() => [view('A')]);
+    await render();
+    await act(async () => root.unmount());
+
+    await advance(20000);
+
+    expect(requests).toBe(1);
+    root = createRoot(container);
 });
 
 test('leaving the section stops the listeners and the pending request', async () => {
@@ -884,4 +980,41 @@ test('a certificate it was sent to is selected, also when another was selected, 
 
     await show('FP:two', 2);
     expect(selected()?.textContent).toContain('Alex Novak');
+});
+
+const card = (name: string, cardName: string | null) => view(name, { location: 'smartCard', cardName });
+const locations = () => options().map((option) => option.querySelectorAll('span.text-secondary')[1]?.textContent);
+
+test('the detail names the card of a smart-card certificate and says Smart card without a name', async () => {
+    answer(() => [card('Named', 'YubiKey 5 NFC'), card('Plain', null)]);
+    await render();
+
+    expect(detail().textContent).toContain(`${strings.location}Smart card · YubiKey 5 NFC`);
+    await act(async () => options()[1]?.click());
+    expect(detail().textContent).toContain(`${strings.location}${strings.locationLabels.smartCard}${strings.algorithm}`);
+});
+
+test('the list names the cards only when the certificates sit on more than one card', async () => {
+    answer(() => [card('A', 'YubiKey 5 NFC'), card('B', 'YubiKey 5C Nano'), card('C', null), view('D')]);
+    await render();
+
+    expect(locations()).toEqual(['YubiKey 5 NFC', 'YubiKey 5C Nano', 'Smart card', 'Keychain']);
+    expect(options().map((option) => option.getAttribute('aria-label'))).toEqual([
+        'A, Client authentication, YubiKey 5 NFC, Expires in 212 days',
+        'B, Client authentication, YubiKey 5C Nano, Expires in 212 days',
+        'C, Client authentication, Smart card, Expires in 212 days',
+        'D, Client authentication, Keychain, Expires in 212 days',
+    ]);
+});
+
+test.each([
+    ['one card', [card('A', 'YubiKey 5 NFC'), card('B', 'YubiKey 5 NFC')]],
+    ['one named card and one without a name', [card('A', 'YubiKey 5 NFC'), card('B', null)]],
+    ['no name', [card('A', null), card('B', null)]],
+])('the list says Smart card for %s', async (_case, items) => {
+    answer(() => items);
+    await render();
+
+    expect(locations()).toEqual(['Smart card', 'Smart card']);
+    expect(options()[0]?.getAttribute('aria-label')).toContain(', Smart card, ');
 });

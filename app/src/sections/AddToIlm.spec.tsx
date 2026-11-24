@@ -30,6 +30,7 @@ const certificate = (name: string, issuerName: string): LocalCertificateView => 
     location: 'keychain',
     canSignIn: true,
     signInProblem: null,
+    cardName: null,
 });
 
 const wifi = certificate('wifi-corp', 'Example Issuing CA 2');

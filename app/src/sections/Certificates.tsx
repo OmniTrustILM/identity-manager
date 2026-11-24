@@ -22,6 +22,7 @@ import { IlmCertificates } from './IlmCertificates';
 
 /** At most one request this often when the window comes back; the request the first answer needs is not delayed. */
 const refreshEvery = 2000;
+const pollEvery = 5000;
 
 type State = { kind: 'loading' } | { kind: 'ready'; items: LocalCertificateView[] } | { kind: 'error'; message: string };
 type System = 'macos' | 'windows';
@@ -29,6 +30,11 @@ type System = 'macos' | 'windows';
 const useLabel = (use: Use) => (use.kind === 'other' ? use.value : strings.useLabels[use.kind]);
 const uses = (certificate: LocalCertificateView) =>
     certificate.uses.length === 0 ? strings.anyPurpose : certificate.uses.map(useLabel).join(', ');
+
+const detailLocation = (certificate: LocalCertificateView) =>
+    certificate.cardName === null ? strings.locationLabels[certificate.location] : strings.smartCardNamed(certificate.cardName);
+const listLocation = (certificate: LocalCertificateView, namesCards: boolean) =>
+    namesCards && certificate.cardName !== null ? certificate.cardName : strings.locationLabels[certificate.location];
 
 function algorithm(key: KeyAlgorithm): string {
     switch (key.kind) {
@@ -236,7 +242,7 @@ function Detail({
                 </dd>
             </Group>
             <Group title={strings.privateKeyGroupTitle}>
-                <Field label={strings.location}>{strings.locationLabels[certificate.location]}</Field>
+                <Field label={strings.location}>{detailLocation(certificate)}</Field>
                 <Field label={strings.algorithm}>{algorithm(certificate.key)}</Field>
             </Group>
             <Group title={strings.namesGroupTitle}>
@@ -289,6 +295,8 @@ function List({
         }
     };
 
+    const namesCards = new Set(items.map((item) => item.cardName).filter((name) => name !== null)).size > 1;
+
     return (
         <div className="flex min-w-0 flex-col gap-s1">
             <div aria-hidden className={`${columns} border-b border-separator pb-s2 text-caption font-semibold text-secondary`}>
@@ -302,10 +310,11 @@ function List({
                     const match = inventory?.matches[certificate.fingerprint];
                     const known = lookedUp(inventory, certificate.fingerprint);
                     const signIn = known && inventory?.signIn === certificate.fingerprint;
+                    const location = listLocation(certificate, namesCards);
                     const label = [
                         certificate.name,
                         uses(certificate),
-                        strings.locationLabels[certificate.location],
+                        location,
                         state.text,
                         known ? ilmWord(match) : null,
                         signIn ? strings.signInCertificate : null,
@@ -333,7 +342,7 @@ function List({
                                 </span>
                                 <span className="text-caption text-secondary">{uses(certificate)}</span>
                             </span>
-                            <span className="text-body text-secondary">{strings.locationLabels[certificate.location]}</span>
+                            <span className="text-body text-secondary">{location}</span>
                             <div className="flex flex-col">
                                 <span className={`text-body ${statusTone(state.expired, expiring.has(certificate.fingerprint))}`}>
                                     {state.text}
@@ -383,21 +392,34 @@ export function Certificates() {
     const latest = useRef(0);
     const lastAsked = useRef(0);
     const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const reading = useRef(false);
 
     const request = useCallback(() => {
         const id = ++latest.current;
         lastAsked.current = Date.now();
+        reading.current = true;
         localCertificates().then(
             (items) => {
                 if (id !== latest.current) {
                     return;
                 }
-                setState({ kind: 'ready', items });
+                reading.current = false;
+                setState((current) =>
+                    current.kind === 'ready' && JSON.stringify(current.items) === JSON.stringify(items)
+                        ? current
+                        : { kind: 'ready', items },
+                );
                 setChosen((current) =>
                     items.some((certificate) => certificate.fingerprint === current) ? current : (items[0]?.fingerprint ?? null),
                 );
             },
-            (error) => id === latest.current && setState({ kind: 'error', message: String(error) || strings.certificatesLoadFailed }),
+            (error) => {
+                if (id !== latest.current) {
+                    return;
+                }
+                reading.current = false;
+                setState({ kind: 'error', message: String(error) || strings.certificatesLoadFailed });
+            },
         );
     }, []);
 
@@ -414,12 +436,14 @@ export function Certificates() {
             }
             pending.current = setTimeout(() => {
                 pending.current = null;
-                request();
+                refresh();
             }, wait);
         };
         window.addEventListener('focus', refresh);
         document.addEventListener('visibilitychange', refresh);
+        const poll = setInterval(() => reading.current || refresh(), pollEvery);
         return () => {
+            clearInterval(poll);
             window.removeEventListener('focus', refresh);
             document.removeEventListener('visibilitychange', refresh);
             if (pending.current !== null) {

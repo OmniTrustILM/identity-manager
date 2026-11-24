@@ -6,6 +6,7 @@ pub mod http;
 pub mod identity;
 pub mod ilm;
 pub mod inventory;
+pub mod keys;
 pub mod lock;
 pub mod oauth;
 pub mod policy;

@@ -24,6 +24,7 @@ const local: LocalCertificateView = {
     location: 'keychain',
     canSignIn: true,
     signInProblem: null,
+    cardName: null,
 };
 
 const first = ilmPage(

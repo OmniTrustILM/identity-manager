@@ -29,6 +29,7 @@ const local = (name: string, over: Partial<LocalCertificateView> = {}): LocalCer
     location: 'keychain',
     canSignIn: true,
     signInProblem: null,
+    cardName: null,
     ...over,
 });
 

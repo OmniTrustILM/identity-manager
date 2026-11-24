@@ -253,6 +253,7 @@ pub(super) mod tests {
             alternative_names: Vec::new(),
             key: KeyAlgorithm::Ed25519,
             location: KeyLocation::Software,
+            card: None,
             sign_in: Ok(()),
         }
     }
