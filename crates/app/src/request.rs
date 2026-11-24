@@ -421,7 +421,10 @@ pub async fn request_certificate<R: Runtime>(
         .await;
     ilm.unlocked()?;
     let waiting = waiting?;
-    if let Some(certificate) = &waiting.uuid {
+    let shown = app
+        .get_webview_window("main")
+        .is_some_and(|window| window.is_visible().unwrap_or(false));
+    if let Some(certificate) = waiting.uuid.as_ref().filter(|_| shown) {
         ilm.notices().wizard_shows(certificate);
     }
     Ok(RequestedView {
