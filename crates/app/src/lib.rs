@@ -4,8 +4,12 @@ mod certificates;
 mod color_scheme;
 mod dock;
 mod keep_alive;
+#[cfg(target_os = "macos")]
+mod key_origin_macos;
 #[cfg(windows)]
 mod key_provider;
+#[cfg_attr(not(test), allow(dead_code))]
+mod key_storage;
 mod local_time;
 mod lock;
 #[cfg(any(windows, test))]

@@ -228,7 +228,7 @@ remove_test_certificate() {
 # both. The store is the real one, so this runs on CI runners only. Linux has no store.
 identity_system() {
     [[ -n "${CI:-}" ]] || { echo "identity-system writes to the certificate store of the system and runs on CI runners only (CI is not set)" >&2; exit 1; }
-    local password test_name ca_pem
+    local password test_name ca_pem request request_out
     dir=$(mktemp -d)
     password=$(openssl rand -hex 16)
     make_test_identity "$dir" "$password"
@@ -284,11 +284,20 @@ identity_system() {
         IM_IDENTITY_KEYLESS_FINGERPRINT=$(certificate_digest sha256 ca "$dir") IM_IDENTITY_CA=$ca_pem \
         IM_IDENTITY_ELSEWHERE_FINGERPRINT=${elsewhere:-} \
         cargo test -p im-core --locked -- --ignored "$test_name"
+    build_interface
     if [[ "$(uname -s)" != Darwin ]]; then
-        build_interface
         IM_IDENTITY_FINGERPRINT=$(certificate_digest sha256 leaf "$dir") \
             cargo test -p identity-manager --locked key_provider -- --ignored
     fi
+    # Creates keys in the key storage of the runner: the default keychain (the temporary one) on macOS, the software
+    # provider and the platform provider when the runner has one on Windows. The test prints what is offered.
+    request="$dir/request.der"
+    request_out=$request
+    [[ "$(uname -s)" == Darwin ]] || request_out=$(cygpath -w "$request")
+    IM_KEY_REQUEST_OUT=$request_out \
+        cargo test -p identity-manager --locked key_storage -- --ignored --nocapture
+    [[ -s "$request" ]] || { echo "the key storage test wrote no request" >&2; exit 1; }
+    openssl req -inform DER -in "$request" -verify -noout
 }
 
 case "${1:-}" in

@@ -302,6 +302,7 @@ pub struct StandInStore {
     identities: Vec<TestIdentity>,
     now: SystemTime,
     location: KeyLocation,
+    card: Option<String>,
 }
 
 impl StandInStore {
@@ -310,6 +311,7 @@ impl StandInStore {
             identities,
             now: SystemTime::now(),
             location: KeyLocation::Unknown,
+            card: None,
         }
     }
 
@@ -321,6 +323,14 @@ impl StandInStore {
     /// The same store with the private keys somewhere else.
     pub fn located(self, location: KeyLocation) -> Self {
         Self { location, ..self }
+    }
+
+    /// The same store with the name of the card that the keys are on, if the location is a smart card.
+    pub fn on_card(self, card: &str) -> Self {
+        Self {
+            card: Some(card.to_owned()),
+            ..self
+        }
     }
 
     fn usable(&self) -> Vec<super::Usable<&TestIdentity>> {
@@ -338,7 +348,7 @@ impl IdentityStore for StandInStore {
         Ok(describe_all(
             self.identities
                 .iter()
-                .map(|identity| (identity.leaf().as_ref(), self.location)),
+                .map(|identity| (identity.leaf().as_ref(), self.location, self.card.clone())),
             self.now,
         ))
     }

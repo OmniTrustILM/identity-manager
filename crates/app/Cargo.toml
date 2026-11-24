@@ -32,14 +32,19 @@ zbus = "5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6.2"
+core-foundation = "0.10.1"
 objc2 = "0.6.5"
 objc2-core-foundation = "0.3.2"
 objc2-core-graphics = { version = "0.3.2", features = ["CGSession", "CGEventSource", "CGEventTypes"] }
+objc2-crypto-token-kit = { version = "0.3.2", default-features = false, features = ["std", "TKTokenWatcher"] }
 objc2-foundation = "0.3.2"
 objc2-local-authentication = "0.3.2"
+security-framework = { version = "3.7.0", features = ["macos-12"] }
+security-framework-sys = "2.17.0"
 
 [target.'cfg(windows)'.dependencies]
 jiff = { version = "=0.2.39", default-features = false, features = ["tzdb-bundle-platform"] }
+getrandom = "0.4.3"
 windows-future = "0.3.2"
 windows = { version = "0.62.2", features = [
     "Security_Credentials_UI",
@@ -52,7 +57,7 @@ windows = { version = "0.62.2", features = [
 ] }
 
 [dev-dependencies]
-im-core = { path = "../core", features = ["ts"] }
+im-core = { path = "../core", features = ["ts", "testing"] }
 ts-rs = "=12.0.1"
 tempfile = "3.27"
 tokio = { version = "1.54.1", features = ["macros", "rt", "test-util"] }

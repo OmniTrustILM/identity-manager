@@ -41,6 +41,24 @@ The tray (or menu bar) icon opens a short summary with the same counts and the c
 Choosing one opens the main window at that certificate. While any certificate needs attention, the icon changes to
 show it, except while Identity Manager is locked. While it is locked, the summary shows no counts.
 
+## Keeping the list current
+
+The list updates by itself while the window is open, for example after a smart card is inserted or removed. It also
+updates when you return to the window.
+
+## The card of a smart-card certificate
+
+For a certificate whose private key is on a smart card, the details show the name of the card ("Smart card ·
+YubiKey 5 NFC", for example). Without a name they show "Smart card".
+
+- On macOS the name is the reader or card name that the system reports for the card.
+- On Windows the name is the smart-card reader name of the key's container.
+
+Identity Manager reads the name without asking for the PIN. If the card would ask for it, no name is shown.
+
+In the list the card name replaces "Smart card" only when the certificates sit on more than one card. With one card,
+or several cards of the same name, the list says "Smart card".
+
 ## Notifications
 
 Identity Manager shows a notification when a certificate:

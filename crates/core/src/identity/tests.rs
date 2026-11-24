@@ -234,7 +234,7 @@ fn the_empty_store_has_nothing() {
 
 #[test]
 fn the_system_store_can_be_asked() {
-    let _ = Arc::strong_count(&system_store(Arc::new(NoProviders)));
+    let _ = Arc::strong_count(&system_store(Arc::new(NoOrigins)));
 }
 
 mod listing {
@@ -425,6 +425,7 @@ mod listing {
             [
                 "alternativeNames",
                 "canSignIn",
+                "cardName",
                 "fingerprint",
                 "issuer",
                 "issuerName",
@@ -613,17 +614,86 @@ mod listing {
     }
 
     #[test]
-    fn the_empty_store_lists_nothing_and_no_provider_knows_a_key() {
+    fn the_empty_store_lists_nothing_and_no_origin_knows_a_key() {
         assert_eq!(EmptyStore.certificates(), Ok(Vec::new()));
-        assert_eq!(NoProviders.provider_names(&[b"one", b"two"]), [None, None]);
+        assert_eq!(
+            NoOrigins.origins(&[b"one", b"two"]),
+            [KeyOrigin::default(), KeyOrigin::default()]
+        );
+    }
+
+    struct NamedOrigins;
+
+    impl KeyOrigins for NamedOrigins {
+        fn origins(&self, ders: &[&[u8]]) -> Vec<KeyOrigin> {
+            ders.iter()
+                .map(|der| KeyOrigin {
+                    provider: Some(format!("provider {}", der.len())),
+                    card: Some(format!("card {}", der.len())),
+                })
+                .collect()
+        }
+    }
+
+    #[test]
+    fn origins_come_back_in_the_order_of_the_certificates() {
+        let origins = NamedOrigins.origins(&[b"a", b"abc", b"ab"]);
+        let cards: Vec<_> = origins
+            .iter()
+            .map(|origin| origin.card.as_deref())
+            .collect();
+        assert_eq!(cards, [Some("card 1"), Some("card 3"), Some("card 2")]);
+        assert_eq!(origins[1].provider.as_deref(), Some("provider 3"));
+    }
+
+    #[test]
+    fn a_card_is_kept_only_for_a_key_on_a_smart_card() {
+        let identity = TestCa::new().issue(Issue::client("a"));
+        let store = |location| {
+            StandInStore::new(vec![identity.clone()])
+                .at(now())
+                .located(location)
+                .on_card("Test Reader")
+        };
+        let card = |location| store(location).certificates().unwrap()[0].card.clone();
+        assert_eq!(card(KeyLocation::SmartCard).as_deref(), Some("Test Reader"));
+        for location in [
+            KeyLocation::Keychain,
+            KeyLocation::SecureEnclave,
+            KeyLocation::Software,
+            KeyLocation::Tpm,
+            KeyLocation::Unknown,
+        ] {
+            assert_eq!(card(location), None, "{location:?}");
+        }
+    }
+
+    #[test]
+    fn the_view_has_the_card_name_or_null() {
+        let identity = TestCa::new().issue(Issue::client("a"));
+        let named = StandInStore::new(vec![identity.clone()])
+            .at(now())
+            .located(KeyLocation::SmartCard)
+            .on_card("Test Reader");
+        assert_eq!(
+            view_of(&named.certificates().unwrap()[0])["cardName"],
+            "Test Reader"
+        );
+        let unnamed = StandInStore::new(vec![identity])
+            .at(now())
+            .located(KeyLocation::SmartCard);
+        assert_eq!(
+            view_of(&unnamed.certificates().unwrap()[0])["cardName"],
+            serde_json::Value::Null
+        );
     }
 
     #[test]
     fn describing_a_list_skips_what_cannot_be_parsed() {
         let identity = TestCa::new().issue(Issue::client("a"));
-        let items: [(&[u8], KeyLocation); 2] = [
-            (b"junk", KeyLocation::Unknown),
-            (identity.leaf().as_ref(), KeyLocation::Keychain),
+        let items: [(&[u8], KeyLocation, Option<String>); 2] = [
+            (b"junk", KeyLocation::Unknown, None),
+            (identity.leaf().as_ref(), KeyLocation::Keychain, None),
         ];
         let listed = describe_all(items, now());
         assert_eq!(listed.len(), 1);

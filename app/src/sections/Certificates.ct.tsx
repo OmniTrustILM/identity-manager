@@ -23,6 +23,7 @@ const certificate = (name: string, over: Partial<LocalCertificateView> = {}): Lo
     location: 'keychain',
     canSignIn: true,
     signInProblem: null,
+    cardName: null,
     ...over,
 });
 const list = [
@@ -433,3 +434,40 @@ test('the keyboard alone opens Add to ILM and closes it with Escape, returning t
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(add).toBeFocused();
 });
+
+const onCard = (name: string, cardName: string | null) => certificate(name, { location: 'smartCard', cardName });
+const cardLists: Record<string, LocalCertificateView[]> = {
+    'one card': [onCard('Alex Novak', 'YubiKey 5 NFC'), certificate('CLIENT1')],
+    'two cards': [onCard('Alex Novak', 'YubiKey 5 NFC'), onCard('Smart card login', 'YubiKey 5C Nano'), certificate('CLIENT1')],
+    'two cards with one name': [onCard('Alex Novak', 'YubiKey 5 NFC'), onCard('Smart card login', 'YubiKey 5 NFC')],
+    'no name': [onCard('Alex Novak', null), onCard('Smart card login', null)],
+};
+const expectedCells: Record<string, string[]> = {
+    'one card': ['Smart card', 'Keychain'],
+    'two cards': ['YubiKey 5 NFC', 'YubiKey 5C Nano', 'Keychain'],
+    'two cards with one name': ['Smart card', 'Smart card'],
+    'no name': ['Smart card', 'Smart card'],
+};
+
+for (const os of ['macos', 'windows'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+        for (const [name, certificates] of Object.entries(cardLists)) {
+            test(`on ${os} in ${scheme} with ${name} the list shows the card name only for several cards`, async ({ mount, page }) => {
+                await open(page, mount, os, scheme, 1000, certificates);
+
+                const cells = await page.evaluate(() =>
+                    [...document.querySelectorAll('[role="option"]')].map(
+                        (row) => row.querySelectorAll('span.text-secondary')[1]?.textContent,
+                    ),
+                );
+                expect(cells).toEqual(expectedCells[name]);
+            });
+        }
+
+        test(`on ${os} in ${scheme} the detail of a smart-card certificate names the card`, async ({ mount, page }) => {
+            await open(page, mount, os, scheme, 1000, cardLists['one card']);
+
+            await expect(page.locator('section').getByText('Smart card · YubiKey 5 NFC')).toBeVisible();
+        });
+    }
+}

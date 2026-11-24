@@ -121,6 +121,7 @@ export const strings = {
         ocspSigning: 'OCSP signing',
         any: 'Any purpose',
     },
+    smartCardNamed: (cardName: string) => `Smart card · ${cardName}`,
     locationLabels: {
         keychain: 'Keychain',
         smartCard: 'Smart card',

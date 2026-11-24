@@ -14,7 +14,7 @@ notBefore: number,
 /**
  * Milliseconds since 1970 (UTC).
  */
-notAfter: number, uses: Array<Use>, alternativeNames: Array<string>, key: KeyAlgorithm, location: KeyLocation, canSignIn: boolean, 
+notAfter: number, uses: Array<Use>, alternativeNames: Array<string>, key: KeyAlgorithm, location: KeyLocation, cardName: string | null, canSignIn: boolean, 
 /**
  * Why the certificate cannot sign in, else none.
  */
