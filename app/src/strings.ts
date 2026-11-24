@@ -1,6 +1,7 @@
 import type { AttributeConstraintView } from './bridge/generated/AttributeConstraintView';
 import type { AttributeFieldKind } from './bridge/generated/AttributeFieldKind';
 import type { AttributeProblem } from './bridge/generated/AttributeProblem';
+import type { Platform } from './bridge/generated/Platform';
 
 const time = (at: number) => {
     const when = new Date(at);
@@ -355,7 +356,7 @@ export const strings = {
     requestFormsLoading: 'Loading the attributes…',
     requestFormsFailed: 'The attributes could not be loaded.',
     keyHome: 'Where should the private key live?',
-    keyStaysHere: (platform: 'macos' | 'windows' | 'linux') =>
+    keyStaysHere: (platform: Platform) =>
         `The key is created on ${{ macos: 'this Mac', windows: 'this PC', linux: 'this computer' }[platform]} and never leaves it.`,
     keyStorages: 'Key storage',
     recommended: 'Recommended',

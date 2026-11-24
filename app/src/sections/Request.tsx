@@ -237,7 +237,7 @@ function Outcome({ view, label, platform }: Readonly<{ view: FollowView; label: 
     return (
         <div className="flex flex-1 flex-col items-center justify-center gap-s3 text-center">
             <Icon aria-hidden className={`size-toolbar-icon ${tone}`} />
-            <h3 ref={focusNode} tabIndex={-1} role="status" className="text-title font-semibold text-primary outline-none">
+            <h3 key={title} ref={focusNode} tabIndex={-1} className="text-title font-semibold text-primary outline-none">
                 {title}
             </h3>
             {lines.map((line) => (
