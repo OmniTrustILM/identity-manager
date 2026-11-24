@@ -99,6 +99,7 @@ export function AttributeForm({
     disabled = false,
     submitted = false,
     serverProblems = noProblems,
+    untitled = strings.customAttributes,
     onChange,
 }: Readonly<{
     form: AttributeFormView;
@@ -108,6 +109,8 @@ export function AttributeForm({
     submitted?: boolean;
     /** The fields the core refused when the form was sent. */
     serverProblems?: AttributeFieldProblem[];
+    /** The heading of the fields that have no group. */
+    untitled?: string;
     onChange: (state: AttributeState) => void;
 }>) {
     const [snapshot, setSnapshot] = useState(form);
@@ -430,7 +433,7 @@ export function AttributeForm({
                 return (
                     <section key={section.title ?? ''} aria-labelledby={heading} className="flex flex-col gap-s3">
                         <h3 id={heading} className="border-b border-separator pb-s1 text-body font-semibold text-primary">
-                            {section.title ?? strings.customAttributes}
+                            {section.title ?? untitled}
                         </h3>
                         {section.title === null &&
                             snapshot.unsupported.map((label, at) => (

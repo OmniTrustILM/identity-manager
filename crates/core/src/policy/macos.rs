@@ -193,4 +193,18 @@ mod tests {
         let layer = crate::policy::to_layer(&parse_plist(xml, "test"), "test");
         assert_eq!(layer.start_at_login, None);
     }
+
+    #[test]
+    fn key_storage_strings_reach_the_layer() {
+        use crate::keys::Storage;
+        let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
+<key>KeyStorages</key><string>keychain,software</string>
+<key>DefaultKeyStorage</key><string>keychain</string></dict></plist>"#;
+        let layer = crate::policy::to_layer(&parse_plist(xml, "test"), "test");
+        assert_eq!(
+            layer.key_storages,
+            Some(vec![Storage::Keychain, Storage::Software])
+        );
+        assert_eq!(layer.default_key_storage, Some(Storage::Keychain));
+    }
 }

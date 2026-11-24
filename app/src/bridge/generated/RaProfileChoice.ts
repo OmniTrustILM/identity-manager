@@ -3,7 +3,7 @@
 /**
  * An enabled RA Profile that may manage a certificate.
  */
-export type RaProfileChoice = { uuid: string, name: string, 
+export type RaProfileChoice = { uuid: string, name: string, description: string | null, 
 /**
  * The authority the profile issues from.
  */

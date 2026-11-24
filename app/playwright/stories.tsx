@@ -8,12 +8,17 @@ import type {
     AttributeFormView,
     CertificateChoice,
     Change,
+    FollowView,
     IlmPageView,
     InventoryView,
     LocalCertificateView,
     LogLevel,
     Platform,
     ProviderChoice,
+    RaProfileChoice,
+    RequestFailure,
+    RequestFormsView,
+    RequestOffers,
     SessionView,
     SettingsView,
     SummaryView,
@@ -30,6 +35,7 @@ import type { Section } from '../src/sections';
 import { sections as realSections, settingsSection, visibleSections } from '../src/sections';
 import { Certificates } from '../src/sections/Certificates';
 import { AddToIlm } from '../src/sections/AddToIlm';
+import { Request } from '../src/sections/Request';
 import { Settings } from '../src/sections/Settings';
 import { SignIn, UnreachableBanner } from '../src/sections/SignIn';
 import { Unlock } from '../src/sections/Unlock';
@@ -330,6 +336,8 @@ type CertificatesProps = StoryProps &
         summary?: SummaryView | null;
         /** What ILM lets the person choose when adding, and how each certificate fares. */
         adding?: Adding;
+        /** What ILM lets the person request. */
+        requesting?: Requesting;
     }>;
 
 interface Adding {
@@ -373,6 +381,72 @@ function addAnswer(command: string, adding: Adding | undefined, args?: unknown) 
     }
 }
 
+/** What the commands of the request wizard answer. */
+export interface Requesting {
+    profiles: RaProfileChoice[];
+    forms?: RequestFormsView;
+    offers?: RequestOffers;
+    /** Rejects the request with this. */
+    refuse?: RequestFailure;
+    /** How the request stands at each follow; the last answer stays. */
+    follow?: FollowView[];
+    /** What the check of a form finds. */
+    problems?: AttributeFieldProblem[];
+    /** Told of the commands of the wizard. */
+    seen?: (command: string, args?: unknown) => void;
+}
+
+const noForms: RequestFormsView = { request: null, issue: null, custom: null };
+const noOffers: RequestOffers = { storages: [], defaultStorage: null };
+
+function requestAnswer(command: string, requesting: Requesting | undefined, args?: unknown) {
+    requesting?.seen?.(command, args);
+    switch (command) {
+        case 'request_choices':
+            return requesting?.profiles ?? [];
+        case 'open_request_forms':
+            return requesting?.forms ?? noForms;
+        case 'request_offers':
+            return requesting?.offers ?? noOffers;
+        case 'check_attributes':
+            return { revision: 0, problems: requesting?.problems ?? [] };
+        case 'request_certificate':
+            return requesting?.refuse ? Promise.reject(requesting.refuse) : { certificate: 'cert-1', label: 'User mTLS' };
+        case 'follow_request': {
+            const answers = requesting?.follow ?? [{ state: 'unknown' }];
+            return answers.length > 1 ? answers.shift() : answers[0];
+        }
+        default:
+            return undefined;
+    }
+}
+
+type RequestProps = StoryProps & Readonly<{ requesting: Requesting; onClose?: () => void }>;
+
+/** The request wizard over an empty page, against a stand-in for the commands. */
+export function RequestStory({ platform, requesting, onClose }: RequestProps) {
+    const [open, setOpen] = useState(true);
+    useMemo(() => {
+        mockIPC((command, args) => requestAnswer(command, requesting, args));
+    }, [requesting]);
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            <main className="min-h-screen bg-surface p-s5">
+                {open && (
+                    <Request
+                        profiles={requesting.profiles}
+                        platform={platform}
+                        onClose={() => {
+                            setOpen(false);
+                            onClose?.();
+                        }}
+                    />
+                )}
+            </main>
+        </AppInfoContext.Provider>
+    );
+}
+
 declare global {
     interface Window {
         /** The requests the In ILM view made, as "<page>|<search>". */
@@ -406,6 +480,7 @@ export function CertificatesStory({
     refuseSignIn,
     summary = null,
     adding,
+    requesting,
 }: CertificatesProps) {
     useMemo(() => {
         window.ilmRequests = [];
@@ -424,6 +499,14 @@ export function CertificatesStory({
                     case 'add_to_ilm_choices':
                     case 'add_to_ilm':
                         return addAnswer(command, adding);
+                    case 'request_choices':
+                    case 'open_request_forms':
+                    case 'request_offers':
+                    case 'request_certificate':
+                    case 'follow_request':
+                    case 'check_attributes':
+                    case 'close_form':
+                        return requestAnswer(command, requesting);
                     case 'make_sign_in_certificate':
                         return refuseSignIn
                             ? Promise.reject(refuseSignIn)
@@ -434,7 +517,7 @@ export function CertificatesStory({
             },
             { shouldMockEvents: true },
         );
-    }, [certificates, inventory, pages, delays, refuseSignIn, summary, adding]);
+    }, [certificates, inventory, pages, delays, refuseSignIn, summary, adding, requesting]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <main className="bg-surface p-s5" style={{ width }}>

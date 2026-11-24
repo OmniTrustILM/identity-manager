@@ -571,6 +571,7 @@ async fn the_choices_are_the_groups_and_the_enabled_ra_profiles() {
         Some(vec![RaProfileChoice {
             uuid: "ra-1".to_owned(),
             name: "Staff".to_owned(),
+            description: None,
             authority: Some("Corporate CA".to_owned()),
             authority_uuid: Some("auth-1".to_owned())
         }])

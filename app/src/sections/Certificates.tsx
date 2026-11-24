@@ -7,6 +7,8 @@ import {
     type LocalCertificateView,
     localCertificates,
     makeSignInCertificate,
+    type RaProfileChoice,
+    requestChoices,
     type Use,
 } from '../bridge';
 import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
@@ -19,6 +21,7 @@ import { useSummary } from '../useSummary';
 import { AddToIlm } from './AddToIlm';
 import { arrowTarget, codeLabel, Field, FingerprintGroup, Group, status, SyncLine, validationTone } from './certificateParts';
 import { IlmCertificates } from './IlmCertificates';
+import { Request } from './Request';
 
 /** At most one request this often when the window comes back; the request the first answer needs is not delayed. */
 const refreshEvery = 2000;
@@ -455,6 +458,26 @@ export function Certificates() {
     }, [request]);
 
     const { inventory, syncError, sync, apply } = useInventory();
+    const canRequest = inventory?.canRequest === true && inventory.status.state !== 'offline';
+    const checkedAt = inventory?.status.state === 'fresh' ? inventory.status.checkedAt : null;
+    const [profiles, setProfiles] = useState<RaProfileChoice[]>([]);
+    /** The profiles the open wizard was started with; it stays open while the toolbar changes. */
+    const [requesting, setRequesting] = useState<RaProfileChoice[] | null>(null);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `checkedAt` only asks for the profiles again after a check.
+    useEffect(() => {
+        if (!canRequest) {
+            setProfiles([]);
+            return;
+        }
+        let current = true;
+        requestChoices().then(
+            (choices) => current && setProfiles(choices),
+            () => current && setProfiles([]),
+        );
+        return () => {
+            current = false;
+        };
+    }, [canRequest, checkedAt]);
     const summary = useSummary();
     const expiring = useMemo(
         () => new Set(summary?.attention.flatMap((item) => (item.kind === 'expiring' ? [item.fingerprint] : [])) ?? []),
@@ -502,8 +525,16 @@ export function Certificates() {
                         </p>
                     )}
                 </div>
-                {listed && <Views view={showing} onChoose={setView} system={system} />}
+                <div className="flex shrink-0 items-center gap-s3">
+                    {profiles.length > 0 && (
+                        <button type="button" onClick={() => setRequesting(profiles)} className={primaryButton}>
+                            {strings.requestCertificate}
+                        </button>
+                    )}
+                    {listed && <Views view={showing} onChoose={setView} system={system} />}
+                </div>
             </header>
+            {requesting && <Request profiles={requesting} platform={platform} onClose={() => setRequesting(null)} />}
             {showing === 'ilm' && inventory && (
                 <IlmCertificates inventory={inventory} local={local} system={system} onTotal={setIlmTotal} />
             )}

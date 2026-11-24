@@ -54,6 +54,8 @@
     --spacing-titlebar: var(--im-titlebar-inset);
     --spacing-select: var(--im-select-width);
     --spacing-form: var(--im-form-width);
+    --spacing-wizard: var(--im-wizard-width);
+    --height-wizard: var(--im-wizard-height);
     --spacing-button: var(--im-button-height);
     --spacing-switch-width: var(--im-switch-width);
     --spacing-switch-height: var(--im-switch-height);

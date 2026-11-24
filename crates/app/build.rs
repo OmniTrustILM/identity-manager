@@ -49,6 +49,12 @@ fn main() {
                 "check_attributes",
                 "close_form",
                 "open_in_ilm",
+                "request_choices",
+                "open_request_forms",
+                "request_offers",
+                "request_certificate",
+                "follow_request",
+                "stop_following_request",
             ])),
     )
     .expect("the Tauri build failed");

@@ -3,7 +3,7 @@ import { ExpiredIcon, ExpiringIcon, type Icon, NotInIlmIcon, RevokedIcon } from 
 import { strings } from './strings';
 
 /** The item of an attention list that is about one certificate. */
-export type CertificateItem = Exclude<AttentionItemView, { kind: 'notInIlm' }>;
+export type CertificateItem = Exclude<AttentionItemView, { kind: 'notInIlm' | 'waiting' }>;
 
 /** The icon of an item with its colour, and the colour of its text. */
 export function attentionLook(item: AttentionItemView): { Icon: Icon; tone: string; textTone: string } {
@@ -14,6 +14,8 @@ export function attentionLook(item: AttentionItemView): { Icon: Icon; tone: stri
             return { Icon: ExpiredIcon, tone: 'text-bad', textTone: 'text-bad' };
         case 'revoked':
             return { Icon: RevokedIcon, tone: 'text-bad', textTone: 'text-bad' };
+        case 'waiting':
+            return { Icon: ExpiringIcon, tone: 'text-accent', textTone: 'text-secondary' };
         default:
             return { Icon: NotInIlmIcon, tone: 'text-secondary', textTone: 'text-secondary' };
     }
@@ -29,4 +31,9 @@ export function attentionDetail(item: CertificateItem): string {
         default:
             return strings.revokedInIlm;
     }
+}
+
+/** What a request in progress waits for, in words. */
+export function waitingDetail(item: Extract<AttentionItemView, { kind: 'waiting' }>): string {
+    return item.state === 'pendingApproval' ? strings.waitingForApproval : strings.beingIssued;
 }

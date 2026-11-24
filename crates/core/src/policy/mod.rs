@@ -10,7 +10,10 @@ use std::fmt;
 use std::path::Path;
 
 use crate::ilm::IlmUrl;
-use crate::settings::{CheckMinutes, IdleMinutes, Layer, LogLevel, SignInMethod, WarnDays};
+use crate::keys::Storage;
+use crate::settings::{
+    CheckMinutes, IdleMinutes, Layer, LogLevel, SignInMethod, WarnDays, parse_storage,
+};
 
 /// A value as a policy source stores it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +37,8 @@ pub(crate) const CHECK_INTERVAL: &str = "CheckInterval";
 pub(crate) const EXPIRY_WARNING_DAYS: &str = "ExpiryWarningDays";
 pub(crate) const SIGN_IN_PROVIDER: &str = "SignInProvider";
 pub(crate) const SIGN_IN_METHOD: &str = "SignInMethod";
+pub(crate) const KEY_STORAGES: &str = "KeyStorages";
+pub(crate) const DEFAULT_KEY_STORAGE: &str = "DefaultKeyStorage";
 
 /// Maps the known names with the expected types to a layer; anything else is ignored with a warning.
 pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
@@ -74,9 +79,21 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
                 Some(method) => layer.sign_in_method = Some(method),
                 None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
             },
+            (KEY_STORAGES, PolicyValue::Text(text)) => {
+                let storages = parse_storages(text, name, source);
+                if storages.is_empty() {
+                    log::warn!("policy {name} in {source} names no storage; none is allowed");
+                }
+                layer.key_storages = Some(storages);
+            }
+            (DEFAULT_KEY_STORAGE, PolicyValue::Text(text)) => match parse_storage(text) {
+                Some(storage) => layer.default_key_storage = Some(storage),
+                None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
+            },
             (
                 START_AT_LOGIN | LOG_LEVEL | ILM_URL | REQUIRE_UNLOCK | LOCK_AFTER_IDLE
-                | CHECK_INTERVAL | EXPIRY_WARNING_DAYS | SIGN_IN_PROVIDER | SIGN_IN_METHOD,
+                | CHECK_INTERVAL | EXPIRY_WARNING_DAYS | SIGN_IN_PROVIDER | SIGN_IN_METHOD
+                | KEY_STORAGES | DEFAULT_KEY_STORAGE,
                 _,
             ) => {
                 log::warn!("policy {name} in {source} has the wrong type; ignored");
@@ -85,6 +102,23 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
         }
     }
     layer
+}
+
+/// The storages a comma-separated list names; unknown names are skipped with a warning.
+fn parse_storages(text: &str, name: &str, source: &str) -> Vec<Storage> {
+    let mut storages = Vec::new();
+    for part in text
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+    {
+        match parse_storage(part) {
+            Some(storage) if !storages.contains(&storage) => storages.push(storage),
+            Some(_) => {}
+            None => log::warn!("policy {name} in {source} names an unknown storage; skipped"),
+        }
+    }
+    storages
 }
 
 fn parse_level(text: &str) -> Option<LogLevel> {
@@ -109,6 +143,8 @@ pub fn merge(machine: Layer, user: Layer) -> Layer {
         warn_days: machine.warn_days.or(user.warn_days),
         sign_in_provider: machine.sign_in_provider.or(user.sign_in_provider),
         sign_in_method: machine.sign_in_method.or(user.sign_in_method),
+        key_storages: machine.key_storages.or(user.key_storages),
+        default_key_storage: machine.default_key_storage.or(user.default_key_storage),
         sign_in_certificate: None,
     }
 }
@@ -309,6 +345,43 @@ mod tests {
     }
 
     #[test]
+    fn the_key_storages_set_the_layer_and_no_known_name_allows_none() {
+        for (value, expected) in [
+            ("keychain", Some(vec![Storage::Keychain])),
+            (
+                " tpm , software",
+                Some(vec![Storage::Tpm, Storage::Software]),
+            ),
+            ("tpm,fido,tpm,", Some(vec![Storage::Tpm])),
+            ("fido", Some(vec![])),
+            ("", Some(vec![])),
+        ] {
+            let layer = to_layer(&raw(&[("KeyStorages", text(value))]), "test");
+            assert_eq!(layer.key_storages, expected, "{value:?}");
+        }
+        for value in [PolicyValue::Bool(true), PolicyValue::Int(1)] {
+            let layer = to_layer(&raw(&[("KeyStorages", value)]), "test");
+            assert_eq!(layer, Layer::default());
+        }
+    }
+
+    #[test]
+    fn the_default_key_storage_sets_the_layer_and_a_bad_one_is_ignored() {
+        for (name, storage) in [
+            ("keychain", Storage::Keychain),
+            ("software", Storage::Software),
+            ("tpm", Storage::Tpm),
+        ] {
+            let layer = to_layer(&raw(&[("DefaultKeyStorage", text(name))]), "test");
+            assert_eq!(layer.default_key_storage, Some(storage));
+        }
+        for value in [text("fido"), text(""), PolicyValue::Int(1)] {
+            let layer = to_layer(&raw(&[("DefaultKeyStorage", value)]), "test");
+            assert_eq!(layer, Layer::default());
+        }
+    }
+
+    #[test]
     fn the_unlock_names_set_the_layer() {
         let layer = to_layer(
             &raw(&[
@@ -446,9 +519,13 @@ mod tests {
             lock_after_idle: IdleMinutes::new(10),
             check_every: CheckMinutes::new(10),
             warn_days: WarnDays::new(45),
+            key_storages: Some(vec![Storage::Tpm]),
+            default_key_storage: Some(Storage::Tpm),
             ..Layer::default()
         };
         let merged = merge(machine, user);
+        assert_eq!(merged.key_storages, Some(vec![Storage::Tpm]));
+        assert_eq!(merged.default_key_storage, Some(Storage::Tpm));
         assert_eq!(merged.check_every, CheckMinutes::new(10));
         assert_eq!(merged.warn_days, WarnDays::new(45));
         assert_eq!(merged.require_unlock, Some(false));

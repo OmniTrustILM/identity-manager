@@ -91,3 +91,53 @@ The person can add a certificate that is not in ILM from its details.
 - ILM may refuse. Common reasons are a missing permission or an RA Profile whose authority cannot identify the
   certificate. Identity Manager shows the reason.
 - A certificate that is already in ILM counts as added.
+
+## Request a certificate
+
+The person can request a new certificate from ILM. "Request certificate" in the toolbar of Certificates appears when
+the person is signed in, Identity Manager is online, ILM allows the person to create certificates, this computer has
+a key storage and ILM lists at least one RA Profile for them.
+
+The steps are:
+
+1. **Profile.** The person chooses an RA Profile. With only one, this step is skipped.
+2. **Attributes.** The attributes ILM asks for are shown in three groups: "Certificate request", "From the RA
+   profile" and "Custom attributes". Defaults are filled in and required values are marked. An optional attribute
+   that Identity Manager cannot write into a request is not shown. When it is required, the step says so and the
+   request cannot be made from Identity Manager. "Open in ILM" opens ILM's web interface in the browser.
+3. **Private key.** The person chooses where the key is created and its type.
+4. **Review.** The profile, the subject, the key and where the certificate will be installed are shown. Nothing is
+   created before "Request certificate" is chosen.
+
+### Where the private key lives
+
+| Computer | Storage                                                                                                                                  |
+|----------|------------------------------------------------------------------------------------------------------------------------------------------|
+| macOS    | Your login keychain. The key cannot be exported.                                                                                         |
+| Windows  | The TPM through the Microsoft Platform Crypto Provider, where the PC has one. It cannot be copied. It is tested only in CI, without a TPM. |
+| Windows  | The Windows key store: a software key in your user profile. The key cannot be exported.                                                  |
+| Linux    | None. There is no key storage on Linux, so "Request certificate" is not shown there.                                                     |
+
+The key type list shows the types the chosen storage supports. EC P-256 is preselected when it is offered.
+
+Your organization can limit the storages and set the recommended one, which is preselected and marked
+"Recommended", with the `KeyStorages` and `DefaultKeyStorage` policy keys, see [policy.md](policy.md). When the policy
+leaves no storage, the step says so and the person cannot continue.
+
+### After the request
+
+The key is created on the computer and never leaves it. Only a request signed with the key goes to ILM.
+
+- If ILM issues the certificate at once, Identity Manager installs it and says so.
+- If it waits for approval or for issuing, the window can be closed. Overview lists the request under "Requests in
+  progress" with its state, "Waiting for approval" or "Being issued". Identity Manager installs the certificate at a
+  later check, once ILM has issued it, and shows a notification, "Your certificate is installed", unless the window
+  still showed the request.
+- The certificate is installed in your login keychain on macOS and in your personal certificate store on Windows,
+  together with its intermediate certificates. A root certificate is never installed and no trust setting is changed:
+  your organization deploys its roots.
+- If ILM rejects the request or cannot issue the certificate, a notification says so ("Request rejected" or "Request
+  failed", with the name of the certificate) unless the window still showed the request, and the key is deleted.
+- If ILM issued a certificate that does not match the key, it is not installed.
+- ILM may refuse the request, for example for a missing permission or a value it does not accept. Identity Manager
+  shows ILM's text as it is, and the person can go back and correct the attributes.

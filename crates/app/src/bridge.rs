@@ -776,6 +776,54 @@ mod tests {
     }
 
     #[test]
+    fn the_request_capability_grants_only_the_request_commands_to_the_main_window() {
+        let file = include_str!("../capabilities/request.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["windows"], serde_json::json!(["main"]));
+        assert!(parsed.get("platforms").is_none());
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!([
+                "allow-request-choices",
+                "allow-open-request-forms",
+                "allow-request-offers",
+                "allow-request-certificate",
+                "allow-follow-request",
+                "allow-stop-following-request"
+            ])
+        );
+    }
+
+    const REQUEST_COMMANDS: [(&str, &str); 6] = [
+        ("request_choices", "{}"),
+        ("open_request_forms", r#"{"raProfile":"ra-1"}"#),
+        ("request_offers", "{}"),
+        (
+            "request_certificate",
+            r#"{"raProfile":"ra-1","forms":{},"storage":"software","keyType":"ecP256"}"#,
+        ),
+        ("follow_request", r#"{"certificate":"c-1"}"#),
+        ("stop_following_request", r#"{"certificate":"c-1"}"#),
+    ];
+
+    #[test]
+    fn only_the_main_window_may_use_the_request_commands() {
+        for (command, body) in REQUEST_COMMANDS {
+            let body: serde_json::Value = serde_json::from_str(body).unwrap();
+            for label in ["main", "summary", "settings"] {
+                let answer = call_in(label, LOCAL_ORIGIN, command, body.clone());
+                assert_eq!(
+                    refused_by_capabilities(&answer),
+                    label != "main",
+                    "{label} {command}: {answer:?}"
+                );
+            }
+            let answer = call_from("https://example.com", command, body);
+            assert!(refused_by_capabilities(&answer), "{command}: {answer:?}");
+        }
+    }
+
+    #[test]
     fn the_overview_capability_grants_only_the_overview_to_the_main_window_and_the_summary() {
         let file = include_str!("../capabilities/overview.json");
         let parsed: serde_json::Value = serde_json::from_str(file).unwrap();

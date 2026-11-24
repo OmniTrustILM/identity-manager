@@ -211,6 +211,22 @@ test('only not-in-ILM items do not make the sign-in line say that attention is n
     expect(container.textContent).toContain(strings.notInIlmCountShort(3));
 });
 
+test('requests in progress are listed, open Overview, and alone do not make the sign-in line say attention is needed', async () => {
+    await shows(stand([{ kind: 'waiting', label: 'User mTLS', state: 'pendingApproval' }]));
+
+    expect(container.textContent).not.toContain(strings.needsAttention);
+    expect(items()[0]?.textContent).toBe(`User mTLS${strings.waitingForApproval}`);
+    await act(async () => items()[0]?.click());
+    expect(opened).toEqual(['overview']);
+});
+
+test('a revoked certificate makes the line say attention is needed even beside requests in progress', async () => {
+    await shows(stand([revoked, { kind: 'waiting', label: 'Code signing', state: 'beingIssued' }]));
+
+    expect(container.textContent).toContain(strings.needsAttention);
+    expect(items()[1]?.textContent).toBe(`Code signing${strings.beingIssued}`);
+});
+
 test('a failure to open the main window is not an error', async () => {
     await shows(stand([revoked]));
     mockIPC(() => Promise.reject('refused'), { shouldMockEvents: true });

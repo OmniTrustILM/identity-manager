@@ -7,5 +7,7 @@
   "CheckInterval": 30,
   "ExpiryWarningDays": 30,
   "SignInProvider": "Corporate",
-  "SignInMethod": "oauth"
+  "SignInMethod": "oauth",
+  "KeyStorages": "software,tpm",
+  "DefaultKeyStorage": "software"
 }

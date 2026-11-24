@@ -713,3 +713,27 @@ fn name_types_are_encoded_by_what_they_are() {
         ]
     );
 }
+
+#[test]
+fn optional_attributes_that_cannot_be_written_are_removed_and_the_others_stay() {
+    let raw = [
+        one("host", json!([{ "fieldType": "rdn", "rdn": "CN" }])),
+        one("plain", json!([])),
+        one(
+            "extra",
+            json!([{ "fieldType": "extension", "extensionOid": "1.2.3.4" }]),
+        ),
+        mapped(
+            definition(3, "data", "needed", "string", json!({ "required": true })),
+            json!([{ "fieldType": "extension", "extensionOid": "1.2.3.4" }]),
+        ),
+        definition(3, "info", "note", "string", json!({})),
+    ];
+    let mut set = definitions(&raw);
+    without_unwritable(&mut set);
+    let names: Vec<&str> = set
+        .iter()
+        .map(|definition| definition.name.as_str())
+        .collect();
+    assert_eq!(names, ["host", "needed", "note"]);
+}

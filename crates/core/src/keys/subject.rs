@@ -10,7 +10,7 @@ use serde_json::Value as Json;
 
 use super::request::{DOMAIN_COMPONENT, EMAIL_ADDRESS, SERIAL_NUMBER};
 use super::{AlternativeName, NameType, RequestSubject};
-use crate::attributes::{Definition, MappedField, Unsupported, Values, request};
+use crate::attributes::{Definition, Kind, MappedField, Unsupported, Values, request};
 
 const USER_PRINCIPAL_NAME: &str = "1.3.6.1.4.1.311.20.2.3";
 
@@ -165,14 +165,26 @@ fn is_unmapped(definition: &Definition) -> bool {
     definition.is_editable() && definition.mapping.is_empty()
 }
 
+/// The attribute has no mapping that takes a value, or has a field this application cannot write.
+fn cannot_be_written(definition: &Definition) -> bool {
+    is_unmapped(definition)
+        || definition
+            .mapping
+            .iter()
+            .any(|field| target(field).is_none())
+}
+
 /// A required attribute with no mapping, or with a field this application cannot write, blocks the request.
 fn is_unbuildable(definition: &Definition) -> bool {
-    definition.required
-        && (is_unmapped(definition)
-            || definition
-                .mapping
-                .iter()
-                .any(|field| target(field).is_none()))
+    definition.required && cannot_be_written(definition)
+}
+
+/// Removes the optional attributes that cannot be written into the request, so a form made of the rest cannot
+/// carry a value that would refuse it.
+pub fn without_unwritable(definitions: &mut Vec<Definition>) {
+    definitions.retain(|definition| {
+        definition.required || definition.kind == Kind::Info || !cannot_be_written(definition)
+    });
 }
 
 /// The attributes that must be in the request and go somewhere this application cannot write.

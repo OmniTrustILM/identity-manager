@@ -19,6 +19,7 @@ const choices: AddChoicesView = {
         {
             uuid: 'ra-client',
             name: 'Client certificates',
+            description: null,
             authority: 'Demo CA',
             authority_uuid: 'ca-demo',
         },

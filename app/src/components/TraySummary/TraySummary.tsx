@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { useAppInfo } from '../../app-info';
-import { attentionDetail, attentionLook } from '../../attention';
+import { attentionDetail, attentionLook, waitingDetail } from '../../attention';
 import {
     type AttentionItemView,
     hideSummary,
@@ -102,9 +102,31 @@ function Counts({ summary }: Readonly<{ summary: SummaryView }>) {
     );
 }
 
+function itemTitle(item: AttentionItemView): string {
+    switch (item.kind) {
+        case 'notInIlm':
+            return strings.notInIlmCountShort(item.count);
+        case 'waiting':
+            return item.label;
+        default:
+            return item.name;
+    }
+}
+
+const itemKey = (item: AttentionItemView) => {
+    switch (item.kind) {
+        case 'notInIlm':
+            return item.kind;
+        case 'waiting':
+            return `${item.kind}:${item.label}`;
+        default:
+            return `${item.kind}:${item.fingerprint}`;
+    }
+};
+
 function Item({ item }: Readonly<{ item: AttentionItemView }>) {
     const { Icon, tone, textTone } = attentionLook(item);
-    const certificate = item.kind === 'notInIlm' ? null : item;
+    const certificate = item.kind === 'notInIlm' || item.kind === 'waiting' ? null : item;
     return (
         <li>
             <button
@@ -116,10 +138,9 @@ function Item({ item }: Readonly<{ item: AttentionItemView }>) {
             >
                 <Icon aria-hidden className={`size-icon shrink-0 ${tone}`} />
                 <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-body text-primary">
-                        {item.kind === 'notInIlm' ? strings.notInIlmCountShort(item.count) : item.name}
-                    </span>
+                    <span className="text-body text-primary">{itemTitle(item)}</span>
                     {certificate && <span className={`text-caption ${textTone}`}>{attentionDetail(certificate)}</span>}
+                    {item.kind === 'waiting' && <span className={`text-caption ${textTone}`}>{waitingDetail(item)}</span>}
                 </span>
                 <ChevronIcon aria-hidden className="size-icon shrink-0 text-secondary" />
             </button>
@@ -143,7 +164,7 @@ function Standing({ summary, offline }: Readonly<{ summary: SummaryView; offline
                 <div className="flex flex-col gap-s1">
                     <ul className="flex flex-col gap-s1">
                         {summary.attention.slice(0, listed).map((item) => (
-                            <Item key={item.kind === 'notInIlm' ? item.kind : `${item.kind}:${item.fingerprint}`} item={item} />
+                            <Item key={itemKey(item)} item={item} />
                         ))}
                     </ul>
                     {more > 0 && <p className="px-s3 text-body text-secondary">{strings.moreAttention(more)}</p>}
@@ -166,7 +187,7 @@ export function TraySummary() {
     // Nothing about the certificates is asked, or shown, while the application is locked or nobody is signed in.
     const open = view?.state === 'signedIn' || view?.state === 'unreachable';
     const summary = useSummary(open);
-    const line = lineFor(view, summary?.attention.some((item) => item.kind !== 'notInIlm') ?? false);
+    const line = lineFor(view, summary?.attention.some((item) => item.kind !== 'notInIlm' && item.kind !== 'waiting') ?? false);
     const action = actionFor(view);
 
     // The summary only renders when the session or the details change, and each time its height may differ.

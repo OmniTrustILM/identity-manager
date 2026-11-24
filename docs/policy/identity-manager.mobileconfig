@@ -33,6 +33,10 @@
 			<string>Corporate</string>
 			<key>SignInMethod</key>
 			<string>oauth</string>
+			<key>KeyStorages</key>
+			<string>keychain</string>
+			<key>DefaultKeyStorage</key>
+			<string>keychain</string>
 		</dict>
 	</array>
 	<key>PayloadType</key>

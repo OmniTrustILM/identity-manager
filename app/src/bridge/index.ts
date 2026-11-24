@@ -8,6 +8,14 @@ import type { AttributeCallbackResult } from './generated/AttributeCallbackResul
 import type { AttributeCheck } from './generated/AttributeCheck';
 import type { AttributeFieldProblem } from './generated/AttributeFieldProblem';
 import type { AttributeValue } from './generated/AttributeValue';
+import type { FollowView } from './generated/FollowView';
+import type { KeyTypeId } from './generated/KeyTypeId';
+import type { RaProfileChoice } from './generated/RaProfileChoice';
+import type { RequestedView } from './generated/RequestedView';
+import type { RequestFailure } from './generated/RequestFailure';
+import type { RequestFormsView } from './generated/RequestFormsView';
+import type { RequestOffers } from './generated/RequestOffers';
+import type { StorageId } from './generated/StorageId';
 import type { FormProblems } from './generated/FormProblems';
 import type { CertificateChoice } from './generated/CertificateChoice';
 import type { Change } from './generated/Change';
@@ -27,6 +35,17 @@ export type { AppInfo, CertificateChoice, Change, LocalCertificateView, Provider
 export type { IlmPageView, InventoryView };
 export type { AddChoicesView, AddResultView, Navigation, SummaryView };
 export type { AttributeCallbackResult, AttributeCheck, AttributeFieldProblem, AttributeValue, FormProblems, IlmTarget };
+export type { EndedReason } from './generated/EndedReason';
+export type { FollowView } from './generated/FollowView';
+export type { KeyTypeId } from './generated/KeyTypeId';
+export type { NotInstalledCause } from './generated/NotInstalledCause';
+export type { RequestedView } from './generated/RequestedView';
+export type { RequestFailure } from './generated/RequestFailure';
+export type { RequestFormsView } from './generated/RequestFormsView';
+export type { RequestOffers } from './generated/RequestOffers';
+export type { StorageId } from './generated/StorageId';
+export type { StorageOffer } from './generated/StorageOffer';
+export type { WaitingStage } from './generated/WaitingStage';
 export type { AttributeFieldKind } from './generated/AttributeFieldKind';
 export type { AttributeFieldView } from './generated/AttributeFieldView';
 export type { AttributeFormView } from './generated/AttributeFormView';
@@ -190,6 +209,47 @@ export function attributeCallback(id: string, field: string, values: FormValues,
 /** The problem of every field of an open form that has one, for the values given, and the revision of the form they were checked against. */
 export function checkAttributes(id: string, values: FormValues): Promise<AttributeCheck> {
     return invoke<AttributeCheck>('check_attributes', { id, values });
+}
+
+/** The RA Profiles the person may request a certificate from. */
+export function requestChoices(): Promise<RaProfileChoice[]> {
+    return invoke<RaProfileChoice[]>('request_choices');
+}
+
+/** Opens the three forms of a request for an RA Profile; each is closed with `closeForm`. */
+export function openRequestForms(raProfile: string): Promise<RequestFormsView> {
+    return invoke<RequestFormsView>('open_request_forms', { raProfile });
+}
+
+/** The key storages and key types this computer and the organization allow for a new key. */
+export function requestOffers(): Promise<RequestOffers> {
+    return invoke<RequestOffers>('request_offers');
+}
+
+/** The forms of a request as filled in, by kind; a kind without a form is left out. */
+export type RequestForms = Partial<Record<'request' | 'issue' | 'custom', AddForm>>;
+
+/** Creates a key, sends the signed request to ILM and returns the certificate to follow; rejects with a `RequestFailure`. */
+export function requestCertificate(raProfile: string, forms: RequestForms, storage: StorageId, keyType: KeyTypeId): Promise<RequestedView> {
+    return invoke<RequestedView>('request_certificate', { raProfile, forms, storage, keyType });
+}
+
+/** How the request that made this certificate stands. */
+export function followRequest(certificate: string): Promise<FollowView> {
+    return invoke<FollowView>('follow_request', { certificate });
+}
+
+/** The wizard no longer shows this request, so the app tells the person by a notification how it ends. */
+export function stopFollowingRequest(certificate: string): Promise<void> {
+    return invoke<void>('stop_following_request', { certificate });
+}
+
+/** What a rejected `requestCertificate` carries; anything else it was rejected with becomes a message. */
+export function requestFailure(error: unknown): RequestFailure {
+    if (typeof error === 'object' && error !== null && 'kind' in error) {
+        return error as RequestFailure;
+    }
+    return { kind: 'message', message: typeof error === 'string' ? error : '' };
 }
 
 /** Closes an open form. */

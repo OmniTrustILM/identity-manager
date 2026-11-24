@@ -207,7 +207,7 @@ impl Session {
             .uuid;
         let attributes = match &form {
             Some(form) => {
-                let (definitions, values) =
+                let (_, definitions, values) =
                     self.take_form_if(&form.id, ChangeError::FormGone, |definitions| {
                         sendable(definitions, form)
                     })?;
