@@ -16,7 +16,7 @@ fn sans(items: &[(&str, &[&str])]) -> Vec<(String, Vec<String>)> {
         .map(|(kind, values)| {
             (
                 kind.to_string(),
-                values.iter().map(|value| value.to_string()).collect(),
+                values.iter().map(ToString::to_string).collect(),
             )
         })
         .collect()
