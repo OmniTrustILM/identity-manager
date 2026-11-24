@@ -340,6 +340,14 @@ impl Notices {
             .insert(certificate.to_owned());
     }
 
+    /// The main window is hidden, so the wizard shows nothing: how every request ends is told by a notification.
+    pub fn wizard_hidden(&self) {
+        self.wizard
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clear();
+    }
+
     /// The wizard no longer shows the request for `certificate`.
     pub fn wizard_closed(&self, certificate: &str) {
         self.wizard
@@ -1188,6 +1196,25 @@ mod tests {
         );
 
         assert_eq!(told(&log).len(), 1);
+    }
+
+    #[test]
+    fn a_hidden_window_leaves_every_request_to_a_notification() {
+        let (notices, log) = notices(Platform::Macos);
+        notices.wizard_shows("c-1");
+        notices.wizard_shows("c-2");
+        notices.wizard_hidden();
+
+        notices.followed(
+            &[
+                followed("c-1", "a", installed()),
+                followed("c-2", "b", installed()),
+            ],
+            || true,
+            || true,
+        );
+
+        assert_eq!(told(&log).len(), 2);
     }
 
     #[test]

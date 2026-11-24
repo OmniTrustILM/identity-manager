@@ -139,6 +139,11 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();
+                if window.label() == "main"
+                    && let Some(ilm) = window.try_state::<Arc<certificates::Ilm<R>>>()
+                {
+                    ilm.notices().wizard_hidden();
+                }
                 #[cfg(target_os = "macos")]
                 if matches!(window.label(), "main" | "settings") {
                     dock::refresh(window.app_handle());
