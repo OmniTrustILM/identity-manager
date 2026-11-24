@@ -408,8 +408,7 @@ export const strings = {
         }
         return platform === 'windows' ? 'the Windows key store' : 'software';
     },
-    installedPlace: (platform: Platform) =>
-        platform === 'macos' ? 'Your login keychain' : 'Your personal certificate store',
+    installedPlace: (platform: Platform) => (platform === 'macos' ? 'Your login keychain' : 'Your personal certificate store'),
     requestPlan: (where: string) => [
         `A new key is created in ${where}.`,
         'A request signed with that key goes to ILM. The key itself is never sent.',
