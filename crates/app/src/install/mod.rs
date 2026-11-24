@@ -54,11 +54,15 @@ mod tests {
     }
 
     #[cfg(windows)]
-    use super::windows::remove;
+    use super::windows::{holds, remove};
     #[cfg(target_os = "macos")]
-    use macos::remove;
+    use macos::{holds, remove};
     #[cfg(not(any(target_os = "macos", windows)))]
     fn remove(_: &[u8]) {}
+    #[cfg(not(any(target_os = "macos", windows)))]
+    fn holds(_: &[u8]) -> bool {
+        false
+    }
 
     fn location_of(storage: Storage) -> KeyLocation {
         match storage {
@@ -129,6 +133,10 @@ mod tests {
                 .install(key.id(), leaf.der(), &intermediates)
                 .unwrap_or_else(|error| panic!("{what} again: {error}"));
 
+            assert!(
+                holds(intermediate.der()),
+                "{what}: the intermediate is not installed"
+            );
             let fingerprint = Fingerprint::of(leaf.der());
             let listed = store.certificates().expect(&what);
             assert!(

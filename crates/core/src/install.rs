@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use x509_parser::error::X509Error;
 use x509_parser::extensions::ParsedExtension;
 use x509_parser::prelude::{FromDer, X509Certificate};
 
@@ -62,8 +63,10 @@ pub fn intermediates(chain: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
 }
 
 fn signs_itself(certificate: &X509Certificate<'_>) -> bool {
-    if certificate.verify_signature(None).is_ok() {
-        return true;
+    match certificate.verify_signature(None) {
+        Ok(()) => return true,
+        Err(X509Error::SignatureUnsupportedAlgorithm) => {}
+        Err(_) => return false,
     }
     if certificate.subject().to_string() != certificate.issuer().to_string() {
         return false;
@@ -157,6 +160,7 @@ mod tests {
     use crate::keys::Storage;
     use rcgen::{
         BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, Issuer, KeyPair,
+        PKCS_ECDSA_P256_SHA256, PKCS_ECDSA_P521_SHA512,
     };
 
     fn authority(name: &str) -> (CertificateParams, KeyPair) {
@@ -231,6 +235,67 @@ mod tests {
         assert_eq!(
             intermediates(vec![middle.clone(), root.der().to_vec()]),
             [middle]
+        );
+    }
+
+    /// A certificate named `Root` for `key`, issued by the same name with `issuer_key`, with an authority key
+    /// identifier when `key_identifiers` is set.
+    fn self_issued(key: &KeyPair, issuer_key: KeyPair, key_identifiers: bool) -> Vec<u8> {
+        let (mut params, _) = authority("Root");
+        params.use_authority_key_identifier_extension = key_identifiers;
+        let (issuer_params, _) = authority("Root");
+        params
+            .signed_by(key, &Issuer::new(issuer_params, issuer_key))
+            .unwrap()
+            .der()
+            .to_vec()
+    }
+
+    fn copy(key: &KeyPair) -> KeyPair {
+        KeyPair::from_pem(&key.serialize_pem()).unwrap()
+    }
+
+    #[test]
+    fn a_rollover_certificate_signed_by_the_previous_key_stays() {
+        let (_, middle, _, _) = pki();
+        let key = KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256).unwrap();
+        let previous = KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256).unwrap();
+        let rollover = self_issued(&key, previous, false);
+
+        assert_eq!(
+            intermediates(vec![middle.clone(), rollover.clone()]),
+            [middle, rollover]
+        );
+    }
+
+    #[test]
+    fn a_root_whose_signature_cannot_be_verified_is_dropped_by_its_names() {
+        let (_, middle, _, _) = pki();
+        let key = KeyPair::generate_for(&PKCS_ECDSA_P521_SHA512).unwrap();
+        let with_identifiers = self_issued(&key, copy(&key), true);
+        let without = self_issued(&key, copy(&key), false);
+        let parsed = X509Certificate::from_der(&without).unwrap().1;
+        assert_eq!(
+            parsed.verify_signature(None),
+            Err(X509Error::SignatureUnsupportedAlgorithm)
+        );
+
+        assert_eq!(
+            intermediates(vec![middle.clone(), with_identifiers, without]),
+            [middle]
+        );
+    }
+
+    #[test]
+    fn a_rollover_certificate_whose_signature_cannot_be_verified_stays() {
+        let (_, middle, _, _) = pki();
+        let key = KeyPair::generate_for(&PKCS_ECDSA_P521_SHA512).unwrap();
+        let previous = KeyPair::generate_for(&PKCS_ECDSA_P521_SHA512).unwrap();
+        let rollover = self_issued(&key, previous, true);
+
+        assert_eq!(
+            intermediates(vec![middle.clone(), rollover.clone()]),
+            [middle, rollover]
         );
     }
 

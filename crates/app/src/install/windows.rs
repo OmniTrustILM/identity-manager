@@ -242,3 +242,9 @@ pub(super) fn remove(der: &[u8]) {
         }
     }
 }
+
+/// Whether the intermediate store of the current user holds this certificate, for the test that installed it.
+#[cfg(test)]
+pub(super) fn holds(der: &[u8]) -> bool {
+    Store::open(w!("CA")).is_ok_and(|store| matches!(store.find(der), Ok(Some(_))))
+}

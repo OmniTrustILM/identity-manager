@@ -113,3 +113,23 @@ pub(super) fn remove(der: &[u8]) {
         }
     }
 }
+
+/// Whether the default keychain holds this certificate, for the test that installed it.
+#[cfg(test)]
+pub(super) fn holds(der: &[u8]) -> bool {
+    let Ok(default) = SecKeychain::default() else {
+        return false;
+    };
+    ItemSearchOptions::new()
+        .keychains(&[default])
+        .class(ItemClass::certificate())
+        .load_refs(true)
+        .limit(Limit::All)
+        .search()
+        .unwrap_or_default()
+        .into_iter()
+        .any(|result| {
+            matches!(result, SearchResult::Ref(Reference::Certificate(certificate))
+                if certificate.to_der() == der)
+        })
+}
