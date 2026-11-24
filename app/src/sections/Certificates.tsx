@@ -459,8 +459,11 @@ export function Certificates() {
 
     const { inventory, syncError, sync, apply } = useInventory();
     const canRequest = inventory?.canRequest === true && inventory.status.state !== 'offline';
+    const checkedAt = inventory?.status.state === 'fresh' ? inventory.status.checkedAt : null;
     const [profiles, setProfiles] = useState<RaProfileChoice[]>([]);
-    const [requesting, setRequesting] = useState(false);
+    /** The profiles the open wizard was started with; it stays open while the toolbar changes. */
+    const [requesting, setRequesting] = useState<RaProfileChoice[] | null>(null);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `checkedAt` only asks for the profiles again after a check.
     useEffect(() => {
         if (!canRequest) {
             setProfiles([]);
@@ -474,7 +477,7 @@ export function Certificates() {
         return () => {
             current = false;
         };
-    }, [canRequest]);
+    }, [canRequest, checkedAt]);
     const summary = useSummary();
     const expiring = useMemo(
         () => new Set(summary?.attention.flatMap((item) => (item.kind === 'expiring' ? [item.fingerprint] : [])) ?? []),
@@ -524,14 +527,14 @@ export function Certificates() {
                 </div>
                 <div className="flex shrink-0 items-center gap-s3">
                     {profiles.length > 0 && (
-                        <button type="button" onClick={() => setRequesting(true)} className={primaryButton}>
+                        <button type="button" onClick={() => setRequesting(profiles)} className={primaryButton}>
                             {strings.requestCertificate}
                         </button>
                     )}
                     {listed && <Views view={showing} onChoose={setView} system={system} />}
                 </div>
             </header>
-            {requesting && profiles.length > 0 && <Request profiles={profiles} platform={platform} onClose={() => setRequesting(false)} />}
+            {requesting && <Request profiles={requesting} platform={platform} onClose={() => setRequesting(null)} />}
             {showing === 'ilm' && inventory && (
                 <IlmCertificates inventory={inventory} local={local} system={system} onTotal={setIlmTotal} />
             )}

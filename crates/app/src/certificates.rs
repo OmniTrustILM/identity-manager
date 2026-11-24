@@ -16,7 +16,9 @@ use im_core::inventory::{
     AddChoicesView, AddResultView, IlmPageView, Inventory, InventoryView, Status, Summary,
     SummaryView, Trigger,
 };
-use im_core::session::{ChangeError, Followed, FormInput, Session, SessionView, SignedInAs};
+use im_core::session::{
+    ChangeError, Followed, FormInput, Outcome, Session, SessionView, SignedInAs,
+};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
@@ -326,10 +328,18 @@ impl<R: Runtime> Ilm<R> {
         self.inventory.followed()
     }
 
-    /// Follows the requests for certificates, and tells the windows and the tray when how they stand changed.
+    /// Follows the requests for certificates, and tells the windows and the tray when how they stand changed. An
+    /// installed certificate is read from the store at once, so the summary counts it.
     pub(crate) async fn follow(&self) -> Vec<Followed> {
         let (found, changed) = self.inventory.follow(&self.session).await;
         if changed {
+            if found
+                .iter()
+                .any(|followed| matches!(followed.outcome, Outcome::Installed(_)))
+                && let Ok(local) = self.local_certificates().await
+            {
+                self.inventory.set_local(&local);
+            }
             self.publish_summary();
             self.changed();
         }

@@ -1036,6 +1036,53 @@ test('the toolbar offers Request certificate when the person may request, ILM is
     expect(text()).toContain('Request a certificate');
 });
 
+function changingRequest(first: InventoryView, profiles: () => unknown) {
+    const state = { current: first };
+    mockIPC(
+        (command) => {
+            switch (command) {
+                case 'local_certificates':
+                    return [mine];
+                case 'ilm_status':
+                    return state.current;
+                case 'request_choices': {
+                    const listed = profiles();
+                    return listed === 'fail' ? Promise.reject('no') : listed;
+                }
+                default:
+                    return undefined;
+            }
+        },
+        { shouldMockEvents: true },
+    );
+    return state;
+}
+
+test('profiles that could not be listed are asked for again after the next check', async () => {
+    let listed: unknown = 'fail';
+    const state = changingRequest(inventory({ canRequest: true, status: { state: 'fresh', checkedAt: 1 } }), () => listed);
+    await render();
+    expect(button('Request certificate')).toBeUndefined();
+
+    listed = [ra];
+    state.current = inventory({ canRequest: true, status: { state: 'fresh', checkedAt: 2 } });
+    await act(async () => emit('inventory-changed'));
+
+    expect(button('Request certificate')).toBeDefined();
+});
+
+test('an open request stays open when ILM goes offline', async () => {
+    const state = changingRequest(inventory({ canRequest: true, status: { state: 'fresh', checkedAt: 1 } }), () => [ra]);
+    await render();
+    await act(async () => button('Request certificate')?.click());
+
+    state.current = inventory({ canRequest: true, status: { state: 'offline', since: null, reason: 'down', unreachable: true } });
+    await act(async () => emit('inventory-changed'));
+
+    expect(button('Request certificate')).toBeUndefined();
+    expect(text()).toContain('Request a certificate');
+});
+
 test('the toolbar has no Request certificate without the permission, offline, without profiles or when they cannot be listed', async () => {
     withRequest(inventory({ canRequest: false }), [ra]);
     await render();
