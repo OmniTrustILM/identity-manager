@@ -3,6 +3,7 @@ mod bridge;
 mod certificates;
 mod color_scheme;
 mod dock;
+mod install;
 mod keep_alive;
 #[cfg(target_os = "macos")]
 mod key_origin_macos;
