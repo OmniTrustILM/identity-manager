@@ -6,7 +6,7 @@ mod callback;
 mod callback_tests;
 mod definition;
 #[cfg(test)]
-mod fixtures;
+pub(crate) mod fixtures;
 mod request;
 #[cfg(test)]
 mod tests;
@@ -16,8 +16,8 @@ mod view;
 
 pub use callback::{FormContext, Resolution, cleared_with, resolve};
 pub use definition::{
-    Callback, Constraint, ContentType, Definition, Definitions, GroupAttribute, Kind, Mapping,
-    Rule, Target, Unsupported, Version, option_key,
+    Callback, Constraint, ContentType, Definition, Definitions, GroupAttribute, Kind, MappedField,
+    Mapping, Rule, Target, Unsupported, Version, option_key,
 };
 pub use request::request;
 pub use validate::{MAX_FILE_BYTES, check};

@@ -9,6 +9,9 @@ mod attributes_tests;
 mod certificate;
 #[cfg(test)]
 mod certificate_tests;
+mod request;
+#[cfg(test)]
+mod request_tests;
 #[cfg(test)]
 mod sign_in_certificate_tests;
 mod store;
@@ -28,16 +31,20 @@ use crate::identity::{ClientIdentity, EmptyStore, Fingerprint, IdentityStore};
 use crate::ilm::profile::{IlmError, Person, profile, profile_request, read_profile};
 use crate::ilm::resource::{PublishedProvider, discover};
 use crate::ilm::{AddressError, IlmUrl};
+use crate::install::{CertificateInstaller, NoInstaller};
+use crate::keys::{KeyStorage, NoKeyStorage, Offer};
 use crate::oauth::client::{ClientId, client_identity};
 use crate::oauth::loopback::{AuthorizationRequest, FLOW_TIMEOUT, wait_for_code};
 use crate::oauth::metadata::{MetadataError, ProviderMetadata, provider_metadata};
 use crate::oauth::token::{TokenError, Tokens, exchange, refresh, revoke};
+use crate::requests::Requests;
 use crate::settings::SignInMethod;
 use crate::token::AccessToken;
 pub use add_to_ilm::{AddChoices, AddOutcome, AddResult, FormInput};
 pub use attributes::FormError;
 pub use certificate::ChangeError;
 use certificate::certificate_choice;
+pub use request::{EndReason, Followed, Outcome, RequestError, RequestForms, RequestInput};
 pub use store::{Item, KeyringStore, MemoryStore, RefreshStore, StoreError};
 
 /// An access token that expires sooner than this is renewed before it is used.
@@ -367,6 +374,15 @@ pub struct Session {
     on_signed_out: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
     /// The attribute forms open now.
     forms: attributes::Forms,
+    /// Where the keys of requests for certificates are made and kept.
+    keys: Arc<dyn KeyStorage>,
+    installer: Arc<dyn CertificateInstaller>,
+    /// The requests waiting for ILM; none until the application gives the folder that holds them.
+    requests: Option<Arc<Requests>>,
+    /// Held for a whole follow of the waiting requests, so two follows do not end the same request.
+    following: tokio::sync::Mutex<()>,
+    /// The last state of each followed certificate, to log only its changes.
+    seen: Mutex<std::collections::HashMap<String, String>>,
 }
 
 /// Whether the browser sign-in `attempt`, or with none the renewal at start, is still the one under way.
@@ -441,6 +457,11 @@ impl Session {
             unsaved: Mutex::new(None),
             on_signed_out: Mutex::new(None),
             forms: attributes::Forms::default(),
+            keys: Arc::new(NoKeyStorage),
+            installer: Arc::new(NoInstaller),
+            requests: None,
+            following: tokio::sync::Mutex::new(()),
+            seen: Mutex::default(),
         }
     }
 
@@ -484,6 +505,32 @@ impl Session {
     pub fn with_identities(mut self, identities: Arc<dyn IdentityStore>) -> Self {
         self.identities = identities;
         self
+    }
+
+    /// The key storages requests for certificates are made with; by default there are none.
+    #[must_use]
+    pub fn with_key_storage(mut self, keys: Arc<dyn KeyStorage>) -> Self {
+        self.keys = keys;
+        self
+    }
+
+    /// What installs the certificates ILM issues; by default nothing does.
+    #[must_use]
+    pub fn with_installer(mut self, installer: Arc<dyn CertificateInstaller>) -> Self {
+        self.installer = installer;
+        self
+    }
+
+    /// The requests waiting for ILM; by default none are kept.
+    #[must_use]
+    pub fn with_requests(mut self, requests: Arc<Requests>) -> Self {
+        self.requests = Some(requests);
+        self
+    }
+
+    /// The key types each key storage of this computer can create.
+    pub async fn key_offers(&self) -> Vec<Offer> {
+        self.in_keys(|keys| keys.offered()).await
     }
 
     /// Builds the certificate clients with `build`, to trust the servers of a test.

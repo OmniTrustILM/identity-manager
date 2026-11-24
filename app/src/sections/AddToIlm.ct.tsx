@@ -15,7 +15,14 @@ const choices: AddChoicesView = {
         { uuid: 'g-eng', name: 'Engineering' },
         { uuid: 'g-ops', name: 'Operations' },
     ],
-    raProfiles: [{ uuid: 'ra-client', name: 'Client certificates', authority: 'Demo CA' }],
+    raProfiles: [
+        {
+            uuid: 'ra-client',
+            name: 'Client certificates',
+            authority: 'Demo CA',
+            authority_uuid: 'ca-demo',
+        },
+    ],
     customAttributes: null,
 };
 const results: AddResultView[] = [

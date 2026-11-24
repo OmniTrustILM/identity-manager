@@ -18,6 +18,12 @@ pub enum FormContext {
         authority: String,
         ra_profile: String,
     },
+    /// The attributes an RA Profile asks for in a request for a certificate. ILM has no callback route for
+    /// them, so they have none.
+    Request {
+        authority: String,
+        ra_profile: String,
+    },
 }
 
 impl FormContext {
@@ -26,6 +32,7 @@ impl FormContext {
         match self {
             Self::Custom => "custom attributes",
             Self::Issue { .. } => "issue attributes",
+            Self::Request { .. } => "request attributes",
         }
     }
 
@@ -33,7 +40,7 @@ impl FormContext {
     /// connector itself.
     fn route(&self) -> Option<CallbackRoute> {
         match self {
-            Self::Custom => None,
+            Self::Custom | Self::Request { .. } => None,
             Self::Issue { ra_profile, .. } => Some(CallbackRoute::Resource {
                 resource: "certificates".to_owned(),
                 parent: ra_profile.clone(),

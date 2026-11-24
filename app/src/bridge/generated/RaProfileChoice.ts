@@ -7,4 +7,8 @@ export type RaProfileChoice = { uuid: string, name: string,
 /**
  * The authority the profile issues from.
  */
-authority: string | null, };
+authority: string | null, 
+/**
+ * The UUID of that authority, which ILM's issuing paths name.
+ */
+authority_uuid: string | null, };

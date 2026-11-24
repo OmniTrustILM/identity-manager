@@ -38,6 +38,8 @@ pub struct RaProfileChoice {
     pub name: String,
     /// The authority the profile issues from.
     pub authority: Option<String>,
+    /// The UUID of that authority, which ILM's issuing paths name.
+    pub authority_uuid: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -53,6 +55,7 @@ struct RawRaProfile {
     #[serde(default)]
     enabled: bool,
     authority_instance_name: Option<String>,
+    authority_instance_uuid: Option<String>,
 }
 
 /// The upload of one certificate, given as its DER, with the custom attributes as request attributes.
@@ -179,6 +182,7 @@ pub async fn read_ra_profiles(
                     uuid: profile.uuid,
                     name: profile.name,
                     authority: profile.authority_instance_name,
+                    authority_uuid: profile.authority_instance_uuid,
                 })
                 .collect()
         }))
@@ -410,7 +414,7 @@ mod tests {
             .and(path("/api/v1/raProfiles"))
             .and(query_param("enabled", "true"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-                { "uuid": "r-1", "name": "TLS", "enabled": true, "authorityInstanceName": "Corp CA" },
+                { "uuid": "r-1", "name": "TLS", "enabled": true, "authorityInstanceName": "Corp CA", "authorityInstanceUuid": "a-1" },
                 { "uuid": "r-2", "name": "Old", "enabled": false, "authorityInstanceName": "Corp CA" },
                 { "uuid": "r-3", "name": "Bare", "enabled": true }
             ])))
@@ -429,12 +433,14 @@ mod tests {
                 RaProfileChoice {
                     uuid: "r-1".into(),
                     name: "TLS".into(),
-                    authority: Some("Corp CA".into())
+                    authority: Some("Corp CA".into()),
+                    authority_uuid: Some("a-1".into())
                 },
                 RaProfileChoice {
                     uuid: "r-3".into(),
                     name: "Bare".into(),
-                    authority: None
+                    authority: None,
+                    authority_uuid: None
                 },
             ]
         );
