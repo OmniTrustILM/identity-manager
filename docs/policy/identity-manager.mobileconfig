@@ -34,9 +34,9 @@
 			<key>SignInMethod</key>
 			<string>oauth</string>
 			<key>KeyStorages</key>
-			<string>software,tpm</string>
+			<string>keychain</string>
 			<key>DefaultKeyStorage</key>
-			<string>software</string>
+			<string>keychain</string>
 		</dict>
 	</array>
 	<key>PayloadType</key>

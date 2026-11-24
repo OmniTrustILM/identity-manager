@@ -76,4 +76,4 @@ Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `
 - Linux: [policy/policy.json](policy/policy.json); install it as root:
   `sudo install -d -m 0755 /etc/identity-manager && sudo install -m 0644 policy.json /etc/identity-manager/policy.json`.
 
-All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `RequireUnlock` to true, `LockAfterIdle` to 15, `CheckInterval` to 30, `ExpiryWarningDays` to 30, `SignInProvider` to `Corporate`, `SignInMethod` to `oauth`, `KeyStorages` to `software,tpm` and `DefaultKeyStorage` to `software`.
+All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `RequireUnlock` to true, `LockAfterIdle` to 15, `CheckInterval` to 30, `ExpiryWarningDays` to 30, `SignInProvider` to `Corporate`, `SignInMethod` to `oauth`, `KeyStorages` to `software,tpm` and `DefaultKeyStorage` to `software`, except the macOS profile, which sets both to `keychain`, the only storage macOS offers.

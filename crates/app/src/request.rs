@@ -414,6 +414,7 @@ pub async fn request_certificate<R: Runtime>(
     let (storage, KeyTypeId(key_type)) = (Storage::from(storage), key_type);
     offered(&allowed_offers(&app).await.0, storage, key_type)?;
     let chosen = profile(&ilm, &ra_profile).await?;
+    ilm.unlocked()?;
     let waiting = ilm
         .session()
         .request(&chosen, forms, storage, key_type)
