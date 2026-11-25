@@ -265,12 +265,11 @@ impl InventoryView {
 
     /// Lists the requests `waiting` of the person, each as the latest `followed` check found it: the ones that
     /// ended are left out; one still waiting after its certificate was registered again is a new request. A
-    /// certificate one of them completes, or completed, is not offered as prepared any more, unless ILM registered it
-    /// again.
+    /// certificate one of them completes is not offered as prepared any more.
     #[must_use]
     pub fn with_requests(mut self, waiting: &[Waiting], followed: &[Followed]) -> Self {
         self.prepared
-            .retain(|found| !is_begun(&found.uuid, waiting, followed));
+            .retain(|found| !is_begun(&found.uuid, waiting));
         self.requests = waiting
             .iter()
             .filter_map(|entry| {
@@ -733,31 +732,6 @@ mod tests {
 
         let view = InventoryView::new(Status::Never, Some(&held), false, true, true)
             .with_requests(&[waiting(Some("c-2"), "k-2", 5)], &[]);
-
-        let uuids: Vec<_> = view
-            .prepared
-            .iter()
-            .map(|found| found.uuid.as_str())
-            .collect();
-        assert_eq!(uuids, ["c-1"]);
-    }
-
-    #[test]
-    fn a_prepared_certificate_a_request_completed_is_listed_only_when_registered_again() {
-        let mut held = snapshot(None);
-        held.prepared = vec![
-            prepared("c-1", None),
-            prepared("c-2", None),
-            prepared("c-3", None),
-        ];
-        let followed = [
-            followed("c-1", Outcome::Ended(EndReason::ReturnedToRegistered)),
-            followed("c-2", Outcome::Ended(EndReason::Rejected)),
-            followed("c-3", Outcome::Mismatch),
-        ];
-
-        let view = InventoryView::new(Status::Never, Some(&held), false, true, true)
-            .with_requests(&[], &followed);
 
         let uuids: Vec<_> = view
             .prepared

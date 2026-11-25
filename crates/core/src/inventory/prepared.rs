@@ -130,15 +130,24 @@ fn parts(subject: &RequestSubject) -> Vec<SubjectPart> {
     names.chain(alternatives).collect()
 }
 
-/// Whether a request of the person completes the certificate `uuid` registered in advance, as the requests
-/// `waiting` show, or completed it, as the `followed` outcomes show, unless ILM registered it again.
-pub(super) fn is_begun(uuid: &str, waiting: &[Waiting], followed: &[Followed]) -> bool {
-    let uuid = Some(uuid);
-    waiting.iter().any(|entry| entry.uuid.as_deref() == uuid)
-        || followed.iter().any(|request| {
-            request.uuid.as_deref() == uuid
+/// Whether one of the requests `waiting` completes the certificate `uuid` registered in advance.
+pub(super) fn is_begun(uuid: &str, waiting: &[Waiting]) -> bool {
+    waiting
+        .iter()
+        .any(|entry| entry.uuid.as_deref() == Some(uuid))
+}
+
+/// Leaves out of `prepared` the certificates a request `found` by a follow has completed, unless ILM registered
+/// one again; the next check of ILM lists them anew. Gives whether any was left out.
+pub(super) fn drop_completed(prepared: &mut Vec<Prepared>, found: &[Followed]) -> bool {
+    let before = prepared.len();
+    prepared.retain(|certificate| {
+        !found.iter().any(|request| {
+            request.uuid.as_deref() == Some(certificate.uuid.as_str())
                 && request.outcome != Outcome::Ended(EndReason::ReturnedToRegistered)
         })
+    });
+    prepared.len() != before
 }
 
 /// The certificates registered in advance for `username`: the first page of ILM's search, each read for its
@@ -156,7 +165,10 @@ pub(super) async fn read(session: &Session, username: &str) -> Result<Vec<Prepar
     };
     let mut found = Vec::new();
     for certificate in page.certificates {
-        let Some(ra_profile) = certificate.ra_profile else {
+        let Some(ra_profile) = certificate
+            .ra_profile
+            .filter(|profile| profile.authority_uuid.is_some())
+        else {
             continue;
         };
         let uuid = certificate.uuid;
@@ -169,7 +181,7 @@ pub(super) async fn read(session: &Session, username: &str) -> Result<Vec<Prepar
                         .map_or_else(
                             |_| {
                                 log::debug!(
-                                    "the subject of registered certificate {uuid} cannot be written"
+                                    "the subject of a registered certificate cannot be written"
                                 );
                                 Vec::new()
                             },

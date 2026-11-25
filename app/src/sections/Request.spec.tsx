@@ -923,12 +923,17 @@ test('a failure with a message stays on the review and says it', async () => {
     expect((field() as HTMLInputElement).value).toBe('');
 });
 
-test('ILM asking for a challenge the wizard has no field for goes back to the attributes with its text', async () => {
+test('ILM asking for a challenge the registration did not show opens the field with its text', async () => {
     requested = { kind: 'refused', messages: ['The certificate registration challenge is required.'] };
     await preparedToReview(readyToIssue({ registration: null }));
 
     await press('Issue certificate');
 
-    expect(dialog().querySelector('[aria-current="step"]')?.textContent).toBe('1Attributes');
-    expect(dialog().querySelector('[role="alert"]')?.textContent).toContain('The certificate registration challenge is required.');
+    const input = field() as HTMLInputElement;
+    expect(dialog().querySelector('[aria-current="step"]')?.textContent).toBe('3Review');
+    expect(dialog().querySelector('[role="alert"]')?.textContent).toBe('The certificate registration challenge is required.');
+    await type(input, 'secret-2');
+    expect(field()).toBe(input);
+    await press('Issue certificate');
+    expect(named('complete_certificate')[1]?.args).toMatchObject({ challenge: 'secret-2' });
 });

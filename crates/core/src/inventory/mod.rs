@@ -330,9 +330,9 @@ impl Inventory {
         held(&self.held).snapshot.clone()
     }
 
-    /// The certificates registered in advance that the person can still complete and has not begun to complete, as
-    /// the requests `waiting` and the followed outcomes show; none unless the latest check succeeded, as a kept
-    /// list may name certificates completed since.
+    /// The certificates registered in advance that the person can still complete and, as the requests `waiting`
+    /// show, has not begun to complete; none unless the latest check succeeded, as a kept list may name certificates
+    /// completed since.
     pub fn ready_to_issue(&self, waiting: &[Waiting]) -> Vec<Prepared> {
         let now = now();
         let held = held(&self.held);
@@ -342,9 +342,7 @@ impl Inventory {
         held.snapshot
             .iter()
             .flat_map(|snapshot| &snapshot.prepared)
-            .filter(|found| {
-                found.is_open_at(now) && !prepared::is_begun(&found.uuid, waiting, &held.followed)
-            })
+            .filter(|found| found.is_open_at(now) && !prepared::is_begun(&found.uuid, waiting))
             .cloned()
             .collect()
     }
@@ -512,7 +510,11 @@ impl Inventory {
                 })
                 .cloned(),
         );
-        let changed = kept != held.followed;
+        let dropped = held
+            .snapshot
+            .as_mut()
+            .is_some_and(|snapshot| prepared::drop_completed(&mut snapshot.prepared, &found));
+        let changed = kept != held.followed || dropped;
         held.followed = kept;
         if changed {
             held.rebuild(self.zone);

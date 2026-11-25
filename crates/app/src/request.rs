@@ -304,7 +304,7 @@ fn standing(followed: &[Followed], certificate: &str) -> FollowView {
 
 /// How `certificate` stands after a follow of its own, else as the latest check of ILM found it: a check that ran
 /// first has already finished the request, and the follow of its own then knows nothing of it. While a request of
-/// `certificate` is still `waiting`, what the latest check found belongs to an earlier one.
+/// `certificate` is still `waiting`, an end the latest check found belongs to an earlier one.
 fn standing_or_latest(
     own: &[Followed],
     latest: &[Followed],
@@ -312,13 +312,16 @@ fn standing_or_latest(
     certificate: &str,
 ) -> FollowView {
     match standing(own, certificate) {
-        FollowView::Unknown
-            if !waiting
+        FollowView::Unknown => match standing(latest, certificate) {
+            found @ FollowView::Waiting { .. } => found,
+            _ if waiting
                 .iter()
                 .any(|entry| entry.uuid.as_deref() == Some(certificate)) =>
-        {
-            standing(latest, certificate)
-        }
+            {
+                FollowView::Unknown
+            }
+            found => found,
+        },
         known => known,
     }
 }
@@ -643,8 +646,18 @@ mod tests {
         };
 
         assert_eq!(
-            standing_or_latest(&[], &latest, &[again], "c-1"),
+            standing_or_latest(&[], &latest, std::slice::from_ref(&again), "c-1"),
             FollowView::Unknown
+        );
+        let approval = [followed(
+            Some("c-1"),
+            Outcome::Waiting(State::PendingApproval),
+        )];
+        assert_eq!(
+            standing_or_latest(&[], &approval, &[again], "c-1"),
+            FollowView::Waiting {
+                stage: WaitingStage::PendingApproval
+            }
         );
     }
 

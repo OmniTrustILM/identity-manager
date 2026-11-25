@@ -1,8 +1,9 @@
 use super::*;
 use crate::ilm::certificates::{RaProfile, RegistrationState};
 use crate::ilm::issue::Registration;
-use crate::inventory::prepared::{Prepared, SubjectKind, SubjectPart};
+use crate::inventory::prepared::{Prepared, SubjectKind, SubjectPart, drop_completed};
 use crate::requests::Waiting;
+use crate::session::{EndReason, Followed, Outcome};
 
 const DETAIL: &str = "/api/v1/certificates/c-1";
 
@@ -228,12 +229,17 @@ async fn a_detail_that_fails_fails_the_check_and_keeps_the_last_answer() {
 }
 
 #[tokio::test]
-async fn a_registered_certificate_without_an_ra_profile_is_left_out() {
+async fn a_registered_certificate_without_an_ra_profile_or_its_authority_is_left_out() {
     let setup = Setup::new().await;
     setup.ilm_answers(vec![], vec![]).await;
     let mut item = registered("c-1", "demo220");
     item.as_object_mut().unwrap().remove("raProfile");
-    setup.registered(vec![item]).await;
+    let mut unknown = registered("c-2", "no authority");
+    unknown["raProfile"]
+        .as_object_mut()
+        .unwrap()
+        .remove("authorityInstanceUuid");
+    setup.registered(vec![item, unknown]).await;
 
     setup.check(&[]).await;
 
@@ -379,4 +385,35 @@ async fn the_certificates_ready_to_issue_are_the_open_ones_the_person_has_not_be
 
     let uuids: Vec<_> = ready.iter().map(|found| found.uuid.as_str()).collect();
     assert_eq!(uuids, ["c-1"]);
+}
+
+#[test]
+fn a_followed_request_that_completed_a_certificate_leaves_it_out_unless_it_is_registered_again() {
+    let prepared = |uuid: &str| Prepared {
+        uuid: uuid.to_owned(),
+        name: uuid.to_owned(),
+        ra_profile: RaProfile {
+            uuid: "ra-1".to_owned(),
+            name: "Servers".to_owned(),
+            authority_uuid: Some("a-1".to_owned()),
+        },
+        registration: None,
+        subject: Vec::new(),
+    };
+    let followed = |uuid: &str, outcome| Followed {
+        uuid: Some(uuid.to_owned()),
+        label: uuid.to_owned(),
+        outcome,
+    };
+    let mut list = vec![prepared("c-1"), prepared("c-2"), prepared("c-3")];
+    let found = [
+        followed("c-1", Outcome::Ended(EndReason::ReturnedToRegistered)),
+        followed("c-2", Outcome::Ended(EndReason::Rejected)),
+    ];
+
+    assert!(drop_completed(&mut list, &found));
+    assert!(!drop_completed(&mut list, &found));
+
+    let uuids: Vec<_> = list.iter().map(|found| found.uuid.as_str()).collect();
+    assert_eq!(uuids, ["c-1", "c-3"]);
 }

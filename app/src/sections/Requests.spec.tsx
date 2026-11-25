@@ -90,7 +90,7 @@ test('the days to issue are rounded up and a window that has closed is over', ()
     expect(days(now - day, 'expired')).toEqual({ kind: 'ended' });
     expect(days(now + day, 'expired')).toEqual({ kind: 'ended' });
     expect(days(now + day, 'locked')).toEqual({ kind: 'locked' });
-    expect(days(now - day, 'closed')).toEqual({ kind: 'ready', days: 1 });
+    expect(days(now - day, 'closed')).toEqual({ kind: 'ended' });
     expect(days(now + 2 * day, 'other')).toEqual({ kind: 'ready', days: 2 });
 });
 

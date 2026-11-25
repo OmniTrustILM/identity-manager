@@ -30,7 +30,7 @@ export function standing(prepared: PreparedView, now: number): Standing {
     if (expiresAt === null) {
         return { kind: 'ready', days: null };
     }
-    if (registration?.state === 'active' && expiresAt <= now) {
+    if (expiresAt <= now) {
         return { kind: 'ended' };
     }
     return { kind: 'ready', days: Math.max(Math.ceil((expiresAt - now) / day), 1) };

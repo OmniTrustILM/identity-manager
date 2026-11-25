@@ -334,6 +334,7 @@ export function Request({
     const [opened, setOpened] = useState<string | null>(prepared?.uuid ?? (single ? (profiles[0]?.uuid ?? null) : null));
     const [challenge, setChallenge] = useState('');
     const [challengeProblems, setChallengeProblems] = useState<string[]>([]);
+    const [challengeAsked, setChallengeAsked] = useState(false);
     const [forms, setForms] = useState<RequestFormsView | null>(null);
     const [formsFailed, setFormsFailed] = useState(false);
     const [states, setStates] = useState<Partial<Record<FormKind, AttributeState>>>({});
@@ -462,7 +463,7 @@ export function Request({
     const keyReady = storage !== null && offer?.keyTypes.includes(keyType) === true;
     const blocked = present.some((kind) => states[kind]?.blocked);
     const chosen = profiles.find((candidate) => candidate.uuid === profile);
-    const needsChallenge = prepared?.registration?.state === 'active';
+    const needsChallenge = prepared?.registration?.state === 'active' || challengeAsked;
 
     const goTo = (next: Step) => {
         setProblem(null);
@@ -521,12 +522,8 @@ export function Request({
                 }
                 const failure: RequestFailure = requestFailure(error);
                 setPhase({ kind: 'filling' });
-                if (
-                    needsChallenge &&
-                    failure.kind === 'refused' &&
-                    failure.messages.length > 0 &&
-                    failure.messages.every(isChallengeRefusal)
-                ) {
+                if (prepared && failure.kind === 'refused' && failure.messages.length > 0 && failure.messages.every(isChallengeRefusal)) {
+                    setChallengeAsked(true);
                     setChallengeProblems(failure.messages);
                 } else if (failure.kind === 'message') {
                     setProblem(failure.message || strings.requestFailed);
