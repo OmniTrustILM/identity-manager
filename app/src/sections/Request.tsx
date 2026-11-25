@@ -47,7 +47,10 @@ const challengeRefusals = new Set([
     'The certificate registration issuance window has expired.',
     'An authorization secret was presented but the certificate has no active registration authorization to verify it against.',
 ]);
-/** The parts of a prepared subject that name the certificate; the others are alternative names. */
+/**
+ * The parts of a prepared subject that name the certificate, an email among them when it carries its OID; the others
+ * are alternative names.
+ */
 const nameKinds = new Set<SubjectKind>([
     'commonName',
     'organization',
@@ -99,7 +102,7 @@ function subjectOf(form: AttributeFormView | null, values: AttributeState['value
 
 const preparedSubject = (prepared: PreparedView) =>
     prepared.subject
-        .filter((part) => nameKinds.has(part.kind))
+        .filter((part) => nameKinds.has(part.kind) || (part.kind === 'email' && part.oid !== null))
         .map((part) => part.value)
         .join(', ');
 

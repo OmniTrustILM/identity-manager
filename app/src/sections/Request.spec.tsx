@@ -834,6 +834,21 @@ test('the review of a prepared certificate lists its name, subject and RA profil
     expect(button('Request certificate')).toBeUndefined();
 });
 
+test('an email in the registered name is part of the reviewed subject, one among the alternative names is not', async () => {
+    await preparedToReview(
+        readyToIssue({
+            subject: [
+                { kind: 'commonName', value: 'vpn-alice', oid: null },
+                { kind: 'email', value: 'alice@example.com', oid: '1.2.840.113549.1.9.1' },
+                { kind: 'email', value: 'other@example.com', oid: null },
+            ],
+        }),
+    );
+
+    expect(text()).toContain('Subjectvpn-alice, alice@example.com');
+    expect(text()).not.toContain('alice@example.com, other@example.com');
+});
+
 test.each([['closed'], ['other']])('a prepared certificate in state %s has no challenge field', async (state) => {
     await preparedToReview(readyToIssue({ registration: { state, expiresAt: null } }));
 

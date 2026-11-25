@@ -28,7 +28,7 @@ use crate::ilm::certificates::State;
 use crate::ilm::issue::Challenge;
 use crate::ilm::upload::RaProfileChoice;
 use crate::install::{Installation, RecordingInstaller};
-use crate::inventory::{Inventory, SubjectKind, SubjectPart, Trigger};
+use crate::inventory::{Inventory, SubjectKind, SubjectPart, Trigger, subject_parts};
 use crate::keys::testing::InMemoryStorage;
 use crate::keys::{
     KeyError, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable, signing_request,
@@ -1279,6 +1279,30 @@ async fn a_registered_certificate_without_a_common_name_is_labelled_with_the_nam
             .unwrap()
             .label,
         "Prepared name"
+    );
+}
+
+#[tokio::test]
+async fn an_email_moved_from_the_name_to_the_alternative_names_is_a_changed_subject() {
+    let requesting = Requesting::new().await;
+    requesting
+        .state_is(
+            "c-9",
+            json!({
+                "state": "registered",
+                "subjectDn": "CN=demo220",
+                "subjectAlternativeNames": { "rfc822Name": ["a@example.com"] }
+            }),
+        )
+        .await;
+    let before = crate::keys::registered_subject(Some("E=a@example.com,CN=demo220"), &[]).unwrap();
+    let seen = subject_parts(&before);
+
+    assert_eq!(
+        complete_reviewed(&requesting, "c-9", None, &seen)
+            .await
+            .unwrap_err(),
+        RequestError::SubjectChanged
     );
 }
 

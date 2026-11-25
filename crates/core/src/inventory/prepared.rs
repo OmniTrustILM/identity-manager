@@ -48,7 +48,8 @@ pub enum SubjectKind {
 pub struct SubjectPart {
     pub kind: SubjectKind,
     pub value: String,
-    /// The OBJECT IDENTIFIER of an attribute of kind `other`, as dotted numbers.
+    /// The OBJECT IDENTIFIER, as dotted numbers, of an attribute of kind `other` and of an email in the subject
+    /// name, which tells it from an email among the alternative names.
     pub oid: Option<String>,
 }
 
@@ -71,8 +72,7 @@ pub struct Prepared {
     pub ra_profile: RaProfile,
     /// None when ILM did not say, or the person may not read the certificate.
     pub registration: Option<Registration>,
-    /// What ILM registered, from the most general name down, then the alternative names; empty when ILM did not
-    /// say, or says it in a way this application cannot write into a request.
+    /// What ILM registered, from the most general name down, then the alternative names.
     pub subject: Vec<SubjectPart>,
 }
 
@@ -89,6 +89,9 @@ impl Prepared {
     }
 }
 
+/// The attribute type of an email in a subject name (PKCS #9 emailAddress).
+const EMAIL_ADDRESS: &str = "1.2.840.113549.1.9.1";
+
 /// The names of `subject` as the interface shows them, in order: the subject first, then the alternative names.
 pub fn subject_parts(subject: &RequestSubject) -> Vec<SubjectPart> {
     let names = subject.names.iter().map(|(kind, value)| {
@@ -99,7 +102,7 @@ pub fn subject_parts(subject: &RequestSubject) -> Vec<SubjectPart> {
             NameType::Country => (SubjectKind::Country, None),
             NameType::State => (SubjectKind::State, None),
             NameType::Locality => (SubjectKind::Locality, None),
-            NameType::Email => (SubjectKind::Email, None),
+            NameType::Email => (SubjectKind::Email, Some(EMAIL_ADDRESS.to_owned())),
             NameType::SerialNumber => (SubjectKind::SerialNumber, None),
             NameType::DomainComponent => (SubjectKind::DomainComponent, None),
             NameType::Other(arcs) => (
@@ -155,8 +158,9 @@ pub(super) fn drop_completed(prepared: &mut Vec<Prepared>, found: &[Followed]) -
 }
 
 /// The certificates registered in advance for `username`: the first page of ILM's search, each read for its
-/// registration and subject. What the person may not read is left out; a certificate ILM does not know any more,
-/// or that is no longer registered when it is read, is dropped.
+/// registration and subject. Only what the person can issue is kept: a certificate the person may not read, ILM
+/// does not know any more, is no longer registered when it is read, or whose subject this application cannot write
+/// into a request is left out.
 pub(super) async fn read(session: &Session, username: &str) -> Result<Vec<Prepared>, Failure> {
     let search = Search::registered(username);
     let page = match read_search(session, &search).await {
@@ -180,21 +184,15 @@ pub(super) async fn read(session: &Session, username: &str) -> Result<Vec<Prepar
         let (registration, subject) = match read_state(response).await {
             Ok(state) if state.state != State::Registered => continue,
             Ok(state) => {
-                let subject =
-                    registered_subject(state.subject_dn.as_deref(), &state.alternative_names)
-                        .map_or_else(
-                            |_| {
-                                log::debug!(
-                                    "the subject of a registered certificate cannot be written"
-                                );
-                                Vec::new()
-                            },
-                            |subject| subject_parts(&subject),
-                        );
-                (state.registration, subject)
+                match registered_subject(state.subject_dn.as_deref(), &state.alternative_names) {
+                    Ok(subject) => (state.registration, subject_parts(&subject)),
+                    Err(_) => {
+                        log::debug!("the subject of a registered certificate cannot be written");
+                        continue;
+                    }
+                }
             }
-            Err(StateError::Gone) => continue,
-            Err(StateError::NotAllowed) => (None, Vec::new()),
+            Err(StateError::Gone | StateError::NotAllowed) => continue,
             Err(StateError::Failed(error)) => return Err(error.into()),
         };
         found.push(Prepared {

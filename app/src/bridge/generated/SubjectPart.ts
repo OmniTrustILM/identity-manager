@@ -6,6 +6,7 @@ import type { SubjectKind } from "./SubjectKind";
  */
 export type SubjectPart = { kind: SubjectKind, value: string, 
 /**
- * The OBJECT IDENTIFIER of an attribute of kind `other`, as dotted numbers.
+ * The OBJECT IDENTIFIER, as dotted numbers, of an attribute of kind `other` and of an email in the subject
+ * name, which tells it from an email among the alternative names.
  */
 oid: string | null, };
