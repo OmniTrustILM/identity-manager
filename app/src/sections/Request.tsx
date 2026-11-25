@@ -188,8 +188,11 @@ function Rows({ rows }: Readonly<{ rows: [string, string][] }>) {
 }
 
 /** What the administrator registered for a certificate, as it stands and cannot be changed. */
-function PreparedGroup({ prepared }: Readonly<{ prepared: PreparedView }>) {
+function PreparedGroup({ prepared }: Readonly<{ prepared: PreparedView | undefined }>) {
     const id = useId();
+    if (!prepared) {
+        return null;
+    }
     const rows: [string, string][] = prepared.subject.map((part) => [
         part.kind === 'other' && part.oid ? part.oid : strings.subjectLabels[part.kind],
         part.value,
@@ -331,7 +334,7 @@ export function Request({
     const single = prepared !== undefined || profiles.length === 1;
     const [step, setStep] = useState<Step>(single ? 'attributes' : 'profile');
     const [profile, setProfile] = useState(profiles[0]?.uuid ?? '');
-    const [opened, setOpened] = useState<string | null>(prepared?.uuid ?? (single ? (profiles[0]?.uuid ?? null) : null));
+    const [opened, setOpened] = useState<string | null>(() => firstOpened(prepared, profiles, single));
     const [challenge, setChallenge] = useState('');
     const [challengeProblems, setChallengeProblems] = useState<string[]>([]);
     const [challengeAsked, setChallengeAsked] = useState(false);
@@ -576,7 +579,7 @@ export function Request({
         chip: candidate.storage === offers?.defaultStorage ? strings.recommended : undefined,
     }));
     const where = strings.keyPlace(storage ?? '', platform);
-    const subject = prepared ? preparedSubject(prepared) : subjectOf(forms?.request ?? null, states.request?.values);
+    const sheet = sheetOf(prepared, chosen, subjectOf(forms?.request ?? null, states.request?.values));
     const title = (text: string) => (
         <h3 key={text} ref={focusNode} tabIndex={-1} className="text-title font-semibold text-primary outline-none">
             {text}
@@ -661,27 +664,24 @@ export function Request({
                 )}
                 <Rows
                     rows={[
-                        prepared ? [strings.reviewCertificate, prepared.name] : [strings.reviewProfile, chosen?.name ?? ''],
-                        [strings.reviewSubject, subject],
-                        ...(prepared ? [[strings.raProfileLabel, prepared.raProfile.name] as [string, string]] : []),
+                        ...sheet.reviewed,
                         [strings.reviewKey, strings.reviewNewKey(where)],
                         [strings.reviewKeyType, strings.keyTypeNames[keyType] ?? keyType],
                         [strings.reviewInstalledIn, strings.installedPlace(platform)],
                     ]}
                 />
-                {needsChallenge && (
-                    <ChallengeField
-                        id={challengeId}
-                        inputRef={challengeField}
-                        value={challenge}
-                        problems={challengeProblems}
-                        disabled={busy}
-                        onChange={(value) => {
-                            setChallenge(value);
-                            setChallengeProblems([]);
-                        }}
-                    />
-                )}
+                <ChallengeField
+                    shown={needsChallenge}
+                    id={challengeId}
+                    inputRef={challengeField}
+                    value={challenge}
+                    problems={challengeProblems}
+                    disabled={busy}
+                    onChange={(value) => {
+                        setChallenge(value);
+                        setChallengeProblems([]);
+                    }}
+                />
                 <ol aria-label={strings.requestPlanName} className="flex flex-col gap-s2">
                     {strings.requestPlan(where).map((line, index) => (
                         <li key={line} className="flex items-center gap-s2 text-body text-secondary">
@@ -705,7 +705,7 @@ export function Request({
                 </button>
             ) : (
                 <button type="button" disabled={needsChallenge && challenge === ''} onClick={request} className={primary + wide}>
-                    {prepared ? strings.issueCertificate : strings.requestCertificate}
+                    {sheet.confirm}
                 </button>
             ),
             <button type="button" disabled={busy} onClick={() => goTo('key')} className={`${secondary}${wide} disabled:opacity-disabled`}>
@@ -718,7 +718,7 @@ export function Request({
         <div hidden={step !== 'attributes'} className="flex flex-col gap-s3">
             {step === 'attributes' && title(strings.fillAttributes)}
             {refusal && <Refused refusal={refusal} />}
-            {prepared && <PreparedGroup prepared={prepared} />}
+            <PreparedGroup prepared={prepared} />
             {formsFailed && (
                 <p role="alert" className="text-body text-bad">
                     {strings.requestFormsFailed}
@@ -761,9 +761,9 @@ export function Request({
             className="m-auto box-content flex h-wizard max-h-[85vh] w-wizard flex-col gap-s3 rounded-window border border-separator bg-surface p-s5 text-primary backdrop:bg-primary/40"
         >
             <h2 id={titleId} className="text-title font-semibold text-primary">
-                {prepared ? strings.issueTitle(prepared.name) : strings.requestTitle}
+                {sheet.title}
             </h2>
-            {step !== 'result' && <Stepper step={step} steps={prepared ? preparedOrder : stepOrder} />}
+            {step !== 'result' && <Stepper step={step} steps={sheet.steps} />}
             <div className="flex min-h-0 flex-1 flex-col gap-s3 overflow-y-auto">
                 {attributes}
                 {body}
@@ -774,6 +774,41 @@ export function Request({
 }
 
 const isChallengeRefusal = (message: string) => challengeRefusals.has(message);
+
+/** The RA Profile whose forms open first: the prepared certificate's, or the only one there is. */
+function firstOpened(prepared: PreparedView | undefined, profiles: RaProfileChoice[], single: boolean): string | null {
+    if (prepared) {
+        return prepared.uuid;
+    }
+    return single ? (profiles[0]?.uuid ?? null) : null;
+}
+
+/** What the sheet says for a new request, or for completing `prepared`, whose subject is the registered one. */
+type Sheet = { title: string; steps: Step[]; confirm: string; reviewed: [string, string][] };
+
+function sheetOf(prepared: PreparedView | undefined, chosen: RaProfileChoice | undefined, requested: string): Sheet {
+    if (prepared) {
+        return {
+            title: strings.issueTitle(prepared.name),
+            steps: preparedOrder,
+            confirm: strings.issueCertificate,
+            reviewed: [
+                [strings.reviewCertificate, prepared.name],
+                [strings.reviewSubject, preparedSubject(prepared)],
+                [strings.raProfileLabel, prepared.raProfile.name],
+            ],
+        };
+    }
+    return {
+        title: strings.requestTitle,
+        steps: stepOrder,
+        confirm: strings.requestCertificate,
+        reviewed: [
+            [strings.reviewProfile, chosen?.name ?? ''],
+            [strings.reviewSubject, requested],
+        ],
+    };
+}
 
 /** Whether ILM asks for the challenge of a prepared certificate, among whatever else it refuses. */
 const asksForChallenge = (failure: RequestFailure, prepared: boolean) =>
@@ -817,6 +852,7 @@ function send(
 
 /** The challenge of a prepared certificate, with ILM's texts about it under the field. */
 function ChallengeField({
+    shown,
     id,
     inputRef,
     value,
@@ -824,6 +860,7 @@ function ChallengeField({
     disabled,
     onChange,
 }: Readonly<{
+    shown: boolean;
     id: string;
     inputRef: RefObject<HTMLInputElement | null>;
     value: string;
@@ -831,6 +868,9 @@ function ChallengeField({
     disabled: boolean;
     onChange: (value: string) => void;
 }>) {
+    if (!shown) {
+        return null;
+    }
     const invalid = problems.length > 0;
     return (
         <div className="flex flex-col gap-s1">
