@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { type ReactNode, type RefObject, useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
     type AttributeFieldProblem,
     type AttributeFormView,
@@ -40,15 +40,15 @@ type Refusal = { messages: string[]; problems: AttributeFieldProblem[] };
 const stepOrder: Step[] = ['profile', 'attributes', 'key', 'review'];
 const preparedOrder: Step[] = ['attributes', 'key', 'review'];
 /** What ILM says when the challenge of a prepared certificate is wrong or can no longer be used. */
-const challengeRefusals = [
+const challengeRefusals = new Set([
     'The certificate registration challenge is invalid.',
     'The certificate registration challenge is required.',
     'The certificate registration authorization is locked after too many failed attempts.',
     'The certificate registration issuance window has expired.',
     'An authorization secret was presented but the certificate has no active registration authorization to verify it against.',
-];
+]);
 /** The parts of a prepared subject that name the certificate; the others are alternative names. */
-const nameKinds: SubjectKind[] = [
+const nameKinds = new Set<SubjectKind>([
     'commonName',
     'organization',
     'organizationalUnit',
@@ -58,7 +58,7 @@ const nameKinds: SubjectKind[] = [
     'serialNumber',
     'domainComponent',
     'other',
-];
+]);
 const kinds: FormKind[] = ['request', 'issue', 'custom'];
 const groupNames: Record<FormKind, string> = {
     request: strings.certificateRequestGroup,
@@ -99,7 +99,7 @@ function subjectOf(form: AttributeFormView | null, values: AttributeState['value
 
 const preparedSubject = (prepared: PreparedView) =>
     prepared.subject
-        .filter((part) => nameKinds.includes(part.kind))
+        .filter((part) => nameKinds.has(part.kind))
         .map((part) => part.value)
         .join(', ');
 
@@ -501,9 +501,7 @@ export function Request({
         setSubmitted(true);
         setChallengeProblems([]);
         setPhase({ kind: 'requesting' });
-        const sending = prepared
-            ? completeCertificate(prepared.uuid, filled, storage, keyType, needsChallenge ? challenge : null)
-            : requestCertificate(profile, filled, storage, keyType);
+        const sending = send(prepared, profile, filled, storage, keyType, needsChallenge ? challenge : null);
         setChallenge('');
         sending.then(
             (done) => {
@@ -521,20 +519,19 @@ export function Request({
                     return;
                 }
                 const failure: RequestFailure = requestFailure(error);
+                const place = placeOf(failure, prepared !== undefined);
                 setPhase({ kind: 'filling' });
-                if (prepared && failure.kind === 'refused' && failure.messages.some(isChallengeRefusal)) {
-                    setChallengeAsked(true);
-                }
-                if (prepared && failure.kind === 'refused' && failure.messages.length > 0 && failure.messages.every(isChallengeRefusal)) {
-                    setChallengeProblems(failure.messages);
-                } else if (failure.kind === 'message') {
-                    setProblem(failure.message || strings.requestFailed);
-                } else {
-                    setRefusal({
-                        messages: failure.kind === 'refused' ? failure.messages : [],
-                        problems: failure.kind === 'problems' ? failure.problems : noProblems,
-                    });
-                    setStep('attributes');
+                setChallengeAsked((asked) => asked || asksForChallenge(failure, prepared !== undefined));
+                switch (place.kind) {
+                    case 'challenge':
+                        setChallengeProblems(place.messages);
+                        break;
+                    case 'review':
+                        setProblem(place.message);
+                        break;
+                    default:
+                        setRefusal(place.refusal);
+                        setStep('attributes');
                 }
             },
         );
@@ -673,37 +670,17 @@ export function Request({
                     ]}
                 />
                 {needsChallenge && (
-                    <div className="flex flex-col gap-s1">
-                        <label htmlFor={challengeId} className="text-caption font-semibold text-secondary">
-                            {strings.challenge}
-                        </label>
-                        <TextField
-                            id={challengeId}
-                            ref={challengeField}
-                            type="password"
-                            autoComplete="off"
-                            disabled={busy}
-                            value={challenge}
-                            aria-invalid={challengeProblems.length > 0 ? true : undefined}
-                            aria-describedby={[`${challengeId}-hint`, challengeProblems.length > 0 && `${challengeId}-problem`]
-                                .filter(Boolean)
-                                .join(' ')}
-                            onChange={(event) => {
-                                setChallenge(event.target.value);
-                                setChallengeProblems([]);
-                            }}
-                        />
-                        <p id={`${challengeId}-hint`} className="text-caption text-secondary">
-                            {strings.challengeHint}
-                        </p>
-                        {challengeProblems.length > 0 && (
-                            <div id={`${challengeId}-problem`} role="alert" className="flex flex-col text-caption text-bad">
-                                {challengeProblems.map((message) => (
-                                    <p key={message}>{message}</p>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <ChallengeField
+                        id={challengeId}
+                        inputRef={challengeField}
+                        value={challenge}
+                        problems={challengeProblems}
+                        disabled={busy}
+                        onChange={(value) => {
+                            setChallenge(value);
+                            setChallengeProblems([]);
+                        }}
+                    />
                 )}
                 <ol aria-label={strings.requestPlanName} className="flex flex-col gap-s2">
                     {strings.requestPlan(where).map((line, index) => (
@@ -796,7 +773,94 @@ export function Request({
     );
 }
 
-const isChallengeRefusal = (message: string) => challengeRefusals.includes(message);
+const isChallengeRefusal = (message: string) => challengeRefusals.has(message);
+
+/** Whether ILM asks for the challenge of a prepared certificate, among whatever else it refuses. */
+const asksForChallenge = (failure: RequestFailure, prepared: boolean) =>
+    prepared && failure.kind === 'refused' && failure.messages.some(isChallengeRefusal);
+
+/** Where a failed send is shown: ILM's challenge texts under the challenge field, a message on the review, the rest with the attributes. */
+type FailurePlace =
+    | { kind: 'challenge'; messages: string[] }
+    | { kind: 'review'; message: string }
+    | { kind: 'attributes'; refusal: Refusal };
+
+function placeOf(failure: RequestFailure, prepared: boolean): FailurePlace {
+    if (prepared && failure.kind === 'refused' && failure.messages.length > 0 && failure.messages.every(isChallengeRefusal)) {
+        return { kind: 'challenge', messages: failure.messages };
+    }
+    if (failure.kind === 'message') {
+        return { kind: 'review', message: failure.message || strings.requestFailed };
+    }
+    return {
+        kind: 'attributes',
+        refusal: {
+            messages: failure.kind === 'refused' ? failure.messages : [],
+            problems: failure.kind === 'problems' ? failure.problems : noProblems,
+        },
+    };
+}
+
+/** Sends a new request, or completes the prepared certificate with the challenge, when the review asks for one. */
+function send(
+    prepared: PreparedView | undefined,
+    profile: string,
+    forms: RequestForms,
+    storage: StorageId,
+    keyType: KeyTypeId,
+    challenge: string | null,
+): Promise<RequestedView> {
+    return prepared
+        ? completeCertificate(prepared.uuid, forms, storage, keyType, challenge)
+        : requestCertificate(profile, forms, storage, keyType);
+}
+
+/** The challenge of a prepared certificate, with ILM's texts about it under the field. */
+function ChallengeField({
+    id,
+    inputRef,
+    value,
+    problems,
+    disabled,
+    onChange,
+}: Readonly<{
+    id: string;
+    inputRef: RefObject<HTMLInputElement | null>;
+    value: string;
+    problems: string[];
+    disabled: boolean;
+    onChange: (value: string) => void;
+}>) {
+    const invalid = problems.length > 0;
+    return (
+        <div className="flex flex-col gap-s1">
+            <label htmlFor={id} className="text-caption font-semibold text-secondary">
+                {strings.challenge}
+            </label>
+            <TextField
+                id={id}
+                ref={inputRef}
+                type="password"
+                autoComplete="off"
+                disabled={disabled}
+                value={value}
+                aria-invalid={invalid || undefined}
+                aria-describedby={invalid ? `${id}-hint ${id}-problem` : `${id}-hint`}
+                onChange={(event) => onChange(event.target.value)}
+            />
+            <p id={`${id}-hint`} className="text-caption text-secondary">
+                {strings.challengeHint}
+            </p>
+            {invalid && (
+                <div id={`${id}-problem`} role="alert" className="flex flex-col text-caption text-bad">
+                    {problems.map((message) => (
+                        <p key={message}>{message}</p>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
 function closeAll(forms: RequestFormsView) {
     for (const kind of kinds) {
