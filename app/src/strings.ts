@@ -456,8 +456,10 @@ export const strings = {
     approvalKindsAsked: { issue: 'a new certificate', renew: 'a renewal', rekey: 'a rekey', revoke: 'a revocation' },
     approvalStatus: (kind: string, at: number) => `${kind}, ${time(at)}`,
     rejectTitle: (name: string) => `Reject the request for ${name}?`,
-    rejectText: (requester: string | null, asked: string, raProfile: string | null) =>
-        `${requester ?? 'Someone'} asked for ${asked}${raProfile ? ` in ${raProfile}` : ''}. Rejecting ends the request.`,
+    rejectText: (requester: string | null, asked: string, raProfile: string | null) => {
+        const where = raProfile ? ` in ${raProfile}` : '';
+        return `${requester ?? 'Someone'} asked for ${asked}${where}. Rejecting ends the request.`;
+    },
     rejectComment: 'Comment (optional)',
     rejectCommentHint: 'ILM keeps the comment with the approval.',
     approvalNoLongerWaiting: 'This request no longer waits for your decision.',
