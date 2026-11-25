@@ -89,7 +89,8 @@ impl Prepared {
     }
 }
 
-fn parts(subject: &RequestSubject) -> Vec<SubjectPart> {
+/// The names of `subject` as the interface shows them, in order: the subject first, then the alternative names.
+pub fn subject_parts(subject: &RequestSubject) -> Vec<SubjectPart> {
     let names = subject.names.iter().map(|(kind, value)| {
         let (kind, oid) = match kind {
             NameType::CommonName => (SubjectKind::CommonName, None),
@@ -137,14 +138,17 @@ pub(super) fn is_begun(uuid: &str, waiting: &[Waiting]) -> bool {
         .any(|entry| entry.uuid.as_deref() == Some(uuid))
 }
 
-/// Leaves out of `prepared` the certificates a request `found` by a follow has completed, unless ILM registered
-/// one again; the next check of ILM lists them anew. Gives whether any was left out.
+/// Leaves out of `prepared` the certificates a request `found` by a follow has completed, not one still waiting or
+/// registered again; the next check of ILM lists them anew. Gives whether any was left out.
 pub(super) fn drop_completed(prepared: &mut Vec<Prepared>, found: &[Followed]) -> bool {
     let before = prepared.len();
     prepared.retain(|certificate| {
         !found.iter().any(|request| {
             request.uuid.as_deref() == Some(certificate.uuid.as_str())
-                && request.outcome != Outcome::Ended(EndReason::ReturnedToRegistered)
+                && !matches!(
+                    request.outcome,
+                    Outcome::Waiting(_) | Outcome::Ended(EndReason::ReturnedToRegistered)
+                )
         })
     });
     prepared.len() != before
@@ -185,7 +189,7 @@ pub(super) async fn read(session: &Session, username: &str) -> Result<Vec<Prepar
                                 );
                                 Vec::new()
                             },
-                            |subject| parts(&subject),
+                            |subject| subject_parts(&subject),
                         );
                 (state.registration, subject)
             }

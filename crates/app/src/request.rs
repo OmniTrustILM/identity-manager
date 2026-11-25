@@ -7,7 +7,7 @@ use im_core::attributes::{FieldProblem, FormView};
 use im_core::ilm::certificates::State;
 use im_core::ilm::issue::Challenge;
 use im_core::ilm::upload::RaProfileChoice;
-use im_core::inventory::Prepared;
+use im_core::inventory::{Prepared, SubjectPart};
 use im_core::keys::{KeyType, Offer, Storage};
 use im_core::session::{
     CallError, Completion, EndReason, Followed, Outcome, RequestError, RequestInput, SignedInAs,
@@ -497,8 +497,9 @@ pub async fn open_prepared_forms<R: Runtime>(
     })
 }
 
-/// Completes a certificate registered in advance with a new key. The challenge, when ILM asks for one, goes to
-/// ILM and nowhere else; a challenge can stand in for the right to create certificates.
+/// Completes a certificate registered in advance with a new key, when ILM still registers the `subject` the person
+/// reviewed. The challenge, when ILM asks for one, goes to ILM and nowhere else; a challenge can stand in for the
+/// right to create certificates.
 #[tauri::command]
 pub async fn complete_certificate<R: Runtime>(
     app: AppHandle<R>,
@@ -507,6 +508,7 @@ pub async fn complete_certificate<R: Runtime>(
     storage: StorageId,
     key_type: KeyTypeId,
     challenge: Option<String>,
+    subject: Vec<SubjectPart>,
 ) -> Result<RequestedView, RequestFailure> {
     let challenge = challenge
         .filter(|text| !text.is_empty())
@@ -524,6 +526,7 @@ pub async fn complete_certificate<R: Runtime>(
                 uuid: &uuid,
                 name: &found.name,
                 ra_profile: &choice_of(&found),
+                subject: &subject,
             },
             forms,
             storage,

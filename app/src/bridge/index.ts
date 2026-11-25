@@ -9,6 +9,7 @@ import type { AttributeCheck } from './generated/AttributeCheck';
 import type { AttributeFieldProblem } from './generated/AttributeFieldProblem';
 import type { AttributeValue } from './generated/AttributeValue';
 import type { FollowView } from './generated/FollowView';
+import type { SubjectPart } from './generated/SubjectPart';
 import type { KeyTypeId } from './generated/KeyTypeId';
 import type { RaProfileChoice } from './generated/RaProfileChoice';
 import type { RequestedView } from './generated/RequestedView';
@@ -32,10 +33,9 @@ import type { Shown } from './generated/Shown';
 import type { SummaryView } from './generated/SummaryView';
 
 export type { AppInfo, CertificateChoice, Change, LocalCertificateView, ProviderChoice, Scheme, SessionView, SettingsView, Shown };
-export type { IlmPageView, InventoryView };
+export type { IlmPageView, InventoryView, SubjectPart };
 export type { MyRequestView } from './generated/MyRequestView';
 export type { PreparedView } from './generated/PreparedView';
-export type { SubjectPart } from './generated/SubjectPart';
 export type { RegistrationView } from './generated/RegistrationView';
 export type { SubjectKind } from './generated/SubjectKind';
 export type { AddChoicesView, AddResultView, Navigation, SummaryView };
@@ -246,7 +246,8 @@ export function requestCertificate(raProfile: string, forms: RequestForms, stora
 
 /**
  * Completes a certificate prepared in advance with a new key and returns the certificate to follow; rejects with a
- * `RequestFailure`. The challenge, when ILM asks for one, goes to ILM and nowhere else.
+ * `RequestFailure`, also when ILM no longer registers the reviewed `subject`. The challenge, when ILM asks for one,
+ * goes to ILM and nowhere else.
  */
 export function completeCertificate(
     uuid: string,
@@ -254,8 +255,9 @@ export function completeCertificate(
     storage: StorageId,
     keyType: KeyTypeId,
     challenge: string | null,
+    subject: SubjectPart[],
 ): Promise<RequestedView> {
-    return invoke<RequestedView>('complete_certificate', { uuid, forms, storage, keyType, challenge });
+    return invoke<RequestedView>('complete_certificate', { uuid, forms, storage, keyType, challenge, subject });
 }
 
 /** How the request that made this certificate stands. */

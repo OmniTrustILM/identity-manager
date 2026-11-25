@@ -24,6 +24,7 @@ use crate::ilm::issue::{
 use crate::ilm::profile::IlmError;
 use crate::ilm::upload::{RaProfileChoice, ra_profiles_request, read_ra_profiles};
 use crate::install::{intermediates, is_for_key};
+use crate::inventory::{SubjectPart, subject_parts};
 use crate::keys::{
     KeyError, KeyId, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable,
     registered_subject, signing_request, subject,
@@ -52,6 +53,8 @@ pub struct Completion<'a> {
     /// The name to show the request by when the subject has no common name.
     pub name: &'a str,
     pub ra_profile: &'a RaProfileChoice,
+    /// The subject the person reviewed; the request is not sent when ILM now registers another one.
+    pub subject: &'a [SubjectPart],
 }
 
 /// The forms the person filled in.
@@ -86,6 +89,8 @@ pub enum RequestError {
     Malformed,
     /// The request could not be written down.
     Store,
+    /// ILM registered another subject for the certificate than the one the person reviewed.
+    SubjectChanged,
 }
 
 impl fmt::Display for RequestError {
@@ -117,6 +122,9 @@ impl fmt::Display for RequestError {
                 f.write_str("ILM answered in a way this application does not understand.")
             }
             Self::Store => f.write_str("The request could not be recorded on this computer."),
+            Self::SubjectChanged => {
+                f.write_str("Your administrator changed this certificate in ILM. Open it again.")
+            }
         }
     }
 }
@@ -403,6 +411,7 @@ impl Session {
             uuid,
             name,
             ra_profile,
+            subject: reviewed,
         } = completion;
         let authority = ra_profile
             .authority_uuid
@@ -416,6 +425,9 @@ impl Session {
             registered.subject_dn.as_deref(),
             &registered.alternative_names,
         )?;
+        if subject_parts(&subject) != reviewed {
+            return Err(RequestError::SubjectChanged);
+        }
         let generation = self.forms.generation();
         let mut taken = Vec::new();
         let attributes = self.take_attributes(&forms, &mut taken);

@@ -908,7 +908,7 @@ mod tests {
                 "complete_certificate",
                 serde_json::json!({
                     "uuid": "c-1", "forms": {}, "storage": "software", "keyType": "ecP256",
-                    "challenge": "secret"
+                    "challenge": "secret", "subject": []
                 }),
             ),
         ]

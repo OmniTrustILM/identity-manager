@@ -343,7 +343,8 @@ fn only_an_unexpired_unlocked_registration_can_still_be_completed() {
 }
 
 #[tokio::test]
-async fn the_certificates_ready_to_issue_are_the_open_ones_the_person_has_not_begun_to_complete() {
+async fn the_certificates_ready_to_issue_are_the_open_readable_ones_the_person_has_not_begun_to_complete()
+ {
     let setup = Setup::new().await;
     setup.ilm_answers(vec![], vec![]).await;
     setup
@@ -351,6 +352,7 @@ async fn the_certificates_ready_to_issue_are_the_open_ones_the_person_has_not_be
             registered("c-1", "open"),
             registered("c-2", "begun"),
             registered("c-3", "locked"),
+            registered("c-4", "unreadable"),
         ])
         .await;
     let body = |state: &str| {
@@ -364,6 +366,9 @@ async fn the_certificates_ready_to_issue_are_the_open_ones_the_person_has_not_be
         .await;
     setup
         .detail("/api/v1/certificates/c-3", body("locked"))
+        .await;
+    setup
+        .detail("/api/v1/certificates/c-4", ResponseTemplate::new(403))
         .await;
     setup.check(&[]).await;
     let begun = Waiting {
@@ -388,7 +393,8 @@ async fn the_certificates_ready_to_issue_are_the_open_ones_the_person_has_not_be
 }
 
 #[test]
-fn a_followed_request_that_completed_a_certificate_leaves_it_out_unless_it_is_registered_again() {
+fn a_followed_request_that_completed_a_certificate_leaves_it_out_unless_it_waits_or_is_registered_again()
+ {
     let prepared = |uuid: &str| Prepared {
         uuid: uuid.to_owned(),
         name: uuid.to_owned(),
@@ -405,15 +411,21 @@ fn a_followed_request_that_completed_a_certificate_leaves_it_out_unless_it_is_re
         label: uuid.to_owned(),
         outcome,
     };
-    let mut list = vec![prepared("c-1"), prepared("c-2"), prepared("c-3")];
+    let mut list = vec![
+        prepared("c-1"),
+        prepared("c-2"),
+        prepared("c-3"),
+        prepared("c-4"),
+    ];
     let found = [
         followed("c-1", Outcome::Ended(EndReason::ReturnedToRegistered)),
         followed("c-2", Outcome::Ended(EndReason::Rejected)),
+        followed("c-4", Outcome::Waiting(State::Registered)),
     ];
 
     assert!(drop_completed(&mut list, &found));
     assert!(!drop_completed(&mut list, &found));
 
     let uuids: Vec<_> = list.iter().map(|found| found.uuid.as_str()).collect();
-    assert_eq!(uuids, ["c-1", "c-3"]);
+    assert_eq!(uuids, ["c-1", "c-3", "c-4"]);
 }

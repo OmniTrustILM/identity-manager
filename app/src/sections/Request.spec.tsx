@@ -852,6 +852,7 @@ test('without a registration nothing asks for a challenge and none is sent', asy
         storage: 'keychain',
         keyType: 'ecP256',
         challenge: null,
+        subject: readyToIssue().subject,
     });
 });
 
@@ -870,6 +871,7 @@ test('Issue certificate waits for the challenge and sends it with the forms, the
         storage: 'keychain',
         keyType: 'ecP256',
         challenge: 'secret-1',
+        subject: readyToIssue().subject,
     });
     expect(named('request_certificate')).toHaveLength(0);
     expect(text()).toContain('Your certificate is installed');

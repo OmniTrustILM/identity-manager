@@ -28,7 +28,7 @@ use crate::ilm::certificates::State;
 use crate::ilm::issue::Challenge;
 use crate::ilm::upload::RaProfileChoice;
 use crate::install::{Installation, RecordingInstaller};
-use crate::inventory::{Inventory, Trigger};
+use crate::inventory::{Inventory, SubjectKind, SubjectPart, Trigger};
 use crate::keys::testing::InMemoryStorage;
 use crate::keys::{
     KeyError, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable, signing_request,
@@ -991,10 +991,28 @@ async fn registered(requesting: &Requesting, uuid: &str) {
         .await;
 }
 
+/// The subject `registered` gives, as the person reviewed it.
+fn reviewed() -> Vec<SubjectPart> {
+    vec![
+        SubjectPart::new(SubjectKind::Organization, "Example"),
+        SubjectPart::new(SubjectKind::CommonName, "demo220"),
+        SubjectPart::new(SubjectKind::Dns, "demo220.example.com"),
+    ]
+}
+
 async fn complete(
     requesting: &Requesting,
     uuid: &str,
     challenge: Option<&str>,
+) -> Result<Waiting, RequestError> {
+    complete_reviewed(requesting, uuid, challenge, &reviewed()).await
+}
+
+async fn complete_reviewed(
+    requesting: &Requesting,
+    uuid: &str,
+    challenge: Option<&str>,
+    subject: &[SubjectPart],
 ) -> Result<Waiting, RequestError> {
     let forms = requesting.open(true).await;
     let input = RequestInput {
@@ -1010,6 +1028,7 @@ async fn complete(
                 uuid,
                 name: "Prepared name",
                 ra_profile: &choice(),
+                subject,
             },
             input,
             Storage::Software,
@@ -1255,8 +1274,34 @@ async fn a_registered_certificate_without_a_common_name_is_labelled_with_the_nam
         .await;
 
     assert_eq!(
-        complete(&requesting, "c-9", None).await.unwrap().label,
+        complete_reviewed(&requesting, "c-9", None, &[])
+            .await
+            .unwrap()
+            .label,
         "Prepared name"
+    );
+}
+
+#[tokio::test]
+async fn a_subject_changed_in_ilm_since_the_review_is_not_sent_and_leaves_nothing() {
+    let requesting = Requesting::new().await;
+    registered(&requesting, "c-9").await;
+    let mut seen = reviewed();
+    seen[0] = SubjectPart::new(SubjectKind::Organization, "Other");
+
+    assert_eq!(
+        complete_reviewed(&requesting, "c-9", None, &seen)
+            .await
+            .unwrap_err(),
+        RequestError::SubjectChanged
+    );
+
+    requesting.nothing_left();
+    assert!(
+        requesting
+            .received("POST", &format!("{ISSUE}/c-9/issue"))
+            .await
+            .is_empty()
     );
 }
 
@@ -2108,9 +2153,14 @@ async fn the_log_of_requests_holds_no_challenge_value_or_message_of_ilm() {
     requesting.seed(Some("c-rej"), false, now());
     requesting.serve_issued("c-ok", &issued).await;
 
-    let refused = complete(&requesting, "c-reg", Some("Unique-Challenge-Z9")).await;
+    let reviewed = [SubjectPart::new(
+        SubjectKind::CommonName,
+        "Unique-Subject-Z9",
+    )];
+    let refused =
+        complete_reviewed(&requesting, "c-reg", Some("Unique-Challenge-Z9"), &reviewed).await;
     assert!(matches!(refused, Err(RequestError::Refused(_))));
-    complete(&requesting, "c-reg", Some("Unique-Challenge-Z9"))
+    complete_reviewed(&requesting, "c-reg", Some("Unique-Challenge-Z9"), &reviewed)
         .await
         .unwrap();
     let forms = requesting.forms("Unique-Cn-Z9").await;

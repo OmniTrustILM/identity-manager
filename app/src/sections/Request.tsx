@@ -811,7 +811,7 @@ function send(
     challenge: string | null,
 ): Promise<RequestedView> {
     return prepared
-        ? completeCertificate(prepared.uuid, forms, storage, keyType, challenge)
+        ? completeCertificate(prepared.uuid, forms, storage, keyType, challenge, prepared.subject)
         : requestCertificate(profile, forms, storage, keyType);
 }
 
