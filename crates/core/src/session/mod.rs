@@ -47,7 +47,7 @@ pub use attributes::FormError;
 pub use certificate::ChangeError;
 use certificate::certificate_choice;
 pub use request::{
-    EndReason, Followed, Installed, Outcome, RequestError, RequestForms, RequestInput,
+    Completion, EndReason, Followed, Installed, Outcome, RequestError, RequestForms, RequestInput,
 };
 pub use store::{Item, KeyringStore, MemoryStore, RefreshStore, StoreError};
 

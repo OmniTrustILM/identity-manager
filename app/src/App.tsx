@@ -9,8 +9,15 @@ import { Settings } from './sections/Settings';
 import { SignIn, UnreachableBanner } from './sections/SignIn';
 import { Unlock } from './sections/Unlock';
 import { useSession } from './session';
+import { useInventory } from './useInventory';
 import { strings } from './strings';
 import { followSystemScheme } from './theme';
+
+/** The shell of a signed-in person; the inventory is read only now, so that the sections can depend on it. */
+function SignedIn({ listings, platform }: Readonly<{ listings: string[]; platform: Platform }>) {
+    const { inventory } = useInventory();
+    return <Shell sections={visibleSections(listings, platform, inventory)} bottom={settingsSection(platform)} />;
+}
 
 function Main({ platform }: Readonly<{ platform: Platform }>) {
     const { view, failed } = useSession();
@@ -20,7 +27,7 @@ function Main({ platform }: Readonly<{ platform: Platform }>) {
     }
     switch (view?.state) {
         case 'signedIn':
-            return <Shell sections={visibleSections(view.allowedListings, platform)} bottom={settingsSection(platform)} />;
+            return <SignedIn listings={view.allowedListings} platform={platform} />;
         case 'signedOut':
         case 'signingIn':
             return <SignIn view={view} />;

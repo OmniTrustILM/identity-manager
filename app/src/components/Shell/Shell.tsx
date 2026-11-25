@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppInfo } from '../../app-info';
 import { onNavigate, onOpenSection, pendingNavigation, pendingSection } from '../../bridge';
 import { NavigationContext, type Showing } from '../../navigation';
@@ -13,10 +13,17 @@ interface ShellProps {
     banner?: ReactNode;
 }
 
-export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
+export function Shell({ sections: given, bottom, banner }: Readonly<ShellProps>) {
     const info = useAppInfo();
-    const [current, setCurrent] = useState(sections[0]?.id);
+    const [current, setCurrent] = useState(given[0]?.id);
     const [showing, setShowing] = useState<Showing | null>(null);
+    const seen = useRef(new Map<string, Section>());
+    for (const section of given) {
+        seen.current.set(section.id, section);
+    }
+    // A section that stops being offered while it is open stays, with its sidebar entry, until another is selected.
+    const kept = current !== undefined && !given.some((section) => section.id === current) ? seen.current.get(current) : undefined;
+    const sections = kept ? [...given, kept] : given;
     const entries = [...sections, ...(bottom ? [bottom] : [])];
     const open = entries.find((section) => section.id === current);
     const select = (id: string) => {
@@ -28,8 +35,8 @@ export function Shell({ sections, bottom, banner }: Readonly<ShellProps>) {
             setCurrent(id);
         }
     };
-    const hasOverview = sections.some((section) => section.id === 'overview');
-    const hasCertificates = sections.some((section) => section.id === 'certificates');
+    const hasOverview = given.some((section) => section.id === 'overview');
+    const hasCertificates = given.some((section) => section.id === 'certificates');
     const showCertificate = useCallback(
         (fingerprint: string) => {
             if (hasCertificates) {

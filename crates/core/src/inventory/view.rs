@@ -4,11 +4,13 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use super::{Counts, Item, Kind, Snapshot, Status, Summary, WaitingState};
+use super::prepared::is_begun;
+use super::{Counts, Item, Kind, Prepared, Snapshot, Status, SubjectPart, Summary, WaitingState};
 use crate::attributes::FormView;
-use crate::ilm::certificates::{CertificatePage, IlmCertificate};
+use crate::ilm::certificates::{CertificatePage, IlmCertificate, State};
 use crate::ilm::upload::{GroupChoice, RaProfileChoice};
-use crate::session::{AddChoices, AddOutcome, AddResult};
+use crate::requests::Waiting;
+use crate::session::{AddChoices, AddOutcome, AddResult, Followed, Outcome};
 
 /// The RA Profile that manages a certificate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -109,6 +111,80 @@ impl From<&CertificatePage> for IlmPageView {
     }
 }
 
+/// How ILM lets a certificate registered in advance be completed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct RegistrationView {
+    /// ILM's code: "active", "expired", "locked" or "closed"; a code this application does not know is passed on
+    /// as it is.
+    pub state: String,
+    /// Milliseconds since 1970 (UTC); none when the registration does not expire.
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
+    pub expires_at: Option<i64>,
+}
+
+/// A certificate ILM registered for the person in advance, to complete with a key of this computer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct PreparedView {
+    pub uuid: String,
+    pub name: String,
+    pub ra_profile: IlmRaProfileView,
+    /// None when ILM does not say.
+    pub registration: Option<RegistrationView>,
+    /// What ILM registered; empty when it does not say.
+    pub subject: Vec<SubjectPart>,
+}
+
+impl From<&Prepared> for PreparedView {
+    fn from(found: &Prepared) -> Self {
+        Self {
+            uuid: found.uuid.clone(),
+            name: found.name.clone(),
+            ra_profile: IlmRaProfileView {
+                uuid: found.ra_profile.uuid.clone(),
+                name: found.ra_profile.name.clone(),
+            },
+            registration: found
+                .registration
+                .as_ref()
+                .map(|registration| RegistrationView {
+                    state: registration.state.code().to_owned(),
+                    expires_at: registration.expires_at,
+                }),
+            subject: found.subject.clone(),
+        }
+    }
+}
+
+/// A request of the person that ILM has not finished.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct MyRequestView {
+    /// The certificate ILM made for it; none while the request is not sent.
+    pub uuid: Option<String>,
+    pub label: String,
+    /// Milliseconds since 1970 (UTC).
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number"))]
+    pub since: i64,
+    pub state: WaitingStateView,
+}
+
 /// What ILM is known to say about the certificates on this computer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -138,6 +214,10 @@ pub struct InventoryView {
     pub first_page: Option<IlmPageView>,
     /// Whether the signed-in person may ask ILM for a certificate.
     pub can_request: bool,
+    /// The certificates registered for the person in advance that they are not completing yet.
+    pub prepared: Vec<PreparedView>,
+    /// The requests of the person that ILM has not finished; given by `with_requests`.
+    pub requests: Vec<MyRequestView>,
 }
 
 /// Whether the person may list certificates: what the latest check read, else what the session knows.
@@ -176,7 +256,41 @@ impl InventoryView {
                 .and_then(|snapshot| snapshot.first_page.as_ref())
                 .map(Into::into),
             can_request,
+            prepared: snapshot.map_or_else(Vec::new, |snapshot| {
+                snapshot.prepared.iter().map(Into::into).collect()
+            }),
+            requests: Vec::new(),
         }
+    }
+
+    /// Lists the requests `waiting` of the person, each waiting for approval when the latest `followed` check found
+    /// it so, else being issued; a request that ends leaves `waiting`. A certificate one of them completes is not
+    /// offered as prepared any more.
+    #[must_use]
+    pub fn with_requests(mut self, waiting: &[Waiting], followed: &[Followed]) -> Self {
+        self.prepared
+            .retain(|found| !is_begun(&found.uuid, waiting));
+        self.requests = waiting
+            .iter()
+            .map(|entry| {
+                let approval = followed.iter().any(|found| {
+                    found.uuid.is_some()
+                        && found.uuid == entry.uuid
+                        && found.outcome == Outcome::Waiting(State::PendingApproval)
+                });
+                MyRequestView {
+                    uuid: entry.uuid.clone(),
+                    label: entry.label.clone(),
+                    since: entry.since,
+                    state: if approval {
+                        WaitingStateView::PendingApproval
+                    } else {
+                        WaitingStateView::BeingIssued
+                    },
+                }
+            })
+            .collect();
+        self
     }
 }
 
@@ -401,8 +515,14 @@ impl From<&Summary> for SummaryView {
 mod tests {
     use super::*;
     use crate::identity::Fingerprint;
-    use crate::ilm::certificates::{State, ValidationStatus};
+    use crate::ilm::IlmUrl;
+    use crate::ilm::certificates::{RaProfile, RegistrationState, State, ValidationStatus};
+    use crate::ilm::issue::Registration;
     use crate::ilm::profile::SignInCertificate;
+    use crate::inventory::{SubjectKind, SubjectPart};
+    use crate::keys::{KeyId, Storage};
+    use crate::requests::Waiting;
+    use crate::session::{EndReason, Followed, Outcome};
     use serde_json::json;
 
     fn certificate(fingerprint: Fingerprint) -> IlmCertificate {
@@ -438,6 +558,7 @@ mod tests {
             }),
             first_page,
             allowed: HashMap::from([("u-1".to_owned(), vec!["renew".to_owned()])]),
+            prepared: Vec::new(),
         }
     }
 
@@ -516,5 +637,136 @@ mod tests {
         assert!(view.listed);
         assert_eq!(view.checked_at, None);
         assert!(view.matches.is_empty() && view.sign_in.is_none() && view.checked.is_empty());
+    }
+    fn prepared(uuid: &str, state: Option<(&str, Option<i64>)>) -> Prepared {
+        Prepared {
+            uuid: uuid.to_owned(),
+            name: format!("name of {uuid}"),
+            ra_profile: RaProfile {
+                uuid: "ra-1".to_owned(),
+                name: "Servers".to_owned(),
+                authority_uuid: Some("a-1".to_owned()),
+            },
+            registration: state.map(|(code, expires_at)| Registration {
+                state: RegistrationState::from_code(code),
+                expires_at,
+            }),
+            subject: vec![
+                SubjectPart::new(SubjectKind::CommonName, "demo"),
+                SubjectPart {
+                    kind: SubjectKind::Other,
+                    value: "x".to_owned(),
+                    oid: Some("1.2.3".to_owned()),
+                },
+            ],
+        }
+    }
+
+    fn waiting(uuid: Option<&str>, key: &str, since: i64) -> Waiting {
+        Waiting {
+            ilm: IlmUrl::parse("ilm.example.com").unwrap(),
+            username: "jdoe".to_owned(),
+            uuid: uuid.map(str::to_owned),
+            ra_profile: "ra-1".to_owned(),
+            authority: "a-1".to_owned(),
+            key: KeyId {
+                storage: Storage::Software,
+                name: key.to_owned(),
+            },
+            label: format!("label of {key}"),
+            since,
+            prepared: false,
+        }
+    }
+
+    fn followed(uuid: &str, outcome: Outcome) -> Followed {
+        Followed {
+            uuid: Some(uuid.to_owned()),
+            label: "x".to_owned(),
+            outcome,
+        }
+    }
+
+    #[test]
+    fn a_prepared_certificate_is_shown_with_its_registration_and_subject() {
+        let mut held = snapshot(None);
+        held.prepared = vec![
+            prepared("c-1", Some(("active", Some(9)))),
+            prepared("c-2", Some(("locked", None))),
+            prepared("c-3", None),
+        ];
+
+        let view = InventoryView::new(Status::Never, Some(&held), false, true, true);
+
+        let json = serde_json::to_value(&view).unwrap();
+        assert_eq!(
+            json["prepared"][0],
+            json!({
+                "uuid": "c-1",
+                "name": "name of c-1",
+                "raProfile": { "uuid": "ra-1", "name": "Servers" },
+                "registration": { "state": "active", "expiresAt": 9 },
+                "subject": [
+                    { "kind": "commonName", "value": "demo", "oid": null },
+                    { "kind": "other", "value": "x", "oid": "1.2.3" }
+                ]
+            })
+        );
+        assert_eq!(
+            json["prepared"][1]["registration"],
+            json!({ "state": "locked", "expiresAt": null })
+        );
+        assert_eq!(json["prepared"][2]["registration"], json!(null));
+        assert_eq!(json["requests"], json!([]));
+    }
+
+    #[test]
+    fn a_prepared_certificate_the_person_is_completing_is_not_listed() {
+        let mut held = snapshot(None);
+        held.prepared = vec![prepared("c-1", None), prepared("c-2", None)];
+
+        let view = InventoryView::new(Status::Never, Some(&held), false, true, true)
+            .with_requests(&[waiting(Some("c-2"), "k-2", 5)], &[]);
+
+        let uuids: Vec<_> = view
+            .prepared
+            .iter()
+            .map(|found| found.uuid.as_str())
+            .collect();
+        assert_eq!(uuids, ["c-1"]);
+    }
+
+    #[test]
+    fn the_requests_of_the_person_show_how_they_stand_and_an_earlier_end_does_not_hide_one() {
+        let followed = [
+            followed("c-1", Outcome::Waiting(State::PendingApproval)),
+            followed("c-2", Outcome::Waiting(State::PendingIssue)),
+            followed("c-3", Outcome::Ended(EndReason::Rejected)),
+            followed("c-4", Outcome::Mismatch),
+            followed("c-5", Outcome::Ended(EndReason::ReturnedToRegistered)),
+        ];
+        let waiting = [
+            waiting(Some("c-1"), "k-1", 10),
+            waiting(Some("c-2"), "k-2", 20),
+            waiting(Some("c-3"), "k-3", 30),
+            waiting(Some("c-4"), "k-4", 40),
+            waiting(Some("c-5"), "k-5", 50),
+            waiting(None, "k-6", 60),
+        ];
+
+        let view = InventoryView::new(Status::Never, None, false, true, true)
+            .with_requests(&waiting, &followed);
+
+        assert_eq!(
+            serde_json::to_value(&view.requests).unwrap(),
+            json!([
+                { "uuid": "c-1", "label": "label of k-1", "since": 10, "state": "pendingApproval" },
+                { "uuid": "c-2", "label": "label of k-2", "since": 20, "state": "beingIssued" },
+                { "uuid": "c-3", "label": "label of k-3", "since": 30, "state": "beingIssued" },
+                { "uuid": "c-4", "label": "label of k-4", "since": 40, "state": "beingIssued" },
+                { "uuid": "c-5", "label": "label of k-5", "since": 50, "state": "beingIssued" },
+                { "uuid": null, "label": "label of k-6", "since": 60, "state": "beingIssued" }
+            ])
+        );
     }
 }

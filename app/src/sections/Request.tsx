@@ -1,14 +1,17 @@
-import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { type ReactNode, type RefObject, useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
     type AttributeFieldProblem,
     type AttributeFormView,
     type AttributeValue,
     closeForm,
+    completeCertificate,
     type FollowView,
     followRequest,
     stopFollowingRequest,
     type KeyTypeId,
+    openPreparedForms,
     openRequestForms,
+    type PreparedView,
     type Platform,
     type RaProfileChoice,
     type RequestFailure,
@@ -20,9 +23,11 @@ import {
     requestFailure,
     requestOffers,
     type StorageId,
+    type SubjectKind,
 } from '../bridge';
 import { AttributeForm, type AttributeState } from '../components/AttributeForm/AttributeForm';
 import { textOf } from '../components/AttributeForm/values';
+import { TextField } from '../components/TextField/TextField';
 import { Select } from '../components/Switch/Select';
 import { BusyIcon, ExpiredIcon, ExpiringIcon, FineIcon, WarningIcon } from '../design-system/icons';
 import { strings } from '../strings';
@@ -33,6 +38,30 @@ type Phase = { kind: 'filling' } | { kind: 'requesting' } | { kind: 'followed'; 
 type Refusal = { messages: string[]; problems: AttributeFieldProblem[] };
 
 const stepOrder: Step[] = ['profile', 'attributes', 'key', 'review'];
+const preparedOrder: Step[] = ['attributes', 'key', 'review'];
+/** What ILM says when the challenge of a prepared certificate is wrong or can no longer be used. */
+const challengeRefusals = new Set([
+    'The certificate registration challenge is invalid.',
+    'The certificate registration challenge is required.',
+    'The certificate registration authorization is locked after too many failed attempts.',
+    'The certificate registration issuance window has expired.',
+    'An authorization secret was presented but the certificate has no active registration authorization to verify it against.',
+]);
+/**
+ * The parts of a prepared subject that name the certificate, an email among them when it carries its OID; the others
+ * are alternative names.
+ */
+const nameKinds = new Set<SubjectKind>([
+    'commonName',
+    'organization',
+    'organizationalUnit',
+    'country',
+    'state',
+    'locality',
+    'serialNumber',
+    'domainComponent',
+    'other',
+]);
 const kinds: FormKind[] = ['request', 'issue', 'custom'];
 const groupNames: Record<FormKind, string> = {
     request: strings.certificateRequestGroup,
@@ -71,6 +100,12 @@ function subjectOf(form: AttributeFormView | null, values: AttributeState['value
         .join(', ');
 }
 
+const preparedSubject = (prepared: PreparedView) =>
+    prepared.subject
+        .filter((part) => nameKinds.has(part.kind) || (part.kind === 'email' && part.oid !== null))
+        .map((part) => part.value)
+        .join(', ');
+
 function Stepper({ step, steps }: Readonly<{ step: Step; steps: Step[] }>) {
     const at = steps.indexOf(step);
     return (
@@ -87,7 +122,7 @@ function Stepper({ step, steps }: Readonly<{ step: Step; steps: Step[] }>) {
                             {done ? '✓' : index + 1}
                         </span>
                         <span className={`text-body ${current ? 'text-primary' : 'text-secondary'}`}>
-                            {strings.requestStepNames[index]}
+                            {strings.requestStepNames[stepOrder.indexOf(name)]}
                             {done && <span className="sr-only">{`, ${strings.stepDone}`}</span>}
                         </span>
                         {index < steps.length - 1 && <span aria-hidden className="h-px min-w-s3 flex-1 bg-separator" />}
@@ -145,13 +180,33 @@ function Cards({
 function Rows({ rows }: Readonly<{ rows: [string, string][] }>) {
     return (
         <dl className="flex flex-col divide-y divide-separator rounded-control border border-separator">
-            {rows.map(([name, text]) => (
-                <div key={name} className="flex gap-s3 px-s3 py-s2 text-body">
+            {rows.map(([name, text], at) => (
+                <div key={`${at}-${name}`} className="flex gap-s3 px-s3 py-s2 text-body">
                     <dt className="w-1/3 shrink-0 text-secondary">{name}</dt>
                     <dd className="min-w-0 flex-1 text-primary">{text}</dd>
                 </div>
             ))}
         </dl>
+    );
+}
+
+/** What the administrator registered for a certificate, as it stands and cannot be changed. */
+function PreparedGroup({ prepared }: Readonly<{ prepared: PreparedView | undefined }>) {
+    const id = useId();
+    if (!prepared) {
+        return null;
+    }
+    const rows: [string, string][] = prepared.subject.map((part) => [
+        part.kind === 'other' && part.oid ? part.oid : strings.subjectLabels[part.kind],
+        part.value,
+    ]);
+    return (
+        <section aria-labelledby={id} className="flex flex-col gap-s3">
+            <h3 id={id} className="border-b border-separator pb-s1 text-body font-semibold text-primary">
+                {strings.preparedBy}
+            </h3>
+            <Rows rows={[...rows, [strings.raProfileLabel, prepared.raProfile.name]]} />
+        </section>
     );
 }
 
@@ -264,16 +319,28 @@ const settled = (view: FollowView) => view.state === 'installed' || view.state =
  * review, and then how the request fares. Nothing is created before the review is confirmed.
  */
 export function Request({
-    profiles,
+    profiles = [],
+    prepared,
     platform,
     onClose,
-}: Readonly<{ profiles: RaProfileChoice[]; platform: Platform; onClose: () => void }>) {
+}: Readonly<{
+    profiles?: RaProfileChoice[];
+    /** A certificate registered in advance to complete: the sheet has no profile step and shows what was registered. */
+    prepared?: PreparedView;
+    platform: Platform;
+    onClose: () => void;
+}>) {
     const titleId = useId();
+    const challengeId = useId();
     const panel = useRef<HTMLDialogElement>(null);
-    const single = profiles.length === 1;
+    const challengeField = useRef<HTMLInputElement>(null);
+    const single = prepared !== undefined || profiles.length === 1;
     const [step, setStep] = useState<Step>(single ? 'attributes' : 'profile');
     const [profile, setProfile] = useState(profiles[0]?.uuid ?? '');
-    const [opened, setOpened] = useState<string | null>(single ? (profiles[0]?.uuid ?? null) : null);
+    const [opened, setOpened] = useState<string | null>(() => firstOpened(prepared, profiles, single));
+    const [challenge, setChallenge] = useState('');
+    const [challengeProblems, setChallengeProblems] = useState<string[]>([]);
+    const [challengeAsked, setChallengeAsked] = useState(false);
     const [forms, setForms] = useState<RequestFormsView | null>(null);
     const [formsFailed, setFormsFailed] = useState(false);
     const [states, setStates] = useState<Partial<Record<FormKind, AttributeState>>>({});
@@ -308,7 +375,7 @@ export function Request({
         }
         let current = true;
         let loaded: RequestFormsView | null = null;
-        openRequestForms(opened).then(
+        (prepared ? openPreparedForms(opened) : openRequestForms(opened)).then(
             (result) => {
                 loaded = result;
                 if (current) {
@@ -325,7 +392,7 @@ export function Request({
                 closeAll(loaded);
             }
         };
-    }, [opened]);
+    }, [opened, prepared]);
 
     useEffect(() => {
         if (step !== 'key' || offers !== null || offersFailed) {
@@ -348,6 +415,12 @@ export function Request({
             current = false;
         };
     }, [step, offers, offersFailed]);
+
+    useEffect(() => {
+        if (challengeProblems.length > 0) {
+            challengeField.current?.focus();
+        }
+    }, [challengeProblems]);
 
     const requested = phase.kind === 'followed' ? phase.requested.certificate : null;
     useEffect(() => {
@@ -396,6 +469,7 @@ export function Request({
     const keyReady = storage !== null && offer?.keyTypes.includes(keyType) === true;
     const blocked = present.some((kind) => states[kind]?.blocked);
     const chosen = profiles.find((candidate) => candidate.uuid === profile);
+    const needsChallenge = prepared?.registration?.state === 'active' || challengeAsked;
 
     const goTo = (next: Step) => {
         setProblem(null);
@@ -431,8 +505,11 @@ export function Request({
         setProblem(null);
         setRefusal(null);
         setSubmitted(true);
+        setChallengeProblems([]);
         setPhase({ kind: 'requesting' });
-        requestCertificate(profile, filled, storage, keyType).then(
+        const sending = send(prepared, profile, filled, storage, keyType, needsChallenge ? challenge : null);
+        setChallenge('');
+        sending.then(
             (done) => {
                 consumed.current = true;
                 if (!mounted.current) {
@@ -448,15 +525,19 @@ export function Request({
                     return;
                 }
                 const failure: RequestFailure = requestFailure(error);
+                const place = placeOf(failure, prepared !== undefined);
                 setPhase({ kind: 'filling' });
-                if (failure.kind === 'message') {
-                    setProblem(failure.message || strings.requestFailed);
-                } else {
-                    setRefusal({
-                        messages: failure.kind === 'refused' ? failure.messages : [],
-                        problems: failure.kind === 'problems' ? failure.problems : noProblems,
-                    });
-                    setStep('attributes');
+                setChallengeAsked((asked) => asked || asksForChallenge(failure, prepared !== undefined));
+                switch (place.kind) {
+                    case 'challenge':
+                        setChallengeProblems(place.messages);
+                        break;
+                    case 'review':
+                        setProblem(place.message);
+                        break;
+                    default:
+                        setRefusal(place.refusal);
+                        setStep('attributes');
                 }
             },
         );
@@ -501,7 +582,7 @@ export function Request({
         chip: candidate.storage === offers?.defaultStorage ? strings.recommended : undefined,
     }));
     const where = strings.keyPlace(storage ?? '', platform);
-    const subject = subjectOf(forms?.request ?? null, states.request?.values);
+    const sheet = sheetOf(prepared, chosen, subjectOf(forms?.request ?? null, states.request?.values));
     const title = (text: string) => (
         <h3 key={text} ref={focusNode} tabIndex={-1} className="text-title font-semibold text-primary outline-none">
             {text}
@@ -586,12 +667,23 @@ export function Request({
                 )}
                 <Rows
                     rows={[
-                        [strings.reviewProfile, chosen?.name ?? ''],
-                        [strings.reviewSubject, subject],
+                        ...sheet.reviewed,
                         [strings.reviewKey, strings.reviewNewKey(where)],
                         [strings.reviewKeyType, strings.keyTypeNames[keyType] ?? keyType],
                         [strings.reviewInstalledIn, strings.installedPlace(platform)],
                     ]}
+                />
+                <ChallengeField
+                    shown={needsChallenge}
+                    id={challengeId}
+                    inputRef={challengeField}
+                    value={challenge}
+                    problems={challengeProblems}
+                    disabled={busy}
+                    onChange={(value) => {
+                        setChallenge(value);
+                        setChallengeProblems([]);
+                    }}
                 />
                 <ol aria-label={strings.requestPlanName} className="flex flex-col gap-s2">
                     {strings.requestPlan(where).map((line, index) => (
@@ -615,8 +707,8 @@ export function Request({
                     {strings.requesting}
                 </button>
             ) : (
-                <button type="button" onClick={request} className={primary + wide}>
-                    {strings.requestCertificate}
+                <button type="button" disabled={needsChallenge && challenge === ''} onClick={request} className={primary + wide}>
+                    {sheet.confirm}
                 </button>
             ),
             <button type="button" disabled={busy} onClick={() => goTo('key')} className={`${secondary}${wide} disabled:opacity-disabled`}>
@@ -629,6 +721,7 @@ export function Request({
         <div hidden={step !== 'attributes'} className="flex flex-col gap-s3">
             {step === 'attributes' && title(strings.fillAttributes)}
             {refusal && <Refused refusal={refusal} />}
+            <PreparedGroup prepared={prepared} />
             {formsFailed && (
                 <p role="alert" className="text-body text-bad">
                     {strings.requestFormsFailed}
@@ -671,15 +764,144 @@ export function Request({
             className="m-auto box-content flex h-wizard max-h-[85vh] w-wizard flex-col gap-s3 rounded-window border border-separator bg-surface p-s5 text-primary backdrop:bg-primary/40"
         >
             <h2 id={titleId} className="text-title font-semibold text-primary">
-                {strings.requestTitle}
+                {sheet.title}
             </h2>
-            {step !== 'result' && <Stepper step={step} steps={stepOrder} />}
+            {step !== 'result' && <Stepper step={step} steps={sheet.steps} />}
             <div className="flex min-h-0 flex-1 flex-col gap-s3 overflow-y-auto">
                 {attributes}
                 {body}
             </div>
             {step === 'attributes' ? attributeActions : actions}
         </dialog>
+    );
+}
+
+const isChallengeRefusal = (message: string) => challengeRefusals.has(message);
+
+/** The RA Profile whose forms open first: the prepared certificate's, or the only one there is. */
+function firstOpened(prepared: PreparedView | undefined, profiles: RaProfileChoice[], single: boolean): string | null {
+    if (prepared) {
+        return prepared.uuid;
+    }
+    return single ? (profiles[0]?.uuid ?? null) : null;
+}
+
+/** What the sheet says for a new request, or for completing `prepared`, whose subject is the registered one. */
+type Sheet = { title: string; steps: Step[]; confirm: string; reviewed: [string, string][] };
+
+function sheetOf(prepared: PreparedView | undefined, chosen: RaProfileChoice | undefined, requested: string): Sheet {
+    if (prepared) {
+        return {
+            title: strings.issueTitle(prepared.name),
+            steps: preparedOrder,
+            confirm: strings.issueCertificate,
+            reviewed: [
+                [strings.reviewCertificate, prepared.name],
+                [strings.reviewSubject, preparedSubject(prepared)],
+                [strings.raProfileLabel, prepared.raProfile.name],
+            ],
+        };
+    }
+    return {
+        title: strings.requestTitle,
+        steps: stepOrder,
+        confirm: strings.requestCertificate,
+        reviewed: [
+            [strings.reviewProfile, chosen?.name ?? ''],
+            [strings.reviewSubject, requested],
+        ],
+    };
+}
+
+/** Whether ILM asks for the challenge of a prepared certificate, among whatever else it refuses. */
+const asksForChallenge = (failure: RequestFailure, prepared: boolean) =>
+    prepared && failure.kind === 'refused' && failure.messages.some(isChallengeRefusal);
+
+/** Where a failed send is shown: ILM's challenge texts under the challenge field, a message on the review, the rest with the attributes. */
+type FailurePlace =
+    | { kind: 'challenge'; messages: string[] }
+    | { kind: 'review'; message: string }
+    | { kind: 'attributes'; refusal: Refusal };
+
+function placeOf(failure: RequestFailure, prepared: boolean): FailurePlace {
+    if (prepared && failure.kind === 'refused' && failure.messages.length > 0 && failure.messages.every(isChallengeRefusal)) {
+        return { kind: 'challenge', messages: failure.messages };
+    }
+    if (failure.kind === 'message') {
+        return { kind: 'review', message: failure.message || strings.requestFailed };
+    }
+    return {
+        kind: 'attributes',
+        refusal: {
+            messages: failure.kind === 'refused' ? failure.messages : [],
+            problems: failure.kind === 'problems' ? failure.problems : noProblems,
+        },
+    };
+}
+
+/** Sends a new request, or completes the prepared certificate with the challenge, when the review asks for one. */
+function send(
+    prepared: PreparedView | undefined,
+    profile: string,
+    forms: RequestForms,
+    storage: StorageId,
+    keyType: KeyTypeId,
+    challenge: string | null,
+): Promise<RequestedView> {
+    return prepared
+        ? completeCertificate(prepared.uuid, forms, storage, keyType, challenge, prepared.subject)
+        : requestCertificate(profile, forms, storage, keyType);
+}
+
+/** The challenge of a prepared certificate, with ILM's texts about it under the field. */
+function ChallengeField({
+    shown,
+    id,
+    inputRef,
+    value,
+    problems,
+    disabled,
+    onChange,
+}: Readonly<{
+    shown: boolean;
+    id: string;
+    inputRef: RefObject<HTMLInputElement | null>;
+    value: string;
+    problems: string[];
+    disabled: boolean;
+    onChange: (value: string) => void;
+}>) {
+    if (!shown) {
+        return null;
+    }
+    const invalid = problems.length > 0;
+    return (
+        <div className="flex flex-col gap-s1">
+            <label htmlFor={id} className="text-caption font-semibold text-secondary">
+                {strings.challenge}
+            </label>
+            <TextField
+                id={id}
+                ref={inputRef}
+                type="password"
+                autoComplete="off"
+                disabled={disabled}
+                value={value}
+                aria-invalid={invalid || undefined}
+                aria-describedby={invalid ? `${id}-hint ${id}-problem` : `${id}-hint`}
+                onChange={(event) => onChange(event.target.value)}
+            />
+            <p id={`${id}-hint`} className="text-caption text-secondary">
+                {strings.challengeHint}
+            </p>
+            {invalid && (
+                <div id={`${id}-problem`} role="alert" className="flex flex-col text-caption text-bad">
+                    {problems.map((message) => (
+                        <p key={message}>{message}</p>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
 

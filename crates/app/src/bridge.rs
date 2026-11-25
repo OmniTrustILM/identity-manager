@@ -789,12 +789,14 @@ mod tests {
                 "allow-request-offers",
                 "allow-request-certificate",
                 "allow-follow-request",
-                "allow-stop-following-request"
+                "allow-stop-following-request",
+                "allow-open-prepared-forms",
+                "allow-complete-certificate"
             ])
         );
     }
 
-    const REQUEST_COMMANDS: [(&str, &str); 6] = [
+    const REQUEST_COMMANDS: [(&str, &str); 8] = [
         ("request_choices", "{}"),
         ("open_request_forms", r#"{"raProfile":"ra-1"}"#),
         ("request_offers", "{}"),
@@ -804,6 +806,11 @@ mod tests {
         ),
         ("follow_request", r#"{"certificate":"c-1"}"#),
         ("stop_following_request", r#"{"certificate":"c-1"}"#),
+        ("open_prepared_forms", r#"{"uuid":"c-1"}"#),
+        (
+            "complete_certificate",
+            r#"{"uuid":"c-1","forms":{},"storage":"software","keyType":"ecP256","challenge":null}"#,
+        ),
     ];
 
     #[test]

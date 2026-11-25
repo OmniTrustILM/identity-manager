@@ -2,6 +2,8 @@
 import type { IlmCertificateView } from "./IlmCertificateView";
 import type { IlmPageView } from "./IlmPageView";
 import type { InventoryStatus } from "./InventoryStatus";
+import type { MyRequestView } from "./MyRequestView";
+import type { PreparedView } from "./PreparedView";
 
 /**
  * What ILM is known to say about the certificates on this computer.
@@ -37,4 +39,12 @@ signIn: string | null, firstPage: IlmPageView | null,
 /**
  * Whether the signed-in person may ask ILM for a certificate.
  */
-canRequest: boolean, };
+canRequest: boolean, 
+/**
+ * The certificates registered for the person in advance that they are not completing yet.
+ */
+prepared: Array<PreparedView>, 
+/**
+ * The requests of the person that ILM has not finished; given by `with_requests`.
+ */
+requests: Array<MyRequestView>, };

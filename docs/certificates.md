@@ -141,3 +141,33 @@ The key is created on the computer and never leaves it. Only a request signed wi
 - If ILM issued a certificate that does not match the key, it is not installed.
 - ILM may refuse the request, for example for a missing permission or a value it does not accept. Identity Manager
   shows ILM's text as it is, and the person can go back and correct the attributes.
+
+## Requests
+
+The Requests section appears on macOS and Windows when there is something in it: certificates prepared for the person
+in advance, or the person's own requests that ILM has not finished.
+
+### Ready for you to issue
+
+An administrator can register a certificate in ILM in advance, with its subject already set, and make the person its
+owner. Identity Manager finds these certificates at every check of ILM and lists them under "Ready for you to issue"
+with their RA Profile and, when ILM limits the time to issue them, how many days are left. A notification, "A
+certificate is ready for you to issue", is shown once for each of them.
+
+"Issue…" opens the same steps as a request, without the profile step. The subject the administrator registered is
+shown and cannot be changed; the person fills in the other attributes ILM asks for and chooses where the key lives.
+When ILM protects the certificate with a challenge, the Review step asks for it. The administrator gives the
+challenge to the person with the certificate. Identity Manager sends it with the request and never keeps it. If ILM
+does not accept it, ILM's text is shown and the person can try again; after too many wrong attempts ILM locks the
+certificate.
+
+When the time to issue has ended or the certificate is locked, the row says so and "Ask your administrator": it
+cannot be issued from Identity Manager any more.
+
+After "Issue certificate", the certificate is installed as after a request (see "After the request").
+
+### My requests
+
+The person's requests that are waiting for approval or being issued are listed with their state and when they were
+requested. A request that ends is no longer listed; its outcome was shown or notified. A request waiting for approval
+cannot be cancelled from Identity Manager, as ILM cannot cancel it.

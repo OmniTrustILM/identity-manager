@@ -451,7 +451,9 @@ mod tests {
                 crate::request::request_offers,
                 crate::request::request_certificate,
                 crate::request::follow_request,
-                crate::request::stop_following_request
+                crate::request::stop_following_request,
+                crate::request::open_prepared_forms,
+                crate::request::complete_certificate
             ])
             .build(mock_context(noop_assets()))
             .expect("the mock app builds");
@@ -883,7 +885,7 @@ mod tests {
         assert!(fixture.browser.0.lock().unwrap().is_empty());
     }
 
-    fn request_commands() -> [(&'static str, serde_json::Value); 5] {
+    fn request_commands() -> [(&'static str, serde_json::Value); 7] {
         [
             ("request_choices", serde_json::json!({})),
             (
@@ -900,6 +902,14 @@ mod tests {
             (
                 "follow_request",
                 serde_json::json!({ "certificate": "c-1" }),
+            ),
+            ("open_prepared_forms", serde_json::json!({ "uuid": "c-1" })),
+            (
+                "complete_certificate",
+                serde_json::json!({
+                    "uuid": "c-1", "forms": {}, "storage": "software", "keyType": "ecP256",
+                    "challenge": "secret", "subject": []
+                }),
             ),
         ]
     }

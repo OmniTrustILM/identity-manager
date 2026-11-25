@@ -14,6 +14,8 @@ use crate::identity::Fingerprint;
 pub const MATCH_LIMIT: usize = 1000;
 /// The size of a page of the list the person browses.
 pub const PAGE_SIZE: u32 = 50;
+/// The most certificates registered in advance that one check lists.
+pub const REGISTERED_LIMIT: u32 = 100;
 
 macro_rules! ilm_enum {
     ($(#[$meta:meta])* $name:ident { $($variant:ident => $code:literal),+ $(,)? }) => {
@@ -72,6 +74,16 @@ ilm_enum!(
 );
 
 ilm_enum!(
+    /// Whether the person may still complete a certificate registered in advance.
+    RegistrationState {
+        Active => "active",
+        Expired => "expired",
+        Locked => "locked",
+        Closed => "closed",
+    }
+);
+
+ilm_enum!(
     /// What ILM's last validation of a certificate found.
     ValidationStatus {
         NotChecked => "not_checked",
@@ -90,6 +102,9 @@ ilm_enum!(
 pub struct RaProfile {
     pub uuid: String,
     pub name: String,
+    /// The authority the profile issues from, when ILM says.
+    #[serde(default)]
+    pub authority_uuid: Option<String>,
 }
 
 /// A certificate in ILM's inventory.
@@ -155,9 +170,11 @@ struct RawCertificate {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RawNamed {
     uuid: Option<String>,
     name: Option<String>,
+    authority_instance_uuid: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -200,6 +217,7 @@ impl RawCertificate {
             Some(RaProfile {
                 uuid: present(profile.uuid)?,
                 name: present(profile.name)?,
+                authority_uuid: present(profile.authority_instance_uuid),
             })
         });
         Ok(IlmCertificate {
@@ -230,7 +248,7 @@ impl RawCertificate {
 }
 
 /// A time as ILM writes it: an ISO 8601 text, or milliseconds since the epoch.
-fn millis(value: &Value) -> Option<i64> {
+pub(super) fn millis(value: &Value) -> Option<i64> {
     match value {
         Value::Number(number) => number.as_i64(),
         Value::String(text) => parse_iso(text),
@@ -311,6 +329,18 @@ impl Search {
             filters,
             items_per_page: PAGE_SIZE,
             page_number: page_number.max(1),
+        }
+    }
+
+    /// The first page of the certificates registered in advance and owned by `username`.
+    pub fn registered(username: &str) -> Self {
+        Self {
+            filters: vec![
+                property_filter("CERTIFICATE_STATE", "EQUALS", json!(["registered"])),
+                property_filter("OWNER", "EQUALS", json!([username])),
+            ],
+            items_per_page: REGISTERED_LIMIT,
+            page_number: 1,
         }
     }
 
@@ -653,6 +683,54 @@ mod tests {
                 "value": "web"
             })]
         );
+    }
+
+    #[test]
+    fn the_registered_search_filters_on_the_state_and_the_owner_in_one_page() {
+        let request = Search::registered("ada")
+            .request(&client_for_tests(), &IlmUrl::for_tests("https://x"))
+            .build()
+            .unwrap();
+        let body: Value =
+            serde_json::from_slice(request.body().unwrap().as_bytes().unwrap()).unwrap();
+        assert_eq!(
+            body,
+            json!({
+                "filters": [
+                    {
+                        "fieldSource": "property",
+                        "fieldIdentifier": "CERTIFICATE_STATE",
+                        "condition": "EQUALS",
+                        "value": ["registered"]
+                    },
+                    {
+                        "fieldSource": "property",
+                        "fieldIdentifier": "OWNER",
+                        "condition": "EQUALS",
+                        "value": ["ada"]
+                    }
+                ],
+                "itemsPerPage": 100,
+                "pageNumber": 1
+            })
+        );
+    }
+
+    #[test]
+    fn the_authority_of_the_ra_profile_is_read_and_an_old_cache_without_it_still_reads() {
+        let mut item = full();
+        item["raProfile"]["authorityInstanceUuid"] = json!("a-1");
+        let certificate = parsed(item).unwrap();
+        assert_eq!(
+            certificate.ra_profile.unwrap().authority_uuid.as_deref(),
+            Some("a-1")
+        );
+        assert_eq!(
+            parsed(full()).unwrap().ra_profile.unwrap().authority_uuid,
+            None
+        );
+        let old: RaProfile = serde_json::from_value(json!({ "uuid": "r", "name": "n" })).unwrap();
+        assert_eq!(old.authority_uuid, None);
     }
 
     fn fingerprints(count: usize) -> Vec<Fingerprint> {

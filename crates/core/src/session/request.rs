@@ -24,6 +24,7 @@ use crate::ilm::issue::{
 use crate::ilm::profile::IlmError;
 use crate::ilm::upload::{RaProfileChoice, ra_profiles_request, read_ra_profiles};
 use crate::install::{intermediates, is_for_key};
+use crate::inventory::{SubjectPart, subject_parts};
 use crate::keys::{
     KeyError, KeyId, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable,
     registered_subject, signing_request, subject,
@@ -44,6 +45,16 @@ pub struct RequestForms {
     pub request: Option<FormView>,
     pub issue: Option<FormView>,
     pub custom: Option<FormView>,
+}
+
+/// The certificate registered in advance that is completed, and the RA Profile it is completed under.
+pub struct Completion<'a> {
+    pub uuid: &'a str,
+    /// The name to show the request by when the subject has no common name.
+    pub name: &'a str,
+    pub ra_profile: &'a RaProfileChoice,
+    /// The subject the person reviewed; the request is not sent when ILM now registers another one.
+    pub subject: &'a [SubjectPart],
 }
 
 /// The forms the person filled in.
@@ -78,6 +89,8 @@ pub enum RequestError {
     Malformed,
     /// The request could not be written down.
     Store,
+    /// ILM registered another subject for the certificate than the one the person reviewed.
+    SubjectChanged,
 }
 
 impl fmt::Display for RequestError {
@@ -109,6 +122,9 @@ impl fmt::Display for RequestError {
                 f.write_str("ILM answered in a way this application does not understand.")
             }
             Self::Store => f.write_str("The request could not be recorded on this computer."),
+            Self::SubjectChanged => {
+                f.write_str("Your administrator changed this certificate in ILM. Open it again.")
+            }
         }
     }
 }
@@ -385,13 +401,18 @@ impl Session {
     /// challenge ILM asks for is held for this call only.
     pub async fn complete(
         &self,
-        uuid: &str,
-        ra_profile: &RaProfileChoice,
+        completion: Completion<'_>,
         forms: RequestInput,
         storage: Storage,
         key_type: KeyType,
         challenge: Option<Challenge>,
     ) -> Result<Waiting, RequestError> {
+        let Completion {
+            uuid,
+            name,
+            ra_profile,
+            subject: reviewed,
+        } = completion;
         let authority = ra_profile
             .authority_uuid
             .as_deref()
@@ -404,6 +425,9 @@ impl Session {
             registered.subject_dn.as_deref(),
             &registered.alternative_names,
         )?;
+        if subject_parts(&subject) != reviewed {
+            return Err(RequestError::SubjectChanged);
+        }
         let generation = self.forms.generation();
         let mut taken = Vec::new();
         let attributes = self.take_attributes(&forms, &mut taken);
@@ -415,7 +439,7 @@ impl Session {
             key_type,
             subject,
             registered: Some((uuid, challenge.as_ref())),
-            label: uuid,
+            label: name,
         };
         let sent = self.submit(&id, &requests, &order, &attributes).await;
         self.reopen_on_error(sent, &mut taken, generation)
@@ -515,7 +539,8 @@ impl Session {
 
     /// Makes the key, then signs and sends the request; anything that fails after the key exists removes the key
     /// and the written request, except a completion whose answer was lost: its certificate is known, so it is
-    /// followed. No follow runs meanwhile, so it never takes up a request still being sent.
+    /// followed. No follow runs meanwhile, so it never takes up a request still being sent. A certificate an earlier
+    /// request of the person is still completing is not sent again.
     async fn submit(
         &self,
         id: &Arc<()>,
@@ -532,6 +557,14 @@ impl Session {
             log::warn!("the waiting requests cannot be read: {error}");
             RequestError::Store
         })?;
+        if let Some((uuid, _)) = order.registered
+            && requests
+                .of(&who.ilm, &who.username)
+                .iter()
+                .any(|entry| entry.uuid.as_deref() == Some(uuid))
+        {
+            return Err(RequestError::NotRegistered);
+        }
         let (storage, key_type) = (order.storage, order.key_type);
         let key = self
             .in_keys(move |keys| keys.create(storage, key_type))
@@ -672,6 +705,14 @@ impl Session {
         tokio::task::spawn_blocking(move || work(keys.as_ref()))
             .await
             .expect("the key storage task does not panic")
+    }
+
+    /// The requests of the person signed in that wait for ILM; none while nobody is signed in.
+    pub fn waiting_requests(&self) -> Vec<Waiting> {
+        match (&self.requests, self.current_sign_in()) {
+            (Some(requests), Some(who)) => requests.of(&who.ilm, &who.username),
+            _ => Vec::new(),
+        }
     }
 
     /// Follows every request of the person signed in: asks ILM how each stands, installs the certificate of one

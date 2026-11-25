@@ -1,5 +1,6 @@
 //! The notifications of the application: the sign-in has ended and has to be repeated, a certificate starts
-//! expiring, has expired or was revoked in ILM, and a request for a certificate ends.
+//! expiring, has expired or was revoked in ILM, a request for a certificate ends, and a certificate is ready to
+//! issue.
 
 use std::collections::HashSet;
 use std::io::ErrorKind;
@@ -9,7 +10,7 @@ use std::sync::{Mutex, PoisonError};
 
 use im_core::Platform;
 use im_core::identity::Fingerprint;
-use im_core::inventory::{Item, Kind as Attention, Summary};
+use im_core::inventory::{Item, Kind as Attention, Prepared, Summary};
 use im_core::session::{EndReason, Followed, Outcome, SessionView};
 use im_core::settings::store::write_atomically;
 use serde::{Deserialize, Serialize};
@@ -128,6 +129,11 @@ fn certificate_key(kind: Kind, fingerprint: &Fingerprint) -> String {
 /// What is remembered of a request told about, once for each outcome.
 fn request_key(outcome: &str, certificate: &str) -> String {
     format!("request:{outcome}:{certificate}")
+}
+
+/// What is remembered of a certificate ready to issue, once for each certificate.
+fn prepared_key(certificate: &str) -> String {
+    format!("prepared:ready:{certificate}")
 }
 
 /// A notification to show, and the key it is remembered by.
@@ -392,6 +398,44 @@ impl Notices {
                 self.show(notice.title, &notice.body, notice.kind);
             }
             kept.push(notice.key);
+        }
+        if kept.len() != held.len() {
+            *held = kept;
+            self.save(held);
+        }
+    }
+
+    /// Tells the person about each certificate in `ready`, once for each certificate, also after a restart. `current`
+    /// and `may_tell` are asked as for `summary`.
+    pub fn prepared(
+        &self,
+        ready: &[Prepared],
+        current: impl Fn() -> bool,
+        may_tell: impl Fn() -> bool,
+    ) {
+        let mut remembered = self
+            .remembered
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if !current() {
+            return;
+        }
+        let held = remembered.get_or_insert_with(|| self.load());
+        let mut kept = held.clone();
+        for found in ready {
+            let key = prepared_key(&found.uuid);
+            if kept.contains(&key) {
+                continue;
+            }
+            if !may_tell() {
+                break;
+            }
+            self.show(
+                "Certificate ready",
+                &format!("A certificate is ready for you to issue: {}", found.name),
+                "ready",
+            );
+            kept.push(key);
         }
         if kept.len() != held.len() {
             *held = kept;
@@ -1006,6 +1050,7 @@ mod tests {
         assert_eq!(told(&log).len(), 1);
     }
 
+    use im_core::ilm::certificates::RaProfile;
     use im_core::keys::Storage;
     use im_core::session::Installed;
 
@@ -1154,6 +1199,66 @@ mod tests {
         restarted.followed(&done, || true, || true);
         restarted.followed(&[followed("c-2", "Other", installed())], || true, || true);
 
+        assert_eq!(told(&log).len(), 1);
+    }
+
+    fn prepared(uuid: &str, name: &str) -> Prepared {
+        Prepared {
+            uuid: uuid.to_owned(),
+            name: name.to_owned(),
+            ra_profile: RaProfile {
+                uuid: "ra-1".to_owned(),
+                name: "Servers".to_owned(),
+                authority_uuid: None,
+            },
+            registration: None,
+            subject: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn a_certificate_ready_to_issue_is_told_with_its_name() {
+        let (notices, log) = notices(Platform::Macos);
+
+        notices.prepared(&[prepared("c-1", "demo220")], || true, || true);
+
+        assert_eq!(
+            told(&log),
+            [pair(
+                "Certificate ready",
+                "A certificate is ready for you to issue: demo220"
+            )]
+        );
+    }
+
+    #[test]
+    fn a_certificate_ready_to_issue_is_told_once_also_after_a_restart() {
+        let folder = tempfile::tempdir().unwrap();
+        let (first, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        let ready = [prepared("c-1", "demo220")];
+        first.prepared(&ready, || true, || true);
+        first.prepared(&ready, || true, || true);
+        assert_eq!(told(&log).len(), 1);
+
+        let (restarted, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        restarted.prepared(&ready, || true, || true);
+        restarted.prepared(&[prepared("c-2", "other")], || true, || true);
+
+        assert_eq!(told(&log).len(), 1);
+        let stored = std::fs::read_to_string(folder.path().join("notified.json")).unwrap();
+        assert!(stored.contains("prepared:ready:c-1") && stored.contains("prepared:ready:c-2"));
+    }
+
+    #[test]
+    fn a_ready_notice_waits_while_telling_is_not_allowed_and_for_a_superseded_check() {
+        let (notices, log) = notices(Platform::Macos);
+        let ready = [prepared("c-1", "demo220")];
+
+        notices.prepared(&ready, || true, || false);
+        notices.prepared(&ready, || false, || true);
+        assert!(told(&log).is_empty());
+
+        notices.prepared(&ready, || true, || true);
         assert_eq!(told(&log).len(), 1);
     }
 

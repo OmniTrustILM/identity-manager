@@ -5,13 +5,17 @@
 
 use im_core::attributes::{FieldProblem, FormView};
 use im_core::ilm::certificates::State;
+use im_core::ilm::issue::Challenge;
 use im_core::ilm::upload::RaProfileChoice;
+use im_core::inventory::{Prepared, SubjectPart};
 use im_core::keys::{KeyType, Offer, Storage};
 use im_core::session::{
-    CallError, EndReason, Followed, Outcome, RequestError, RequestInput, SignedInAs,
+    CallError, Completion, EndReason, Followed, Outcome, RequestError, RequestInput, SignedInAs,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
+
+use im_core::requests::Waiting;
 
 use crate::certificates::{Ilm, ilm};
 use crate::settings::Settings;
@@ -299,10 +303,25 @@ fn standing(followed: &[Followed], certificate: &str) -> FollowView {
 }
 
 /// How `certificate` stands after a follow of its own, else as the latest check of ILM found it: a check that ran
-/// first has already finished the request, and the follow of its own then knows nothing of it.
-fn standing_or_latest(own: &[Followed], latest: &[Followed], certificate: &str) -> FollowView {
+/// first has already finished the request, and the follow of its own then knows nothing of it. While a request of
+/// `certificate` is still `waiting`, an installed or ended outcome the latest check found belongs to an earlier one.
+fn standing_or_latest(
+    own: &[Followed],
+    latest: &[Followed],
+    waiting: &[Waiting],
+    certificate: &str,
+) -> FollowView {
     match standing(own, certificate) {
-        FollowView::Unknown => standing(latest, certificate),
+        FollowView::Unknown => match standing(latest, certificate) {
+            found @ (FollowView::Waiting { .. } | FollowView::NotInstalled { .. }) => found,
+            _ if waiting
+                .iter()
+                .any(|entry| entry.uuid.as_deref() == Some(certificate)) =>
+            {
+                FollowView::Unknown
+            }
+            found => found,
+        },
         known => known,
     }
 }
@@ -353,6 +372,37 @@ async fn profile<R: Runtime>(ilm: &Ilm<R>, uuid: &str) -> Result<RaProfileChoice
         .into_iter()
         .find(|profile| profile.uuid == uuid)
         .ok_or_else(|| "ILM does not offer this RA Profile.".to_owned())
+}
+
+/// The RA Profile a certificate registered in advance is completed under.
+fn choice_of(prepared: &Prepared) -> RaProfileChoice {
+    RaProfileChoice {
+        uuid: prepared.ra_profile.uuid.clone(),
+        name: prepared.ra_profile.name.clone(),
+        description: None,
+        authority: None,
+        authority_uuid: prepared.ra_profile.authority_uuid.clone(),
+    }
+}
+
+/// The certificate registered in advance that the latest check of ILM found under `uuid`.
+fn prepared<R: Runtime>(ilm: &Ilm<R>, uuid: &str) -> Result<Prepared, String> {
+    ilm.prepared(uuid)
+        .ok_or_else(|| "This certificate is not waiting to be completed.".to_owned())
+}
+
+/// What the wizard is told of a request ILM took; the wizard tells how it ends when the window is visible.
+fn requested<R: Runtime>(app: &AppHandle<R>, ilm: &Ilm<R>, waiting: Waiting) -> RequestedView {
+    let shown = app
+        .get_webview_window("main")
+        .is_some_and(|window| window.is_visible().unwrap_or(false));
+    if let Some(certificate) = waiting.uuid.as_ref().filter(|_| shown) {
+        ilm.notices().wizard_shows(certificate);
+    }
+    RequestedView {
+        certificate: waiting.uuid.unwrap_or_default(),
+        label: waiting.label,
+    }
 }
 
 #[tauri::command]
@@ -416,21 +466,76 @@ pub async fn request_certificate<R: Runtime>(
     let chosen = profile(&ilm, &ra_profile).await?;
     ilm.unlocked()?;
     let waiting = ilm
-        .session()
-        .request(&chosen, forms, storage, key_type)
+        .working(ilm.session().request(&chosen, forms, storage, key_type))
         .await;
     ilm.unlocked()?;
-    let waiting = waiting?;
-    let shown = app
-        .get_webview_window("main")
-        .is_some_and(|window| window.is_visible().unwrap_or(false));
-    if let Some(certificate) = waiting.uuid.as_ref().filter(|_| shown) {
-        ilm.notices().wizard_shows(certificate);
-    }
-    Ok(RequestedView {
-        certificate: waiting.uuid.unwrap_or_default(),
-        label: waiting.label,
+    Ok(requested(&app, &ilm, waiting?))
+}
+
+/// Opens the issue and custom forms of a certificate registered in advance; its subject is ILM's, so there is no
+/// request form.
+#[tauri::command]
+pub async fn open_prepared_forms<R: Runtime>(
+    app: AppHandle<R>,
+    uuid: String,
+) -> Result<RequestFormsView, String> {
+    let ilm = ilm(&app);
+    ilm.unlocked()?;
+    signed_in(ilm.session().signed_in_as())?;
+    let chosen = choice_of(&prepared(&ilm, &uuid)?);
+    let authority = chosen.authority_uuid.as_deref().unwrap_or_default();
+    let opened = ilm
+        .session()
+        .open_request_forms(authority, &chosen.uuid, true)
+        .await;
+    ilm.unlocked()?;
+    let forms = opened.map_err(|error| error.to_string())?;
+    Ok(RequestFormsView {
+        request: forms.request,
+        issue: forms.issue,
+        custom: forms.custom,
     })
+}
+
+/// Completes a certificate registered in advance with a new key, when ILM still registers the `subject` the person
+/// reviewed. The challenge, when ILM asks for one, goes to ILM and nowhere else; a challenge can stand in for the
+/// right to create certificates.
+#[tauri::command]
+pub async fn complete_certificate<R: Runtime>(
+    app: AppHandle<R>,
+    uuid: String,
+    forms: RequestInput,
+    storage: StorageId,
+    key_type: KeyTypeId,
+    challenge: Option<String>,
+    subject: Vec<SubjectPart>,
+) -> Result<RequestedView, RequestFailure> {
+    let challenge = challenge
+        .filter(|text| !text.is_empty())
+        .map(Challenge::new);
+    let ilm = ilm(&app);
+    ilm.unlocked()?;
+    signed_in(ilm.session().signed_in_as())?;
+    let (storage, KeyTypeId(key_type)) = (Storage::from(storage), key_type);
+    offered(&allowed_offers(&app).await.0, storage, key_type)?;
+    let found = prepared(&ilm, &uuid)?;
+    ilm.unlocked()?;
+    let waiting = ilm
+        .working(ilm.session().complete(
+            Completion {
+                uuid: &uuid,
+                name: &found.name,
+                ra_profile: &choice_of(&found),
+                subject: &subject,
+            },
+            forms,
+            storage,
+            key_type,
+            challenge,
+        ))
+        .await;
+    ilm.unlocked()?;
+    Ok(requested(&app, &ilm, waiting?))
 }
 
 #[tauri::command]
@@ -443,7 +548,12 @@ pub async fn follow_request<R: Runtime>(
     signed_in(ilm.session().signed_in_as())?;
     let followed = ilm.follow().await;
     ilm.unlocked()?;
-    Ok(standing_or_latest(&followed, &ilm.followed(), &certificate))
+    Ok(standing_or_latest(
+        &followed,
+        &ilm.followed(),
+        &ilm.session().waiting_requests(),
+        &certificate,
+    ))
 }
 
 /// The wizard no longer shows the request of `certificate`: how it ends is told by a notification from now on.
@@ -496,19 +606,89 @@ mod tests {
         )];
 
         assert_eq!(
-            standing_or_latest(&[], &latest, "c-1"),
+            standing_or_latest(&[], &latest, &[], "c-1"),
             FollowView::Installed {
                 storage: StorageId::Software,
                 valid_until: 7
             }
         );
         assert_eq!(
-            standing_or_latest(&waiting, &latest, "c-1"),
+            standing_or_latest(&waiting, &latest, &[], "c-1"),
             FollowView::Waiting {
                 stage: WaitingStage::PendingApproval
             }
         );
-        assert_eq!(standing_or_latest(&[], &latest, "c-2"), FollowView::Unknown);
+        assert_eq!(
+            standing_or_latest(&[], &latest, &[], "c-2"),
+            FollowView::Unknown
+        );
+    }
+
+    #[test]
+    fn a_follow_that_knows_nothing_of_a_request_still_waiting_is_not_told_how_an_earlier_one_ended()
+    {
+        let latest = [followed(
+            Some("c-1"),
+            Outcome::Ended(EndReason::ReturnedToRegistered),
+        )];
+        let again = Waiting {
+            ilm: IlmUrl::parse("ilm.example.com").unwrap(),
+            username: "jdoe".to_owned(),
+            uuid: Some("c-1".to_owned()),
+            ra_profile: "ra-1".to_owned(),
+            authority: "a-1".to_owned(),
+            key: im_core::keys::KeyId {
+                storage: Storage::Software,
+                name: "k-1".to_owned(),
+            },
+            label: "again".to_owned(),
+            since: 1,
+            prepared: true,
+        };
+
+        assert_eq!(
+            standing_or_latest(&[], &latest, std::slice::from_ref(&again), "c-1"),
+            FollowView::Unknown
+        );
+        let approval = [followed(
+            Some("c-1"),
+            Outcome::Waiting(State::PendingApproval),
+        )];
+        assert_eq!(
+            standing_or_latest(&[], &approval, std::slice::from_ref(&again), "c-1"),
+            FollowView::Waiting {
+                stage: WaitingStage::PendingApproval
+            }
+        );
+        let failed = [followed(Some("c-1"), Outcome::InstallFailed)];
+        assert_eq!(
+            standing_or_latest(&[], &failed, &[again], "c-1"),
+            FollowView::NotInstalled {
+                cause: NotInstalledCause::InstallFailed
+            }
+        );
+    }
+
+    #[test]
+    fn a_prepared_certificate_is_completed_under_its_ra_profile_and_authority() {
+        let prepared = Prepared {
+            uuid: "c-1".to_owned(),
+            name: "demo".to_owned(),
+            ra_profile: im_core::ilm::certificates::RaProfile {
+                uuid: "ra-1".to_owned(),
+                name: "Servers".to_owned(),
+                authority_uuid: Some("a-1".to_owned()),
+            },
+            registration: None,
+            subject: Vec::new(),
+        };
+
+        let choice = choice_of(&prepared);
+
+        assert_eq!(
+            (choice.uuid.as_str(), choice.authority_uuid.as_deref()),
+            ("ra-1", Some("a-1"))
+        );
     }
 
     #[test]

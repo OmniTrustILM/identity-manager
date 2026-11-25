@@ -328,6 +328,7 @@ pub(super) mod tests {
             sign_in: None,
             first_page: None,
             allowed: HashMap::new(),
+            prepared: Vec::new(),
         }
     }
 
