@@ -173,6 +173,42 @@ async fn an_unauthorized_list_ends_the_check_as_a_sign_out() {
 }
 
 #[tokio::test]
+async fn an_unauthorized_list_in_a_session_that_stays_signed_in_drops_the_approvals_and_goes_offline()
+ {
+    let setup = Setup::new().await;
+    setup.ilm_answers(vec![], vec![]).await;
+    setup.approvals(vec![waiting("a-1", "c-1", "ada")]).await;
+    setup.certificate("demo220").await;
+    assert!(matches!(setup.check(&[]).await, Status::Fresh { .. }));
+    assert_eq!(setup.inventory.approvals().len(), 1);
+    setup
+        .world
+        .grant(
+            "refresh_token",
+            ResponseTemplate::new(200).set_body_json(json!({
+                "access_token": "renewed",
+                "refresh_token": "refresh",
+                "expires_in": 3600,
+                "token_type": "Bearer",
+            })),
+            None,
+        )
+        .await;
+    setup
+        .mock("GET", LIST)
+        .respond_with(ResponseTemplate::new(401))
+        .with_priority(1)
+        .mount(&setup.world.ilm)
+        .await;
+
+    let status = setup.check(&[]).await;
+
+    assert!(matches!(status, Status::Offline { .. }));
+    assert!(setup.world.session.signed_in_as().is_some());
+    assert!(setup.inventory.approvals().is_empty());
+}
+
+#[tokio::test]
 async fn the_cache_keeps_the_approvals_and_an_old_file_without_them_still_reads() {
     let setup = Setup::new().await;
     setup.ilm_answers(vec![], vec![]).await;

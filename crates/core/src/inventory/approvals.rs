@@ -43,8 +43,11 @@ impl Approval {
 /// cannot answer for do not fail the check.
 fn lenient<T: Default>(result: Result<T, Failure>, what: &str) -> Result<T, Failure> {
     match result {
-        Err(Failure::Ilm(IlmError::Unauthorized)) => Err(Failure::SignedOut),
-        Err(error @ (Failure::SignedOut | Failure::Unreachable)) => Err(error),
+        Err(
+            error @ (Failure::SignedOut
+            | Failure::Unreachable
+            | Failure::Ilm(IlmError::Unauthorized)),
+        ) => Err(error),
         Err(error) => {
             log::warn!("{what}: {error}");
             Ok(T::default())

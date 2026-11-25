@@ -315,6 +315,18 @@ test('an item the person moved to keeps the focus when the inventory changes', a
     expect(document.activeElement).toBe(items()[1]);
 });
 
+test('a certificate keeps the focus when an item before it is removed', async () => {
+    await shows(stand([revoked, expired]));
+    items()[1]?.focus();
+    const focused = document.activeElement;
+    summary = stand([expired]);
+
+    await act(async () => emit('inventory-changed'));
+
+    expect(items()).toHaveLength(1);
+    expect(document.activeElement).toBe(focused);
+});
+
 test('shows no counts or names when the summary is refused or there is none', async () => {
     summary = null;
     await shows(null);
