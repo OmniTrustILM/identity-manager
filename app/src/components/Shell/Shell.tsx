@@ -26,7 +26,10 @@ export function Shell({ sections: given, bottom, banner }: Readonly<ShellProps>)
     const sections = kept ? [...given, kept] : given;
     const entries = [...sections, ...(bottom ? [bottom] : [])];
     const open = entries.find((section) => section.id === current);
+    // The tray asked for Requests before the inventory offered it; it opens once offered, unless the person moved on.
+    const wantsRequests = useRef(false);
     const select = (id: string) => {
+        wantsRequests.current = false;
         const entry = entries.find((section) => section.id === id);
         if (entry?.open) {
             entry.open();
@@ -36,9 +39,14 @@ export function Shell({ sections: given, bottom, banner }: Readonly<ShellProps>)
         }
     };
     const hasOverview = given.some((section) => section.id === 'overview');
+    const hasRequests = given.some((section) => section.id === 'requests');
     const hasCertificates = given.some((section) => section.id === 'certificates');
+    // Read by the navigation callback, which can resolve after the render that created it.
+    const requestsOffered = useRef(hasRequests);
+    requestsOffered.current = hasRequests;
     const showCertificate = useCallback(
         (fingerprint: string) => {
+            wantsRequests.current = false;
             if (hasCertificates) {
                 setShowing((before) => ({ fingerprint, id: (before?.id ?? 0) + 1 }));
                 setCurrent('certificates');
@@ -55,8 +63,14 @@ export function Shell({ sections: given, bottom, banner }: Readonly<ShellProps>)
         const take = () =>
             pendingNavigation()
                 .then((to) => {
+                    if (to) {
+                        wantsRequests.current = to.to === 'requests' && !requestsOffered.current;
+                    }
                     if (to?.to === 'certificate') {
                         showCertificate(to.fingerprint);
+                    } else if (to?.to === 'requests' && requestsOffered.current) {
+                        setShowing(null);
+                        setCurrent('requests');
                     } else if (to && hasOverview) {
                         setShowing(null);
                         setCurrent('overview');
@@ -76,6 +90,13 @@ export function Shell({ sections: given, bottom, banner }: Readonly<ShellProps>)
             void listening.then((stop) => stop());
         };
     }, [hasOverview, showCertificate]);
+    useEffect(() => {
+        if (hasRequests && wantsRequests.current) {
+            wantsRequests.current = false;
+            setShowing(null);
+            setCurrent('requests');
+        }
+    }, [hasRequests]);
     const navigation = useMemo(() => ({ showing, showCertificate }), [showing, showCertificate]);
 
     useEffect(() => {
@@ -88,7 +109,12 @@ export function Shell({ sections: given, bottom, banner }: Readonly<ShellProps>)
         let live = true;
         const take = () =>
             pendingSection()
-                .then((id) => id === bottom.id && setCurrent(id))
+                .then((id) => {
+                    if (id === bottom.id) {
+                        wantsRequests.current = false;
+                        setCurrent(id);
+                    }
+                })
                 .catch(() => undefined);
         const listening = onOpenSection(() => live && take())
             .then((stop) => {

@@ -435,8 +435,33 @@ export const strings = {
     done: 'Done',
 
     requests: 'Requests',
-    requestsSummary: (ready: number, inProgress: number) =>
-        [ready > 0 && `${ready} ready to issue`, inProgress > 0 && `${inProgress} in progress`].filter(Boolean).join(', '),
+    requestsSummary: (waiting: number, ready: number, inProgress: number) =>
+        [
+            waiting > 0 && `${waiting} waiting for your approval`,
+            ready > 0 && `${ready} ready to issue`,
+            inProgress > 0 && `${inProgress} in progress`,
+        ]
+            .filter(Boolean)
+            .join(', '),
+    waitingForYourApproval: 'Waiting for your approval',
+    approve: 'Approve',
+    approveNamed: (name: string) => `Approve ${name}`,
+    reject: 'Reject',
+    rejectEllipsis: 'Reject\u2026',
+    rejectNamed: (name: string) => `Reject ${name}`,
+    approvalCertificate: 'Certificate',
+    approvalFrom: (requester: string | null, raProfile: string | null) =>
+        [requester && `From ${requester}`, raProfile].filter(Boolean).join(' \u00b7 '),
+    approvalKinds: { issue: 'New certificate', renew: 'Renewal', rekey: 'Rekey', revoke: 'Revocation' },
+    approvalKindsAsked: { issue: 'a new certificate', renew: 'a renewal', rekey: 'a rekey', revoke: 'a revocation' },
+    approvalStatus: (kind: string, at: number) => `${kind}, ${time(at)}`,
+    rejectTitle: (name: string) => `Reject the request for ${name}?`,
+    rejectText: (requester: string | null, asked: string, raProfile: string | null) =>
+        `${requester ?? 'Someone'} asked for ${asked}${raProfile ? ` in ${raProfile}` : ''}. Rejecting ends the request.`,
+    rejectComment: 'Comment (optional)',
+    rejectCommentHint: 'ILM keeps the comment with the approval.',
+    approvalNoLongerWaiting: 'This request no longer waits for your decision.',
+    approvalFailed: 'The decision could not be sent.',
     readyToIssue: 'Ready for you to issue',
     myRequests: 'My requests',
     issue: 'Issue…',

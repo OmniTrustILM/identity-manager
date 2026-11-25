@@ -16,6 +16,7 @@ import type {
     Platform,
     ProviderChoice,
     RaProfileChoice,
+    ApprovalFailure,
     RequestFailure,
     RequestFormsView,
     RequestOffers,
@@ -389,6 +390,8 @@ export interface Requesting {
     offers?: RequestOffers;
     /** Rejects the request with this. */
     refuse?: RequestFailure;
+    /** Rejects a decision on an approval with this. */
+    refuseDecision?: ApprovalFailure;
     /** How the request stands at each follow; the last answer stays. */
     follow?: FollowView[];
     /** What the check of a form finds. */
@@ -415,6 +418,8 @@ function requestAnswer(command: string, requesting: Requesting | undefined, args
         case 'request_certificate':
         case 'complete_certificate':
             return requesting?.refuse ? Promise.reject(requesting.refuse) : { certificate: 'cert-1', label: 'User mTLS' };
+        case 'decide_approval':
+            return requesting?.refuseDecision ? Promise.reject(requesting.refuseDecision) : undefined;
         case 'follow_request': {
             const answers = requesting?.follow ?? [{ state: 'unknown' }];
             return answers.length > 1 ? answers.shift() : answers[0];

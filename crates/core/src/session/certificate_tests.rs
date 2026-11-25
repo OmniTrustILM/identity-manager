@@ -1400,6 +1400,7 @@ fn matched(person: &TestIdentity) -> Snapshot {
         first_page: None,
         allowed: Default::default(),
         prepared: Vec::new(),
+        approvals: Vec::new(),
     }
 }
 

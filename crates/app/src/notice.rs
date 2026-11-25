@@ -1,6 +1,6 @@
 //! The notifications of the application: the sign-in has ended and has to be repeated, a certificate starts
-//! expiring, has expired or was revoked in ILM, a request for a certificate ends, and a certificate is ready to
-//! issue.
+//! expiring, has expired or was revoked in ILM, a request for a certificate ends, a certificate is ready to
+//! issue, and a request waits for the person's approval.
 
 use std::collections::HashSet;
 use std::io::ErrorKind;
@@ -10,7 +10,7 @@ use std::sync::{Mutex, PoisonError};
 
 use im_core::Platform;
 use im_core::identity::Fingerprint;
-use im_core::inventory::{Item, Kind as Attention, Prepared, Summary};
+use im_core::inventory::{Approval, Item, Kind as Attention, Prepared, Summary};
 use im_core::session::{EndReason, Followed, Outcome, SessionView};
 use im_core::settings::store::write_atomically;
 use serde::{Deserialize, Serialize};
@@ -136,6 +136,11 @@ fn prepared_key(certificate: &str) -> String {
     format!("prepared:ready:{certificate}")
 }
 
+/// What is remembered of an approval waiting for the person, once for each approval.
+fn approval_key(approval: &str) -> String {
+    format!("approval:waiting:{approval}")
+}
+
 /// A notification to show, and the key it is remembered by.
 struct Notice {
     key: String,
@@ -195,7 +200,9 @@ fn certificate_notice(item: &Item) -> Option<Notice> {
             "Certificate revoked",
             format!("{name} was revoked in ILM."),
         ),
-        Attention::NotInIlm { .. } | Attention::Waiting { .. } => return None,
+        Attention::NotInIlm { .. } | Attention::Waiting { .. } | Attention::Approval { .. } => {
+            return None;
+        }
     };
     Some(Notice {
         key: certificate_key(kind, &fingerprint),
@@ -413,6 +420,45 @@ impl Notices {
         current: impl Fn() -> bool,
         may_tell: impl Fn() -> bool,
     ) {
+        let notices = ready.iter().map(|found| Notice {
+            key: prepared_key(&found.uuid),
+            fingerprint: None,
+            title: "Certificate ready",
+            body: format!("A certificate is ready for you to issue: {}", found.name),
+            kind: "ready",
+        });
+        self.tell_once(notices, current, may_tell);
+    }
+
+    /// Tells the person about each request in `waiting` for their approval, once for each approval, also after a
+    /// restart. `current` and `may_tell` are asked as for `summary`.
+    pub fn approvals(
+        &self,
+        waiting: &[Approval],
+        current: impl Fn() -> bool,
+        may_tell: impl Fn() -> bool,
+    ) {
+        let notices = waiting.iter().map(|found| Notice {
+            key: approval_key(&found.uuid),
+            fingerprint: None,
+            title: "Approval waiting",
+            body: format!(
+                "An approval is waiting for you: {}",
+                found.certificate_name.as_deref().unwrap_or("a certificate")
+            ),
+            kind: "approval",
+        });
+        self.tell_once(notices, current, may_tell);
+    }
+
+    /// Shows each of `notices` whose key was not told before, and remembers it. Telling stops at the first one
+    /// `may_tell` refuses; nothing is told or remembered for a check `current` no longer calls current.
+    fn tell_once(
+        &self,
+        notices: impl Iterator<Item = Notice>,
+        current: impl Fn() -> bool,
+        may_tell: impl Fn() -> bool,
+    ) {
         let mut remembered = self
             .remembered
             .lock()
@@ -422,20 +468,15 @@ impl Notices {
         }
         let held = remembered.get_or_insert_with(|| self.load());
         let mut kept = held.clone();
-        for found in ready {
-            let key = prepared_key(&found.uuid);
-            if kept.contains(&key) {
+        for notice in notices {
+            if kept.contains(&notice.key) {
                 continue;
             }
             if !may_tell() {
                 break;
             }
-            self.show(
-                "Certificate ready",
-                &format!("A certificate is ready for you to issue: {}", found.name),
-                "ready",
-            );
-            kept.push(key);
+            self.show(notice.title, &notice.body, notice.kind);
+            kept.push(notice.key);
         }
         if kept.len() != held.len() {
             *held = kept;
@@ -1050,6 +1091,7 @@ mod tests {
         assert_eq!(told(&log).len(), 1);
     }
 
+    use im_core::ilm::approvals::ApprovalAction;
     use im_core::ilm::certificates::RaProfile;
     use im_core::keys::Storage;
     use im_core::session::Installed;
@@ -1260,6 +1302,63 @@ mod tests {
 
         notices.prepared(&ready, || true, || true);
         assert_eq!(told(&log).len(), 1);
+    }
+
+    fn approval(uuid: &str, name: Option<&str>) -> Approval {
+        Approval {
+            uuid: uuid.to_owned(),
+            action: ApprovalAction::Issue,
+            requester: Some("ada".to_owned()),
+            requested_at: 1,
+            certificate_name: name.map(str::to_owned),
+            ra_profile: None,
+        }
+    }
+
+    #[test]
+    fn an_approval_is_told_with_the_name_of_its_certificate_else_a_certificate() {
+        let (notices, log) = notices(Platform::Macos);
+
+        notices.approvals(
+            &[approval("a-1", Some("demo220")), approval("a-2", None)],
+            || true,
+            || true,
+        );
+
+        assert_eq!(
+            told(&log),
+            [
+                pair(
+                    "Approval waiting",
+                    "An approval is waiting for you: demo220"
+                ),
+                pair(
+                    "Approval waiting",
+                    "An approval is waiting for you: a certificate"
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_approval_is_told_once_also_after_a_restart_and_waits_for_a_fresh_check() {
+        let folder = tempfile::tempdir().unwrap();
+        let (first, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        let waiting = [approval("a-1", Some("demo220"))];
+        first.approvals(&waiting, || true, || false);
+        first.approvals(&waiting, || false, || true);
+        assert!(told(&log).is_empty());
+        first.approvals(&waiting, || true, || true);
+        first.approvals(&waiting, || true, || true);
+        assert_eq!(told(&log).len(), 1);
+
+        let (restarted, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        restarted.approvals(&waiting, || true, || true);
+        restarted.approvals(&[approval("a-2", None)], || true, || true);
+
+        assert_eq!(told(&log).len(), 1);
+        let stored = std::fs::read_to_string(folder.path().join("notified.json")).unwrap();
+        assert!(stored.contains("approval:waiting:a-1") && stored.contains("approval:waiting:a-2"));
     }
 
     #[test]

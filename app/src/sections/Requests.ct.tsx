@@ -4,7 +4,7 @@ import { attributeField, attributeForm } from '../../playwright/attributes';
 import { keyboardReady } from '../../playwright/focus';
 import { inventory } from '../../playwright/ilm';
 import { type Requesting, RequestsStory } from '../../playwright/stories';
-import type { InventoryView, Platform, PreparedView } from '../bridge';
+import type { ApprovalView, InventoryView, Platform, PreparedView } from '../bridge';
 
 type Scheme = 'light' | 'dark';
 
@@ -19,8 +19,18 @@ const prepared = (name: string, registration: PreparedView['registration'], prof
         { kind: 'organization', value: 'Example Corp', oid: null },
     ],
 });
+const approval = (uuid: string, over: Partial<ApprovalView> = {}): ApprovalView => ({
+    uuid,
+    action: 'issue',
+    requester: 'jnovak',
+    requestedAt: Date.now() - 3600_000,
+    certificateName: 'S/MIME email',
+    raProfileName: 'Corporate S/MIME',
+    ...over,
+});
 const full = () =>
     inventory({
+        approvals: [approval('a1'), approval('a2', { action: 'renew', certificateName: 'www.example.com', requester: 'pkral' })],
         prepared: [
             prepared('VPN gateway access', { state: 'active', expiresAt: Date.now() + 5.5 * day }),
             prepared('Wi-Fi laptop', { state: 'expired', expiresAt: Date.now() - day }, 'Corporate Wi-Fi'),
@@ -68,15 +78,22 @@ for (const os of ['macos', 'windows'] as const) {
         test(`on ${os} in ${scheme} the section lists what is ready and what is in progress`, async ({ mount, page }) => {
             await open(page, mount, os, scheme);
 
-            await expect(page.getByText('1 ready to issue, 2 in progress')).toBeVisible();
-            await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Ready for you to issue', 'My requests']);
+            await expect(page.getByText('2 waiting for your approval, 1 ready to issue, 2 in progress')).toBeVisible();
+            await expect(page.getByRole('heading', { level: 2 })).toHaveText([
+                'Waiting for your approval',
+                'Ready for you to issue',
+                'My requests',
+            ]);
             await expect(page.getByText('Issue within 6 days')).toBeVisible();
             await expect(page.getByText('Issue window ended')).toBeVisible();
             await expect(page.getByText('Locked after too many attempts')).toBeVisible();
             await expect(page.getByText('Ask your administrator')).toHaveCount(2);
             await expect(page.getByText('Waiting for approval')).toBeVisible();
             await expect(page.getByText('Being issued')).toBeVisible();
-            await expect(page.getByRole('button')).toHaveCount(1);
+            await expect(page.getByRole('button')).toHaveCount(5);
+            await expect(page.getByRole('button', { name: 'Approve S/MIME email' })).toBeVisible();
+            await expect(page.getByRole('button', { name: 'Reject www.example.com' })).toBeVisible();
+            await expect(page.getByText('From pkral · Corporate S/MIME')).toBeVisible();
             const panel = page.getByRole('region', { name: 'Ready for you to issue' });
             expect(await panel.evaluate((element) => getComputedStyle(element.querySelector('ul') as Element).borderTopWidth)).toBe('1px');
             expect(await page.locator('main').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(surfaces[os][scheme]);
@@ -141,4 +158,49 @@ test('the keyboard reaches Issue… and the sheet', async ({ mount, page }) => {
     await expect(sheet.getByRole('heading', { name: 'Fill in the attributes' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(sheet.getByLabel('Device tag')).toBeFocused();
+});
+
+test('Reject… asks with the names, takes a comment and Escape closes the question', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light');
+    await keyboardReady(page);
+
+    await page.getByRole('button', { name: 'Reject S/MIME email' }).focus();
+    await page.keyboard.press('Enter');
+
+    const question = page.getByRole('dialog', { name: 'Reject the request for S/MIME email?' });
+    await expect(question).toBeVisible();
+    await expect(question).toContainText('jnovak asked for a new certificate in Corporate S/MIME. Rejecting ends the request.');
+    await expect(question.getByLabel('Comment (optional)')).toHaveAccessibleDescription('ILM keeps the comment with the approval.');
+    await expect(question.getByRole('button', { name: 'Reject' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(question).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Reject S/MIME email' })).toBeFocused();
+});
+
+for (const os of ['macos', 'windows'] as const) {
+    test(`on ${os} the question puts Cancel and Reject in the order of the system`, async ({ mount, page }) => {
+        await open(page, mount, os, 'dark');
+        await page.getByRole('button', { name: 'Reject S/MIME email' }).click();
+
+        const names = await page.getByRole('dialog').getByRole('button').allTextContents();
+        expect(names).toEqual(os === 'macos' ? ['Cancel', 'Reject'] : ['Reject', 'Cancel']);
+    });
+}
+
+test('a refused rejection is shown in the question with the comment kept', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'light', full(), { refuseDecision: { kind: 'noLongerWaiting' } });
+    await page.getByRole('button', { name: 'Reject S/MIME email' }).click();
+    const question = page.getByRole('dialog');
+    await question.getByLabel('Comment (optional)').fill('Not needed.');
+    await question.getByRole('button', { name: 'Reject' }).click();
+
+    await expect(question.getByRole('alert')).toHaveText('This request no longer waits for your decision.');
+    await expect(question.getByLabel('Comment (optional)')).toHaveValue('Not needed.');
+});
+
+test('a refused approval is announced under the group', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', full(), { refuseDecision: { kind: 'refused', messages: ['Already decided.'] } });
+    await page.getByRole('button', { name: 'Approve S/MIME email' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('Already decided.');
 });

@@ -220,6 +220,41 @@ test('requests in progress are listed, open Overview, and alone do not make the 
     expect(opened).toEqual(['overview']);
 });
 
+test('a request waiting for the approval is listed with its kind, opens the requests, and alone needs no attention', async () => {
+    await shows(stand([{ kind: 'approval', name: 'S/MIME email', action: 'renew' }]));
+
+    expect(container.textContent).not.toContain(strings.needsAttention);
+    expect(items()[0]?.textContent).toBe(`S/MIME email${strings.approvalKinds.renew}`);
+    await act(async () => items()[0]?.click());
+    expect(opened).toEqual(['requests']);
+});
+
+test('on Linux a request waiting for the approval is left out of the summary', async () => {
+    summary = stand([{ kind: 'approval', name: 'S/MIME email', action: 'renew' }, expired]);
+    await act(async () => root.render(null));
+    await act(async () =>
+        root.render(
+            <AppInfoContext.Provider value={{ ...info, platform: 'linux' }}>
+                <TraySummary />
+            </AppInfoContext.Provider>,
+        ),
+    );
+
+    expect(items()).toHaveLength(1);
+    expect(items()[0]?.textContent).toContain('Smart card login');
+    expect(container.textContent).not.toContain('S/MIME email');
+});
+
+test('two requests waiting for the approval of unreadable certificates are both listed', async () => {
+    const unreadable: AttentionItemView = { kind: 'approval', name: strings.approvalCertificate, action: 'renew' };
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await shows(stand([unreadable, unreadable]));
+
+    expect(items()).toHaveLength(2);
+    expect(errors).not.toHaveBeenCalled();
+});
+
 test('a revoked certificate makes the line say attention is needed even beside requests in progress', async () => {
     await shows(stand([revoked, { kind: 'waiting', label: 'Code signing', state: 'beingIssued' }]));
 

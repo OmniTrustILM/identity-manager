@@ -57,6 +57,7 @@ fn main() {
                 "stop_following_request",
                 "open_prepared_forms",
                 "complete_certificate",
+                "decide_approval",
             ])),
     )
     .expect("the Tauri build failed");

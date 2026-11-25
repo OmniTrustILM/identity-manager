@@ -1,19 +1,18 @@
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { useAppInfo } from '../app-info';
 import type { InventoryView, MyRequestView, PreparedView } from '../bridge';
 import { strings } from '../strings';
 import { useInventory } from '../useInventory';
+import { Approvals } from './Approvals';
+import { Group, row } from './Group';
 import { Request } from './Request';
 
 const day = 24 * 60 * 60 * 1000;
-const panel = 'rounded-window border border-separator bg-card';
-const heading = 'text-caption font-semibold text-secondary';
-const row = 'flex items-center gap-s3 px-s3 py-s2';
 const issueButton = 'h-control shrink-0 rounded-control bg-accent px-s3 text-body text-on-accent';
 
-/** Whether the section has something to show: a certificate prepared in advance or a request of the person. */
+/** Whether the section has something to show: a request waiting for the person's approval, a certificate prepared in advance or a request of the person. */
 export const hasRequests = (inventory: InventoryView | null) =>
-    inventory !== null && (inventory.prepared.length > 0 || inventory.requests.length > 0);
+    inventory !== null && (inventory.approvals.length > 0 || inventory.prepared.length > 0 || inventory.requests.length > 0);
 
 type Standing = { kind: 'ready'; days: number | null } | { kind: 'ended' } | { kind: 'locked' };
 
@@ -79,28 +78,17 @@ function RequestRow({ request }: Readonly<{ request: MyRequestView }>) {
     );
 }
 
-function Group({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
-    const id = useId();
-    return (
-        <section aria-labelledby={id} className="flex flex-col gap-s2">
-            <h2 id={id} className={heading}>
-                {title}
-            </h2>
-            <ul className={`flex flex-col divide-y divide-separator ${panel}`}>{children}</ul>
-        </section>
-    );
-}
-
 /** The certificates prepared for the person to issue, and the requests of the person that ILM has not finished. */
 export function Requests() {
     const { platform } = useAppInfo();
     const { inventory } = useInventory();
     const [issuing, setIssuing] = useState<PreparedView | null>(null);
+    const approvals = inventory?.approvals ?? [];
     const prepared = inventory?.prepared ?? [];
     const requests = inventory?.requests ?? [];
     const now = Date.now();
     const ready = prepared.filter((candidate) => standing(candidate, now).kind === 'ready').length;
-    const summary = strings.requestsSummary(ready, requests.length);
+    const summary = strings.requestsSummary(approvals.length, ready, requests.length);
 
     return (
         <div className="flex flex-col gap-s4">
@@ -108,6 +96,7 @@ export function Requests() {
                 <h1 className="text-large-title font-semibold text-primary">{strings.requests}</h1>
                 {summary !== '' && <p className="text-body text-secondary">{summary}</p>}
             </header>
+            <Approvals approvals={approvals} macos={platform === 'macos'} />
             {prepared.length > 0 && (
                 <Group title={strings.readyToIssue}>
                     {prepared.map((candidate) => (
@@ -122,7 +111,7 @@ export function Requests() {
                     ))}
                 </Group>
             )}
-            {inventory && prepared.length === 0 && requests.length === 0 && (
+            {inventory && !hasRequests(inventory) && (
                 <div className="flex flex-col items-center gap-s1 py-s5 text-center">
                     <h2 className="text-title font-semibold text-primary">{strings.nothingToIssue}</h2>
                     <p className="text-body text-secondary">{strings.nothingToIssueHint}</p>

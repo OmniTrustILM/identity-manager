@@ -12,6 +12,7 @@ use im_core::identity::{
     EmptyStore, Fingerprint, IdentityStore, KeyOrigins, LocalCertificate, LocalCertificateView,
     StoreUnreadable, system_store,
 };
+use im_core::ilm::approvals::{DecideError, Decision};
 use im_core::inventory::{
     AddChoicesView, AddResultView, IlmPageView, Inventory, InventoryView, Prepared, Status,
     Summary, SummaryView, Trigger,
@@ -196,6 +197,20 @@ impl<R: Runtime> Ilm<R> {
             .find(|found| found.uuid == uuid)
     }
 
+    /// Takes `decision` on the approval `uuid`, with an optional `comment`.
+    pub(crate) async fn decide(
+        &self,
+        uuid: &str,
+        decision: Decision,
+        comment: Option<&str>,
+    ) -> Result<(), DecideError> {
+        self.inventory
+            .decide(&self.session, uuid, decision, comment, || {
+                !self.guard.is_locked()
+            })
+            .await
+    }
+
     /// Tells the windows that the inventory changed; what changed is read with `ilm_status`, which refuses while
     /// the application is locked.
     fn changed(&self) {
@@ -260,7 +275,7 @@ impl<R: Runtime> Ilm<R> {
                 .followed(&self.inventory.followed(), current, || {
                     current() && !self.guard.is_locked()
                 });
-            // Linux has no key storage to issue a prepared certificate with, and no Requests section.
+            // Linux has no key storage to issue a prepared certificate with, and no Requests section to decide in.
             if !cfg!(target_os = "linux") {
                 self.notices.prepared(
                     &self
@@ -269,6 +284,10 @@ impl<R: Runtime> Ilm<R> {
                     current,
                     || current() && !self.guard.is_locked(),
                 );
+                self.notices
+                    .approvals(&self.inventory.approvals(), current, || {
+                        current() && !self.guard.is_locked()
+                    });
             }
             if self.inventory.summary().is_none() {
                 // Signed out meanwhile: the write above must not leave the notices file behind.

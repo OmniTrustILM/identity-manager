@@ -12,6 +12,8 @@ import type { FollowView } from './generated/FollowView';
 import type { SubjectPart } from './generated/SubjectPart';
 import type { KeyTypeId } from './generated/KeyTypeId';
 import type { RaProfileChoice } from './generated/RaProfileChoice';
+import type { ApprovalDecision } from './generated/ApprovalDecision';
+import type { ApprovalFailure } from './generated/ApprovalFailure';
 import type { RequestedView } from './generated/RequestedView';
 import type { RequestFailure } from './generated/RequestFailure';
 import type { RequestFormsView } from './generated/RequestFormsView';
@@ -35,6 +37,10 @@ import type { SummaryView } from './generated/SummaryView';
 export type { AppInfo, CertificateChoice, Change, LocalCertificateView, ProviderChoice, Scheme, SessionView, SettingsView, Shown };
 export type { IlmPageView, InventoryView, SubjectPart };
 export type { MyRequestView } from './generated/MyRequestView';
+export type { ApprovalAction } from './generated/ApprovalAction';
+export type { ApprovalDecision } from './generated/ApprovalDecision';
+export type { ApprovalFailure } from './generated/ApprovalFailure';
+export type { ApprovalView } from './generated/ApprovalView';
 export type { PreparedView } from './generated/PreparedView';
 export type { RegistrationView } from './generated/RegistrationView';
 export type { SubjectKind } from './generated/SubjectKind';
@@ -268,6 +274,19 @@ export function followRequest(certificate: string): Promise<FollowView> {
 /** The wizard no longer shows this request, so the app tells the person by a notification how it ends. */
 export function stopFollowingRequest(certificate: string): Promise<void> {
     return invoke<void>('stop_following_request', { certificate });
+}
+
+/** Approves or rejects a request waiting for the person; rejects with an `ApprovalFailure`. The comment goes to ILM only. */
+export function decideApproval(uuid: string, decision: ApprovalDecision, comment: string | null): Promise<void> {
+    return invoke<void>('decide_approval', { uuid, decision, comment });
+}
+
+/** What a rejected `decideApproval` carries; anything else it was rejected with becomes a message. */
+export function approvalFailure(error: unknown): ApprovalFailure {
+    if (typeof error === 'object' && error !== null && 'kind' in error) {
+        return error as ApprovalFailure;
+    }
+    return { kind: 'message', message: typeof error === 'string' ? error : '' };
 }
 
 /** What a rejected `requestCertificate` carries; anything else it was rejected with becomes a message. */

@@ -1,3 +1,4 @@
+mod approvals;
 mod attributes;
 mod bridge;
 mod certificates;
@@ -132,7 +133,8 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             request::follow_request,
             request::stop_following_request,
             request::open_prepared_forms,
-            request::complete_certificate
+            request::complete_certificate,
+            approvals::decide_approval
         ])
         // macOS menus can only be built on the main thread, which unit tests do not run on.
         .enable_macos_default_menu(false)

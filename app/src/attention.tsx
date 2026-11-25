@@ -3,7 +3,7 @@ import { ExpiredIcon, ExpiringIcon, type Icon, NotInIlmIcon, RevokedIcon } from 
 import { strings } from './strings';
 
 /** The item of an attention list that is about one certificate. */
-export type CertificateItem = Exclude<AttentionItemView, { kind: 'notInIlm' | 'waiting' }>;
+export type CertificateItem = Exclude<AttentionItemView, { kind: 'notInIlm' | 'waiting' | 'approval' }>;
 
 /** The icon of an item with its colour, and the colour of its text. */
 export function attentionLook(item: AttentionItemView): { Icon: Icon; tone: string; textTone: string } {
@@ -15,6 +15,7 @@ export function attentionLook(item: AttentionItemView): { Icon: Icon; tone: stri
         case 'revoked':
             return { Icon: RevokedIcon, tone: 'text-bad', textTone: 'text-bad' };
         case 'waiting':
+        case 'approval':
             return { Icon: ExpiringIcon, tone: 'text-accent', textTone: 'text-secondary' };
         default:
             return { Icon: NotInIlmIcon, tone: 'text-secondary', textTone: 'text-secondary' };
@@ -36,4 +37,9 @@ export function attentionDetail(item: CertificateItem): string {
 /** What a request in progress waits for, in words. */
 export function waitingDetail(item: Extract<AttentionItemView, { kind: 'waiting' }>): string {
     return item.state === 'pendingApproval' ? strings.waitingForApproval : strings.beingIssued;
+}
+
+/** What a request waiting for the person's approval asks for, in words. */
+export function approvalDetail(item: Extract<AttentionItemView, { kind: 'approval' }>): string {
+    return strings.approvalKinds[item.action];
 }

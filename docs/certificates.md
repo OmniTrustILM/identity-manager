@@ -144,8 +144,22 @@ The key is created on the computer and never leaves it. Only a request signed wi
 
 ## Requests
 
-The Requests section appears on macOS and Windows when there is something in it: certificates prepared for the person
-in advance, or the person's own requests that ILM has not finished.
+The Requests section appears on macOS and Windows when there is something in it: requests waiting for the person's
+approval, certificates prepared for the person in advance, or the person's own requests that ILM has not finished.
+
+### Waiting for your approval
+
+When an RA Profile asks for approval, ILM names who approves each step: a person, a role or a group. Identity Manager
+reads at every check of ILM the certificate requests waiting for the signed-in person's decision, and lists them with
+the certificate's name, who asked, the RA Profile, the kind of request (a new certificate, a renewal, a rekey or a
+revocation) and when it was asked. When the person may not read the certificate in ILM, the row says "Certificate". A
+notification, "An approval is waiting for you", is shown once for each of them. The person's own requests are not
+listed: ILM does not let anyone approve their own request.
+
+"Approve" sends the decision at once. "Reject…" asks first and takes an optional comment, which ILM keeps with the
+approval. A rejected request ends. An approved one goes to the next approver or, after the last one, ILM carries it
+out. When someone else decided first or the approval expired, Identity Manager says "This request no longer waits for
+your decision." and removes it from the list.
 
 ### Ready for you to issue
 

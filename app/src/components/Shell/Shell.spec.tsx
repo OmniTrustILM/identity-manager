@@ -46,6 +46,9 @@ const sections: Section[] = [
     { id: 'overview', label: strings.overview, icon: OverviewIcon, Component: Overview },
     { id: 'certificates', label: strings.certificates, icon: OverviewIcon, Component: Certificates },
 ];
+const SettingsPage = () => <p>Settings content</p>;
+const page: Section = { id: 'settings', label: 'Settings', icon: OverviewIcon, Component: SettingsPage };
+const requests: Section = { id: 'requests', label: strings.requests, icon: OverviewIcon, Component: () => <p>Requests content</p> };
 
 const Probe = () => <p>{useAppInfo().name}</p>;
 
@@ -357,6 +360,101 @@ describe('navigation', () => {
         expect(container.querySelector('main')?.textContent).toBe('Overview content');
     });
 
+    test('a request for the requests opens Requests', async () => {
+        await render([...sections, requests]);
+
+        await navigate({ to: 'requests' });
+
+        expect(current()).toBe(strings.requests);
+        expect(container.querySelector('main')?.textContent).toBe('Requests content');
+    });
+
+    test('a request for the requests opens the overview when Requests is not shown', async () => {
+        await render(sections);
+        await navigate({ to: 'certificate', fingerprint: 'FP:one' });
+
+        await navigate({ to: 'requests' });
+
+        expect(current()).toBe(strings.overview);
+    });
+
+    test('a request for the requests made before Requests is shown opens it once it is', async () => {
+        await render(sections);
+
+        await navigate({ to: 'requests' });
+        expect(current()).toBe(strings.overview);
+        await render([...sections, requests]);
+
+        expect(current()).toBe(strings.requests);
+        expect(container.querySelector('main')?.textContent).toBe('Requests content');
+    });
+
+    test('a selection made before Requests is shown cancels the request for it', async () => {
+        await render(sections);
+        await navigate({ to: 'requests' });
+        await act(async () => (entries()[1] as HTMLElement).click());
+
+        await render([...sections, requests]);
+
+        expect(current()).toBe(strings.certificates);
+    });
+
+    test('a later request cancels the request for Requests that was not met', async () => {
+        await render(sections);
+        await navigate({ to: 'requests' });
+        await navigate({ to: 'certificate', fingerprint: 'FP:one' });
+
+        await render([...sections, requests]);
+
+        expect(current()).toBe(strings.certificates);
+    });
+
+    test('a request for the requests that is taken after Requests is shown opens it', async () => {
+        let release: (to: unknown) => void = () => {};
+        const pending = new Promise((resolve) => {
+            release = resolve;
+        });
+        mockIPC((command) => (command === 'pending_navigation' ? pending : undefined), { shouldMockEvents: true });
+        await render(sections);
+        await render([...sections, requests]);
+
+        await act(async () => release({ to: 'requests' }));
+        await render([...sections, requests]);
+
+        expect(current()).toBe(strings.requests);
+    });
+
+    test('showing a certificate cancels the request for Requests that was not met', async () => {
+        await render(sections);
+        await navigate({ to: 'requests' });
+        await act(async () => (container.querySelector('main button') as HTMLElement).click());
+
+        await render([...sections, requests]);
+
+        expect(current()).toBe(strings.certificates);
+    });
+
+    test('opening the bottom section cancels the request for Requests that was not met', async () => {
+        const sectionsAsked: unknown[] = [];
+        mockIPC(
+            (command) => {
+                if (command === 'pending_navigation') {
+                    return asked.shift() ?? null;
+                }
+                return command === 'pending_section' ? (sectionsAsked.shift() ?? null) : undefined;
+            },
+            { shouldMockEvents: true },
+        );
+        await render(sections, 'windows', page);
+        await navigate({ to: 'requests' });
+        sectionsAsked.push('settings');
+        await act(async () => emit('open-section'));
+
+        await render([...sections, requests], 'windows', page);
+
+        expect(container.querySelector('main')?.textContent).toBe('Settings content');
+    });
+
     test('a section can ask for a certificate to be shown', async () => {
         await render(sections);
 
@@ -370,6 +468,7 @@ describe('navigation', () => {
 
         await navigate({ to: 'certificate', fingerprint: 'FP:one' });
         await navigate({ to: 'overview' });
+        await navigate({ to: 'requests' });
 
         expect(container.querySelector('main')?.textContent).toBe('Other content');
     });
