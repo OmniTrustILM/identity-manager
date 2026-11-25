@@ -912,6 +912,21 @@ test('any other refusal of a prepared certificate goes back to the attributes wi
     expect(dialog().querySelector('[role="alert"]')?.textContent).toContain('Something else is wrong.');
 });
 
+test('a challenge asked for among other refusals opens the field for the next send', async () => {
+    requested = {
+        kind: 'refused',
+        messages: ['The certificate registration challenge is required.', 'Something else is wrong.'],
+    };
+    await preparedToReview(readyToIssue({ registration: null }));
+
+    await press('Issue certificate');
+    await press('Continue');
+    await press('Continue');
+
+    expect(dialog().querySelector('[aria-current="step"]')?.textContent).toBe('3Review');
+    expect(field()).not.toBeNull();
+});
+
 test('a failure with a message stays on the review and says it', async () => {
     requested = 'ILM does not allow this.';
     await preparedToReview();

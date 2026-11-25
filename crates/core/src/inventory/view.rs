@@ -10,7 +10,7 @@ use crate::attributes::FormView;
 use crate::ilm::certificates::{CertificatePage, IlmCertificate, State};
 use crate::ilm::upload::{GroupChoice, RaProfileChoice};
 use crate::requests::Waiting;
-use crate::session::{AddChoices, AddOutcome, AddResult, EndReason, Followed, Outcome};
+use crate::session::{AddChoices, AddOutcome, AddResult, Followed, Outcome};
 
 /// The RA Profile that manages a certificate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -263,36 +263,31 @@ impl InventoryView {
         }
     }
 
-    /// Lists the requests `waiting` of the person, each as the latest `followed` check found it: the ones that
-    /// ended are left out; one still waiting after its certificate was registered again is a new request. A
-    /// certificate one of them completes is not offered as prepared any more.
+    /// Lists the requests `waiting` of the person, each waiting for approval when the latest `followed` check found
+    /// it so, else being issued; a request that ends leaves `waiting`. A certificate one of them completes is not
+    /// offered as prepared any more.
     #[must_use]
     pub fn with_requests(mut self, waiting: &[Waiting], followed: &[Followed]) -> Self {
         self.prepared
             .retain(|found| !is_begun(&found.uuid, waiting));
         self.requests = waiting
             .iter()
-            .filter_map(|entry| {
-                let outcome = followed
-                    .iter()
-                    .find(|found| found.uuid.is_some() && found.uuid == entry.uuid)
-                    .map(|found| &found.outcome);
-                let state = match outcome {
-                    Some(Outcome::Ended(EndReason::ReturnedToRegistered)) => {
-                        WaitingStateView::BeingIssued
-                    }
-                    Some(Outcome::Installed(_) | Outcome::Ended(_)) => return None,
-                    Some(Outcome::Waiting(State::PendingApproval)) => {
-                        WaitingStateView::PendingApproval
-                    }
-                    _ => WaitingStateView::BeingIssued,
-                };
-                Some(MyRequestView {
+            .map(|entry| {
+                let approval = followed.iter().any(|found| {
+                    found.uuid.is_some()
+                        && found.uuid == entry.uuid
+                        && found.outcome == Outcome::Waiting(State::PendingApproval)
+                });
+                MyRequestView {
                     uuid: entry.uuid.clone(),
                     label: entry.label.clone(),
                     since: entry.since,
-                    state,
-                })
+                    state: if approval {
+                        WaitingStateView::PendingApproval
+                    } else {
+                        WaitingStateView::BeingIssued
+                    },
+                }
             })
             .collect();
         self
@@ -742,7 +737,7 @@ mod tests {
     }
 
     #[test]
-    fn the_requests_of_the_person_show_how_they_stand_and_those_that_ended_are_not_listed() {
+    fn the_requests_of_the_person_show_how_they_stand_and_an_earlier_end_does_not_hide_one() {
         let followed = [
             followed("c-1", Outcome::Waiting(State::PendingApproval)),
             followed("c-2", Outcome::Waiting(State::PendingIssue)),
@@ -767,6 +762,7 @@ mod tests {
             json!([
                 { "uuid": "c-1", "label": "label of k-1", "since": 10, "state": "pendingApproval" },
                 { "uuid": "c-2", "label": "label of k-2", "since": 20, "state": "beingIssued" },
+                { "uuid": "c-3", "label": "label of k-3", "since": 30, "state": "beingIssued" },
                 { "uuid": "c-4", "label": "label of k-4", "since": 40, "state": "beingIssued" },
                 { "uuid": "c-5", "label": "label of k-5", "since": 50, "state": "beingIssued" },
                 { "uuid": null, "label": "label of k-6", "since": 60, "state": "beingIssued" }

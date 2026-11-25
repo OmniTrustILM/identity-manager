@@ -260,13 +260,16 @@ impl<R: Runtime> Ilm<R> {
                 .followed(&self.inventory.followed(), current, || {
                     current() && !self.guard.is_locked()
                 });
-            self.notices.prepared(
-                &self
-                    .inventory
-                    .ready_to_issue(&self.session.waiting_requests()),
-                current,
-                || current() && !self.guard.is_locked(),
-            );
+            // Linux has no key storage to issue a prepared certificate with, and no Requests section.
+            if !cfg!(target_os = "linux") {
+                self.notices.prepared(
+                    &self
+                        .inventory
+                        .ready_to_issue(&self.session.waiting_requests()),
+                    current,
+                    || current() && !self.guard.is_locked(),
+                );
+            }
             if self.inventory.summary().is_none() {
                 // Signed out meanwhile: the write above must not leave the notices file behind.
                 self.notices.forget();

@@ -304,7 +304,7 @@ fn standing(followed: &[Followed], certificate: &str) -> FollowView {
 
 /// How `certificate` stands after a follow of its own, else as the latest check of ILM found it: a check that ran
 /// first has already finished the request, and the follow of its own then knows nothing of it. While a request of
-/// `certificate` is still `waiting`, an end the latest check found belongs to an earlier one.
+/// `certificate` is still `waiting`, an installed or ended outcome the latest check found belongs to an earlier one.
 fn standing_or_latest(
     own: &[Followed],
     latest: &[Followed],
@@ -313,7 +313,7 @@ fn standing_or_latest(
 ) -> FollowView {
     match standing(own, certificate) {
         FollowView::Unknown => match standing(latest, certificate) {
-            found @ FollowView::Waiting { .. } => found,
+            found @ (FollowView::Waiting { .. } | FollowView::NotInstalled { .. }) => found,
             _ if waiting
                 .iter()
                 .any(|entry| entry.uuid.as_deref() == Some(certificate)) =>
@@ -466,8 +466,7 @@ pub async fn request_certificate<R: Runtime>(
     let chosen = profile(&ilm, &ra_profile).await?;
     ilm.unlocked()?;
     let waiting = ilm
-        .session()
-        .request(&chosen, forms, storage, key_type)
+        .working(ilm.session().request(&chosen, forms, storage, key_type))
         .await;
     ilm.unlocked()?;
     Ok(requested(&app, &ilm, waiting?))
@@ -520,8 +519,7 @@ pub async fn complete_certificate<R: Runtime>(
     let found = prepared(&ilm, &uuid)?;
     ilm.unlocked()?;
     let waiting = ilm
-        .session()
-        .complete(
+        .working(ilm.session().complete(
             Completion {
                 uuid: &uuid,
                 name: &found.name,
@@ -531,7 +529,7 @@ pub async fn complete_certificate<R: Runtime>(
             storage,
             key_type,
             challenge,
-        )
+        ))
         .await;
     ilm.unlocked()?;
     Ok(requested(&app, &ilm, waiting?))
@@ -654,9 +652,16 @@ mod tests {
             Outcome::Waiting(State::PendingApproval),
         )];
         assert_eq!(
-            standing_or_latest(&[], &approval, &[again], "c-1"),
+            standing_or_latest(&[], &approval, std::slice::from_ref(&again), "c-1"),
             FollowView::Waiting {
                 stage: WaitingStage::PendingApproval
+            }
+        );
+        let failed = [followed(Some("c-1"), Outcome::InstallFailed)];
+        assert_eq!(
+            standing_or_latest(&[], &failed, &[again], "c-1"),
+            FollowView::NotInstalled {
+                cause: NotInstalledCause::InstallFailed
             }
         );
     }

@@ -522,8 +522,10 @@ export function Request({
                 }
                 const failure: RequestFailure = requestFailure(error);
                 setPhase({ kind: 'filling' });
-                if (prepared && failure.kind === 'refused' && failure.messages.length > 0 && failure.messages.every(isChallengeRefusal)) {
+                if (prepared && failure.kind === 'refused' && failure.messages.some(isChallengeRefusal)) {
                     setChallengeAsked(true);
+                }
+                if (prepared && failure.kind === 'refused' && failure.messages.length > 0 && failure.messages.every(isChallengeRefusal)) {
                     setChallengeProblems(failure.messages);
                 } else if (failure.kind === 'message') {
                     setProblem(failure.message || strings.requestFailed);
