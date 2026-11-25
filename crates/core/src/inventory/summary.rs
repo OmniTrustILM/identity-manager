@@ -11,7 +11,7 @@ use crate::settings::WarnDays;
 const DAY_MILLIS: i64 = 86_400_000;
 
 /// Why a certificate or a group of them needs the person's eye.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Kind {
     /// Expires within the warning days; `days` is what is left, counted in calendar days of the local time zone, and `on` is the
     /// expiry, milliseconds since 1970 (UTC).
@@ -24,8 +24,12 @@ pub enum Kind {
     NotInIlm { count: u32 },
     /// A request for a certificate that ILM has not issued yet; the item's name is the request's label.
     Waiting { state: WaitingState },
-    /// A request of someone else that waits for the person's decision; the item's name is the certificate's.
-    Approval { action: ApprovalAction },
+    /// A request of someone else that waits for the person's decision; the item's name is the certificate's and
+    /// `uuid` is the approval's.
+    Approval {
+        uuid: String,
+        action: ApprovalAction,
+    },
 }
 
 /// What ILM is doing with a request that is not yet a certificate.
@@ -106,15 +110,15 @@ impl Summary {
         }))
     }
 
-    /// Lists the requests that wait for the person's approval, given as certificate name and action, after the
-    /// requests in progress.
+    /// Lists the requests that wait for the person's approval, given as approval uuid, certificate name and action,
+    /// after the requests in progress.
     #[must_use]
     pub fn with_approvals(
         self,
-        approvals: impl IntoIterator<Item = (String, ApprovalAction)>,
+        approvals: impl IntoIterator<Item = (String, String, ApprovalAction)>,
     ) -> Self {
-        self.with_items(approvals.into_iter().map(|(name, action)| Item {
-            kind: Kind::Approval { action },
+        self.with_items(approvals.into_iter().map(|(uuid, name, action)| Item {
+            kind: Kind::Approval { uuid, action },
             fingerprint: None,
             name,
         }))
@@ -372,7 +376,7 @@ pub(super) mod tests {
         summary
             .attention
             .iter()
-            .map(|item| (item.name.as_str(), item.kind))
+            .map(|item| (item.name.as_str(), item.kind.clone()))
             .collect()
     }
 
@@ -738,7 +742,7 @@ pub(super) mod tests {
         let waiting_kinds: Vec<_> = summary
             .attention
             .iter()
-            .map(|item| (item.name.as_str(), item.kind))
+            .map(|item| (item.name.as_str(), item.kind.clone()))
             .collect();
         assert_eq!(
             waiting_kinds[1..],
@@ -776,12 +780,16 @@ pub(super) mod tests {
     fn approvals_are_listed_after_the_requests_in_progress_without_switching_the_attention_on() {
         let summary = summarize(&[], None, days(30), now(), |_| 0)
             .with_waiting([("User mTLS".to_owned(), WaitingState::BeingIssued)])
-            .with_approvals([("demo220".to_owned(), ApprovalAction::Renew)]);
+            .with_approvals([(
+                "a-1".to_owned(),
+                "demo220".to_owned(),
+                ApprovalAction::Renew,
+            )]);
 
         let kinds: Vec<_> = summary
             .attention
             .iter()
-            .map(|item| (item.name.as_str(), item.kind))
+            .map(|item| (item.name.as_str(), item.kind.clone()))
             .collect();
         assert_eq!(
             kinds,
@@ -795,6 +803,7 @@ pub(super) mod tests {
                 (
                     "demo220",
                     Kind::Approval {
+                        uuid: "a-1".to_owned(),
                         action: ApprovalAction::Renew
                     }
                 ),

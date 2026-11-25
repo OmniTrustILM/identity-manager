@@ -194,13 +194,11 @@ pub fn decide_request(
     decision: Decision,
     comment: Option<&str>,
 ) -> RequestBuilder {
-    client
-        .patch(format!(
-            "{}/v1/approvals/{uuid}/{}",
-            ilm.api(),
-            decision.path()
-        ))
-        .json(&json!({ "comment": comment }))
+    let mut url = format!("{}/v1/approvals/", ilm.api());
+    url.extend(url::form_urlencoded::byte_serialize(uuid.as_bytes()));
+    url.push('/');
+    url.push_str(decision.path());
+    client.patch(url).json(&json!({ "comment": comment }))
 }
 
 /// Reads ILM's answer to a decision.
@@ -448,6 +446,31 @@ mod tests {
 
             assert_eq!(read_decision(sent).await, Ok(()));
         }
+    }
+
+    #[tokio::test]
+    async fn an_approval_uuid_with_reserved_characters_stays_one_path_segment() {
+        let server = MockServer::start().await;
+        Mock::given(method("PATCH"))
+            .and(path("/api/v1/approvals/a-1%2Fapprove%23/approveRecipient"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let ilm = IlmUrl::for_tests(&server.uri());
+
+        let sent = decide_request(
+            &client_for_tests(),
+            &ilm,
+            "a-1/approve#",
+            Decision::Approve,
+            None,
+        )
+        .send()
+        .await
+        .unwrap();
+
+        assert_eq!(read_decision(sent).await, Ok(()));
     }
 
     #[tokio::test]

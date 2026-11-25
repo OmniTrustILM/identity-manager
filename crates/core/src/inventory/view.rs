@@ -468,6 +468,7 @@ pub enum AttentionItemView {
     },
     /// A request that waits for the person's approval.
     Approval {
+        uuid: String,
         name: String,
         action: ApprovalAction,
     },
@@ -494,23 +495,23 @@ impl From<&Item> for AttentionItemView {
                 .unwrap_or_default()
         };
         let name = || item.name.clone();
-        match item.kind {
+        match &item.kind {
             Kind::Expiring { days, on } => Self::Expiring {
                 fingerprint: fingerprint(),
                 name: name(),
-                days,
-                on,
+                days: *days,
+                on: *on,
             },
             Kind::Expired { on } => Self::Expired {
                 fingerprint: fingerprint(),
                 name: name(),
-                on,
+                on: *on,
             },
             Kind::Revoked => Self::Revoked {
                 fingerprint: fingerprint(),
                 name: name(),
             },
-            Kind::NotInIlm { count } => Self::NotInIlm { count },
+            Kind::NotInIlm { count } => Self::NotInIlm { count: *count },
             Kind::Waiting { state } => Self::Waiting {
                 label: name(),
                 state: match state {
@@ -518,9 +519,10 @@ impl From<&Item> for AttentionItemView {
                     WaitingState::BeingIssued => WaitingStateView::BeingIssued,
                 },
             },
-            Kind::Approval { action } => Self::Approval {
+            Kind::Approval { uuid, action } => Self::Approval {
+                uuid: uuid.clone(),
                 name: name(),
-                action,
+                action: *action,
             },
         }
     }
@@ -629,6 +631,25 @@ mod tests {
         assert_eq!(
             json,
             json!({ "kind": "waiting", "label": "User mTLS", "state": "pendingApproval" })
+        );
+    }
+
+    #[test]
+    fn a_request_waiting_for_approval_is_an_attention_item_with_the_approval_uuid() {
+        let item = Item {
+            kind: Kind::Approval {
+                uuid: "a-1".to_owned(),
+                action: ApprovalAction::Renew,
+            },
+            fingerprint: None,
+            name: "demo220".to_owned(),
+        };
+
+        let json = serde_json::to_value(AttentionItemView::from(&item)).unwrap();
+
+        assert_eq!(
+            json,
+            json!({ "kind": "approval", "uuid": "a-1", "name": "demo220", "action": "renew" })
         );
     }
 

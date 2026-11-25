@@ -221,7 +221,7 @@ test('requests in progress are listed, open Overview, and alone do not make the 
 });
 
 test('a request waiting for the approval is listed with its kind, opens the requests, and alone needs no attention', async () => {
-    await shows(stand([{ kind: 'approval', name: 'S/MIME email', action: 'renew' }]));
+    await shows(stand([{ kind: 'approval', uuid: 'a-1', name: 'S/MIME email', action: 'renew' }]));
 
     expect(container.textContent).not.toContain(strings.needsAttention);
     expect(items()[0]?.textContent).toBe(`S/MIME email${strings.approvalKinds.renew}`);
@@ -230,7 +230,7 @@ test('a request waiting for the approval is listed with its kind, opens the requ
 });
 
 test('on Linux a request waiting for the approval is left out of the summary', async () => {
-    summary = stand([{ kind: 'approval', name: 'S/MIME email', action: 'renew' }, expired]);
+    summary = stand([{ kind: 'approval', uuid: 'a-1', name: 'S/MIME email', action: 'renew' }, expired]);
     await act(async () => root.render(null));
     await act(async () =>
         root.render(
@@ -245,14 +245,17 @@ test('on Linux a request waiting for the approval is left out of the summary', a
     expect(container.textContent).not.toContain('S/MIME email');
 });
 
-test('two requests waiting for the approval of unreadable certificates are both listed', async () => {
-    const unreadable: AttentionItemView = { kind: 'approval', name: strings.approvalCertificate, action: 'renew' };
-    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+test('an approval keeps the focus when an item before it is removed', async () => {
+    const approval: AttentionItemView = { kind: 'approval', uuid: 'a-1', name: 'S/MIME email', action: 'renew' };
+    await shows(stand([revoked, approval]));
+    items()[1]?.focus();
+    const focused = document.activeElement;
+    summary = stand([approval]);
 
-    await shows(stand([unreadable, unreadable]));
+    await act(async () => emit('inventory-changed'));
 
-    expect(items()).toHaveLength(2);
-    expect(errors).not.toHaveBeenCalled();
+    expect(items()).toHaveLength(1);
+    expect(document.activeElement).toBe(focused);
 });
 
 test('a revoked certificate makes the line say attention is needed even beside requests in progress', async () => {

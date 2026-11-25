@@ -335,6 +335,7 @@ async fn the_summary_lists_the_approvals_of_a_fresh_check_without_attention() {
         item.name == "demo220"
             && item.kind
                 == Kind::Approval {
+                    uuid: "a-1".to_owned(),
                     action: ApprovalAction::Issue,
                 }
     }));

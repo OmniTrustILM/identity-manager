@@ -223,6 +223,7 @@ impl Held {
                 .with_waiting(self.waiting())
                 .with_approvals(self.approvals().iter().map(|found| {
                     (
+                        found.uuid.clone(),
                         found
                             .certificate_name
                             .clone()

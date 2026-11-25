@@ -120,7 +120,7 @@ const itemKey = (item: AttentionItemView) => {
         case 'waiting':
             return `${item.kind}:${item.label}`;
         case 'approval':
-            return `${item.kind}:${item.name}`;
+            return `${item.kind}:${item.uuid}`;
         default:
             return `${item.kind}:${item.fingerprint}`;
     }
@@ -175,8 +175,8 @@ function Standing({ summary, offline, linux }: Readonly<{ summary: SummaryView; 
             {items.length > 0 && (
                 <div className="flex flex-col gap-s1">
                     <ul className="flex flex-col gap-s1">
-                        {items.slice(0, listed).map((item, index) => (
-                            <Item key={item.kind === 'approval' ? `${itemKey(item)}:${index}` : itemKey(item)} item={item} />
+                        {items.slice(0, listed).map((item) => (
+                            <Item key={itemKey(item)} item={item} />
                         ))}
                     </ul>
                     {more > 0 && <p className="px-s3 text-body text-secondary">{strings.moreAttention(more)}</p>}
