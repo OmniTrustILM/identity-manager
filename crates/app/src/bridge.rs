@@ -22,6 +22,7 @@ const NAVIGATE: &str = "navigate";
 )]
 pub enum Navigation {
     Overview,
+    Requests,
     /// The certificate on this computer with this fingerprint.
     Certificate {
         fingerprint: String,
@@ -43,10 +44,12 @@ impl PendingNavigation {
 }
 
 impl Navigation {
-    /// The place `target` names: "overview" or the fingerprint of a certificate; none for anything else.
+    /// The place `target` names: "overview", "requests" or the fingerprint of a certificate; none for anything else.
     fn of(target: &str) -> Option<Self> {
-        if target == "overview" {
-            return Some(Self::Overview);
+        match target {
+            "overview" => return Some(Self::Overview),
+            "requests" => return Some(Self::Requests),
+            _ => {}
         }
         let fingerprint = target.parse::<Fingerprint>().ok()?;
         Some(Self::Certificate {
@@ -791,12 +794,13 @@ mod tests {
                 "allow-follow-request",
                 "allow-stop-following-request",
                 "allow-open-prepared-forms",
-                "allow-complete-certificate"
+                "allow-complete-certificate",
+                "allow-decide-approval"
             ])
         );
     }
 
-    const REQUEST_COMMANDS: [(&str, &str); 8] = [
+    const REQUEST_COMMANDS: [(&str, &str); 9] = [
         ("request_choices", "{}"),
         ("open_request_forms", r#"{"raProfile":"ra-1"}"#),
         ("request_offers", "{}"),
@@ -810,6 +814,10 @@ mod tests {
         (
             "complete_certificate",
             r#"{"uuid":"c-1","forms":{},"storage":"software","keyType":"ecP256","challenge":null}"#,
+        ),
+        (
+            "decide_approval",
+            r#"{"uuid":"a-1","decision":"approve","comment":null}"#,
         ),
     ];
 
@@ -900,14 +908,15 @@ mod tests {
     }
 
     #[test]
-    fn a_target_names_the_overview_or_a_certificate_and_nothing_else() {
+    fn a_target_names_the_overview_the_requests_or_a_certificate_and_nothing_else() {
         let print = im_core::identity::Fingerprint::of(b"der").to_string();
         assert_eq!(Navigation::of("overview"), Some(Navigation::Overview));
+        assert_eq!(Navigation::of("requests"), Some(Navigation::Requests));
         assert_eq!(
             Navigation::of(&print),
             Some(Navigation::Certificate { fingerprint: print })
         );
-        for other in ["", "Overview", "settings", "00", "../etc"] {
+        for other in ["", "Overview", "Requests", "settings", "00", "../etc"] {
             assert_eq!(Navigation::of(other), None, "{other:?}");
         }
     }

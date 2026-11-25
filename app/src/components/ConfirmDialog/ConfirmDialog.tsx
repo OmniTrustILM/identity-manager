@@ -12,6 +12,7 @@ const secondary = 'h-button rounded-control border border-button-edge bg-button 
 export function ConfirmDialog({
     title,
     children,
+    extra,
     confirmLabel,
     busy,
     macos,
@@ -20,6 +21,8 @@ export function ConfirmDialog({
 }: Readonly<{
     title: string;
     children?: ReactNode;
+    /** More under the message, such as a field or an error. */
+    extra?: ReactNode;
     confirmLabel: string;
     busy: boolean;
     macos: boolean;
@@ -79,6 +82,7 @@ export function ConfirmDialog({
                     {children}
                 </p>
             )}
+            {extra}
             <div className="flex justify-end gap-s2 pt-s2">
                 {macos ? cancelButton : confirmButton}
                 {macos ? confirmButton : cancelButton}

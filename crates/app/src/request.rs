@@ -327,7 +327,7 @@ fn standing_or_latest(
 }
 
 /// The person who is signed in.
-fn signed_in(who: Option<SignedInAs>) -> Result<SignedInAs, String> {
+pub(crate) fn signed_in(who: Option<SignedInAs>) -> Result<SignedInAs, String> {
     who.ok_or_else(|| CallError::SignedOut.to_string())
 }
 

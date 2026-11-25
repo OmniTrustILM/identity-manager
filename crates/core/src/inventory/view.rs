@@ -5,8 +5,11 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use super::prepared::is_begun;
-use super::{Counts, Item, Kind, Prepared, Snapshot, Status, SubjectPart, Summary, WaitingState};
+use super::{
+    Approval, Counts, Item, Kind, Prepared, Snapshot, Status, SubjectPart, Summary, WaitingState,
+};
 use crate::attributes::FormView;
+use crate::ilm::approvals::ApprovalAction;
 use crate::ilm::certificates::{CertificatePage, IlmCertificate, State};
 use crate::ilm::upload::{GroupChoice, RaProfileChoice};
 use crate::requests::Waiting;
@@ -167,6 +170,40 @@ impl From<&Prepared> for PreparedView {
     }
 }
 
+/// A request of someone else for a certificate, which waits for the person's decision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct ApprovalView {
+    pub uuid: String,
+    pub action: ApprovalAction,
+    /// None when ILM could not tell who asked.
+    pub requester: Option<String>,
+    /// Milliseconds since 1970 (UTC).
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number"))]
+    pub requested_at: i64,
+    /// None when the person may not read the certificate.
+    pub certificate_name: Option<String>,
+    pub ra_profile_name: Option<String>,
+}
+
+impl From<&Approval> for ApprovalView {
+    fn from(found: &Approval) -> Self {
+        Self {
+            uuid: found.uuid.clone(),
+            action: found.action,
+            requester: found.requester.clone(),
+            requested_at: found.requested_at,
+            certificate_name: found.certificate_name.clone(),
+            ra_profile_name: found.ra_profile.clone(),
+        }
+    }
+}
+
 /// A request of the person that ILM has not finished.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -216,6 +253,8 @@ pub struct InventoryView {
     pub can_request: bool,
     /// The certificates registered for the person in advance that they are not completing yet.
     pub prepared: Vec<PreparedView>,
+    /// The requests of others that wait for the person's approval.
+    pub approvals: Vec<ApprovalView>,
     /// The requests of the person that ILM has not finished; given by `with_requests`.
     pub requests: Vec<MyRequestView>,
 }
@@ -258,6 +297,9 @@ impl InventoryView {
             can_request,
             prepared: snapshot.map_or_else(Vec::new, |snapshot| {
                 snapshot.prepared.iter().map(Into::into).collect()
+            }),
+            approvals: snapshot.map_or_else(Vec::new, |snapshot| {
+                snapshot.approvals.iter().map(Into::into).collect()
             }),
             requests: Vec::new(),
         }
@@ -424,6 +466,12 @@ pub enum AttentionItemView {
         label: String,
         state: WaitingStateView,
     },
+    /// A request that waits for the person's approval.
+    Approval {
+        uuid: String,
+        name: String,
+        action: ApprovalAction,
+    },
 }
 
 /// What ILM is doing with a request that is not yet a certificate.
@@ -447,29 +495,34 @@ impl From<&Item> for AttentionItemView {
                 .unwrap_or_default()
         };
         let name = || item.name.clone();
-        match item.kind {
+        match &item.kind {
             Kind::Expiring { days, on } => Self::Expiring {
                 fingerprint: fingerprint(),
                 name: name(),
-                days,
-                on,
+                days: *days,
+                on: *on,
             },
             Kind::Expired { on } => Self::Expired {
                 fingerprint: fingerprint(),
                 name: name(),
-                on,
+                on: *on,
             },
             Kind::Revoked => Self::Revoked {
                 fingerprint: fingerprint(),
                 name: name(),
             },
-            Kind::NotInIlm { count } => Self::NotInIlm { count },
+            Kind::NotInIlm { count } => Self::NotInIlm { count: *count },
             Kind::Waiting { state } => Self::Waiting {
                 label: name(),
                 state: match state {
                     WaitingState::PendingApproval => WaitingStateView::PendingApproval,
                     WaitingState::BeingIssued => WaitingStateView::BeingIssued,
                 },
+            },
+            Kind::Approval { uuid, action } => Self::Approval {
+                uuid: uuid.clone(),
+                name: name(),
+                action: *action,
             },
         }
     }
@@ -559,6 +612,7 @@ mod tests {
             first_page,
             allowed: HashMap::from([("u-1".to_owned(), vec!["renew".to_owned()])]),
             prepared: Vec::new(),
+            approvals: Vec::new(),
         }
     }
 
@@ -577,6 +631,25 @@ mod tests {
         assert_eq!(
             json,
             json!({ "kind": "waiting", "label": "User mTLS", "state": "pendingApproval" })
+        );
+    }
+
+    #[test]
+    fn a_request_waiting_for_approval_is_an_attention_item_with_the_approval_uuid() {
+        let item = Item {
+            kind: Kind::Approval {
+                uuid: "a-1".to_owned(),
+                action: ApprovalAction::Renew,
+            },
+            fingerprint: None,
+            name: "demo220".to_owned(),
+        };
+
+        let json = serde_json::to_value(AttentionItemView::from(&item)).unwrap();
+
+        assert_eq!(
+            json,
+            json!({ "kind": "approval", "uuid": "a-1", "name": "demo220", "action": "renew" })
         );
     }
 
@@ -685,6 +758,40 @@ mod tests {
             label: "x".to_owned(),
             outcome,
         }
+    }
+
+    #[test]
+    fn an_approval_is_shown_with_its_requester_certificate_and_time() {
+        let mut held = snapshot(None);
+        held.approvals = vec![Approval {
+            uuid: "a-1".to_owned(),
+            action: ApprovalAction::Rekey,
+            requester: Some("ada".to_owned()),
+            requested_at: 9,
+            certificate_name: None,
+            ra_profile: Some("Servers".to_owned()),
+        }];
+
+        let json = serde_json::to_value(InventoryView::new(
+            Status::Never,
+            Some(&held),
+            false,
+            true,
+            false,
+        ))
+        .unwrap();
+
+        assert_eq!(
+            json["approvals"],
+            json!([{
+                "uuid": "a-1",
+                "action": "rekey",
+                "requester": "ada",
+                "requestedAt": 9,
+                "certificateName": null,
+                "raProfileName": "Servers"
+            }])
+        );
     }
 
     #[test]

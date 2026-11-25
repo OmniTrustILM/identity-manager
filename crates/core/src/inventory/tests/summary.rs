@@ -34,7 +34,7 @@ fn names(summary: &Summary) -> Vec<(&str, Kind)> {
     summary
         .attention
         .iter()
-        .map(|item| match item.kind {
+        .map(|item| match item.kind.clone() {
             Kind::Expiring { days, .. } => (item.name.as_str(), Kind::Expiring { days, on: 0 }),
             kind => (item.name.as_str(), kind),
         })

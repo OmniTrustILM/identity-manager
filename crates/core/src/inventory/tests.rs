@@ -10,6 +10,7 @@ use crate::ilm::certificates::search_text;
 use crate::session::SessionView;
 use crate::session::tests::{LOG, World, capture_logs};
 
+mod approvals;
 mod prepared;
 mod summary;
 
@@ -814,6 +815,7 @@ async fn the_cache_is_written_after_a_check_and_holds_only_metadata() {
         keys,
         [
             "allowed",
+            "approvals",
             "checked",
             "checkedAt",
             "firstPage",
@@ -944,6 +946,7 @@ fn empty_snapshot() -> Snapshot {
         first_page: None,
         allowed: HashMap::new(),
         prepared: Vec::new(),
+        approvals: Vec::new(),
     }
 }
 

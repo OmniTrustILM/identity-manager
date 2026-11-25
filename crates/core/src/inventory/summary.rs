@@ -4,13 +4,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::Snapshot;
 use crate::identity::{Fingerprint, LocalCertificate};
+use crate::ilm::approvals::ApprovalAction;
 use crate::ilm::certificates::State;
 use crate::settings::WarnDays;
 
 const DAY_MILLIS: i64 = 86_400_000;
 
 /// Why a certificate or a group of them needs the person's eye.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Kind {
     /// Expires within the warning days; `days` is what is left, counted in calendar days of the local time zone, and `on` is the
     /// expiry, milliseconds since 1970 (UTC).
@@ -23,6 +24,12 @@ pub enum Kind {
     NotInIlm { count: u32 },
     /// A request for a certificate that ILM has not issued yet; the item's name is the request's label.
     Waiting { state: WaitingState },
+    /// A request of someone else that waits for the person's decision; the item's name is the certificate's and
+    /// `uuid` is the approval's.
+    Approval {
+        uuid: String,
+        action: ApprovalAction,
+    },
 }
 
 /// What ILM is doing with a request that is not yet a certificate.
@@ -83,17 +90,42 @@ impl Summary {
     pub fn needing_attention(&self) -> usize {
         self.attention
             .iter()
-            .filter(|item| !matches!(item.kind, Kind::NotInIlm { .. } | Kind::Waiting { .. }))
+            .filter(|item| {
+                !matches!(
+                    item.kind,
+                    Kind::NotInIlm { .. } | Kind::Waiting { .. } | Kind::Approval { .. }
+                )
+            })
             .count()
     }
 
     /// Lists the requests in progress, given as label and state, after what is expiring, expired or revoked and
     /// before the certificates ILM does not know.
     #[must_use]
-    pub fn with_waiting(
-        mut self,
-        waiting: impl IntoIterator<Item = (String, WaitingState)>,
+    pub fn with_waiting(self, waiting: impl IntoIterator<Item = (String, WaitingState)>) -> Self {
+        self.with_items(waiting.into_iter().map(|(name, state)| Item {
+            kind: Kind::Waiting { state },
+            fingerprint: None,
+            name,
+        }))
+    }
+
+    /// Lists the requests that wait for the person's approval, given as approval uuid, certificate name and action,
+    /// after the requests in progress.
+    #[must_use]
+    pub fn with_approvals(
+        self,
+        approvals: impl IntoIterator<Item = (String, String, ApprovalAction)>,
     ) -> Self {
+        self.with_items(approvals.into_iter().map(|(uuid, name, action)| Item {
+            kind: Kind::Approval { uuid, action },
+            fingerprint: None,
+            name,
+        }))
+    }
+
+    /// Puts `items` before the certificates ILM does not know, or last.
+    fn with_items(mut self, items: impl Iterator<Item = Item>) -> Self {
         let at = match self.attention.last() {
             Some(Item {
                 kind: Kind::NotInIlm { .. },
@@ -101,11 +133,6 @@ impl Summary {
             }) => self.attention.len() - 1,
             _ => self.attention.len(),
         };
-        let items = waiting.into_iter().map(|(name, state)| Item {
-            kind: Kind::Waiting { state },
-            fingerprint: None,
-            name,
-        });
         self.attention.splice(at..at, items);
         self
     }
@@ -329,6 +356,7 @@ pub(super) mod tests {
             first_page: None,
             allowed: HashMap::new(),
             prepared: Vec::new(),
+            approvals: Vec::new(),
         }
     }
 
@@ -348,7 +376,7 @@ pub(super) mod tests {
         summary
             .attention
             .iter()
-            .map(|item| (item.name.as_str(), item.kind))
+            .map(|item| (item.name.as_str(), item.kind.clone()))
             .collect()
     }
 
@@ -714,7 +742,7 @@ pub(super) mod tests {
         let waiting_kinds: Vec<_> = summary
             .attention
             .iter()
-            .map(|item| (item.name.as_str(), item.kind))
+            .map(|item| (item.name.as_str(), item.kind.clone()))
             .collect();
         assert_eq!(
             waiting_kinds[1..],
@@ -746,6 +774,43 @@ pub(super) mod tests {
         assert_eq!(summary.attention.len(), 1);
         assert!(!summary.needs_attention());
         assert_eq!(summary.needing_attention(), 0);
+    }
+
+    #[test]
+    fn approvals_are_listed_after_the_requests_in_progress_without_switching_the_attention_on() {
+        let summary = summarize(&[], None, days(30), now(), |_| 0)
+            .with_waiting([("User mTLS".to_owned(), WaitingState::BeingIssued)])
+            .with_approvals([(
+                "a-1".to_owned(),
+                "demo220".to_owned(),
+                ApprovalAction::Renew,
+            )]);
+
+        let kinds: Vec<_> = summary
+            .attention
+            .iter()
+            .map(|item| (item.name.as_str(), item.kind.clone()))
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                (
+                    "User mTLS",
+                    Kind::Waiting {
+                        state: WaitingState::BeingIssued
+                    }
+                ),
+                (
+                    "demo220",
+                    Kind::Approval {
+                        uuid: "a-1".to_owned(),
+                        action: ApprovalAction::Renew
+                    }
+                ),
+            ]
+        );
+        assert_eq!(summary.needing_attention(), 0);
+        assert!(!summary.needs_attention());
     }
 
     #[test]

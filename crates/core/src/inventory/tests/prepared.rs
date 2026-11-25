@@ -43,7 +43,7 @@ impl Setup {
             .await;
     }
 
-    async fn detail(&self, tail: &str, response: ResponseTemplate) {
+    pub(super) async fn detail(&self, tail: &str, response: ResponseTemplate) {
         self.mock("GET", tail)
             .respond_with(response)
             .mount(&self.world.ilm)

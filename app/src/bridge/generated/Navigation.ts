@@ -3,4 +3,4 @@
 /**
  * What the main window is asked to show.
  */
-export type Navigation = { "to": "overview" } | { "to": "certificate", fingerprint: string, };
+export type Navigation = { "to": "overview" } | { "to": "requests" } | { "to": "certificate", fingerprint: string, };

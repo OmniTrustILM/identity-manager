@@ -44,6 +44,7 @@ export const inventory = (over: Partial<InventoryView> = {}): InventoryView => (
     firstPage: null,
     canRequest: false,
     prepared: [],
+    approvals: [],
     requests: [],
     ...over,
 });

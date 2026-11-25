@@ -1,5 +1,6 @@
 //! What ILM says about the certificates on this computer: one check, one snapshot, kept in a cache file.
 
+mod approvals;
 mod cache;
 mod prepared;
 mod summary;
@@ -7,13 +8,14 @@ mod summary;
 mod tests;
 mod view;
 
+pub use approvals::Approval;
 pub use prepared::{Prepared, SubjectKind, SubjectPart, subject_parts};
 pub use summary::{Counts, Item, Kind, Summary, WaitingState, summarize};
 use view::listed_by;
 pub use view::{
-    AddChoicesView, AddResultView, AttentionItemView, CountsView, IlmCertificateView, IlmPageView,
-    IlmRaProfileView, InventoryView, MyRequestView, PreparedView, RegistrationView, SummaryView,
-    WaitingStateView,
+    AddChoicesView, AddResultView, ApprovalView, AttentionItemView, CountsView, IlmCertificateView,
+    IlmPageView, IlmRaProfileView, InventoryView, MyRequestView, PreparedView, RegistrationView,
+    SummaryView, WaitingStateView,
 };
 
 use std::collections::{HashMap, HashSet};
@@ -29,6 +31,7 @@ use serde::{Deserialize, Serialize};
 use crate::identity::{Fingerprint, LocalCertificate};
 use crate::ilm::IlmUrl;
 use crate::ilm::actions::{self, MAX_UUIDS, Outcome};
+use crate::ilm::approvals::{DecideError, Decision, decide_request, read_decision};
 use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, MATCH_LIMIT, Search, State};
 use crate::ilm::profile::{IlmError, SignInCertificate, profile_request, read_profile};
 use crate::requests::Waiting;
@@ -82,6 +85,9 @@ pub struct Snapshot {
     /// person may not list them.
     #[serde(default)]
     pub prepared: Vec<Prepared>,
+    /// The requests for certificates that wait for the person's approval; empty when ILM has none or could not say.
+    #[serde(default)]
+    pub approvals: Vec<Approval>,
 }
 
 /// How far the snapshot can be trusted.
@@ -178,9 +184,21 @@ struct Held {
     summary: Option<Summary>,
     /// How the requests for certificates stood at the latest check.
     followed: Vec<Followed>,
+    /// The approvals decided in this sign-in, or that ILM said no longer wait: a check that read ILM before the
+    /// decision, or ILM listing an approval again for another step, must not bring them back.
+    decided: HashSet<String>,
 }
 
 impl Held {
+    /// The approvals that wait for the person as the latest check found them; none unless it succeeded, as a kept
+    /// list may name approvals decided since.
+    fn approvals(&self) -> &[Approval] {
+        match (&self.status, &self.snapshot) {
+            (Status::Fresh { .. }, Some(snapshot)) => &snapshot.approvals,
+            _ => &[],
+        }
+    }
+
     /// The requests the latest check found still waiting for ILM, by label.
     fn waiting(&self) -> Vec<(String, WaitingState)> {
         self.followed
@@ -203,6 +221,16 @@ impl Held {
         self.summary = self.bound.as_ref().and(self.local.as_ref()).map(|local| {
             summarize(local, self.snapshot.as_ref(), self.days, now(), zone)
                 .with_waiting(self.waiting())
+                .with_approvals(self.approvals().iter().map(|found| {
+                    (
+                        found.uuid.clone(),
+                        found
+                            .certificate_name
+                            .clone()
+                            .unwrap_or_else(|| "Certificate".to_owned()),
+                        found.action,
+                    )
+                }))
         });
         if let Some(summary) = &self.summary {
             let counts = &summary.counts;
@@ -345,6 +373,63 @@ impl Inventory {
             .filter(|found| found.is_open_at(now) && !prepared::is_begun(&found.uuid, waiting))
             .cloned()
             .collect()
+    }
+
+    /// The requests for certificates that wait for the person's approval; none unless the latest check succeeded.
+    pub fn approvals(&self) -> Vec<Approval> {
+        held(&self.held).approvals().to_vec()
+    }
+
+    /// Takes `decision` on the approval `uuid`, with an optional `comment` that goes to ILM and nowhere else. The
+    /// approval leaves the snapshot once ILM took the decision or says it no longer waits.
+    pub async fn decide(
+        &self,
+        session: &Session,
+        uuid: &str,
+        decision: Decision,
+        comment: Option<&str>,
+        proceed: impl Fn() -> bool + Sync,
+    ) -> Result<(), DecideError> {
+        let epoch = held(&self.held).epoch;
+        let response = session
+            .call_ilm_as(None, Some(&proceed), |client, ilm| {
+                decide_request(client, ilm, uuid, decision, comment)
+            })
+            .await
+            .map_err(|error| match error {
+                CallError::SignedOut => DecideError::Failed(IlmError::Unauthorized),
+                CallError::Unreachable | CallError::Withdrawn => {
+                    DecideError::Failed(IlmError::Unreachable)
+                }
+            })?;
+        let answer = read_decision(response).await;
+        match &answer {
+            Ok(()) => log::info!("approval decided: {uuid} {decision}"),
+            Err(DecideError::NoLongerWaiting) => log::info!("approval no longer waits: {uuid}"),
+            Err(_) => return answer,
+        }
+        self.leave(epoch, uuid);
+        answer
+    }
+
+    /// Takes the approval `uuid` out of the snapshot and the cache file, unless the sign-in ended meanwhile.
+    fn leave(&self, epoch: u64, uuid: &str) {
+        let mut held = held(&self.held);
+        if held.epoch != epoch {
+            return;
+        }
+        held.decided.insert(uuid.to_owned());
+        let Some((ilm, username)) = held.bound.clone() else {
+            return;
+        };
+        let Some(snapshot) = held.snapshot.as_mut() else {
+            return;
+        };
+        snapshot.approvals.retain(|found| found.uuid != uuid);
+        if let Err(error) = cache::write(&self.cache, &ilm, &username, snapshot) {
+            log::warn!("the ILM cache could not be written: {error}");
+        }
+        held.rebuild(self.zone);
     }
 
     /// How the certificates on this computer stand, as of the latest check, or of the start before the first one;
@@ -544,10 +629,11 @@ impl Inventory {
                     .as_ref()
                     .map_or_else(|| "none".to_owned(), |page| page.total_items.to_string());
                 log::info!(
-                    "checked ILM: {} on this computer, {} matched, {page_total} in ILM, {} prepared, actions {}, {} ms",
+                    "checked ILM: {} on this computer, {} matched, {page_total} in ILM, {} prepared, {} approvals, actions {}, {} ms",
                     found.local,
                     found.snapshot.matches.len(),
                     found.snapshot.prepared.len(),
+                    found.snapshot.approvals.len(),
                     found.actions,
                     started.elapsed().as_millis()
                 );
@@ -564,12 +650,15 @@ impl Inventory {
     }
 
     /// Keeps `snapshot` unless the sign-in it was asked for has ended meanwhile.
-    fn keep(&self, who: &SignedInAs, epoch: u64, snapshot: Snapshot) {
+    fn keep(&self, who: &SignedInAs, epoch: u64, mut snapshot: Snapshot) {
         let mut held = held(&self.held);
         if held.epoch != epoch {
             log::debug!("the answer of ILM is dropped: the sign-in ended");
             return;
         }
+        snapshot
+            .approvals
+            .retain(|found| !held.decided.contains(&found.uuid));
         match cache::write(&self.cache, &who.ilm, &who.username, &snapshot) {
             Ok(()) => log::info!("the ILM cache is written"),
             Err(error) => log::warn!("the ILM cache could not be written: {error}"),
@@ -637,7 +726,9 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
         first_page: None,
         allowed: HashMap::new(),
         prepared: Vec::new(),
+        approvals: Vec::new(),
     };
+    snapshot.approvals = approvals::read(session, &person.uuid).await?;
     let mut unique = Vec::new();
     let mut seen = HashSet::new();
     for fingerprint in local {
