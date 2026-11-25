@@ -227,8 +227,9 @@ for (const scheme of ['light', 'dark'] as const) {
             ]),
         });
 
-        const headings = await page.getByRole('heading', { level: 2 }).allTextContents();
-        expect(headings.slice(0, 2)).toEqual(['Requests in progress', 'Needs attention']);
+        const headings = page.getByRole('heading', { level: 2 });
+        await expect(headings.nth(0)).toHaveText('Requests in progress');
+        await expect(headings.nth(1)).toHaveText('Needs attention');
         const progress = page.getByRole('region', { name: 'Requests in progress' });
         await expect(progress.getByRole('listitem')).toHaveText(['User mTLSWaiting for approval', 'Code signingBeing issued']);
         await expect(progress.getByRole('button')).toHaveCount(0);
