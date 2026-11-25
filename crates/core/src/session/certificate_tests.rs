@@ -1399,6 +1399,7 @@ fn matched(person: &TestIdentity) -> Snapshot {
         sign_in: None,
         first_page: None,
         allowed: Default::default(),
+        prepared: Vec::new(),
     }
 }
 

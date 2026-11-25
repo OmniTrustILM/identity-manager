@@ -6,6 +6,7 @@ import { attributeField, attributeForm } from '../../playwright/attributes';
 import type {
     AttributeFieldProblem,
     FollowView,
+    PreparedView,
     Platform,
     RaProfileChoice,
     RequestFailure,
@@ -77,10 +78,12 @@ beforeEach(() => {
             case 'check_attributes':
                 return { revision: 0, problems: checkProblems };
             case 'open_request_forms':
+            case 'open_prepared_forms':
                 return forms;
             case 'request_offers':
                 return offers === 'refused' ? Promise.reject('no') : offers;
             case 'request_certificate':
+            case 'complete_certificate':
                 return typeof requested === 'object' && 'certificate' in requested ? requested : Promise.reject(requested);
             case 'follow_request':
                 return following.length > 1 ? following.shift() : following[0];
@@ -719,4 +722,213 @@ test('the profile cards are one radio group that the arrow keys walk', async () 
     expect(radios().map((radio) => radio.checked)).toEqual([false, true]);
     await press(strings.continue);
     expect(named('open_request_forms')[0]?.args).toEqual({ raProfile: 'ra-Code signing' });
+});
+
+const readyToIssue = (over: Partial<PreparedView> = {}): PreparedView => ({
+    uuid: 'prep-1',
+    name: 'VPN gateway access',
+    raProfile: { uuid: 'ra-vpn', name: 'Corporate VPN' },
+    registration: { state: 'active', expiresAt: null },
+    subject: [
+        { kind: 'commonName', value: 'vpn-alice', oid: null },
+        { kind: 'organization', value: 'Example Corp', oid: null },
+        { kind: 'other', value: 'LT-1', oid: '1.2.3.4' },
+        { kind: 'email', value: 'alice@example.com', oid: null },
+        { kind: 'dns', value: 'alice.example.com', oid: null },
+    ],
+    ...over,
+});
+
+const renderPrepared = async (prepared = readyToIssue(), platform: Platform = 'macos') => {
+    await act(async () => root.render(<Request prepared={prepared} platform={platform} onClose={() => (closed += 1)} />));
+    await settle();
+};
+const field = () => dialog().querySelector('input[type="password"]') as HTMLInputElement | null;
+const type = (input: HTMLInputElement, value: string) =>
+    act(async () => {
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        set?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+async function preparedToReview(prepared = readyToIssue()) {
+    await renderPrepared(prepared);
+    await press(strings.continue);
+    await press(strings.continue);
+}
+
+test('a prepared certificate is issued in three steps, titled with its name, with no profile step', async () => {
+    forms = { request: null, issue: issueForm, custom: customForm };
+    await renderPrepared();
+
+    expect(dialog().querySelector('h2')?.textContent).toBe('Issue VPN gateway access');
+    expect([...dialog().querySelectorAll('ol[aria-label="Steps"] > li')].map((step) => step.textContent)).toEqual([
+        '1Attributes',
+        '2Private key',
+        '3Review',
+    ]);
+    expect(named('open_prepared_forms').map((call) => call.args)).toEqual([{ uuid: 'prep-1' }]);
+    expect(named('open_request_forms')).toHaveLength(0);
+    expect([...dialog().querySelectorAll('h3')].map((heading) => heading.textContent)).toEqual([
+        strings.fillAttributes,
+        'Prepared by your administrator',
+        'From the RA profile',
+        'Custom attributes',
+    ]);
+    expect([...dialog().querySelectorAll('section dl > div')].map((row) => row.textContent)).toEqual([
+        'Namevpn-alice',
+        'OrganizationExample Corp',
+        '1.2.3.4LT-1',
+        'Email in the certificatealice@example.com',
+        'DNS namealice.example.com',
+        'RA profileCorporate VPN',
+    ]);
+    expect([...dialog().querySelectorAll('button')].map((candidate) => candidate.textContent)).toEqual(['Cancel', 'Continue']);
+});
+
+test.each([
+    ['commonName', 'Name'],
+    ['organization', 'Organization'],
+    ['organizationalUnit', 'Organizational unit'],
+    ['country', 'Country'],
+    ['state', 'State or province'],
+    ['locality', 'Locality'],
+    ['email', 'Email in the certificate'],
+    ['serialNumber', 'Serial number'],
+    ['domainComponent', 'Domain component'],
+    ['other', 'Other'],
+    ['dns', 'DNS name'],
+    ['ip', 'IP address'],
+    ['uri', 'URI'],
+    ['upn', 'User principal name'],
+] as const)('a prepared %s is labelled "%s"', async (kind, label) => {
+    await renderPrepared(readyToIssue({ subject: [{ kind, value: 'v', oid: null }] }));
+
+    expect(dialog().querySelector('section dl > div')?.textContent).toBe(`${label}v`);
+});
+
+test('cancelling a prepared certificate closes its forms and the sheet', async () => {
+    forms = { request: null, issue: issueForm, custom: customForm };
+    await renderPrepared();
+    await press(strings.cancel);
+    expect(closed).toBe(1);
+
+    await act(async () => root.render(null));
+
+    expect(named('close_form').map((call) => call.args)).toEqual([{ id: 'form-issue' }, { id: 'form-custom' }]);
+});
+
+test('the review of a prepared certificate lists its name, subject and RA profile, and has the challenge field when active', async () => {
+    await preparedToReview();
+
+    expect([...([...dialog().querySelectorAll('dl')].at(-1) as HTMLElement).children].map((row) => row.textContent)).toEqual([
+        'CertificateVPN gateway access',
+        'Subjectvpn-alice, Example Corp, LT-1',
+        'RA profileCorporate VPN',
+        'Private keyNew, in the keychain',
+        'Key typeEC P-256',
+        'Installed inYour login keychain',
+    ]);
+    expect(dialog().querySelector(`label[for="${field()?.id}"]`)?.textContent).toBe('Challenge');
+    expect(text()).toContain('Your administrator gives you this with the certificate.');
+    expect(disabled('Issue certificate')).toBe(true);
+    expect(button('Request certificate')).toBeUndefined();
+});
+
+test.each([['closed'], ['other']])('a prepared certificate in state %s has no challenge field', async (state) => {
+    await preparedToReview(readyToIssue({ registration: { state, expiresAt: null } }));
+
+    expect(field()).toBeNull();
+    expect(disabled('Issue certificate')).toBe(false);
+});
+
+test('without a registration nothing asks for a challenge and none is sent', async () => {
+    await preparedToReview(readyToIssue({ registration: null }));
+
+    await press('Issue certificate');
+
+    expect(named('complete_certificate')[0]?.args).toEqual({
+        uuid: 'prep-1',
+        forms: {},
+        storage: 'keychain',
+        keyType: 'ecP256',
+        challenge: null,
+    });
+});
+
+test('Issue certificate waits for the challenge and sends it with the forms, then shows the end', async () => {
+    forms = { request: null, issue: issueForm, custom: null };
+    following = [{ state: 'installed', storage: 'keychain', validUntil: 0 }];
+    await preparedToReview();
+    await type(field() as HTMLInputElement, 'secret-1');
+    expect(disabled('Issue certificate')).toBe(false);
+
+    await press('Issue certificate');
+
+    expect(named('complete_certificate')[0]?.args).toEqual({
+        uuid: 'prep-1',
+        forms: { issue: { id: 'form-issue', values: {} } },
+        storage: 'keychain',
+        keyType: 'ecP256',
+        challenge: 'secret-1',
+    });
+    expect(named('request_certificate')).toHaveLength(0);
+    expect(text()).toContain('Your certificate is installed');
+    expect(field()).toBeNull();
+});
+
+test('a refusal with ILM’s challenge texts stays on the review, under the field, which is cleared and focused', async () => {
+    const texts = ['The certificate registration challenge is invalid.', 'The certificate registration issuance window has expired.'];
+    requested = { kind: 'refused', messages: texts };
+    await preparedToReview();
+    await type(field() as HTMLInputElement, 'wrong');
+
+    await press('Issue certificate');
+
+    const input = field() as HTMLInputElement;
+    expect(dialog().querySelector('[aria-current="step"]')?.textContent).toBe('3Review');
+    expect(input.value).toBe('');
+    expect(document.activeElement).toBe(input);
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    const problem = dialog().querySelector(`#${CSS.escape(input.getAttribute('aria-describedby')?.split(' ')[1] ?? '')}`);
+    expect(problem?.textContent).toBe(texts.join(''));
+    expect(disabled('Issue certificate')).toBe(true);
+
+    await type(input, 'x');
+    expect(input.getAttribute('aria-invalid')).toBeNull();
+    expect(dialog().querySelector('[role="alert"]')).toBeNull();
+});
+
+test('any other refusal of a prepared certificate goes back to the attributes with ILM’s messages', async () => {
+    requested = {
+        kind: 'refused',
+        messages: ['The certificate registration challenge is invalid.', 'Something else is wrong.'],
+    };
+    await preparedToReview();
+    await type(field() as HTMLInputElement, 'wrong');
+
+    await press('Issue certificate');
+
+    expect(dialog().querySelector('[aria-current="step"]')?.textContent).toBe('1Attributes');
+    expect(dialog().querySelector('[role="alert"]')?.textContent).toContain('Something else is wrong.');
+});
+
+test('a failure with a message stays on the review and says it', async () => {
+    requested = 'ILM does not allow this.';
+    await preparedToReview();
+    await type(field() as HTMLInputElement, 'x');
+
+    await press('Issue certificate');
+
+    expect(dialog().querySelector('[role="alert"]')?.textContent).toBe('ILM does not allow this.');
+    expect((field() as HTMLInputElement).value).toBe('');
+});
+
+test('ILM asking for a challenge the wizard has no field for goes back to the attributes with its text', async () => {
+    requested = { kind: 'refused', messages: ['The certificate registration challenge is required.'] };
+    await preparedToReview(readyToIssue({ registration: null }));
+
+    await press('Issue certificate');
+
+    expect(dialog().querySelector('[aria-current="step"]')?.textContent).toBe('1Attributes');
+    expect(dialog().querySelector('[role="alert"]')?.textContent).toContain('The certificate registration challenge is required.');
 });

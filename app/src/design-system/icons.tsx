@@ -27,6 +27,7 @@ export {
     Plus as PlusIcon,
     ExternalLink as ExternalIcon,
     WifiOff as UnreachableIcon,
+    Inbox as RequestsIcon,
     Settings as SettingsIcon,
     ShieldCheck as AppIcon,
     type LucideIcon as Icon,

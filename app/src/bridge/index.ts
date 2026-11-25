@@ -9,6 +9,9 @@ import type { AttributeCheck } from './generated/AttributeCheck';
 import type { AttributeFieldProblem } from './generated/AttributeFieldProblem';
 import type { AttributeValue } from './generated/AttributeValue';
 import type { FollowView } from './generated/FollowView';
+import type { MyRequestView } from './generated/MyRequestView';
+import type { PreparedView } from './generated/PreparedView';
+import type { SubjectPart } from './generated/SubjectPart';
 import type { KeyTypeId } from './generated/KeyTypeId';
 import type { RaProfileChoice } from './generated/RaProfileChoice';
 import type { RequestedView } from './generated/RequestedView';
@@ -32,7 +35,9 @@ import type { Shown } from './generated/Shown';
 import type { SummaryView } from './generated/SummaryView';
 
 export type { AppInfo, CertificateChoice, Change, LocalCertificateView, ProviderChoice, Scheme, SessionView, SettingsView, Shown };
-export type { IlmPageView, InventoryView };
+export type { IlmPageView, InventoryView, MyRequestView, PreparedView, SubjectPart };
+export type { RegistrationView } from './generated/RegistrationView';
+export type { SubjectKind } from './generated/SubjectKind';
 export type { AddChoicesView, AddResultView, Navigation, SummaryView };
 export type { AttributeCallbackResult, AttributeCheck, AttributeFieldProblem, AttributeValue, FormProblems, IlmTarget };
 export type { EndedReason } from './generated/EndedReason';
@@ -221,6 +226,11 @@ export function openRequestForms(raProfile: string): Promise<RequestFormsView> {
     return invoke<RequestFormsView>('open_request_forms', { raProfile });
 }
 
+/** Opens the forms of a certificate prepared in advance, without the request form; each is closed with `closeForm`. */
+export function openPreparedForms(uuid: string): Promise<RequestFormsView> {
+    return invoke<RequestFormsView>('open_prepared_forms', { uuid });
+}
+
 /** The key storages and key types this computer and the organization allow for a new key. */
 export function requestOffers(): Promise<RequestOffers> {
     return invoke<RequestOffers>('request_offers');
@@ -232,6 +242,20 @@ export type RequestForms = Partial<Record<'request' | 'issue' | 'custom', AddFor
 /** Creates a key, sends the signed request to ILM and returns the certificate to follow; rejects with a `RequestFailure`. */
 export function requestCertificate(raProfile: string, forms: RequestForms, storage: StorageId, keyType: KeyTypeId): Promise<RequestedView> {
     return invoke<RequestedView>('request_certificate', { raProfile, forms, storage, keyType });
+}
+
+/**
+ * Completes a certificate prepared in advance with a new key and returns the certificate to follow; rejects with a
+ * `RequestFailure`. The challenge, when ILM asks for one, goes to ILM and nowhere else.
+ */
+export function completeCertificate(
+    uuid: string,
+    forms: RequestForms,
+    storage: StorageId,
+    keyType: KeyTypeId,
+    challenge: string | null,
+): Promise<RequestedView> {
+    return invoke<RequestedView>('complete_certificate', { uuid, forms, storage, keyType, challenge });
 }
 
 /** How the request that made this certificate stands. */

@@ -13,8 +13,8 @@ use im_core::identity::{
     StoreUnreadable, system_store,
 };
 use im_core::inventory::{
-    AddChoicesView, AddResultView, IlmPageView, Inventory, InventoryView, Status, Summary,
-    SummaryView, Trigger,
+    AddChoicesView, AddResultView, IlmPageView, Inventory, InventoryView, Prepared, Status,
+    Summary, SummaryView, Trigger,
 };
 use im_core::session::{
     ChangeError, Followed, FormInput, Outcome, Session, SessionView, SignedInAs,
@@ -184,6 +184,16 @@ impl<R: Runtime> Ilm<R> {
             who.as_ref().is_some_and(SignedInAs::lists_certificates),
             can_request(who.as_ref(), stores_keys),
         )
+        .with_requests(&self.session.waiting_requests(), &self.inventory.followed())
+    }
+
+    /// The certificate registered in advance that the latest check of ILM found under `uuid`.
+    pub(crate) fn prepared(&self, uuid: &str) -> Option<Prepared> {
+        self.inventory
+            .snapshot()?
+            .prepared
+            .into_iter()
+            .find(|found| found.uuid == uuid)
     }
 
     /// Tells the windows that the inventory changed; what changed is read with `ilm_status`, which refuses while
@@ -250,6 +260,13 @@ impl<R: Runtime> Ilm<R> {
                 .followed(&self.inventory.followed(), current, || {
                     current() && !self.guard.is_locked()
                 });
+            self.notices.prepared(
+                &self
+                    .inventory
+                    .ready_to_issue(&self.session.waiting_requests()),
+                current,
+                || current() && !self.guard.is_locked(),
+            );
             if self.inventory.summary().is_none() {
                 // Signed out meanwhile: the write above must not leave the notices file behind.
                 self.notices.forget();

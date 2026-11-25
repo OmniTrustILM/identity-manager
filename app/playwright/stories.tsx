@@ -36,6 +36,7 @@ import { sections as realSections, settingsSection, visibleSections } from '../s
 import { Certificates } from '../src/sections/Certificates';
 import { AddToIlm } from '../src/sections/AddToIlm';
 import { Request } from '../src/sections/Request';
+import { Requests } from '../src/sections/Requests';
 import { Settings } from '../src/sections/Settings';
 import { SignIn, UnreachableBanner } from '../src/sections/SignIn';
 import { Unlock } from '../src/sections/Unlock';
@@ -405,12 +406,14 @@ function requestAnswer(command: string, requesting: Requesting | undefined, args
         case 'request_choices':
             return requesting?.profiles ?? [];
         case 'open_request_forms':
+        case 'open_prepared_forms':
             return requesting?.forms ?? noForms;
         case 'request_offers':
             return requesting?.offers ?? noOffers;
         case 'check_attributes':
             return { revision: 0, problems: requesting?.problems ?? [] };
         case 'request_certificate':
+        case 'complete_certificate':
             return requesting?.refuse ? Promise.reject(requesting.refuse) : { certificate: 'cert-1', label: 'User mTLS' };
         case 'follow_request': {
             const answers = requesting?.follow ?? [{ state: 'unknown' }];
@@ -442,6 +445,24 @@ export function RequestStory({ platform, requesting, onClose }: RequestProps) {
                         }}
                     />
                 )}
+            </main>
+        </AppInfoContext.Provider>
+    );
+}
+
+type RequestsProps = StoryProps & Readonly<{ inventory: InventoryView | null; requesting?: Requesting }>;
+
+/** The Requests section against a stand-in for its commands and for the wizard behind Issue…. */
+export function RequestsStory({ platform, inventory, requesting }: RequestsProps) {
+    useMemo(() => {
+        mockIPC((command, args) => (command === 'ilm_status' ? inventory : requestAnswer(command, requesting, args)), {
+            shouldMockEvents: true,
+        });
+    }, [inventory, requesting]);
+    return (
+        <AppInfoContext.Provider value={useInfo(platform)}>
+            <main className="min-h-screen bg-surface p-s5">
+                <Requests />
             </main>
         </AppInfoContext.Provider>
     );

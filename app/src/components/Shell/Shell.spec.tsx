@@ -374,3 +374,28 @@ describe('navigation', () => {
         expect(container.querySelector('main')?.textContent).toBe('Other content');
     });
 });
+
+test('a section that leaves the list while open stays shown and in the sidebar until another is selected', async () => {
+    const lasting = [sections[0] as Section, other];
+    await render(lasting);
+    await act(async () => (entries()[1] as HTMLElement).click());
+
+    await render([sections[0] as Section]);
+
+    expect(container.querySelector('main')?.textContent).toBe('Other content');
+    expect(entries().map((entry) => entry.textContent)).toEqual([strings.overview, 'Other']);
+    expect(entries().map((entry) => entry.getAttribute('aria-current'))).toEqual([null, 'page']);
+
+    await act(async () => (entries()[0] as HTMLElement).click());
+
+    expect(entries().map((entry) => entry.textContent)).toEqual([strings.overview]);
+    expect(container.querySelector('main')?.textContent).toBe('Overview content');
+});
+
+test('a section that leaves the list while it is not open is gone at once', async () => {
+    await render([sections[0] as Section, other]);
+
+    await render([sections[0] as Section]);
+
+    expect(entries().map((entry) => entry.textContent)).toEqual([strings.overview]);
+});

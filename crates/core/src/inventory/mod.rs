@@ -1,16 +1,19 @@
 //! What ILM says about the certificates on this computer: one check, one snapshot, kept in a cache file.
 
 mod cache;
+mod prepared;
 mod summary;
 #[cfg(test)]
 mod tests;
 mod view;
 
+pub use prepared::{Prepared, SubjectKind, SubjectPart};
 pub use summary::{Counts, Item, Kind, Summary, WaitingState, summarize};
 use view::listed_by;
 pub use view::{
     AddChoicesView, AddResultView, AttentionItemView, CountsView, IlmCertificateView, IlmPageView,
-    IlmRaProfileView, InventoryView, SummaryView, WaitingStateView,
+    IlmRaProfileView, InventoryView, MyRequestView, PreparedView, RegistrationView, SummaryView,
+    WaitingStateView,
 };
 
 use std::collections::{HashMap, HashSet};
@@ -28,6 +31,7 @@ use crate::ilm::IlmUrl;
 use crate::ilm::actions::{self, MAX_UUIDS, Outcome};
 use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, MATCH_LIMIT, Search, State};
 use crate::ilm::profile::{IlmError, SignInCertificate, profile_request, read_profile};
+use crate::requests::Waiting;
 use crate::session::{CallError, Followed, Outcome as FollowOutcome, Session, SignedInAs};
 use crate::settings::WarnDays;
 
@@ -74,6 +78,10 @@ pub struct Snapshot {
     pub first_page: Option<CertificatePage>,
     /// What the person may do, by certificate UUID, for the matched certificates and the first page.
     pub allowed: HashMap<String, Vec<String>>,
+    /// The certificates registered in advance for the person; empty when ILM was not searched for them or the
+    /// person may not list them.
+    #[serde(default)]
+    pub prepared: Vec<Prepared>,
 }
 
 /// How far the snapshot can be trusted.
@@ -322,6 +330,25 @@ impl Inventory {
         held(&self.held).snapshot.clone()
     }
 
+    /// The certificates registered in advance that the person can still complete and has not begun to complete, as
+    /// the requests `waiting` and the followed outcomes show; none unless the latest check succeeded, as a kept
+    /// list may name certificates completed since.
+    pub fn ready_to_issue(&self, waiting: &[Waiting]) -> Vec<Prepared> {
+        let now = now();
+        let held = held(&self.held);
+        if !matches!(held.status, Status::Fresh { .. }) {
+            return Vec::new();
+        }
+        held.snapshot
+            .iter()
+            .flat_map(|snapshot| &snapshot.prepared)
+            .filter(|found| {
+                found.is_open_at(now) && !prepared::is_begun(&found.uuid, waiting, &held.followed)
+            })
+            .cloned()
+            .collect()
+    }
+
     /// How the certificates on this computer stand, as of the latest check, or of the start before the first one;
     /// none while nobody is signed in.
     pub fn summary(&self) -> Option<Summary> {
@@ -515,9 +542,10 @@ impl Inventory {
                     .as_ref()
                     .map_or_else(|| "none".to_owned(), |page| page.total_items.to_string());
                 log::info!(
-                    "checked ILM: {} on this computer, {} matched, {page_total} in ILM, actions {}, {} ms",
+                    "checked ILM: {} on this computer, {} matched, {page_total} in ILM, {} prepared, actions {}, {} ms",
                     found.local,
                     found.snapshot.matches.len(),
+                    found.snapshot.prepared.len(),
                     found.actions,
                     started.elapsed().as_millis()
                 );
@@ -606,6 +634,7 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
         sign_in: person.sign_in,
         first_page: None,
         allowed: HashMap::new(),
+        prepared: Vec::new(),
     };
     let mut unique = Vec::new();
     let mut seen = HashSet::new();
@@ -684,6 +713,7 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
             "unavailable"
         }
     };
+    snapshot.prepared = prepared::read(session, &who.username).await?;
     Ok(Found {
         snapshot,
         local: unique.len(),

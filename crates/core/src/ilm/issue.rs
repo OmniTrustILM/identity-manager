@@ -7,11 +7,11 @@ use std::fmt;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use reqwest::{Client, RequestBuilder, Response, StatusCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::IlmUrl;
-use super::certificates::State;
+use super::certificates::{RegistrationState, State, millis};
 use super::profile::{IlmError, read_rejection};
 
 /// What goes to ILM with a request for a certificate: the signed request (DER) and the attributes as request
@@ -92,6 +92,14 @@ impl fmt::Display for StateError {
 
 impl std::error::Error for StateError {}
 
+/// How a certificate registered in advance can be completed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Registration {
+    pub state: RegistrationState,
+    /// Milliseconds since 1970 UTC; none when the registration does not expire.
+    pub expires_at: Option<i64>,
+}
+
 /// Where a certificate stands in ILM and, once ILM has issued it, what it is.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IssuedState {
@@ -103,6 +111,8 @@ pub struct IssuedState {
     pub alternative_names: Vec<(String, Vec<String>)>,
     /// Whether a certificate request is attached to the certificate.
     pub request_attached: bool,
+    /// The registration of a certificate registered in advance; none when ILM does not say.
+    pub registration: Option<Registration>,
 }
 
 #[derive(Deserialize)]
@@ -121,6 +131,14 @@ struct RawState {
     subject_dn: Option<String>,
     subject_alternative_names: Option<BTreeMap<String, Vec<String>>>,
     certificate_request: Option<Value>,
+    registration: Option<RawRegistration>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawRegistration {
+    state: Option<String>,
+    expires_at: Option<Value>,
 }
 
 #[derive(Deserialize)]
@@ -260,6 +278,12 @@ pub async fn read_state(response: Response) -> Result<IssuedState, StateError> {
         request_attached: raw
             .certificate_request
             .is_some_and(|request| !request.is_null()),
+        registration: raw.registration.and_then(|registration| {
+            Some(Registration {
+                state: RegistrationState::from_code(&registration.state?),
+                expires_at: registration.expires_at.as_ref().and_then(millis),
+            })
+        }),
     })
 }
 
@@ -555,6 +579,62 @@ mod tests {
                 .unwrap();
             assert_eq!(found.request_attached, attached);
         }
+    }
+
+    #[tokio::test]
+    async fn the_registration_of_a_certificate_is_read_with_its_state_and_expiry() {
+        for (registration, expected) in [
+            (
+                json!({ "state": "active", "expiresAt": "2026-12-01T10:00:00.000+00:00", "failedAttempts": 1 }),
+                Some(Registration {
+                    state: RegistrationState::Active,
+                    expires_at: Some(1_796_119_200_000),
+                }),
+            ),
+            (
+                json!({ "state": "locked", "expiresAt": 1_796_119_200_000_i64 }),
+                Some(Registration {
+                    state: RegistrationState::Locked,
+                    expires_at: Some(1_796_119_200_000),
+                }),
+            ),
+            (
+                json!({ "state": "closed" }),
+                Some(Registration {
+                    state: RegistrationState::Closed,
+                    expires_at: None,
+                }),
+            ),
+            (
+                json!({ "state": "expired", "expiresAt": null }),
+                Some(Registration {
+                    state: RegistrationState::Expired,
+                    expires_at: None,
+                }),
+            ),
+            (
+                json!({ "state": "suspended" }),
+                Some(Registration {
+                    state: RegistrationState::Other("suspended".to_owned()),
+                    expires_at: None,
+                }),
+            ),
+            (json!({ "expiresAt": 5 }), None),
+            (json!(null), None),
+        ] {
+            let found = state(
+                ResponseTemplate::new(200)
+                    .set_body_json(json!({ "state": "registered", "registration": registration })),
+            )
+            .await
+            .unwrap();
+            assert_eq!(found.registration, expected, "{registration}");
+        }
+        let none =
+            state(ResponseTemplate::new(200).set_body_json(json!({ "state": "registered" })))
+                .await
+                .unwrap();
+        assert_eq!(none.registration, None);
     }
 
     #[tokio::test]

@@ -2,6 +2,7 @@ import type { AttributeConstraintView } from './bridge/generated/AttributeConstr
 import type { AttributeFieldKind } from './bridge/generated/AttributeFieldKind';
 import type { AttributeProblem } from './bridge/generated/AttributeProblem';
 import type { Platform } from './bridge/generated/Platform';
+import type { SubjectKind } from './bridge/generated/SubjectKind';
 
 const time = (at: number) => {
     const when = new Date(at);
@@ -432,4 +433,42 @@ export const strings = {
     requestIssuedNotInstalled: 'ILM issued the certificate, but it could not be installed. The app will try again.',
     requestOtherKey: 'ILM issued a certificate that does not match the key created for this request.',
     done: 'Done',
+
+    requests: 'Requests',
+    requestsSummary: (ready: number, inProgress: number) =>
+        [ready > 0 && `${ready} ready to issue`, inProgress > 0 && `${inProgress} in progress`].filter(Boolean).join(', '),
+    readyToIssue: 'Ready for you to issue',
+    myRequests: 'My requests',
+    issue: 'Issue…',
+    issueTitle: (name: string) => `Issue ${name}`,
+    issueNamed: (name: string) => `Issue ${name}`,
+    issueWithin: (days: number) => `Issue within ${days} ${days === 1 ? 'day' : 'days'}`,
+    issueWindowEnded: 'Issue window ended',
+    lockedAfterAttempts: 'Locked after too many attempts',
+    askAdministrator: 'Ask your administrator',
+    requestedAt: (at: number) => `Requested ${time(at)}`,
+    nothingToIssue: 'Nothing to issue or follow',
+    nothingToIssueHint: 'Certificates your administrator prepares for you and the requests you send appear here.',
+    preparedBy: 'Prepared by your administrator',
+    raProfileLabel: 'RA profile',
+    reviewCertificate: 'Certificate',
+    challenge: 'Challenge',
+    challengeHint: 'Your administrator gives you this with the certificate.',
+    issueCertificate: 'Issue certificate',
+    subjectLabels: {
+        commonName: 'Name',
+        organization: 'Organization',
+        organizationalUnit: 'Organizational unit',
+        country: 'Country',
+        state: 'State or province',
+        locality: 'Locality',
+        email: 'Email in the certificate',
+        serialNumber: 'Serial number',
+        domainComponent: 'Domain component',
+        other: 'Other',
+        dns: 'DNS name',
+        ip: 'IP address',
+        uri: 'URI',
+        upn: 'User principal name',
+    } satisfies Record<SubjectKind, string>,
 };

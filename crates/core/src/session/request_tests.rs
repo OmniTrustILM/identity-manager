@@ -34,7 +34,7 @@ use crate::keys::{
     KeyError, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable, signing_request,
 };
 use crate::requests::{Requests, Waiting};
-use crate::session::FormInput;
+use crate::session::{Completion, FormInput};
 
 const REQUEST_ATTRIBUTES: &str = "/api/v1/certificates/csr/attributes";
 const ISSUE_ATTRIBUTES: &str =
@@ -1006,8 +1006,11 @@ async fn complete(
         .world
         .session
         .complete(
-            uuid,
-            &choice(),
+            Completion {
+                uuid,
+                name: "Prepared name",
+                ra_profile: &choice(),
+            },
             input,
             Storage::Software,
             KeyType::EcP256,
@@ -1124,6 +1127,66 @@ async fn a_completion_whose_answer_was_lost_is_kept_and_followed() {
 }
 
 #[tokio::test]
+async fn a_completion_whose_answer_was_lost_is_not_sent_again() {
+    let requesting = Requesting::new().await;
+    registered(&requesting, "c-9").await;
+    requesting
+        .answer(
+            "POST",
+            &format!("{ISSUE}/c-9/issue"),
+            ResponseTemplate::new(500),
+        )
+        .await;
+    complete(&requesting, "c-9", None).await.unwrap_err();
+
+    assert_eq!(
+        complete(&requesting, "c-9", None).await.unwrap_err(),
+        RequestError::NotRegistered
+    );
+
+    requesting.only_a_request_is_left();
+    assert_eq!(
+        requesting
+            .received("POST", &format!("{ISSUE}/c-9/issue"))
+            .await
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn a_request_of_someone_else_for_the_same_certificate_does_not_stop_a_completion() {
+    let requesting = Requesting::new().await;
+    registered(&requesting, "c-9").await;
+    requesting
+        .answer(
+            "POST",
+            &format!("{ISSUE}/c-9/issue"),
+            ResponseTemplate::new(200).set_body_json(json!({ "uuid": "c-9" })),
+        )
+        .await;
+    let earlier = Waiting {
+        ilm: requesting.world.address(),
+        username: "someone-else".to_owned(),
+        uuid: Some("c-9".to_owned()),
+        ra_profile: "ra-1".to_owned(),
+        authority: "a-1".to_owned(),
+        key: crate::keys::KeyId {
+            storage: Storage::Software,
+            name: "k-other".to_owned(),
+        },
+        label: "theirs".to_owned(),
+        since: 1,
+        prepared: true,
+    };
+    requesting.requests.add(earlier).unwrap();
+
+    complete(&requesting, "c-9", None).await.unwrap();
+
+    assert_eq!(requesting.requests.all().len(), 2);
+}
+
+#[tokio::test]
 async fn only_a_registered_certificate_is_completed() {
     for code in ["requested", "issued", "pending_approval"] {
         let requesting = Requesting::new().await;
@@ -1180,7 +1243,7 @@ async fn a_registered_identity_that_cannot_be_written_creates_no_key() {
 }
 
 #[tokio::test]
-async fn a_registered_certificate_without_a_name_is_labelled_by_its_uuid() {
+async fn a_registered_certificate_without_a_common_name_is_labelled_with_the_name_it_was_given() {
     let requesting = Requesting::new().await;
     requesting.state_code("c-9", "registered").await;
     requesting
@@ -1193,8 +1256,22 @@ async fn a_registered_certificate_without_a_name_is_labelled_by_its_uuid() {
 
     assert_eq!(
         complete(&requesting, "c-9", None).await.unwrap().label,
-        "c-9"
+        "Prepared name"
     );
+}
+
+#[tokio::test]
+async fn the_waiting_requests_are_those_of_the_person_signed_in() {
+    let requesting = Requesting::new().await;
+    let mine = requesting.seed(Some("c-1"), false, now());
+    let mut other = requesting.seed(Some("c-2"), false, now());
+    other.username = "someone-else".into();
+    requesting.requests.add(other).unwrap();
+
+    assert_eq!(requesting.world.session.waiting_requests(), [mine]);
+
+    let signed_out = World::new().await;
+    assert!(signed_out.session.waiting_requests().is_empty());
 }
 
 // Following.

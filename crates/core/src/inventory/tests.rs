@@ -10,6 +10,7 @@ use crate::ilm::certificates::search_text;
 use crate::session::SessionView;
 use crate::session::tests::{LOG, World, capture_logs};
 
+mod prepared;
 mod summary;
 
 const PROFILE: &str = "/api/v1/auth/profile";
@@ -149,6 +150,12 @@ impl Setup {
             .await;
         let listed = first.len() as u64;
         self.mock("POST", SEARCH)
+            .and(body_string_contains("CERTIFICATE_STATE"))
+            .respond_with(page(vec![], 0))
+            .with_priority(3)
+            .mount(&self.world.ilm)
+            .await;
+        self.mock("POST", SEARCH)
             .respond_with(page(first, listed))
             .mount(&self.world.ilm)
             .await;
@@ -203,7 +210,7 @@ async fn a_check_keeps_the_matches_the_first_page_and_the_allowed_actions() {
     assert_eq!(asked, ["u-1", "u-2"]);
     assert_eq!(snapshot.allowed["u-1"], ["detail"]);
     let search = setup.requests("POST", SEARCH).await;
-    assert_eq!(search.len(), 2);
+    assert_eq!(search.len(), 3);
     let matching: Value = search[0].body_json().unwrap();
     assert_eq!(matching["filters"][0]["fieldIdentifier"], "FINGERPRINT");
     assert_eq!(matching["itemsPerPage"], 2);
@@ -220,7 +227,7 @@ async fn nothing_is_matched_without_local_certificates() {
     let snapshot = setup.inventory.snapshot().unwrap();
     assert!(snapshot.matches.is_empty());
     assert_eq!(snapshot.first_page.unwrap().total_items, 0);
-    assert_eq!(setup.requests("POST", SEARCH).await.len(), 1);
+    assert_eq!(setup.requests("POST", SEARCH).await.len(), 2);
     assert!(setup.requests("POST", ALLOWED).await.is_empty());
 }
 
@@ -244,6 +251,14 @@ async fn two_checks_at_once_ask_ilm_once() {
         .and(body_string_contains("FINGERPRINT"))
         .respond_with(page(vec![known.clone()], 1))
         .with_priority(2)
+        .expect(1)
+        .mount(&setup.world.ilm)
+        .await;
+    setup
+        .mock("POST", SEARCH)
+        .and(body_string_contains("CERTIFICATE_STATE"))
+        .respond_with(page(vec![], 0))
+        .with_priority(1)
         .expect(1)
         .mount(&setup.world.ilm)
         .await;
@@ -422,7 +437,7 @@ async fn a_check_after_another_asks_again() {
     setup.check(&[]).await;
     setup.check(&[]).await;
 
-    assert_eq!(setup.requests("POST", SEARCH).await.len(), 2);
+    assert_eq!(setup.requests("POST", SEARCH).await.len(), 4);
 }
 
 #[tokio::test]
@@ -715,6 +730,14 @@ async fn more_than_a_thousand_fingerprints_are_asked_in_chunks() {
         .await;
     setup
         .mock("POST", SEARCH)
+        .and(body_string_contains("CERTIFICATE_STATE"))
+        .respond_with(page(vec![], 0))
+        .with_priority(1)
+        .expect(1)
+        .mount(&setup.world.ilm)
+        .await;
+    setup
+        .mock("POST", SEARCH)
         .respond_with(page(vec![], 0))
         .expect(1)
         .mount(&setup.world.ilm)
@@ -797,6 +820,7 @@ async fn the_cache_is_written_after_a_check_and_holds_only_metadata() {
             "ilm",
             "listed",
             "matches",
+            "prepared",
             "signIn",
             "username",
             "version"
@@ -919,6 +943,7 @@ fn empty_snapshot() -> Snapshot {
         sign_in: None,
         first_page: None,
         allowed: HashMap::new(),
+        prepared: Vec::new(),
     }
 }
 
