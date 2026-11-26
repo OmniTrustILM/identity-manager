@@ -167,6 +167,8 @@ pub fn summarize(
             .and_then(|snapshot| snapshot.matches.get(&found.fingerprint))
             .map(|known| &known.state);
         let is_revoked = state == Some(&State::Revoked);
+        let replaced =
+            snapshot.is_some_and(|snapshot| snapshot.replaced.contains(&found.fingerprint));
         if snapshot.is_some_and(|snapshot| {
             snapshot.listed
                 && snapshot.checked.contains(&found.fingerprint)
@@ -183,7 +185,7 @@ pub fn summarize(
             counts.expired += 1;
             if is_revoked {
                 revoked.push(item(Kind::Revoked));
-            } else if now - ends <= window {
+            } else if now - ends <= window && !replaced {
                 expired.push((ends, item(Kind::Expired { on: ends })));
             }
             continue;
@@ -196,7 +198,7 @@ pub fn summarize(
         }
         if is_revoked {
             revoked.push(item(Kind::Revoked));
-        } else if ends - now <= window {
+        } else if ends - now <= window && !replaced {
             counts.expiring += 1;
             let left = u32::try_from(
                 local_day(ends, utc_offset_at(ends)) - local_day(now, utc_offset_at(now)),
@@ -357,6 +359,7 @@ pub(super) mod tests {
             allowed: HashMap::new(),
             prepared: Vec::new(),
             approvals: Vec::new(),
+            replaced: Default::default(),
         }
     }
 
@@ -564,6 +567,57 @@ pub(super) mod tests {
         );
         assert!(summary.needs_attention());
         assert_eq!(summary.needing_attention(), 5);
+    }
+
+    #[test]
+    fn a_replaced_certificate_needs_no_attention_and_is_not_counted_as_expiring() {
+        let local = [
+            local("replaced expiring", 1, in_days(5)),
+            local("replaced expired", 2, in_days(-2)),
+            local("replaced revoked", 3, in_days(5)),
+            local("expiring", 4, in_days(6)),
+        ];
+        let mut snapshot = snapshot(
+            &[1, 2, 3, 4],
+            &[
+                (1, State::Issued),
+                (2, State::Issued),
+                (3, State::Revoked),
+                (4, State::Issued),
+            ],
+        );
+        snapshot.replaced = [print(1), print(2), print(3)].into();
+
+        let summary = summarize(&local, Some(&snapshot), days(30), now(), |_| 0);
+
+        assert_eq!(
+            kinds(&summary),
+            [
+                ("replaced revoked", Kind::Revoked),
+                (
+                    "expiring",
+                    Kind::Expiring {
+                        days: 6,
+                        on: in_days(6)
+                    }
+                )
+            ]
+        );
+        assert_eq!(summary.counts.expiring, 1);
+        assert_eq!(summary.counts.expired, 1);
+        assert_eq!(summary.counts.valid, 1);
+        assert_eq!(summary.needing_attention(), 2);
+    }
+
+    #[test]
+    fn nothing_needs_attention_when_only_replaced_certificates_are_ending() {
+        let local = [local("old", 1, in_days(3))];
+        let mut snapshot = snapshot(&[1], &[(1, State::Issued)]);
+        snapshot.replaced = [print(1)].into();
+
+        let summary = summarize(&local, Some(&snapshot), days(30), now(), |_| 0);
+
+        assert!(!summary.needs_attention());
     }
 
     #[test]

@@ -35,6 +35,7 @@ const NOT_KNOWN: &str =
 const KEY_REFUSED: &str = "The system did not allow the use of this certificate's key.";
 const GONE: &str = "The certificate you signed in with cannot be found, has expired or cannot be opened on this computer.";
 const EXPIRED: &str = "The certificate you signed in with has expired.";
+const REMOVED: &str = "Your sign-in certificate was revoked and removed from this computer.";
 const NOT_ON_COMPUTER: &str = "This certificate is not on this computer.";
 
 /// Why a certificate did not become the person's sign-in certificate.
@@ -114,6 +115,7 @@ impl From<CallError> for ChangeError {
 }
 
 /// The sign-in a change of the sign-in certificate started from.
+#[derive(Clone)]
 pub(super) struct Departing {
     pub(super) id: Arc<()>,
     /// The generation of a certificate sign-in; none with a provider.
@@ -237,7 +239,7 @@ impl Session {
         proceed: impl Fn() -> bool + Sync,
     ) -> Result<(), ChangeError> {
         let requested = self.departing()?.id;
-        let _changing = self.changing.lock().await;
+        let changing = self.changing.lock().await;
         let departing = self.departing()?;
         if !Arc::ptr_eq(&departing.id, &requested) {
             return Err(ChangeError::SignedOut);
@@ -269,10 +271,35 @@ impl Session {
         {
             return Err(ChangeError::CannotSignIn);
         }
+        self.change_sign_in(
+            &who.ilm,
+            departing,
+            &matched.uuid,
+            fingerprint,
+            None,
+            &proceed,
+        )
+        .await?;
+        drop(changing);
+        inventory.check_local(self, Trigger::Action, &local).await;
+        Ok(())
+    }
+
+    /// Makes the certificate `uuid`, which is `fingerprint` on this computer, the sign-in certificate of the person
+    /// who is signed in as `departing`, once the caller has judged that it may be. The caller holds `changing`.
+    async fn change_sign_in(
+        &self,
+        ilm: &IlmUrl,
+        departing: Departing,
+        uuid: &str,
+        fingerprint: Fingerprint,
+        predecessor: Option<(&str, &Fingerprint)>,
+        proceed: &(dyn Fn() -> bool + Sync),
+    ) -> Result<(), ChangeError> {
         let response = self
             .call_ilm_as(Some(&departing.id), None, profile_request)
             .await?;
-        let person = read_profile(&who.ilm, response)
+        let person = read_profile(ilm, response)
             .await
             .map_err(|error| match error {
                 IlmError::Unreachable => ChangeError::Offline,
@@ -281,15 +308,26 @@ impl Session {
                 IlmError::Malformed => ChangeError::Malformed,
             })?;
         let old = person.sign_in.as_ref();
-        if old.is_some_and(|held| held.uuid == matched.uuid || held.fingerprint == fingerprint) {
+        if old.is_some_and(|held| held.uuid == uuid || held.fingerprint == fingerprint) {
+            if predecessor.is_some() {
+                if departing.generation.is_some() && !self.presents(&departing.id, &fingerprint) {
+                    return Err(ChangeError::Offline);
+                }
+                self.learn_sign_in(&departing.id, person.sign_in.clone());
+            }
             return Err(ChangeError::AlreadySignIn);
         }
-        let replacement = self
-            .prepare_switch(&who.ilm, &departing, fingerprint)
-            .await?;
+        if let (Some((before, before_fingerprint)), Some(held)) = (predecessor, old)
+            && held.uuid != before
+            && held.fingerprint != *before_fingerprint
+        {
+            log::info!("ILM names another sign-in certificate than {before}; it stays");
+            return Err(ChangeError::AlreadySignIn);
+        }
+        let replacement = self.prepare_switch(ilm, &departing, fingerprint).await?;
         let response = self
-            .call_ilm_as(Some(&departing.id), Some(&proceed), |client, ilm| {
-                update_request(client, ilm, &person, &matched.uuid)
+            .call_ilm_as(Some(&departing.id), Some(proceed), |client, ilm| {
+                update_request(client, ilm, &person, uuid)
             })
             .await?;
         match response.status() {
@@ -309,17 +347,135 @@ impl Session {
             fingerprint.short()
         );
         self.switch(
-            &who.ilm,
+            ilm,
             departing,
             replacement,
             SignInCertificate {
-                uuid: matched.uuid.clone(),
+                uuid: uuid.to_owned(),
                 fingerprint,
             },
         )
         .await;
-        inventory.check_local(self, Trigger::Action, &local).await;
         Ok(())
+    }
+
+    /// Moves the sign-in to the installed certificate `fingerprint` that ILM knows as `uuid`, for the sign-in `id`,
+    /// when the sign-in is still the certificate `replaces` (`replaces_fingerprint` here) or already the new one;
+    /// a sign-in the person chose meanwhile stays, which is `AlreadySignIn`.
+    pub(super) async fn move_sign_in(
+        &self,
+        id: &Arc<()>,
+        uuid: &str,
+        fingerprint: Fingerprint,
+        replaces: (&str, &Fingerprint),
+    ) -> Result<(), ChangeError> {
+        let _changing = self.changing.lock().await;
+        let departing = self.departing()?;
+        if !Arc::ptr_eq(&departing.id, id) {
+            return Err(ChangeError::SignedOut);
+        }
+        let who = self.signed_in_as().ok_or(ChangeError::SignedOut)?;
+        if !self.signs_in_with(replaces.0, replaces.1) && !self.signs_in_with(uuid, &fingerprint) {
+            log::info!("the sign-in is no longer {}; it stays", replaces.0);
+            return Err(ChangeError::AlreadySignIn);
+        }
+        if self
+            .adopt_known(&who.ilm, &departing, uuid, fingerprint)
+            .await
+        {
+            return Ok(());
+        }
+        let changed = self
+            .change_sign_in(
+                &who.ilm,
+                departing.clone(),
+                uuid,
+                fingerprint,
+                Some(replaces),
+                &|| true,
+            )
+            .await;
+        match changed {
+            Err(ChangeError::Offline | ChangeError::Unexpected(_) | ChangeError::Malformed)
+                if self
+                    .adopt_known(&who.ilm, &departing, uuid, fingerprint)
+                    .await =>
+            {
+                Ok(())
+            }
+            other => other,
+        }
+    }
+
+    /// Whether the certificate sign-in `id` presents the certificate `fingerprint`.
+    fn presents(&self, id: &Arc<()>, fingerprint: &Fingerprint) -> bool {
+        matches!(
+            &*lock(&self.state),
+            State::SignedIn(active) if Arc::ptr_eq(&active.id, id)
+                && matches!(&active.credential, Credential::Certificate { fingerprint: held, .. } if held == fingerprint)
+        )
+    }
+
+    /// Keeps what ILM says is the sign-in certificate of the person signed in as `id`.
+    fn learn_sign_in(&self, id: &Arc<()>, sign_in: Option<SignInCertificate>) {
+        if let State::SignedIn(active) = &mut *lock(&self.state)
+            && Arc::ptr_eq(&active.id, id)
+        {
+            active.person.sign_in = sign_in;
+        }
+    }
+
+    /// With a certificate sign-in, switches to `fingerprint` when ILM already knows the signed-in person by the
+    /// certificate `uuid`: an earlier change whose answer was lost took effect. Whether it did.
+    async fn adopt_known(
+        &self,
+        ilm: &IlmUrl,
+        departing: &Departing,
+        uuid: &str,
+        fingerprint: Fingerprint,
+    ) -> bool {
+        let Some(replacement) = self.known_by(ilm, departing, uuid, fingerprint).await else {
+            return false;
+        };
+        self.switch(
+            ilm,
+            departing.clone(),
+            Some(replacement),
+            SignInCertificate {
+                uuid: uuid.to_owned(),
+                fingerprint,
+            },
+        )
+        .await;
+        true
+    }
+
+    /// With a certificate sign-in, the client for `fingerprint` when ILM already knows the signed-in person by
+    /// the certificate `uuid`.
+    async fn known_by(
+        &self,
+        ilm: &IlmUrl,
+        departing: &Departing,
+        uuid: &str,
+        fingerprint: Fingerprint,
+    ) -> Option<(Client, Option<SystemTime>)> {
+        departing.generation.as_ref()?;
+        let replacement = self
+            .prepare_switch(ilm, departing, fingerprint)
+            .await
+            .ok()??;
+        let response = profile_request(&replacement.0, ilm).send().await.ok()?;
+        let person = read_profile(ilm, response).await.ok()?;
+        let same_person = match &*lock(&self.state) {
+            State::SignedIn(active) => {
+                active.person.uuid == person.uuid && active.person.username == person.username
+            }
+            _ => false,
+        };
+        (same_person && person.sign_in.is_some_and(|held| held.uuid == uuid)).then(|| {
+            log::info!("ILM already knows the person by {uuid}");
+            replacement
+        })
     }
 
     /// Notes the sign-in the change starts from, so a later sign-in is never changed with what was read for it.
@@ -499,6 +655,17 @@ impl Session {
             Err(error) if silent => return self.unreachable_at_start(ilm, error.to_string()),
             Err(error) => return self.fail_attempt(attempt, error.to_string()),
         };
+        let _changing = self.changing.lock().await;
+        let on_computer = self
+            .in_identities(move |store| {
+                store
+                    .certificates()
+                    .map(|held| held.iter().any(|found| found.fingerprint == fingerprint))
+            })
+            .await;
+        if on_computer == Ok(false) {
+            return self.fail_attempt(attempt, if silent { GONE } else { NOT_ON_COMPUTER });
+        }
         let _renewing = self.renewing.lock().await;
         let current = {
             let mut state = lock(&self.state);
@@ -594,6 +761,29 @@ impl Session {
             _ = self.forget_certificate_if(fingerprint);
             self.signed_out();
             self.publish();
+        }
+    }
+
+    /// The certificate `fingerprint` was removed from this computer: a certificate sign-in that presents it ends,
+    /// and a remembered certificate that is it is forgotten.
+    pub(super) async fn certificate_removed(&self, fingerprint: &Fingerprint) {
+        let presenting = match &*lock(&self.state) {
+            State::SignedIn(active) => match &active.credential {
+                Credential::Certificate {
+                    fingerprint: held,
+                    generation,
+                    ..
+                } if held == fingerprint => Some(generation.clone()),
+                _ => None,
+            },
+            _ => None,
+        };
+        match presenting {
+            Some(generation) => {
+                self.end_certificate(&generation, REMOVED, fingerprint)
+                    .await
+            }
+            None => _ = self.forget_certificate_if(fingerprint),
         }
     }
 

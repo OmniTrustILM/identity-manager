@@ -181,7 +181,7 @@ impl Session {
         proceed: impl Fn() -> bool + Sync,
     ) -> Result<Vec<AddResult>, ChangeError> {
         let requested = self.departing()?.id;
-        let _changing = self.changing.lock().await;
+        let changing = self.changing.lock().await;
         let id = self.departing()?.id;
         if !Arc::ptr_eq(&id, &requested) {
             return Err(ChangeError::SignedOut);
@@ -268,6 +268,7 @@ impl Session {
             .iter()
             .any(|result| !matches!(result.outcome, AddOutcome::NotAdded(_)))
         {
+            drop(changing);
             inventory.check_local(self, Trigger::Action, &local).await;
         }
         Ok(results)

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 pub use registered::registered_subject;
 pub use request::{AlternativeName, NameType, RequestSubject, signing_request};
-pub use subject::{Unmappable, subject, unbuildable, without_unwritable};
+pub use subject::{Unmappable, rekey_subject, subject, unbuildable, without_unwritable};
 
 /// A place on this computer that keeps private keys.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

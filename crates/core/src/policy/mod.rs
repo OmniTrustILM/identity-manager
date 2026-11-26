@@ -12,7 +12,8 @@ use std::path::Path;
 use crate::ilm::IlmUrl;
 use crate::keys::Storage;
 use crate::settings::{
-    CheckMinutes, IdleMinutes, Layer, LogLevel, SignInMethod, WarnDays, parse_storage,
+    AutomaticRenewal, CheckMinutes, IdleMinutes, Layer, LogLevel, SignInMethod, WarnDays,
+    parse_storage,
 };
 
 /// A value as a policy source stores it.
@@ -39,6 +40,7 @@ pub(crate) const SIGN_IN_PROVIDER: &str = "SignInProvider";
 pub(crate) const SIGN_IN_METHOD: &str = "SignInMethod";
 pub(crate) const KEY_STORAGES: &str = "KeyStorages";
 pub(crate) const DEFAULT_KEY_STORAGE: &str = "DefaultKeyStorage";
+pub(crate) const AUTOMATIC_RENEWAL: &str = "AutomaticRenewal";
 
 /// Maps the known names with the expected types to a layer; anything else is ignored with a warning.
 pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
@@ -90,10 +92,14 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
                 Some(storage) => layer.default_key_storage = Some(storage),
                 None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
             },
+            (AUTOMATIC_RENEWAL, PolicyValue::Text(text)) => match AutomaticRenewal::parse(text) {
+                Some(renewal) => layer.automatic_renewal = Some(renewal),
+                None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
+            },
             (
                 START_AT_LOGIN | LOG_LEVEL | ILM_URL | REQUIRE_UNLOCK | LOCK_AFTER_IDLE
                 | CHECK_INTERVAL | EXPIRY_WARNING_DAYS | SIGN_IN_PROVIDER | SIGN_IN_METHOD
-                | KEY_STORAGES | DEFAULT_KEY_STORAGE,
+                | KEY_STORAGES | DEFAULT_KEY_STORAGE | AUTOMATIC_RENEWAL,
                 _,
             ) => {
                 log::warn!("policy {name} in {source} has the wrong type; ignored");
@@ -141,6 +147,7 @@ pub fn merge(machine: Layer, user: Layer) -> Layer {
         lock_after_idle: machine.lock_after_idle.or(user.lock_after_idle),
         check_every: machine.check_every.or(user.check_every),
         warn_days: machine.warn_days.or(user.warn_days),
+        automatic_renewal: machine.automatic_renewal.or(user.automatic_renewal),
         sign_in_provider: machine.sign_in_provider.or(user.sign_in_provider),
         sign_in_method: machine.sign_in_method.or(user.sign_in_method),
         key_storages: machine.key_storages.or(user.key_storages),
@@ -382,6 +389,22 @@ mod tests {
     }
 
     #[test]
+    fn the_automatic_renewal_sets_the_layer_and_a_bad_one_is_ignored() {
+        for (name, renewal) in [
+            ("off", AutomaticRenewal::Off),
+            ("newKey", AutomaticRenewal::NewKey),
+            ("sameKey", AutomaticRenewal::SameKey),
+        ] {
+            let layer = to_layer(&raw(&[("AutomaticRenewal", text(name))]), "test");
+            assert_eq!(layer.automatic_renewal, Some(renewal));
+        }
+        for value in [text("always"), text(""), PolicyValue::Bool(true)] {
+            let layer = to_layer(&raw(&[("AutomaticRenewal", value)]), "test");
+            assert_eq!(layer, Layer::default());
+        }
+    }
+
+    #[test]
     fn the_unlock_names_set_the_layer() {
         let layer = to_layer(
             &raw(&[
@@ -521,9 +544,11 @@ mod tests {
             warn_days: WarnDays::new(45),
             key_storages: Some(vec![Storage::Tpm]),
             default_key_storage: Some(Storage::Tpm),
+            automatic_renewal: Some(AutomaticRenewal::SameKey),
             ..Layer::default()
         };
         let merged = merge(machine, user);
+        assert_eq!(merged.automatic_renewal, Some(AutomaticRenewal::SameKey));
         assert_eq!(merged.key_storages, Some(vec![Storage::Tpm]));
         assert_eq!(merged.default_key_storage, Some(Storage::Tpm));
         assert_eq!(merged.check_every, CheckMinutes::new(10));

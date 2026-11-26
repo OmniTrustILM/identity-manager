@@ -123,6 +123,25 @@ impl IdentityStore for DeniedStore {
     }
 }
 
+/// A store that stops listing its certificates once `gone` is set, as when one is removed from the computer.
+struct Leaving {
+    inner: StandInStore,
+    gone: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl IdentityStore for Leaving {
+    fn certificates(&self) -> Result<Vec<LocalCertificate>, StoreUnreadable> {
+        if self.gone.load(std::sync::atomic::Ordering::SeqCst) {
+            return Ok(Vec::new());
+        }
+        self.inner.certificates()
+    }
+
+    fn open(&self, fingerprint: &Fingerprint) -> Option<ClientIdentity> {
+        self.inner.open(fingerprint)
+    }
+}
+
 /// An ILM that is a test server asking for client certificates, and a session whose clients trust its CA.
 struct CertWorld {
     server: TestServer,
@@ -993,6 +1012,41 @@ async fn a_late_401_at_start_does_not_forget_a_certificate_remembered_since() {
 }
 
 #[tokio::test]
+async fn a_certificate_removed_while_ilm_answers_is_not_signed_in_with() {
+    let ca = TestCa::new();
+    let jane = ca.issue(Issue::client("Jane"));
+    let gone = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let world = CertWorld::start(
+        &ca,
+        ClientCerts::Required,
+        &jane,
+        Leaving {
+            inner: StandInStore::new(vec![jane.clone()]),
+            gone: gone.clone(),
+        },
+    )
+    .await;
+    let gate = Gate::start(world.server_port()).await;
+    world.remember(&jane);
+    world.through(&gate);
+
+    let (started, ()) = tokio::join!(world.session.start(), async {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        gone.store(true, std::sync::atomic::Ordering::SeqCst);
+        gate.release();
+    });
+
+    assert!(
+        !matches!(started, SessionView::SignedIn { .. }),
+        "{started:?}"
+    );
+    assert!(!matches!(
+        world.session.view(),
+        SessionView::SignedIn { .. }
+    ));
+}
+
+#[tokio::test]
 async fn start_keeps_the_certificate_when_ilm_cannot_be_reached() {
     let ca = TestCa::new();
     let jane = ca.issue(Issue::client("Jane"));
@@ -1401,6 +1455,7 @@ fn matched(person: &TestIdentity) -> Snapshot {
         allowed: Default::default(),
         prepared: Vec::new(),
         approvals: Vec::new(),
+        replaced: Default::default(),
     }
 }
 

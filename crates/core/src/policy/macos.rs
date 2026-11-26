@@ -207,4 +207,15 @@ mod tests {
         );
         assert_eq!(layer.default_key_storage, Some(Storage::Keychain));
     }
+
+    #[test]
+    fn the_automatic_renewal_string_reaches_the_layer() {
+        let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
+<key>AutomaticRenewal</key><string>sameKey</string></dict></plist>"#;
+        let layer = crate::policy::to_layer(&parse_plist(xml, "test"), "test");
+        assert_eq!(
+            layer.automatic_renewal,
+            Some(crate::settings::AutomaticRenewal::SameKey)
+        );
+    }
 }

@@ -7,6 +7,7 @@ use x509_parser::extensions::ParsedExtension;
 use x509_parser::prelude::{FromDer, X509Certificate};
 use x509_parser::public_key::PublicKey;
 
+use crate::identity::Fingerprint;
 use crate::keys::KeyId;
 
 /// Why a certificate was not installed.
@@ -40,6 +41,19 @@ pub trait CertificateInstaller: Send + Sync {
         leaf: &[u8],
         intermediates: &[Vec<u8>],
     ) -> Result<(), InstallError>;
+
+    /// Installs a certificate for the key that the installed certificate `old` already has; the key stays where
+    /// it is. The caller has checked that the public keys are equal.
+    fn install_beside(
+        &self,
+        old: &Fingerprint,
+        leaf: &[u8],
+        intermediates: &[Vec<u8>],
+    ) -> Result<(), InstallError>;
+
+    /// Removes the installed certificate and, when `delete_key` is set, its private key. A certificate that is
+    /// not installed is removed already.
+    fn remove(&self, fingerprint: &Fingerprint, delete_key: bool) -> Result<(), InstallError>;
 }
 
 /// Whether `leaf` (DER) holds `public_key`; a certificate that cannot be read holds nothing.
@@ -100,6 +114,14 @@ impl CertificateInstaller for NoInstaller {
     fn install(&self, _: &KeyId, _: &[u8], _: &[Vec<u8>]) -> Result<(), InstallError> {
         Err(InstallError::Unavailable)
     }
+
+    fn install_beside(&self, _: &Fingerprint, _: &[u8], _: &[Vec<u8>]) -> Result<(), InstallError> {
+        Err(InstallError::Unavailable)
+    }
+
+    fn remove(&self, _: &Fingerprint, _: bool) -> Result<(), InstallError> {
+        Err(InstallError::Unavailable)
+    }
 }
 
 /// One installation a [`RecordingInstaller`] was asked for.
@@ -111,11 +133,30 @@ pub struct Installation {
     pub intermediates: usize,
 }
 
+/// One installation beside an installed certificate a [`RecordingInstaller`] was asked for.
+#[cfg(any(test, feature = "testing"))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstallationBeside {
+    pub old: Fingerprint,
+    pub leaf: Vec<u8>,
+    pub intermediates: usize,
+}
+
+/// One removal a [`RecordingInstaller`] was asked for.
+#[cfg(any(test, feature = "testing"))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Removal {
+    pub fingerprint: Fingerprint,
+    pub delete_key: bool,
+}
+
 /// An installer that only remembers what it was asked, and fails while it is told to.
 #[cfg(any(test, feature = "testing"))]
 #[derive(Default)]
 pub struct RecordingInstaller {
     calls: std::sync::Mutex<Vec<Installation>>,
+    beside: std::sync::Mutex<Vec<InstallationBeside>>,
+    removed: std::sync::Mutex<Vec<Removal>>,
     failing: std::sync::atomic::AtomicBool,
 }
 
@@ -137,6 +178,27 @@ impl RecordingInstaller {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
     }
+
+    pub fn beside_calls(&self) -> Vec<InstallationBeside> {
+        self.beside
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    pub fn removals(&self) -> Vec<Removal> {
+        self.removed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    fn outcome(&self) -> Result<(), InstallError> {
+        if self.failing.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(InstallError::Failed("told to fail".to_owned()));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -155,10 +217,35 @@ impl CertificateInstaller for RecordingInstaller {
                 leaf: leaf.to_vec(),
                 intermediates: intermediates.len(),
             });
-        if self.failing.load(std::sync::atomic::Ordering::SeqCst) {
-            return Err(InstallError::Failed("told to fail".to_owned()));
-        }
-        Ok(())
+        self.outcome()
+    }
+
+    fn install_beside(
+        &self,
+        old: &Fingerprint,
+        leaf: &[u8],
+        intermediates: &[Vec<u8>],
+    ) -> Result<(), InstallError> {
+        self.beside
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(InstallationBeside {
+                old: *old,
+                leaf: leaf.to_vec(),
+                intermediates: intermediates.len(),
+            });
+        self.outcome()
+    }
+
+    fn remove(&self, fingerprint: &Fingerprint, delete_key: bool) -> Result<(), InstallError> {
+        self.removed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(Removal {
+                fingerprint: *fingerprint,
+                delete_key,
+            });
+        self.outcome()
     }
 }
 
@@ -361,6 +448,65 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn without_an_installer_nothing_is_installed_beside_or_removed() {
+        let old = Fingerprint::of(b"old");
+        assert_eq!(
+            NoInstaller.install_beside(&old, &[1], &[]),
+            Err(InstallError::Unavailable)
+        );
+        assert_eq!(
+            NoInstaller.remove(&old, true),
+            Err(InstallError::Unavailable)
+        );
+    }
+
+    #[test]
+    fn the_recording_installer_remembers_installations_beside_and_removals() {
+        let installer = RecordingInstaller::new();
+        let old = Fingerprint::of(b"old");
+        installer.install_beside(&old, &[1, 2], &[vec![3]]).unwrap();
+        installer.remove(&old, false).unwrap();
+        installer.fail(true);
+        assert_eq!(
+            installer.install_beside(&old, &[4], &[]),
+            Err(InstallError::Failed("told to fail".into()))
+        );
+        assert_eq!(
+            installer.remove(&old, true),
+            Err(InstallError::Failed("told to fail".into()))
+        );
+        assert_eq!(
+            installer.beside_calls(),
+            [
+                InstallationBeside {
+                    old,
+                    leaf: vec![1, 2],
+                    intermediates: 1
+                },
+                InstallationBeside {
+                    old,
+                    leaf: vec![4],
+                    intermediates: 0
+                },
+            ]
+        );
+        assert_eq!(
+            installer.removals(),
+            [
+                Removal {
+                    fingerprint: old,
+                    delete_key: false
+                },
+                Removal {
+                    fingerprint: old,
+                    delete_key: true
+                },
+            ]
+        );
+        assert!(installer.calls().is_empty());
     }
 
     #[test]

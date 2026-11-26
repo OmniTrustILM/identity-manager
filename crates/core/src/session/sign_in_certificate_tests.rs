@@ -18,6 +18,7 @@ use crate::identity::{
 };
 use crate::ilm::certificates::search_text;
 use crate::inventory::{Inventory, Status, Trigger};
+use crate::requests::{PendingSwitch, Purpose, Requests, Waiting};
 
 const PROFILE: &str = "/api/v1/auth/profile";
 const SEARCH: &str = "/api/v1/certificates";
@@ -600,4 +601,42 @@ async fn the_log_of_a_change_holds_the_short_fingerprints_and_no_profile_text() 
     {
         assert!(!log.contains(secret), "forbidden value {index} is logged");
     }
+}
+
+#[tokio::test]
+async fn a_change_with_a_renewal_waiting_to_move_the_sign_in_completes() {
+    let mut change = Change::new().await;
+    let requests = Arc::new(Requests::new(change._folder.path()));
+    change.world.session = change.world.session.with_requests(requests.clone());
+    requests
+        .add(Waiting {
+            ilm: change.world.address(),
+            username: "jdoe".into(),
+            uuid: Some("c-new".into()),
+            ra_profile: "ra-1".into(),
+            authority: "auth-1".into(),
+            key: None,
+            label: "web".into(),
+            since: 1,
+            prepared: false,
+            purpose: Purpose::Renew {
+                replaces: "sign-in".into(),
+                replaces_fingerprint: old_sign_in(),
+                sign_in: true,
+                same_key: true,
+                automatic: false,
+                switch: Some(PendingSwitch {
+                    fingerprint: Fingerprint::of(b"new"),
+                    failures: 1,
+                }),
+            },
+        })
+        .unwrap();
+    change
+        .answer_update(ResponseTemplate::new(200).set_body_json(json!({})))
+        .await;
+
+    let made = tokio::time::timeout(Duration::from_secs(10), change.make()).await;
+
+    assert_eq!(made.expect("the change does not hang"), Ok(()));
 }

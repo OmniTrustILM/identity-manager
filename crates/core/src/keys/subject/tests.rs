@@ -737,3 +737,198 @@ fn optional_attributes_that_cannot_be_written_are_removed_and_the_others_stay() 
         .collect();
     assert_eq!(names, ["host", "needed", "note"]);
 }
+
+mod rekey {
+    use rcgen::string::Ia5String;
+    use rcgen::{
+        CertificateParams, DistinguishedName, DnType, KeyPair, OtherNameValue,
+        PKCS_ECDSA_P256_SHA256, SanType,
+    };
+    use x509_parser::prelude::{FromDer, X509Certificate, X509Name};
+
+    use super::*;
+
+    const UPN: [u64; 10] = [1, 3, 6, 1, 4, 1, 311, 20, 2, 3];
+
+    fn certificate(names: &[(DnType, &str)], alternatives: Vec<SanType>) -> Vec<u8> {
+        let mut params = CertificateParams::default();
+        params.distinguished_name = DistinguishedName::new();
+        for (kind, value) in names {
+            params.distinguished_name.push(kind.clone(), *value);
+        }
+        params.subject_alt_names = alternatives;
+        let key = KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256).unwrap();
+        params.self_signed(&key).unwrap().der().to_vec()
+    }
+
+    fn ia5(text: &str) -> Ia5String {
+        Ia5String::try_from(text).unwrap()
+    }
+
+    /// The names the way ILM compares distinguished names: case-insensitive, white space collapsed.
+    fn normalised(text: &str) -> String {
+        text.split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase()
+    }
+
+    fn subject_text(der: &[u8]) -> String {
+        let (_, certificate) = X509Certificate::from_der(der).unwrap();
+        certificate.subject().to_string()
+    }
+
+    fn request_subject_text(subject: &RequestSubject) -> String {
+        let key = InMemoryStorage::new(&[Storage::Software])
+            .create(Storage::Software, KeyType::EcP256)
+            .unwrap();
+        let der = signing_request(key.as_ref(), subject).unwrap();
+        let (_, request) = X509CertificationRequest::from_der(&der).unwrap();
+        request.certification_request_info.subject.to_string()
+    }
+
+    #[test]
+    fn the_names_keep_the_order_of_the_certificate() {
+        let der = certificate(
+            &[
+                (DnType::CountryName, "CZ"),
+                (DnType::OrganizationName, "Example Corp"),
+                (DnType::OrganizationalUnitName, "Staff"),
+                (DnType::CommonName, "Ada Lovelace"),
+            ],
+            Vec::new(),
+        );
+        let found = rekey_subject(&der).unwrap();
+        assert_eq!(
+            found.names,
+            names(&[
+                (NameType::Country, "CZ"),
+                (NameType::Organization, "Example Corp"),
+                (NameType::OrganizationalUnit, "Staff"),
+                (NameType::CommonName, "Ada Lovelace"),
+            ])
+        );
+        assert!(found.alternative_names.is_empty());
+    }
+
+    #[test]
+    fn every_alternative_name_type_the_request_builds_is_kept_in_order() {
+        let der = certificate(
+            &[(DnType::CommonName, "host.example")],
+            vec![
+                SanType::DnsName(ia5("host.example")),
+                SanType::Rfc822Name(ia5("a@corp.example")),
+                SanType::URI(ia5("https://host.example/x")),
+                SanType::IpAddress("192.0.2.7".parse().unwrap()),
+                SanType::IpAddress("2001:db8::1".parse().unwrap()),
+                SanType::OtherName((
+                    UPN.to_vec(),
+                    OtherNameValue::Utf8String("ada@corp.example".to_owned()),
+                )),
+            ],
+        );
+        assert_eq!(
+            rekey_subject(&der).unwrap().alternative_names,
+            vec![
+                AlternativeName::Dns("host.example".into()),
+                AlternativeName::Email("a@corp.example".into()),
+                AlternativeName::Uri("https://host.example/x".into()),
+                AlternativeName::Ip("192.0.2.7".parse().unwrap()),
+                AlternativeName::Ip("2001:db8::1".parse().unwrap()),
+                AlternativeName::Upn("ada@corp.example".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_alternative_name_the_request_cannot_build_gives_none() {
+        let other = certificate(
+            &[(DnType::CommonName, "x")],
+            vec![SanType::OtherName((
+                vec![1, 2, 3, 4],
+                OtherNameValue::Utf8String("v".to_owned()),
+            ))],
+        );
+        assert_eq!(rekey_subject(&other), None);
+    }
+
+    #[test]
+    fn the_rebuilt_subject_equals_the_original_after_normalisation() {
+        let der = certificate(
+            &[
+                (DnType::CountryName, "CZ"),
+                (DnType::OrganizationName, "Example  Corp"),
+                (
+                    DnType::CustomDnType(vec![0, 9, 2342, 19200300, 100, 1, 25]),
+                    "example",
+                ),
+                (DnType::CommonName, "Ada Lovelace"),
+            ],
+            Vec::new(),
+        );
+        let rebuilt = request_subject_text(&rekey_subject(&der).unwrap());
+        assert_eq!(normalised(&rebuilt), normalised(&subject_text(&der)));
+    }
+
+    #[test]
+    fn an_attribute_type_without_a_name_here_is_kept_by_its_identifier() {
+        let der = certificate(&[(DnType::CustomDnType(vec![1, 2, 3, 4]), "v")], Vec::new());
+        assert_eq!(
+            rekey_subject(&der).unwrap().names,
+            vec![(NameType::Other(vec![1, 2, 3, 4]), "v".to_owned())]
+        );
+    }
+
+    /// The DER of a name: each inner list is one relative name, each pair an attribute type (last arc of 2.5.4)
+    /// and its UTF8String value.
+    fn name(rdns: &[&[(u8, &str)]]) -> Vec<u8> {
+        let set = |attributes: &[(u8, &str)]| {
+            let content: Vec<u8> = attributes
+                .iter()
+                .flat_map(|(arc, value)| {
+                    let mut item = vec![0x06, 0x03, 0x55, 0x04, *arc, 0x0c, value.len() as u8];
+                    item.extend(value.as_bytes());
+                    let mut sequence = vec![0x30, item.len() as u8];
+                    sequence.extend(item);
+                    sequence
+                })
+                .collect();
+            let mut set = vec![0x31, content.len() as u8];
+            set.extend(content);
+            set
+        };
+        let content: Vec<u8> = rdns.iter().flat_map(|rdn| set(rdn)).collect();
+        let mut der = vec![0x30, content.len() as u8];
+        der.extend(content);
+        der
+    }
+
+    fn names_of(der: &[u8]) -> Option<Vec<(NameType, String)>> {
+        let (_, parsed) = X509Name::from_der(der).unwrap();
+        subject_names(&parsed)
+    }
+
+    #[test]
+    fn a_name_of_several_values_gives_none() {
+        assert_eq!(names_of(&name(&[&[(3, "a"), (10, "b")]])), None);
+    }
+
+    #[test]
+    fn a_repeated_name_type_gives_none() {
+        let repeated = name(&[&[(11, "a")], &[(11, "b")]]);
+        assert_eq!(names_of(&repeated), None);
+        let distinct = name(&[&[(11, "a")], &[(3, "b")]]);
+        assert_eq!(
+            names_of(&distinct),
+            Some(names(&[
+                (NameType::OrganizationalUnit, "a"),
+                (NameType::CommonName, "b")
+            ]))
+        );
+    }
+
+    #[test]
+    fn bytes_that_are_no_certificate_give_none() {
+        assert_eq!(rekey_subject(&[1, 2, 3]), None);
+    }
+}

@@ -167,4 +167,21 @@ mod tests {
             Some(crate::keys::Storage::Software)
         );
     }
+
+    #[test]
+    fn the_automatic_renewal_string_reaches_the_layer() {
+        let layer = to_layer(
+            &parse_json(br#"{"AutomaticRenewal": "newKey"}"#, "test"),
+            "test",
+        );
+        assert_eq!(
+            layer.automatic_renewal,
+            Some(crate::settings::AutomaticRenewal::NewKey)
+        );
+        let layer = to_layer(
+            &parse_json(br#"{"AutomaticRenewal": true}"#, "test"),
+            "test",
+        );
+        assert_eq!(layer.automatic_renewal, None);
+    }
 }

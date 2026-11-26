@@ -10,7 +10,8 @@ use im_core::ilm::upload::RaProfileChoice;
 use im_core::inventory::{Prepared, SubjectPart};
 use im_core::keys::{KeyType, Offer, Storage};
 use im_core::session::{
-    CallError, Completion, EndReason, Followed, Outcome, RequestError, RequestInput, SignedInAs,
+    CallError, Completion, EndReason, Followed, Installed, Outcome, RequestError, RequestInput,
+    SignedInAs,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
@@ -267,10 +268,20 @@ pub enum FollowView {
 impl From<&Outcome> for FollowView {
     fn from(outcome: &Outcome) -> Self {
         match outcome {
-            Outcome::Installed(installed) => Self::Installed {
-                storage: installed.storage.into(),
-                valid_until: installed.not_after,
+            Outcome::Installed(Installed {
+                storage: Some(storage),
+                not_after,
+            }) => Self::Installed {
+                storage: (*storage).into(),
+                valid_until: *not_after,
             },
+            // A renewal that kept its key has no storage to name; the wizard follows new requests only.
+            Outcome::Installed(_)
+            | Outcome::SwitchPending { .. }
+            | Outcome::SignInMoved
+            | Outcome::Revoking
+            | Outcome::Revoked { .. }
+            | Outcome::NotRevoked => Self::Unknown,
             Outcome::Waiting(State::PendingApproval) => Self::Waiting {
                 stage: WaitingStage::PendingApproval,
             },
@@ -596,7 +607,7 @@ mod tests {
     #[test]
     fn a_follow_that_knows_nothing_falls_back_to_the_latest_check() {
         let installed = Outcome::Installed(Installed {
-            storage: Storage::Software,
+            storage: Some(Storage::Software),
             not_after: 7,
         });
         let latest = [followed(Some("c-1"), installed)];
@@ -637,13 +648,14 @@ mod tests {
             uuid: Some("c-1".to_owned()),
             ra_profile: "ra-1".to_owned(),
             authority: "a-1".to_owned(),
-            key: im_core::keys::KeyId {
+            key: Some(im_core::keys::KeyId {
                 storage: Storage::Software,
                 name: "k-1".to_owned(),
-            },
+            }),
             label: "again".to_owned(),
             since: 1,
             prepared: true,
+            purpose: im_core::requests::Purpose::Issue,
         };
 
         assert_eq!(
@@ -826,13 +838,14 @@ mod tests {
             uuid: uuid.map(str::to_owned),
             label: "web".to_owned(),
             outcome,
+            replaces: None,
         }
     }
 
     #[test]
     fn every_outcome_of_a_follow_has_a_state_for_the_interface() {
         let installed = Outcome::Installed(Installed {
-            storage: Storage::Keychain,
+            storage: Some(Storage::Keychain),
             not_after: 4_000,
         });
         let cases = [

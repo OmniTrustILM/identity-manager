@@ -7,6 +7,10 @@ use std::net::IpAddr;
 
 use rcgen::string::{Ia5String, PrintableString};
 use serde_json::Value as Json;
+use x509_parser::asn1_rs::{Any, FromDer};
+use x509_parser::certificate::X509Certificate;
+use x509_parser::extensions::{GeneralName, ParsedExtension};
+use x509_parser::x509::X509Name;
 
 use super::request::{DOMAIN_COMPONENT, EMAIL_ADDRESS, SERIAL_NUMBER};
 use super::{AlternativeName, NameType, RequestSubject};
@@ -290,6 +294,69 @@ pub fn subject(definitions: &[Definition], values: &Values) -> Result<RequestSub
             .collect(),
         alternative_names: alternatives.into_iter().map(|(_, name)| name).collect(),
     })
+}
+
+/// The subject of a request that renews the certificate with a new key: its names in their order and its
+/// alternative names of the types a request builds. A name of several values, a name type twice, a name that is
+/// not text or does not fit its string type, or an alternative name of another type gives none, because the
+/// request could not carry what the certificate has.
+pub fn rekey_subject(der: &[u8]) -> Option<RequestSubject> {
+    let (_, certificate) = X509Certificate::from_der(der).ok()?;
+    let names = subject_names(certificate.subject())?;
+    let mut alternative_names = Vec::new();
+    for extension in certificate.extensions() {
+        if let ParsedExtension::SubjectAlternativeName(san) = extension.parsed_extension() {
+            for name in &san.general_names {
+                alternative_names.push(alternative_name(name)?);
+            }
+        }
+    }
+    Some(RequestSubject {
+        names,
+        alternative_names,
+    })
+}
+
+fn subject_names(subject: &X509Name) -> Option<Vec<(NameType, String)>> {
+    let mut names: Vec<(NameType, String)> = Vec::new();
+    for rdn in subject.iter_rdn() {
+        let mut attributes = rdn.iter();
+        let attribute = attributes.next()?;
+        if attributes.next().is_some() {
+            return None;
+        }
+        let kind = known(attribute.attr_type().iter()?.collect());
+        let text = attribute.as_str().ok()?.to_owned();
+        if !fits_name(&kind, &text) || names.iter().any(|(other, _)| *other == kind) {
+            return None;
+        }
+        names.push((kind, text));
+    }
+    Some(names)
+}
+
+fn alternative_name(name: &GeneralName) -> Option<AlternativeName> {
+    let text = |text: &&str| (*text).to_owned();
+    match name {
+        GeneralName::DNSName(name) => Some(AlternativeName::Dns(text(name))),
+        GeneralName::RFC822Name(name) => Some(AlternativeName::Email(text(name))),
+        GeneralName::URI(name) => Some(AlternativeName::Uri(text(name))),
+        GeneralName::IPAddress(bytes) => match bytes.len() {
+            4 => Some(AlternativeName::Ip(IpAddr::from(
+                <[u8; 4]>::try_from(*bytes).ok()?,
+            ))),
+            16 => Some(AlternativeName::Ip(IpAddr::from(
+                <[u8; 16]>::try_from(*bytes).ok()?,
+            ))),
+            _ => None,
+        },
+        GeneralName::OtherName(oid, value) if oid.to_id_string() == USER_PRINCIPAL_NAME => {
+            let (_, explicit) = Any::from_der(value).ok()?;
+            let (_, name) = Any::from_der(explicit.data).ok()?;
+            Some(AlternativeName::Upn(name.as_str().ok()?.to_owned()))
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]

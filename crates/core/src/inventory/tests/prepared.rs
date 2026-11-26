@@ -370,13 +370,14 @@ async fn the_certificates_ready_to_issue_are_the_open_ones_the_person_has_not_be
         uuid: Some("c-2".to_owned()),
         ra_profile: "ra-1".to_owned(),
         authority: "a-1".to_owned(),
-        key: crate::keys::KeyId {
+        key: Some(crate::keys::KeyId {
             storage: crate::keys::Storage::Software,
             name: "k".to_owned(),
-        },
+        }),
         label: "begun".to_owned(),
         since: 1,
         prepared: true,
+        purpose: crate::requests::Purpose::Issue,
     };
 
     let ready = setup.inventory.ready_to_issue(&[begun]);
@@ -403,6 +404,7 @@ fn a_followed_request_that_completed_a_certificate_leaves_it_out_unless_it_waits
         uuid: Some(uuid.to_owned()),
         label: uuid.to_owned(),
         outcome,
+        replaces: None,
     };
     let mut list = vec![
         prepared("c-1"),
