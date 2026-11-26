@@ -1,5 +1,5 @@
 {
-  "version": "2.22",
+  "version": "2.25",
   "children": [
     {
       "type": "frame",
@@ -11015,6 +11015,5438 @@
                 {
                   "type": "text",
                   "id": "Hp4MN",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "K1NTR",
+      "x": 0,
+      "y": 5000,
+      "name": "TraySummary/macOS/renew",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "UUnFl",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "ful77",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "dwrJL",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Nwqmm",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "yNjgB",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "ofPjk",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "E3MfMy",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "iXTbE",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "hY5XN",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "r7hcKe",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "N27w8",
+                  "name": "Needs attention",
+                  "fill": "$color.status-attention-text",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "P6Uq18",
+          "name": "Counts",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "X6T42",
+              "name": "Count Valid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "GyNT7",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "Rvcdr",
+                      "name": "Dot",
+                      "fill": "$color.status-fine",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "clj8m",
+                      "name": "3",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "jwTyC",
+                  "name": "Valid",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Valid",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Efboi",
+              "name": "Count Expiring soon",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ZU5JB",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "BAhZz",
+                      "name": "Dot",
+                      "fill": "$color.status-attention",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "qae15",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "gs2Wi",
+                  "name": "Expiring soon",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expiring soon",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "o2U7Z0",
+              "name": "Count Expired",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "X3SPSd",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "LqWv8",
+                      "name": "Dot",
+                      "fill": "$color.status-bad",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "cgrqc",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "EBo2E",
+                  "name": "Expired",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expired",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Z4BkE",
+              "name": "Count Not in ILM",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "qAWgh",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "v8rkO",
+                      "name": "Dot",
+                      "fill": "$color.text-tertiary",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "Xhya2",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "KBF4X",
+                  "name": "Not in ILM",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Not in ILM",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "E7ua5",
+          "name": "Attention items",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "qj7SF",
+              "name": "Button Build server",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "HT3UV",
+                  "name": "Icon ban",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "ban",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "aYXXn",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Jjix1",
+                      "name": "Build server",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Build server",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "NTNrE",
+                      "name": "Revoked in ILM",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revoked in ILM",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "l3DMa",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "pDjKt",
+              "name": "Button Smart card login",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "zbof5",
+                  "name": "Icon circle-x",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "circle-x",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "al8V9",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "yw3nd",
+                      "name": "Smart card login",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Smart card login",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "BcDjB",
+                      "name": "Expired on 14 Nov 2026",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Expired on 14 Nov 2026",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "L4w3M",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZtUMe",
+              "name": "Item vpn.example.com",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "G4yKeP",
+                  "name": "Row",
+                  "width": "fill_container",
+                  "gap": 4,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "m4y8EU",
+                      "name": "Button vpn.example.com",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "ief7m",
+                          "name": "Icon hourglass",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "hourglass",
+                          "library": "lucide",
+                          "fill": "$color.status-attention"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "CBXuI",
+                          "name": "Name and reason",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "qQn90",
+                              "name": "vpn.example.com",
+                              "fill": "$color.text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "vpn.example.com",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "VPLKM",
+                              "name": "Expires on 3 Dec 2026, in 13",
+                              "fill": "$color.status-attention-text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Expires on 3 Dec 2026, in 13 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "IhI5B",
+                          "name": "Icon chevron-right",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-right",
+                          "library": "lucide",
+                          "fill": "$color.text-tertiary"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Askdr",
+                      "name": "Button Renew",
+                      "height": 28,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "wtdoq",
+                          "name": "Renew",
+                          "fill": "$color.text-primary",
+                          "content": "Renew",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RG0mZ",
+              "name": "More",
+              "padding": [
+                2,
+                10,
+                0,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "f7ClnF",
+                  "name": "+2 more",
+                  "fill": "$color.text-secondary",
+                  "content": "+2 more",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "spUSB",
+          "name": "Last check",
+          "width": "fill_container",
+          "gap": 6,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "odX5u",
+              "name": "Last checked with ILM at 10:",
+              "fill": "$color.text-secondary",
+              "content": "Last checked with ILM at 10:38",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.caption",
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ZL5e5",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "NAW3G",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "gPNva",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "tpkBF",
+      "x": 380,
+      "y": 5000,
+      "name": "TraySummary/Windows/renew",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "bW4Kg",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "RZriO",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "U5lnCA",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Bd07A",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vNy8G",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "r04nK",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mk8al",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "LoS8q",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "dcIok",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "U2JsFP",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "P6hP6",
+                  "name": "Needs attention",
+                  "fill": "$color.status-attention-text",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "deiRb",
+          "name": "Counts",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "fDWVB",
+              "name": "Count Valid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "XRLzF",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "UZdX9",
+                      "name": "Dot",
+                      "fill": "$color.status-fine",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "HB9ht",
+                      "name": "3",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "c3yDcU",
+                  "name": "Valid",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Valid",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "w12ZeN",
+              "name": "Count Expiring soon",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "OR3kM",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "F5zQN",
+                      "name": "Dot",
+                      "fill": "$color.status-attention",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "gAoIZ",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "m5nLPT",
+                  "name": "Expiring soon",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expiring soon",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Q682Nc",
+              "name": "Count Expired",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Y7niR",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "e71d68",
+                      "name": "Dot",
+                      "fill": "$color.status-bad",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y7C0B",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "dyJ41",
+                  "name": "Expired",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expired",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ajyoz",
+              "name": "Count Not in ILM",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Exp2N",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "UwNob",
+                      "name": "Dot",
+                      "fill": "$color.text-tertiary",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y4mOkX",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "yf9Zv",
+                  "name": "Not in ILM",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Not in ILM",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "EZRP4",
+          "name": "Attention items",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "E4Wem3",
+              "name": "Button Build server",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "UXPro",
+                  "name": "Icon ban",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "ban",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "J82lB",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "FPTTJ",
+                      "name": "Build server",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Build server",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "vkaCx",
+                      "name": "Revoked in ILM",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revoked in ILM",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "gd6vj",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "DTN3f",
+              "name": "Button Smart card login",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "zNQUu",
+                  "name": "Icon circle-x",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "circle-x",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "gamgs",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "pyTGh",
+                      "name": "Smart card login",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Smart card login",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "yg3Uf",
+                      "name": "Expired on 14 Nov 2026",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Expired on 14 Nov 2026",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "fK0OT",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wStzP",
+              "name": "Item vpn.example.com",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "w399w",
+                  "name": "Row",
+                  "width": "fill_container",
+                  "gap": 4,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "KlGUy",
+                      "name": "Button vpn.example.com",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "bkVnB",
+                          "name": "Icon hourglass",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "hourglass",
+                          "library": "lucide",
+                          "fill": "$color.status-attention"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "F3qc4j",
+                          "name": "Name and reason",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "CUN9v",
+                              "name": "vpn.example.com",
+                              "fill": "$color.text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "vpn.example.com",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "tGKEj",
+                              "name": "Expires on 3 Dec 2026, in 13",
+                              "fill": "$color.status-attention-text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Expires on 3 Dec 2026, in 13 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "C4Rgr",
+                          "name": "Icon chevron-right",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-right",
+                          "library": "lucide",
+                          "fill": "$color.text-tertiary"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "to2Qq",
+                      "name": "Button Renew",
+                      "height": 28,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "pnrAi",
+                          "name": "Renew",
+                          "fill": "$color.text-primary",
+                          "content": "Renew",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "S76Ow9",
+              "name": "More",
+              "padding": [
+                2,
+                10,
+                0,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "d2gttC",
+                  "name": "+2 more",
+                  "fill": "$color.text-secondary",
+                  "content": "+2 more",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "glvdr",
+          "name": "Last check",
+          "width": "fill_container",
+          "gap": 6,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "e1tHIT",
+              "name": "Last checked with ILM at 10:",
+              "fill": "$color.text-secondary",
+              "content": "Last checked with ILM at 10:38",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.caption",
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "FRdis",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "MiXoj",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ONaqB",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "NXxYd",
+      "x": 0,
+      "y": 5500,
+      "name": "TraySummary/macOS/renew dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "a5Tt3",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "VTOYC",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "pt1IM",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "B7ucZk",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "F7xvG",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "NKlxs",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "BGpTq",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "XPl2D",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "f06Git",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dYTRu",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "YHgSE",
+                  "name": "Needs attention",
+                  "fill": "$color.status-attention-text",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "L5Txu",
+          "name": "Counts",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "G68cxR",
+              "name": "Count Valid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "T2iOWO",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "J0XP4o",
+                      "name": "Dot",
+                      "fill": "$color.status-fine",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "sXYdq",
+                      "name": "3",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "i2K0cB",
+                  "name": "Valid",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Valid",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "HoAvD",
+              "name": "Count Expiring soon",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "KRGls",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "tqlS1",
+                      "name": "Dot",
+                      "fill": "$color.status-attention",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "w8DUoC",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "WL3wm",
+                  "name": "Expiring soon",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expiring soon",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "SU1OO",
+              "name": "Count Expired",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ptRO3",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "jhSog",
+                      "name": "Dot",
+                      "fill": "$color.status-bad",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y7TiZi",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "QCWfz",
+                  "name": "Expired",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expired",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jMwYG",
+              "name": "Count Not in ILM",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "pNcRC",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "AAqp9",
+                      "name": "Dot",
+                      "fill": "$color.text-tertiary",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "xziMJ",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "BiPxP",
+                  "name": "Not in ILM",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Not in ILM",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "G66T05",
+          "name": "Attention items",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "nWDzd",
+              "name": "Button Build server",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "yjSc0",
+                  "name": "Icon ban",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "ban",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "PCFza",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "GZVIE",
+                      "name": "Build server",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Build server",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "HnMX9",
+                      "name": "Revoked in ILM",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revoked in ILM",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "t7EEZ",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "WEfUG",
+              "name": "Button Smart card login",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "ypC24",
+                  "name": "Icon circle-x",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "circle-x",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "e2Fuko",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "lXQKH",
+                      "name": "Smart card login",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Smart card login",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "W3Ctl",
+                      "name": "Expired on 14 Nov 2026",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Expired on 14 Nov 2026",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "elo1p",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Z0rENV",
+              "name": "Item vpn.example.com",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "EyyoE",
+                  "name": "Row",
+                  "width": "fill_container",
+                  "gap": 4,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "W4GEh7",
+                      "name": "Button vpn.example.com",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "AkhAR",
+                          "name": "Icon hourglass",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "hourglass",
+                          "library": "lucide",
+                          "fill": "$color.status-attention"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "LeUcq",
+                          "name": "Name and reason",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "e8t2n",
+                              "name": "vpn.example.com",
+                              "fill": "$color.text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "vpn.example.com",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "AnLef",
+                              "name": "Expires on 3 Dec 2026, in 13",
+                              "fill": "$color.status-attention-text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Expires on 3 Dec 2026, in 13 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "G2fxkU",
+                          "name": "Icon chevron-right",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-right",
+                          "library": "lucide",
+                          "fill": "$color.text-tertiary"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wiAyO",
+                      "name": "Button Renew",
+                      "height": 28,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "q7Onif",
+                          "name": "Renew",
+                          "fill": "$color.text-primary",
+                          "content": "Renew",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f81Nd",
+              "name": "More",
+              "padding": [
+                2,
+                10,
+                0,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "In020",
+                  "name": "+2 more",
+                  "fill": "$color.text-secondary",
+                  "content": "+2 more",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "BSLHE",
+          "name": "Last check",
+          "width": "fill_container",
+          "gap": 6,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "yDDjL",
+              "name": "Last checked with ILM at 10:",
+              "fill": "$color.text-secondary",
+              "content": "Last checked with ILM at 10:38",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.caption",
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "dZLVh",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "QySvB",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sh06h",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "jaeYf",
+      "x": 380,
+      "y": 5500,
+      "name": "TraySummary/Windows/renew dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "yd8bA",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Q4lwGM",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "q9M8WR",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "BvbfG",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "CJuuv",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "T8LytQ",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "AMBad",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "taNsB",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "siEnZ",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "n8tkR",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "h0RLt",
+                  "name": "Needs attention",
+                  "fill": "$color.status-attention-text",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ULWNO",
+          "name": "Counts",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "n9c8QX",
+              "name": "Count Valid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "rAMqV",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "YohNJ",
+                      "name": "Dot",
+                      "fill": "$color.status-fine",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "Qy8fP",
+                      "name": "3",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "O37hEU",
+                  "name": "Valid",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Valid",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "uIEz8",
+              "name": "Count Expiring soon",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "mVkVD",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "DWANF",
+                      "name": "Dot",
+                      "fill": "$color.status-attention",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "M9Fr2O",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "l2OmX",
+                  "name": "Expiring soon",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expiring soon",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "w5uLRn",
+              "name": "Count Expired",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Z9U9Z",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "DB0RM",
+                      "name": "Dot",
+                      "fill": "$color.status-bad",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "ANL71",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "C5aSD",
+                  "name": "Expired",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expired",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fjA4i",
+              "name": "Count Not in ILM",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "CAkou",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "cuejK",
+                      "name": "Dot",
+                      "fill": "$color.text-tertiary",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "gcBfh",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "KDFRb",
+                  "name": "Not in ILM",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Not in ILM",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "w3G488",
+          "name": "Attention items",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "QXTda",
+              "name": "Button Build server",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "cWEeQ",
+                  "name": "Icon ban",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "ban",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "hZfD1",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "th5Aj",
+                      "name": "Build server",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Build server",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "x7x2f",
+                      "name": "Revoked in ILM",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revoked in ILM",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "LMGsb",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jiqzg",
+              "name": "Button Smart card login",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "C6jrTq",
+                  "name": "Icon circle-x",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "circle-x",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "d3RCW",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "t1xXrM",
+                      "name": "Smart card login",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Smart card login",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "UUqkl",
+                      "name": "Expired on 14 Nov 2026",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Expired on 14 Nov 2026",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "LAA2e",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "t023VV",
+              "name": "Item vpn.example.com",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "oJoO2",
+                  "name": "Row",
+                  "width": "fill_container",
+                  "gap": 4,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "GF0Qr",
+                      "name": "Button vpn.example.com",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "R8tsno",
+                          "name": "Icon hourglass",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "hourglass",
+                          "library": "lucide",
+                          "fill": "$color.status-attention"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "d45oGL",
+                          "name": "Name and reason",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "HGEJ3",
+                              "name": "vpn.example.com",
+                              "fill": "$color.text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "vpn.example.com",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "H2jAn",
+                              "name": "Expires on 3 Dec 2026, in 13",
+                              "fill": "$color.status-attention-text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Expires on 3 Dec 2026, in 13 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "F7pJvY",
+                          "name": "Icon chevron-right",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-right",
+                          "library": "lucide",
+                          "fill": "$color.text-tertiary"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZSOnC",
+                      "name": "Button Renew",
+                      "height": 28,
+                      "fill": "$color.surface",
+                      "cornerRadius": "$radius.control",
+                      "stroke": "$color.separator",
+                      "strokeWidth": 1,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "tvITI",
+                          "name": "Renew",
+                          "fill": "$color.text-primary",
+                          "content": "Renew",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "f7lSA",
+              "name": "More",
+              "padding": [
+                2,
+                10,
+                0,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "O3aNjg",
+                  "name": "+2 more",
+                  "fill": "$color.text-secondary",
+                  "content": "+2 more",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Hppfe",
+          "name": "Last check",
+          "width": "fill_container",
+          "gap": 6,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "KB4bx",
+              "name": "Last checked with ILM at 10:",
+              "fill": "$color.text-secondary",
+              "content": "Last checked with ILM at 10:38",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.caption",
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "W3PncJ",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "lwcWW",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "HYkcd",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "NfaDV",
+      "x": 0,
+      "y": 6000,
+      "name": "TraySummary/macOS/renew waiting",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "G2Dr5p",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "e7VlKL",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "w0SyVI",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "YL7cR",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "JaQry",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "RX4om",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xoWWm",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "n31Svd",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "h0W9J",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "UWpcf",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "W2Haaa",
+                  "name": "Needs attention",
+                  "fill": "$color.status-attention-text",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Bq6FJ",
+          "name": "Counts",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "NMGB3",
+              "name": "Count Valid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "r8NTa",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "MB7vB",
+                      "name": "Dot",
+                      "fill": "$color.status-fine",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "TqytJ",
+                      "name": "3",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "FQMcO",
+                  "name": "Valid",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Valid",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "dnmNw",
+              "name": "Count Expiring soon",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BH6Lw",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "G0ni1",
+                      "name": "Dot",
+                      "fill": "$color.status-attention",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "o0rIyK",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "bxiSX",
+                  "name": "Expiring soon",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expiring soon",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "oTazj",
+              "name": "Count Expired",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Js4qU",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "SjUeV",
+                      "name": "Dot",
+                      "fill": "$color.status-bad",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "K8ofrT",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "nSTWG",
+                  "name": "Expired",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expired",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "UJr9j",
+              "name": "Count Not in ILM",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "H8iWis",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "tkYkp",
+                      "name": "Dot",
+                      "fill": "$color.text-tertiary",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "b79ha3",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "p8svg",
+                  "name": "Not in ILM",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Not in ILM",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "I7BLM",
+          "name": "Attention items",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "bLWzU",
+              "name": "Button Build server",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "b2VVO",
+                  "name": "Icon ban",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "ban",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "AWGni",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "hlvlW",
+                      "name": "Build server",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Build server",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Hrio8",
+                      "name": "Revoked in ILM",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revoked in ILM",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "oxtlm",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ynvjN",
+              "name": "Button Smart card login",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "msffx",
+                  "name": "Icon circle-x",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "circle-x",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "i8zFV",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "GG5Yq",
+                      "name": "Smart card login",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Smart card login",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "h7Gs6b",
+                      "name": "Expired on 14 Nov 2026",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Expired on 14 Nov 2026",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "Vqrxs",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "o2Htq",
+              "name": "Item vpn.example.com",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "I4kzv",
+                  "name": "Row",
+                  "width": "fill_container",
+                  "gap": 4,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "OmG0j",
+                      "name": "Button vpn.example.com",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "o0Jrq",
+                          "name": "Icon hourglass",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "hourglass",
+                          "library": "lucide",
+                          "fill": "$color.status-attention"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "GZVef",
+                          "name": "Name and reason",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "NUrjD",
+                              "name": "vpn.example.com",
+                              "fill": "$color.text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "vpn.example.com",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "epa2I",
+                              "name": "Expires on 3 Dec 2026, in 13",
+                              "fill": "$color.status-attention-text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Expires on 3 Dec 2026, in 13 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "r3d01f",
+                          "name": "Icon chevron-right",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-right",
+                          "library": "lucide",
+                          "fill": "$color.text-tertiary"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "aRq6M",
+                  "name": "Renew status",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    10
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "E8KP8",
+                      "name": "Renewal waiting for approval",
+                      "fill": "$color.text-secondary",
+                      "content": "Renewal waiting for approval",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "FZoMp",
+              "name": "More",
+              "padding": [
+                2,
+                10,
+                0,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "V8HMq",
+                  "name": "+2 more",
+                  "fill": "$color.text-secondary",
+                  "content": "+2 more",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Mf7y6",
+          "name": "Last check",
+          "width": "fill_container",
+          "gap": 6,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "y8JEWR",
+              "name": "Last checked with ILM at 10:",
+              "fill": "$color.text-secondary",
+              "content": "Last checked with ILM at 10:38",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.caption",
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "v1wrLl",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Ub6UU",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "F0mUHB",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "j4VD9",
+      "x": 380,
+      "y": 6000,
+      "name": "TraySummary/Windows/renew waiting",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "yqqHX",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "pEo8w",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "t3GZNZ",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "w13nk",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dACFr",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "K9pTvi",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "UmJNs",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "X2XJy",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "h3Smf9",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "x9wO5",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "ZlePi",
+                  "name": "Needs attention",
+                  "fill": "$color.status-attention-text",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jfsl4",
+          "name": "Counts",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "R1KTn",
+              "name": "Count Valid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "LhG61",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "p4nuIj",
+                      "name": "Dot",
+                      "fill": "$color.status-fine",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "Z12xyu",
+                      "name": "3",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "eWEv8",
+                  "name": "Valid",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Valid",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "V8FGe1",
+              "name": "Count Expiring soon",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Fv1Rm",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "ki4bq",
+                      "name": "Dot",
+                      "fill": "$color.status-attention",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "z24Ag",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "hIwMc",
+                  "name": "Expiring soon",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expiring soon",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LYwuL",
+              "name": "Count Expired",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "gROQj",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "ijJl2",
+                      "name": "Dot",
+                      "fill": "$color.status-bad",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "LkImt",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "QOJZh",
+                  "name": "Expired",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expired",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "WdjhH",
+              "name": "Count Not in ILM",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "A0fdNN",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "HWU0I",
+                      "name": "Dot",
+                      "fill": "$color.text-tertiary",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "osmpE",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "v22Jw9",
+                  "name": "Not in ILM",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Not in ILM",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "wTzjD",
+          "name": "Attention items",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "ClXZG",
+              "name": "Button Build server",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "jktH9",
+                  "name": "Icon ban",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "ban",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "WzBzm",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Ix2Gc",
+                      "name": "Build server",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Build server",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "nk20v",
+                      "name": "Revoked in ILM",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revoked in ILM",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "kPVnv",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "YFeXx",
+              "name": "Button Smart card login",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "J3WAWu",
+                  "name": "Icon circle-x",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "circle-x",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "eZuia",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "mVUiD",
+                      "name": "Smart card login",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Smart card login",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "uscmG",
+                      "name": "Expired on 14 Nov 2026",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Expired on 14 Nov 2026",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "biain",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "TZUD5",
+              "name": "Item vpn.example.com",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BxehI",
+                  "name": "Row",
+                  "width": "fill_container",
+                  "gap": 4,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "cUIen",
+                      "name": "Button vpn.example.com",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "Y3WLEZ",
+                          "name": "Icon hourglass",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "hourglass",
+                          "library": "lucide",
+                          "fill": "$color.status-attention"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "U1r9o6",
+                          "name": "Name and reason",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ddYKm",
+                              "name": "vpn.example.com",
+                              "fill": "$color.text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "vpn.example.com",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "axlAa",
+                              "name": "Expires on 3 Dec 2026, in 13",
+                              "fill": "$color.status-attention-text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Expires on 3 Dec 2026, in 13 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "j55kAT",
+                          "name": "Icon chevron-right",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-right",
+                          "library": "lucide",
+                          "fill": "$color.text-tertiary"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "J36dw",
+                  "name": "Renew status",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    10
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "OY0EW",
+                      "name": "Renewal waiting for approval",
+                      "fill": "$color.text-secondary",
+                      "content": "Renewal waiting for approval",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "sPmHq",
+              "name": "More",
+              "padding": [
+                2,
+                10,
+                0,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "uQx1q",
+                  "name": "+2 more",
+                  "fill": "$color.text-secondary",
+                  "content": "+2 more",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Y0OqUa",
+          "name": "Last check",
+          "width": "fill_container",
+          "gap": 6,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "HWQeF",
+              "name": "Last checked with ILM at 10:",
+              "fill": "$color.text-secondary",
+              "content": "Last checked with ILM at 10:38",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.caption",
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "WGCXx",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "x6n3t",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "TEro8",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "PX7nj",
+      "x": 0,
+      "y": 6500,
+      "name": "TraySummary/macOS/renew waiting dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "QObkj",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "t6gxoA",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "scDQj",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "r8hLz",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "PU41f",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "m4iBJ",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "O6BYCY",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "D2K6o9",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "bT2Wg",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "xJbYO",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "H3f2d",
+                  "name": "Needs attention",
+                  "fill": "$color.status-attention-text",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "x6CR3",
+          "name": "Counts",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Ic17v",
+              "name": "Count Valid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "rmZ5C",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "cfOqD",
+                      "name": "Dot",
+                      "fill": "$color.status-fine",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "sUMrl",
+                      "name": "3",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "lrkZk",
+                  "name": "Valid",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Valid",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OcFoO",
+              "name": "Count Expiring soon",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "GLgv3",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "ZTBv8",
+                      "name": "Dot",
+                      "fill": "$color.status-attention",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "bJNPQ",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "yJEXo",
+                  "name": "Expiring soon",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expiring soon",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "y5ecrP",
+              "name": "Count Expired",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "jdlSy",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "BU9qJ",
+                      "name": "Dot",
+                      "fill": "$color.status-bad",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "DXJyJ",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "I4Idg",
+                  "name": "Expired",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expired",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "N7veZ",
+              "name": "Count Not in ILM",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "wYeUO",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "kfsSK",
+                      "name": "Dot",
+                      "fill": "$color.text-tertiary",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "izYf7",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "OiAEA",
+                  "name": "Not in ILM",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Not in ILM",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "FkBWS",
+          "name": "Attention items",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "DC30N",
+              "name": "Button Build server",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "ZogN2",
+                  "name": "Icon ban",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "ban",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "A2Gpr",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "M4RIT",
+                      "name": "Build server",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Build server",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "vojBz",
+                      "name": "Revoked in ILM",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revoked in ILM",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "iLg5E",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "bGP9R",
+              "name": "Button Smart card login",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "Yffzf",
+                  "name": "Icon circle-x",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "circle-x",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "bIGn6",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "f7uYx",
+                      "name": "Smart card login",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Smart card login",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "k0KpF8",
+                      "name": "Expired on 14 Nov 2026",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Expired on 14 Nov 2026",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "swkCx",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "j8llS3",
+              "name": "Item vpn.example.com",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "fn5mx",
+                  "name": "Row",
+                  "width": "fill_container",
+                  "gap": 4,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "D6c6Z",
+                      "name": "Button vpn.example.com",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "Mnme4",
+                          "name": "Icon hourglass",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "hourglass",
+                          "library": "lucide",
+                          "fill": "$color.status-attention"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "m2k35V",
+                          "name": "Name and reason",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "l7wBg",
+                              "name": "vpn.example.com",
+                              "fill": "$color.text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "vpn.example.com",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "RTH9x",
+                              "name": "Expires on 3 Dec 2026, in 13",
+                              "fill": "$color.status-attention-text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Expires on 3 Dec 2026, in 13 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "cvBEe",
+                          "name": "Icon chevron-right",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-right",
+                          "library": "lucide",
+                          "fill": "$color.text-tertiary"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "MQOFi",
+                  "name": "Renew status",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    10
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "eb193",
+                      "name": "Renewal waiting for approval",
+                      "fill": "$color.text-secondary",
+                      "content": "Renewal waiting for approval",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "R8nSBF",
+              "name": "More",
+              "padding": [
+                2,
+                10,
+                0,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "MK1XA",
+                  "name": "+2 more",
+                  "fill": "$color.text-secondary",
+                  "content": "+2 more",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mmuAa",
+          "name": "Last check",
+          "width": "fill_container",
+          "gap": 6,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "YP5Bz",
+              "name": "Last checked with ILM at 10:",
+              "fill": "$color.text-secondary",
+              "content": "Last checked with ILM at 10:38",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.caption",
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "tLuxQ",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "rDXtG",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZZXER",
+                  "name": "Open Identity Manager",
+                  "fill": "$color.accent-text",
+                  "content": "Open Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "kMEnw",
+      "x": 380,
+      "y": 6500,
+      "name": "TraySummary/Windows/renew waiting dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "width": 340,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 16,
+      "children": [
+        {
+          "type": "frame",
+          "id": "CIgOW",
+          "name": "Header",
+          "width": "fill_container",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "sN6YH",
+              "name": "App icon placeholder",
+              "width": 40,
+              "height": 40,
+              "fill": "$color.accent",
+              "cornerRadius": 10,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "jXhpH",
+                  "name": "Icon key-round",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "key-round",
+                  "library": "lucide",
+                  "fill": "$color.accent-text"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Zmcpu",
+              "name": "Name and version",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "SQSM8",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.title",
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "aArAM",
+                  "name": "Version 0.1.0",
+                  "fill": "$color.text-secondary",
+                  "content": "Version 0.1.0",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "oSLOA",
+          "name": "State line",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "icon",
+              "id": "KhynN",
+              "name": "Icon circle-alert",
+              "width": 16,
+              "height": 16,
+              "icon": "circle-alert",
+              "library": "lucide",
+              "fill": "$color.status-attention"
+            },
+            {
+              "type": "frame",
+              "id": "XIUyF",
+              "name": "State text",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "kAh4y",
+                  "name": "State",
+                  "fill": "$color.text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Signed in to develop-02.otilm.com as Roman Cinkais",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.body",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "hkJZx",
+                  "name": "Needs attention",
+                  "fill": "$color.status-attention-text",
+                  "content": "Needs attention",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "J0RjY",
+          "name": "Counts",
+          "width": "fill_container",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "X27bAY",
+              "name": "Count Valid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "jpqQm",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "rPDTX",
+                      "name": "Dot",
+                      "fill": "$color.status-fine",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y8zNOg",
+                      "name": "3",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "cCGxp",
+                  "name": "Valid",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Valid",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "aIOzT",
+              "name": "Count Expiring soon",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "T2aV4",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "z55OdJ",
+                      "name": "Dot",
+                      "fill": "$color.status-attention",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "YaFYs",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "uKW88",
+                  "name": "Expiring soon",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expiring soon",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "kaV65",
+              "name": "Count Expired",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "OxIlX",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "C2KV8j",
+                      "name": "Dot",
+                      "fill": "$color.status-bad",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "wmKaN",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "2",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "M8dEnQ",
+                  "name": "Expired",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Expired",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "M6aL2I",
+              "name": "Count Not in ILM",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "g6xBls",
+                  "name": "Value",
+                  "gap": 5,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "f9a4dZ",
+                      "name": "Dot",
+                      "fill": "$color.text-tertiary",
+                      "width": 7,
+                      "height": 7
+                    },
+                    {
+                      "type": "text",
+                      "id": "tPBcM",
+                      "name": "2",
+                      "fill": "$color.text-primary",
+                      "content": "3",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.title",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "ziXo5",
+                  "name": "Not in ILM",
+                  "fill": "$color.text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Not in ILM",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "P6B0XI",
+          "name": "Attention items",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "frame",
+              "id": "G1lb6z",
+              "name": "Button Build server",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "H7ckq",
+                  "name": "Icon ban",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "ban",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "fMNxq",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "SBdrf",
+                      "name": "Build server",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Build server",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "h63iL",
+                      "name": "Revoked in ILM",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Revoked in ILM",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "n0wn0K",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Tki58",
+              "name": "Button Smart card login",
+              "width": "fill_container",
+              "fill": "$color.row-hover",
+              "cornerRadius": "$radius.control",
+              "gap": 8,
+              "padding": [
+                7,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "X2uPPA",
+                  "name": "Icon circle-x",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "circle-x",
+                  "library": "lucide",
+                  "fill": "$color.status-bad"
+                },
+                {
+                  "type": "frame",
+                  "id": "EbD6z",
+                  "name": "Name and reason",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 1,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "T6WfD",
+                      "name": "Smart card login",
+                      "fill": "$color.text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Smart card login",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dxKxI",
+                      "name": "Expired on 14 Nov 2026",
+                      "fill": "$color.status-bad",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Expired on 14 Nov 2026",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon",
+                  "id": "W1sQo4",
+                  "name": "Icon chevron-right",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-right",
+                  "library": "lucide",
+                  "fill": "$color.text-tertiary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "kpRPl",
+              "name": "Item vpn.example.com",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "IMFLw",
+                  "name": "Row",
+                  "width": "fill_container",
+                  "gap": 4,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "sqgIh",
+                      "name": "Button vpn.example.com",
+                      "width": "fill_container",
+                      "fill": "$color.row-hover",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "yGYW8",
+                          "name": "Icon hourglass",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "hourglass",
+                          "library": "lucide",
+                          "fill": "$color.status-attention"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "T10hkO",
+                          "name": "Name and reason",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "R8bRqO",
+                              "name": "vpn.example.com",
+                              "fill": "$color.text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "vpn.example.com",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.body",
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "vhtLF",
+                              "name": "Expires on 3 Dec 2026, in 13",
+                              "fill": "$color.status-attention-text",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Expires on 3 Dec 2026, in 13 days",
+                              "fontFamily": "$font.family-preview",
+                              "fontSize": "$font.caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "xl5j7",
+                          "name": "Icon chevron-right",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-right",
+                          "library": "lucide",
+                          "fill": "$color.text-tertiary"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CS23q",
+                  "name": "Renew status",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    10
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "hZQ2x",
+                      "name": "Renewal waiting for approval",
+                      "fill": "$color.text-secondary",
+                      "content": "Renewal waiting for approval",
+                      "fontFamily": "$font.family-preview",
+                      "fontSize": "$font.caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "lbl0C",
+              "name": "More",
+              "padding": [
+                2,
+                10,
+                0,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "BKwhJ",
+                  "name": "+2 more",
+                  "fill": "$color.text-secondary",
+                  "content": "+2 more",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": "$font.caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "AeqaA",
+          "name": "Last check",
+          "width": "fill_container",
+          "gap": 6,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "O7dkAN",
+              "name": "Last checked with ILM at 10:",
+              "fill": "$color.text-secondary",
+              "content": "Last checked with ILM at 10:38",
+              "fontFamily": "$font.family-preview",
+              "fontSize": "$font.caption",
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xDWFS",
+          "name": "Actions",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "ufsrI",
+              "name": "Button Open Identity Manager",
+              "width": "fill_container",
+              "fill": "$color.accent",
+              "cornerRadius": "$radius.control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Ue3hJ",
                   "name": "Open Identity Manager",
                   "fill": "$color.accent-text",
                   "content": "Open Identity Manager",
