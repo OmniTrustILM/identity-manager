@@ -72,6 +72,7 @@ impl Session {
             && !matches!(
                 error,
                 RequestError::AlreadyRenewing
+                    | RequestError::AlreadyRevoking
                     | RequestError::SignedOut
                     | RequestError::Offline
                     | RequestError::Withdrawn
@@ -102,12 +103,18 @@ impl Session {
             log::warn!("the waiting requests cannot be read: {error}");
             RequestError::Store
         })?;
-        if requests
-            .all()
+        let waiting = requests.all();
+        if waiting
             .iter()
             .any(|entry| entry.renews() == Some(target.uuid))
         {
             return Err(RequestError::AlreadyRenewing);
+        }
+        if waiting
+            .iter()
+            .any(|entry| entry.revokes() == Some(target.uuid))
+        {
+            return Err(RequestError::AlreadyRevoking);
         }
         self.send_renewal(id, who, requests, &old, target, method, automatic, proceed)
             .await

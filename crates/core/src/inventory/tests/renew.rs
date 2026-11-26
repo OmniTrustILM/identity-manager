@@ -483,6 +483,29 @@ async fn a_recent_failure_holds_the_next_attempt_back() {
 }
 
 #[tokio::test]
+async fn a_certificate_whose_revocation_waits_is_not_renewed_and_offers_no_renewal() {
+    let auto = Auto::expiring_in(10, &["detail", "renew", "revoke"]).await;
+    let mut revocation = auto.revocation();
+    revocation.since = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    auto.requests.add(revocation.clone()).unwrap();
+    auto.accepts("rekey").await;
+    auto.accepts("renew").await;
+    let plan = plan(&auto.renewals, Platform::Macos);
+
+    auto.check(&plan).await;
+
+    assert_eq!(auto.sent("rekey").await, 0);
+    assert_eq!(auto.sent("renew").await, 0);
+    let view = &auto.setup.inventory.renewal_views(&plan, &[revocation])
+        [&auto.old.fingerprint.to_string()];
+    assert!(!view.renewable);
+    assert_eq!(view.revoking, Some(RevokingStage::BeingRevoked));
+}
+
+#[tokio::test]
 async fn a_certificate_with_a_successor_on_its_way_is_not_renewed_again() {
     let auto = Auto::expiring_in(10, &["detail", "renew"]).await;
     auto.serve_detail(

@@ -280,7 +280,7 @@ function Detail({
                     apply={apply}
                 />
             )}
-            {renewal && (renewal.canRevoke || renewal.revoking !== null) && (
+            {inventory && (
                 <RevokeAction key={`revoke:${certificate.fingerprint}`} certificate={certificate} system={system} renewal={renewal} />
             )}
         </section>

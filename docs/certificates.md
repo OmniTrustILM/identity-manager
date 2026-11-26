@@ -255,6 +255,7 @@ revoke it, which needs the permission `certificates:revoke`. Nothing is revoked 
 
 Revoking cannot be undone. The certificate stops working everywhere within minutes. With an approval profile in ILM,
 the revocation waits for approval first, and the details say "Revocation waiting for approval" until it is decided.
+While a revocation waits, the certificate is not renewed, automatically or with Renew now.
 Nothing leaves the computer before ILM says the certificate is revoked; without the option ticked, the certificate
 stays and is listed as revoked.
 

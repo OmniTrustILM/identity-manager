@@ -57,12 +57,13 @@ function outcome(view: FollowView, removed: boolean): Outcome {
 /**
  * Revoke…, after a question about the reason and, where it can be removed, about removing it; then follows the
  * revocation. A revocation still waiting is told from `renewal` when the follow tells nothing, as after a reload.
+ * How a followed revocation ended stays shown after ILM no longer lets the person revoke the certificate.
  */
 export function RevokeAction({
     certificate,
     system,
     renewal,
-}: Readonly<{ certificate: LocalCertificateView; system: System; renewal: RenewalView }>) {
+}: Readonly<{ certificate: LocalCertificateView; system: System; renewal: RenewalView | undefined }>) {
     const reasonId = useId();
     const [confirming, setConfirming] = useState(false);
     const [sending, setSending] = useState(false);
@@ -73,7 +74,9 @@ export function RevokeAction({
     const remove = checkbox !== null && ticked;
     const { progress, setProgress, follow } = useFollowedRequest((view) => outcome(view, remove));
 
-    const shown = progress ?? (renewal.revoking === null ? null : revoking(renewal.revoking));
+    const waiting = renewal?.revoking ?? null;
+    const shown = progress ?? (waiting === null ? null : revoking(waiting));
+    const canRevoke = renewal?.canRevoke ?? false;
 
     const confirm = () => {
         setSending(true);
@@ -90,17 +93,23 @@ export function RevokeAction({
             .finally(() => setSending(false));
     };
 
+    if (!canRevoke && shown === null) {
+        return null;
+    }
+
     return (
         <div className="flex flex-col gap-s2">
-            <button
-                tabIndex={0}
-                type="button"
-                disabled={shown?.kind === 'working' || shown?.kind === 'done'}
-                onClick={() => setConfirming(true)}
-                className={secondaryButton}
-            >
-                {strings.revoke}
-            </button>
+            {(canRevoke || waiting !== null) && (
+                <button
+                    tabIndex={0}
+                    type="button"
+                    disabled={shown?.kind === 'working' || shown?.kind === 'done'}
+                    onClick={() => setConfirming(true)}
+                    className={secondaryButton}
+                >
+                    {strings.revoke}
+                </button>
+            )}
             <RenewStatus progress={shown} />
             {confirming && (
                 <ConfirmDialog

@@ -162,9 +162,10 @@ fn judge(
                 now,
                 warn_days: held.days,
                 choice: entry.choice,
-                waiting: waiting
-                    .iter()
-                    .any(|found| found.renews() == Some(entry.ilm.uuid.as_str())),
+                waiting: waiting.iter().any(|found| {
+                    found.renews() == Some(entry.ilm.uuid.as_str())
+                        || found.revokes() == Some(entry.ilm.uuid.as_str())
+                }),
                 installed: &installed,
                 last_failure: plan.switches.last_failure(
                     &entry.person.0,
@@ -272,7 +273,9 @@ impl super::Inventory {
             };
             match session.renew(target, method, true, proceed).await {
                 Ok(_) => sent.push(fingerprint),
-                Err(RequestError::AlreadyRenewing) => log_skip(&uuid, Skip::Waiting),
+                Err(RequestError::AlreadyRenewing | RequestError::AlreadyRevoking) => {
+                    log_skip(&uuid, Skip::Waiting)
+                }
                 Err(
                     error @ (RequestError::SignedOut
                     | RequestError::Offline
@@ -378,13 +381,14 @@ impl super::Inventory {
         entries(&held, plan)
             .into_iter()
             .filter_map(|entry| {
-                let renewable =
-                    !entry.replaced && renewal::candidate(entry.ilm, entry.allowed).is_ok();
                 let can_revoke = entry.allowed.iter().any(|action| action == "revoke");
                 let revoking = waiting
                     .iter()
                     .any(|found| found.revokes() == Some(entry.ilm.uuid.as_str()))
                     .then(|| revoking_stage(&held.followed, entry.ilm));
+                let renewable = !entry.replaced
+                    && revoking.is_none()
+                    && renewal::candidate(entry.ilm, entry.allowed).is_ok();
                 if !(renewable || entry.replaced || can_revoke || revoking.is_some()) {
                     return None;
                 }

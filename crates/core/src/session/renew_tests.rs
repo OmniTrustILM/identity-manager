@@ -593,6 +593,30 @@ async fn a_second_renewal_is_not_sent_while_one_is_in_flight() {
 }
 
 #[tokio::test]
+async fn no_renewal_is_sent_while_a_revocation_of_the_certificate_waits() {
+    let renewing = Renewing::new().await;
+    renewing.takes_the_revocation().await;
+    renewing.revoke(false).await.unwrap();
+    renewing.accepts("rekey").await;
+    renewing.accepts("renew").await;
+
+    for automatic in [false, true] {
+        let refused = renewing.renew(NEW_KEY, automatic).await;
+
+        assert_eq!(
+            refused,
+            Err(RequestError::AlreadyRevoking),
+            "automatic: {automatic}"
+        );
+    }
+    assert!(renewing.bodies("rekey").await.is_empty());
+    assert!(renewing.bodies("renew").await.is_empty());
+    assert_eq!(renewing.keys.count(), 0);
+    assert_eq!(renewing.requests.all().len(), 1);
+    assert_eq!(renewing.failure(), None);
+}
+
+#[tokio::test]
 async fn nothing_is_sent_while_ilm_lists_a_successor_that_is_not_issued() {
     let renewing = Renewing::new().await;
     renewing
