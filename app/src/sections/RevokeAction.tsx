@@ -81,6 +81,7 @@ export function RevokeAction({
     const confirm = () => {
         setSending(true);
         setProblem(null);
+        setProgress(null);
         revokeCertificate(certificate.fingerprint, reason, remove)
             .then(
                 (requested) => {

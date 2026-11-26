@@ -247,6 +247,22 @@ test('ILM not revoking it is an alert and the button is on again', async () => {
     expect(named(strings.revoke).disabled).toBe(false);
 });
 
+test('a retry after ILM did not revoke it drops the old outcome, so a revocation left waiting is told', async () => {
+    follows = [{ state: 'notRevoked' }];
+    await render();
+    await open();
+    await confirm();
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(strings.revokeNotRevoked);
+
+    revokeAnswer = () => Promise.reject({ kind: 'message', message: 'ILM cannot be reached.' });
+    await open();
+    await confirm();
+    await act(async () => root.render(<RevokeAction certificate={mine} system="macos" renewal={renewal('beingRevoked')} />));
+
+    expect(status()).toBe(strings.revoking);
+    expect(named(strings.revoke).disabled).toBe(true);
+});
+
 test('following gives up after thirty answers and clears the status', async () => {
     follows = [{ state: 'revoking', stage: 'beingRevoked' }];
     await render();
