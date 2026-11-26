@@ -393,9 +393,13 @@ impl<R: Runtime> Ilm<R> {
                 self.inventory
                     .check_local(&self.session, trigger, &local)
                     .await;
-                self.read_installed().await;
+                let first = self.read_installed().await;
                 self.renew_due().await;
-                self.read_installed().await;
+                if let Some(fresh) = self.read_installed().await.or(first) {
+                    self.inventory
+                        .check_local(&self.session, Trigger::Action, &fresh)
+                        .await;
+                }
             })
             .await;
         } else {
@@ -406,12 +410,14 @@ impl<R: Runtime> Ilm<R> {
     }
 
     /// Reads the store again when a follow installed a certificate after it was read, so the summary counts it.
-    async fn read_installed(&self) {
-        if self.inventory.installed_elsewhere()
-            && let Ok(local) = self.local_certificates().await
-        {
-            self.inventory.set_local(&local);
+    /// Gives the certificates it read.
+    async fn read_installed(&self) -> Option<Vec<LocalCertificate>> {
+        if !self.inventory.installed_elsewhere() {
+            return None;
         }
+        let local = self.local_certificates().await.ok()?;
+        self.inventory.set_local(&local);
+        Some(local)
     }
 
     /// Forgets the switches and failed attempts of certificates that are no longer on this computer.

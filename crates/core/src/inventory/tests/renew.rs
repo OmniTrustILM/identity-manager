@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use rcgen::{CertificateParams, DistinguishedName, DnType, KeyPair};
+use rcgen::{CertificateParams, DistinguishedName, DnType, KeyPair, OtherNameValue, SanType};
 
 use super::*;
 use crate::app_info::Platform;
@@ -546,6 +546,49 @@ async fn a_replaced_certificate_is_not_renewed_and_shows_when_it_was_replaced() 
 }
 
 #[tokio::test]
+async fn a_certificate_installed_after_a_check_replaces_the_old_one_at_the_check_after_the_install()
+{
+    let auto = Auto::expiring_in(10, &["detail", "renew"]).await;
+    let new_print = Fingerprint::of(b"successor");
+    auto.setup
+        .mock("POST", SEARCH)
+        .and(body_string_contains("FINGERPRINT"))
+        .respond_with(page(
+            vec![
+                certificate("c-old", &auto.old.fingerprint, true),
+                certificate("c-new", &new_print, true),
+            ],
+            2,
+        ))
+        .with_priority(1)
+        .mount(&auto.setup.world.ilm)
+        .await;
+    auto.serve_detail(
+        json!([{ "uuid": "c-new", "state": "issued", "relationType": "renewal" }]),
+        Value::Null,
+    )
+    .await;
+    let plan = plan(&auto.renewals, Platform::Macos);
+    let key = auto.old.fingerprint.to_string();
+    let session = &auto.setup.world.session;
+    auto.setup
+        .inventory
+        .check_local(session, Trigger::Interval, std::slice::from_ref(&auto.old))
+        .await;
+    assert!(!auto.setup.inventory.renewal_views(&plan, &[])[&key].replaced);
+    let mut successor = auto.old.clone();
+    successor.fingerprint = new_print;
+    successor.not_after = SystemTime::now() + DAY * 300;
+
+    auto.setup
+        .inventory
+        .check_local(session, Trigger::Action, &[auto.old.clone(), successor])
+        .await;
+
+    assert!(auto.setup.inventory.renewal_views(&plan, &[])[&key].replaced);
+}
+
+#[tokio::test]
 async fn nothing_is_renewed_or_shown_where_the_system_has_no_installer() {
     let auto = Auto::expiring_in(10, &["detail", "renew", "revoke"]).await;
     auto.accepts("rekey").await;
@@ -637,6 +680,50 @@ async fn a_certificate_whose_person_setting_is_off_is_not_shown_as_renewing_itse
         auto.setup.inventory.renewal_views(&plan, &[])[&auto.old.fingerprint.to_string()].clone();
 
     assert!(!view.automatic && !view.locked && view.renewable);
+}
+
+#[tokio::test]
+async fn a_certificate_whose_subject_a_request_cannot_carry_is_shown_as_keeping_its_key() {
+    let auto = Auto::expiring_in(10, &["detail", "renew"]).await;
+    let mut params = CertificateParams::default();
+    params.distinguished_name = DistinguishedName::new();
+    params
+        .distinguished_name
+        .push(DnType::CommonName, "web.example.com");
+    params.subject_alt_names = vec![SanType::OtherName((
+        vec![1, 2, 3, 4],
+        OtherNameValue::Utf8String("v".to_owned()),
+    ))];
+    let der = params
+        .self_signed(&KeyPair::generate().unwrap())
+        .unwrap()
+        .der()
+        .to_vec();
+    auto.setup
+        .mock("GET", "/api/v1/certificates/c-old")
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "state": "issued",
+            "certificateContent": STANDARD.encode(&der),
+            "raProfile": { "uuid": "ra-1", "name": "Servers", "authorityInstanceUuid": "auth-1" },
+            "relatedCertificates": [],
+        })))
+        .with_priority(1)
+        .mount(&auto.setup.world.ilm)
+        .await;
+    let plan = plan(&auto.renewals, Platform::Macos);
+    auto.setup
+        .inventory
+        .check_local(
+            &auto.setup.world.session,
+            Trigger::Interval,
+            std::slice::from_ref(&auto.old),
+        )
+        .await;
+
+    let view =
+        auto.setup.inventory.renewal_views(&plan, &[])[&auto.old.fingerprint.to_string()].clone();
+
+    assert!(view.renewable && !view.new_key);
 }
 
 #[tokio::test]

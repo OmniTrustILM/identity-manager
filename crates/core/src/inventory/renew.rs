@@ -11,7 +11,8 @@ use crate::app_info::Platform;
 use crate::identity::{Fingerprint, LocalCertificate};
 use crate::ilm::IlmUrl;
 use crate::ilm::certificates::{IlmCertificate, Relation, State};
-use crate::keys::Offer;
+use crate::ilm::issue::IssuedState;
+use crate::keys::{Offer, rekey_subject};
 use crate::renewal::store::Renewals;
 use crate::renewal::{self, Choice, Due, Facts, Method, NeedsYou, Skip};
 use crate::requests::Waiting;
@@ -179,7 +180,7 @@ fn judge(
                         entry.local,
                         entry.choice,
                         &plan.offers,
-                        true,
+                        subject_reproducible(Some(detail)),
                         plan.platform,
                     ) {
                         Ok(method) => Verdict::Renew(method),
@@ -189,6 +190,13 @@ fn judge(
             }
         }
     }
+}
+
+/// Whether a request can carry the subject of the certificate as ILM has it; true when ILM gave no content.
+fn subject_reproducible(detail: Option<&IssuedState>) -> bool {
+    detail
+        .and_then(|detail| detail.content.as_deref())
+        .is_none_or(|der| rekey_subject(der).is_some())
 }
 
 fn key_of(method: &Method) -> &'static str {
@@ -385,7 +393,7 @@ impl super::Inventory {
                                 entry.local,
                                 setting,
                                 &plan.offers,
-                                true,
+                                subject_reproducible(detail),
                                 plan.platform
                             ),
                             Ok(Method::NewKey { .. })

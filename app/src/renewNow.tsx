@@ -84,6 +84,9 @@ export function useRenewNow(): { progress: Progress | null; renew: (fingerprint:
             setProgress(next.progress);
             if (!next.settled) {
                 again();
+            } else {
+                followed.current = null;
+                stopFollowingRequest(certificate).catch(() => undefined);
             }
         }, again);
     }, []);

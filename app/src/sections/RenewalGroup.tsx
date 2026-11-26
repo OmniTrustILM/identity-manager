@@ -75,9 +75,7 @@ export function RenewalGroup({
                 <Field label={strings.renewKeyRow}>{view.newKey ? strings.renewNewKey : strings.renewSameKey}</Field>
             </Group>
             <p className="text-caption text-secondary">{strings.renewalHint}</p>
-            {view.waiting && progress === null && (
-                <output className="text-caption text-secondary">{strings.renewalWaitingForApproval}</output>
-            )}
+            {view.waiting && progress === null && <output className="text-caption text-secondary">{strings.renewalInProgress}</output>}
             <RenewStatus progress={progress} />
             {problem !== null && (
                 <p role="alert" className="text-caption text-bad">

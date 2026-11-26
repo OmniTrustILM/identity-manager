@@ -66,6 +66,18 @@ test('a renewal is followed every two seconds until it is installed', async () =
     expect(commands.filter((command) => command === 'follow_request')).toHaveLength(2);
 });
 
+test('a renewal that settles is released once, and not again when the screen closes', async () => {
+    await go();
+    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    expect(container.querySelector('output')?.textContent).toBe(strings.renewalDone);
+
+    expect(commands.filter((command) => command === 'stop_following_request')).toHaveLength(1);
+    await act(async () => root.unmount());
+    root = createRoot(container);
+
+    expect(commands.filter((command) => command === 'stop_following_request')).toHaveLength(1);
+});
+
 test('following stops after thirty answers that are not final', async () => {
     answers = [{ state: 'waiting', stage: 'beingIssued' }];
     await go();

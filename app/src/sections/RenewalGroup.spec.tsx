@@ -259,7 +259,7 @@ test('a renewal that already waits disables Renew now and says so', async () => 
     await render();
 
     expect(renewButton()?.disabled).toBe(true);
-    expect(detail().querySelector('output')?.textContent).toBe(strings.renewalWaitingForApproval);
+    expect(detail().querySelector('output')?.textContent).toBe(strings.renewalInProgress);
 });
 
 test.each([
