@@ -128,6 +128,7 @@ struct OpensAny(
     crate::identity::testing::TestIdentity,
     Vec<u8>,
     Mutex<Vec<Vec<u8>>>,
+    AtomicBool,
 );
 
 impl IdentityStore for OpensAny {
@@ -147,7 +148,7 @@ impl IdentityStore for OpensAny {
     }
 
     fn open(&self, _: &Fingerprint) -> Option<ClientIdentity> {
-        Some(self.0.client_identity())
+        (!self.3.load(Ordering::SeqCst)).then(|| self.0.client_identity())
     }
 }
 
@@ -258,6 +259,7 @@ impl Renewing {
             TestCa::new().issue(Issue::client("Jane")),
             old.clone(),
             Mutex::new(Vec::new()),
+            AtomicBool::new(false),
         ));
         let mut world = World::new().await;
         world.session = world
@@ -851,6 +853,11 @@ impl Renewing {
             .unwrap();
     }
 
+    /// Whether the computer cannot open any certificate to sign in with.
+    fn cannot_open(&self, cannot: bool) {
+        self.identities.3.store(cannot, Ordering::SeqCst);
+    }
+
     /// The certificate `der` is on this computer from now on.
     fn installs(&self, der: &[u8]) {
         self.identities.2.lock().unwrap().push(der.to_vec());
@@ -1162,6 +1169,46 @@ async fn a_rekey_that_may_have_arrived_and_made_nothing_ends_after_a_day_and_del
         [Outcome::Ended(EndReason::NotSent)]
     );
     assert_eq!(renewing.keys.count(), 0);
+    assert!(renewing.requests.all().is_empty());
+}
+
+#[tokio::test]
+async fn a_move_ilm_already_made_waits_until_the_new_certificate_can_be_presented() {
+    let renewing = Renewing::signing_in_with_the_old_certificate().await;
+    renewing.signs_in_with_a_certificate();
+    renewing.accepts("rekey").await;
+    renewing.renew(NEW_KEY, false).await.unwrap();
+    let leaf = renewing.serves_new_key_certificate().await;
+    renewing.installs(&leaf);
+    renewing.takes_the_update(200, 5).await;
+    Mock::given(method("GET"))
+        .and(path(PROFILE))
+        .respond_with(ResponseTemplate::new(200).set_body_json(profile_naming(
+            "c-new",
+            &Fingerprint::of(&leaf),
+            "jdoe",
+        )))
+        .with_priority(1)
+        .mount(&renewing.world.ilm)
+        .await;
+    renewing.cannot_open(true);
+
+    renewing.world.session.follow().await;
+    let waiting = renewing.world.session.follow().await;
+
+    assert_eq!(
+        Renewing::outcomes(&waiting),
+        [Outcome::SwitchPending { failures: 0 }]
+    );
+    assert_eq!(renewing.requests.all().len(), 1);
+    assert_eq!(renewing.remembered(), Some(renewing.fingerprint));
+    assert!(renewing.updates().await.is_empty());
+
+    renewing.cannot_open(false);
+    let moved = renewing.world.session.follow().await;
+
+    assert_eq!(Renewing::outcomes(&moved), [Outcome::SignInMoved]);
+    assert_eq!(renewing.remembered(), Some(Fingerprint::of(&leaf)));
     assert!(renewing.requests.all().is_empty());
 }
 
@@ -1705,7 +1752,7 @@ impl Renewing {
 
 #[tokio::test]
 async fn the_key_stays_when_ilm_lists_a_successor_that_may_share_it() {
-    for relation in ["renewal", "replacement", "pending"] {
+    for relation in ["renewal", "replacement", "pending", "renewalViaAcme"] {
         let renewing = Renewing::new().await;
         renewing.takes_the_revocation().await;
         renewing.revoke(true).await.unwrap();

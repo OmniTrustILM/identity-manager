@@ -310,6 +310,9 @@ impl Session {
         let old = person.sign_in.as_ref();
         if old.is_some_and(|held| held.uuid == uuid || held.fingerprint == fingerprint) {
             if predecessor.is_some() {
+                if departing.generation.is_some() && !self.presents(&departing.id, &fingerprint) {
+                    return Err(ChangeError::Offline);
+                }
                 self.learn_sign_in(&departing.id, person.sign_in.clone());
             }
             return Err(ChangeError::AlreadySignIn);
@@ -402,6 +405,15 @@ impl Session {
             }
             other => other,
         }
+    }
+
+    /// Whether the certificate sign-in `id` presents the certificate `fingerprint`.
+    fn presents(&self, id: &Arc<()>, fingerprint: &Fingerprint) -> bool {
+        matches!(
+            &*lock(&self.state),
+            State::SignedIn(active) if Arc::ptr_eq(&active.id, id)
+                && matches!(&active.credential, Credential::Certificate { fingerprint: held, .. } if held == fingerprint)
+        )
     }
 
     /// Keeps what ILM says is the sign-in certificate of the person signed in as `id`.

@@ -158,10 +158,8 @@ impl Session {
                     return Some(Outcome::Revoking);
                 }
                 let successor = found.related.iter().any(|related| {
-                    matches!(
-                        related.relation,
-                        Relation::Pending | Relation::Renewal | Relation::Replacement
-                    ) && !matches!(related.state, State::Failed | State::Rejected)
+                    related.relation != Relation::Rekey
+                        && !matches!(related.state, State::Failed | State::Rejected)
                 });
                 if *remove && !self.remove_revoked(fingerprint, successor).await {
                     return None;
