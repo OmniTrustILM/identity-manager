@@ -1139,6 +1139,7 @@ async fn a_rekey_that_may_have_arrived_keeps_the_key_and_adopts_the_certificate_
         Renewing::outcomes(&found)[..],
         [Outcome::Installed(_)]
     ));
+    assert_eq!(found[0].uuid.as_deref(), Some("c-new"));
     assert_eq!(renewing.installer.calls().len(), 1);
     assert!(renewing.requests.all().is_empty());
 }

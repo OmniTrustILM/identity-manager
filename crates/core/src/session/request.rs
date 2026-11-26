@@ -821,11 +821,11 @@ impl Session {
         };
         requests.save_pending();
         let mut found = Vec::new();
-        for entry in requests.of(&who.ilm, &who.username) {
+        for mut entry in requests.of(&who.ilm, &who.username) {
             let followed = if matches!(entry.purpose, Purpose::Revoke { .. }) {
                 self.follow_revocation(&who.id, &requests, &entry).await
             } else {
-                self.follow_one(&who.id, &requests, &entry).await
+                self.follow_one(&who.id, &requests, &mut entry).await
             };
             if let Some(outcome) = followed {
                 found.push(Followed {
@@ -843,28 +843,16 @@ impl Session {
         &self,
         id: &Arc<()>,
         requests: &Requests,
-        entry: &Waiting,
+        entry: &mut Waiting,
     ) -> Option<Outcome> {
         if let Some(pending) = entry.pending_switch() {
             return Some(self.retry_switch(id, requests, entry, pending).await);
         }
         let age = now_ms() - entry.since;
-        let adopted = if entry.uuid.is_none() {
-            self.find_successor(id, requests, entry).await
-        } else {
-            None
-        };
-        let adopted_entry;
-        let entry = match adopted {
-            Some(uuid) => {
-                adopted_entry = Waiting {
-                    uuid: Some(uuid),
-                    ..entry.clone()
-                };
-                &adopted_entry
-            }
-            None => entry,
-        };
+        if entry.uuid.is_none() {
+            entry.uuid = self.find_successor(id, requests, entry).await;
+        }
+        let entry = &*entry;
         let Some(uuid) = entry.uuid.as_deref() else {
             return if age >= DAY_MS {
                 self.end(requests, entry, EndReason::NotSent).await
