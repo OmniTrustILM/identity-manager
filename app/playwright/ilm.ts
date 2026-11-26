@@ -46,6 +46,7 @@ export const inventory = (over: Partial<InventoryView> = {}): InventoryView => (
     prepared: [],
     approvals: [],
     requests: [],
+    renewals: {},
     ...over,
 });
 
@@ -73,8 +74,15 @@ export const localCertificate = (name: string, over: Partial<LocalCertificateVie
 export const attentionItems: Record<'revoked' | 'expired' | 'expiring' | 'later', AttentionItemView> = {
     revoked: { kind: 'revoked', fingerprint: 'LO:Build server', name: 'Build server' },
     expired: { kind: 'expired', fingerprint: 'LO:Smart card login', name: 'Smart card login', on: Date.now() - 6 * day },
-    expiring: { kind: 'expiring', fingerprint: 'LO:vpn.example.com', name: 'vpn.example.com', days: 13, on: Date.now() + 13 * day },
-    later: { kind: 'expiring', fingerprint: 'LO:Alex Novak', name: 'Alex Novak', days: 29, on: Date.now() + 29 * day },
+    expiring: {
+        kind: 'expiring',
+        fingerprint: 'LO:vpn.example.com',
+        name: 'vpn.example.com',
+        days: 13,
+        on: Date.now() + 13 * day,
+        renewable: false,
+    },
+    later: { kind: 'expiring', fingerprint: 'LO:Alex Novak', name: 'Alex Novak', days: 29, on: Date.now() + 29 * day, renewable: false },
 };
 
 /** The certificates of this computer that `attentionItems` is about, and three that ILM does not know. */

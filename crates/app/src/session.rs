@@ -5,6 +5,7 @@ use im_core::identity::IdentityStore;
 use im_core::ilm::IlmUrl;
 use im_core::ilm::attributes::{WebTarget, web_url};
 use im_core::inventory::{Inventory, Trigger};
+use im_core::renewal::store::Renewals;
 use im_core::requests::Requests;
 use im_core::session::{
     CertificateChoice, FormError, KeyringStore, MemoryStore, ProviderChoice, RefreshStore, Session,
@@ -108,6 +109,7 @@ pub fn manage<R: Runtime>(
         settings.folder().to_owned(),
     ));
     let guard = Arc::new(guard);
+    let renewals = Arc::new(Renewals::new(settings.folder()));
     let views = guard.clone();
     let announcing = notices.clone();
     let session = Arc::new(
@@ -118,7 +120,8 @@ pub fn manage<R: Runtime>(
         .with_identities(identities.clone())
         .with_key_storage(Arc::from(crate::key_storage::system()))
         .with_installer(crate::install::system())
-        .with_requests(Arc::new(Requests::new(settings.folder()))),
+        .with_requests(Arc::new(Requests::new(settings.folder())))
+        .with_renewals(renewals.clone()),
     );
     let inventory =
         Arc::new(Inventory::new(settings.folder()).with_zone(crate::local_time::utc_offset_at));
@@ -130,6 +133,7 @@ pub fn manage<R: Runtime>(
         settings.clone(),
         identities.clone(),
         notices,
+        renewals,
     ));
     session.on_signed_out({
         let ilm = ilm.clone();
@@ -352,7 +356,7 @@ pub async fn sign_in_again<R: Runtime>(app: AppHandle<R>) -> Result<Vec<Provider
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::certificates::system_identities;
     use crate::lock::{Availability, Confirmation, ScriptedAuthenticator, ScriptedState};
@@ -442,6 +446,8 @@ mod tests {
                 crate::certificates::overview,
                 crate::certificates::add_to_ilm_choices,
                 crate::certificates::add_to_ilm,
+                crate::renewal::renew_now,
+                crate::renewal::set_renewal_switch,
                 crate::attributes::attribute_callback,
                 crate::attributes::check_attributes,
                 crate::attributes::close_form,
@@ -935,6 +941,33 @@ mod tests {
         fixture.lock();
 
         for (command, body) in request_commands() {
+            refused_as_locked(fixture.call(command, body), command);
+        }
+    }
+
+    #[test]
+    fn the_renewal_commands_refuse_while_locked_and_when_nobody_is_signed_in() {
+        let commands = [
+            ("renew_now", serde_json::json!({ "fingerprint": "00" })),
+            (
+                "set_renewal_switch",
+                serde_json::json!({ "fingerprint": "00", "on": false }),
+            ),
+        ];
+        let fixture = fixture(Mode::SelfCheck);
+        for (command, body) in commands.clone() {
+            let answer = fixture.call(command, body);
+            assert!(
+                answer
+                    .as_ref()
+                    .is_err_and(|error| error.to_string().contains("not signed in")),
+                "{command}: {answer:?}"
+            );
+        }
+
+        fixture.lock();
+
+        for (command, body) in commands {
             refused_as_locked(fixture.call(command, body), command);
         }
     }
@@ -1456,7 +1489,7 @@ mod tests {
     }
 
     /// Captures the log lines of every test in the process; the logger can be installed only once.
-    fn capture_logs() -> &'static Mutex<Vec<String>> {
+    pub(crate) fn capture_logs() -> &'static Mutex<Vec<String>> {
         use std::sync::OnceLock;
 
         static LINES: Mutex<Vec<String>> = Mutex::new(Vec::new());

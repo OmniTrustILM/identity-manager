@@ -14,6 +14,7 @@ the person sees its value but cannot change it.
 | `LockAfterIdle` | integer, 1 to 1440         | none    | Also lock after this many minutes without input. Without it there is no idle lock. Has an effect only while `RequireUnlock` is on. |
 | `CheckInterval` | integer, 5 to 1440         | `15`    | How often, in minutes, Identity Manager checks ILM for changes to the certificates on the computer. In Settings the person chooses 5, 15, 30 or 60 minutes ("Check ILM every"); a managed value shows as it is. |
 | `ExpiryWarningDays` | integer, 1 to 365    | `30`    | How many days before a certificate expires Identity Manager marks it as expiring soon and asks for attention. In Settings the person chooses 7, 14, 30, 60 or 90 days ("Warn before expiry"); a managed value shows as it is. |
+| `AutomaticRenewal` | string: `off`, `newKey`, `sameKey` | `newKey` | Whether Identity Manager renews the certificates that ILM manages before they expire: not at all, with a new private key each time, or with the key the certificate already has. `off` also turns off the switch of every certificate. In Settings the person chooses Off, New key or Same key ("Automatic renewal"); a managed value shows as it is, and with `newKey` or `sameKey` the person can still switch a single certificate off. See [certificates.md](certificates.md). |
 | `SignInProvider` | string                     | none    | The name of the identity provider to sign in with, as your ILM publishes it. When your ILM does not publish that name, the person chooses. Not shown in Settings. |
 | `SignInMethod` | string: `oauth`, `certificate` | none    | The way of signing in that your organization allows. `oauth` offers only the identity providers; `certificate` offers only a certificate on the computer. Without it both are offered. Not shown in Settings. |
 | `KeyStorages` | string: a comma-separated list of `keychain`, `software`, `tpm` | none    | The places on the computer where a new certificate request may create its private key. Without it every place the computer offers is offered. Unknown names are ignored; a value that names no known place allows none, and the person cannot create a key. Not shown in Settings. |
@@ -48,7 +49,7 @@ logs a warning. This keeps a file an ordinary user can write from acting as poli
 
 ### Invalid values
 
-A value of the wrong type, an unknown name, an invalid `LogLevel`, an invalid `IlmUrl`, an invalid `SignInMethod`, an invalid `DefaultKeyStorage`, a `LockAfterIdle` outside 1 to 1440, a `CheckInterval` outside 5 to 1440, an `ExpiryWarningDays` outside 1 to 365 or an empty `SignInProvider` is ignored with a warning in the log. The key stays
+A value of the wrong type, an unknown name, an invalid `LogLevel`, an invalid `IlmUrl`, an invalid `SignInMethod`, an invalid `DefaultKeyStorage`, an invalid `AutomaticRenewal`, a `LockAfterIdle` outside 1 to 1440, a `CheckInterval` outside 5 to 1440, an `ExpiryWarningDays` outside 1 to 365 or an empty `SignInProvider` is ignored with a warning in the log. The key stays
 unlocked, and the other keys of the same source still apply.
 
 ## What the person sees
@@ -66,7 +67,7 @@ The person's own choices are stored in `settings.json` in the application's conf
 | Windows | `%APPDATA%\com.omnitrust.identity-manager\settings.json`                  |
 | Linux   | `~/.config/com.omnitrust.identity-manager/settings.json`                  |
 
-Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `requireUnlock` (boolean), `lockAfterIdle` (number of minutes), `checkEvery` (number of minutes) and `warnDays` (number of days). `SignInProvider`, `SignInMethod`, `KeyStorages` and `DefaultKeyStorage` have no key here: only policy sets them. The file also keeps `signInCertificate`, the ILM address and the fingerprint of the certificate last used to sign in there; it is used only while that address is the ILM address.
+Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `requireUnlock` (boolean), `lockAfterIdle` (number of minutes), `checkEvery` (number of minutes) and `warnDays` (number of days) and `automaticRenewal` (string). `SignInProvider`, `SignInMethod`, `KeyStorages` and `DefaultKeyStorage` have no key here: only policy sets them. The file also keeps `signInCertificate`, the ILM address and the fingerprint of the certificate last used to sign in there; it is used only while that address is the ILM address.
 
 ## Examples
 
@@ -76,4 +77,4 @@ Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `
 - Linux: [policy/policy.json](policy/policy.json); install it as root:
   `sudo install -d -m 0755 /etc/identity-manager && sudo install -m 0644 policy.json /etc/identity-manager/policy.json`.
 
-All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `RequireUnlock` to true, `LockAfterIdle` to 15, `CheckInterval` to 30, `ExpiryWarningDays` to 30, `SignInProvider` to `Corporate`, `SignInMethod` to `oauth`, `KeyStorages` to `software,tpm` and `DefaultKeyStorage` to `software`, except the macOS profile, which sets both to `keychain`, the only storage macOS offers.
+All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `RequireUnlock` to true, `LockAfterIdle` to 15, `CheckInterval` to 30, `ExpiryWarningDays` to 30, `AutomaticRenewal` to `newKey`, `SignInProvider` to `Corporate`, `SignInMethod` to `oauth`, `KeyStorages` to `software,tpm` and `DefaultKeyStorage` to `software`, except the macOS profile, which sets both to `keychain`, the only storage macOS offers.

@@ -8,6 +8,7 @@ Windows Registry Editor Version 5.00
 "LockAfterIdle"=dword:0000000f
 "CheckInterval"=dword:0000001e
 "ExpiryWarningDays"=dword:0000001e
+"AutomaticRenewal"="newKey"
 "SignInProvider"="Corporate"
 "SignInMethod"="oauth"
 "KeyStorages"="software,tpm"

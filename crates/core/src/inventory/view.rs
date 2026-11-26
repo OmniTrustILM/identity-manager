@@ -204,6 +204,42 @@ impl From<&Approval> for ApprovalView {
     }
 }
 
+/// What the screens show of the renewal of a certificate on this computer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct RenewalView {
+    /// ILM lets the person renew it and no successor has replaced it: the Renewal group and Renew now are shown.
+    pub renewable: bool,
+    /// Whether the certificate's switch of automatic renewal is on; off while policy turns renewal off.
+    pub automatic: bool,
+    /// Policy turns automatic renewal off, so the switch cannot be changed.
+    pub locked: bool,
+    /// Automatic renewal starts that many days before expiry, unless `from` says otherwise: the warning days, or half
+    /// the validity of a certificate valid for less than twice as long.
+    pub days_before: u32,
+    /// When ILM's renewal window starts, milliseconds since 1970 (UTC); none without a window.
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
+    pub from: Option<i64>,
+    /// A renewal made now makes a new key; else the certificate keeps its key.
+    pub new_key: bool,
+    /// A successor of it is installed on this computer.
+    pub replaced: bool,
+    /// When ILM says the successor became valid, milliseconds since 1970 (UTC); none when it does not say.
+    #[cfg_attr(any(test, feature = "ts"), ts(type = "number | null"))]
+    pub replaced_on: Option<i64>,
+    /// The fingerprint of the successor installed on this computer; none when it is not among the certificates here.
+    pub replaced_by: Option<String>,
+    /// ILM lets the person revoke it.
+    pub can_revoke: bool,
+    /// A renewal of it waits for ILM, here or in ILM.
+    pub waiting: bool,
+}
+
 /// A request of the person that ILM has not finished.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -257,6 +293,8 @@ pub struct InventoryView {
     pub approvals: Vec<ApprovalView>,
     /// The requests of the person that ILM has not finished; given by `with_requests`.
     pub requests: Vec<MyRequestView>,
+    /// The renewal of the certificates on this computer, by fingerprint; given by `with_renewals`.
+    pub renewals: HashMap<String, RenewalView>,
 }
 
 /// Whether the person may list certificates: what the latest check read, else what the session knows.
@@ -302,7 +340,15 @@ impl InventoryView {
                 snapshot.approvals.iter().map(Into::into).collect()
             }),
             requests: Vec::new(),
+            renewals: HashMap::new(),
         }
+    }
+
+    /// Gives what the screens show of renewal.
+    #[must_use]
+    pub fn with_renewals(mut self, renewals: HashMap<String, RenewalView>) -> Self {
+        self.renewals = renewals;
+        self
     }
 
     /// Lists the requests `waiting` of the person, leaving out revocations, each waiting for approval when the latest `followed` check found
@@ -446,6 +492,8 @@ pub enum AttentionItemView {
         /// Milliseconds since 1970 (UTC).
         #[cfg_attr(any(test, feature = "ts"), ts(type = "number"))]
         on: i64,
+        /// Whether the person can renew it now; given by `SummaryView::with_renewable`.
+        renewable: bool,
     },
     Expired {
         fingerprint: String,
@@ -502,6 +550,7 @@ impl From<&Item> for AttentionItemView {
                 name: name(),
                 days: *days,
                 on: *on,
+                renewable: false,
             },
             Kind::Expired { on } => Self::Expired {
                 fingerprint: fingerprint(),
@@ -565,6 +614,26 @@ impl From<&Summary> for SummaryView {
     }
 }
 
+impl SummaryView {
+    /// Marks the expiring certificates that `renewals` show as renewable, and not waiting for a renewal.
+    #[must_use]
+    pub fn with_renewable(mut self, renewals: &HashMap<String, RenewalView>) -> Self {
+        for item in &mut self.attention {
+            if let AttentionItemView::Expiring {
+                fingerprint,
+                renewable,
+                ..
+            } = item
+            {
+                *renewable = renewals
+                    .get(fingerprint.as_str())
+                    .is_some_and(|found| found.renewable && !found.waiting);
+            }
+        }
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -616,6 +685,63 @@ mod tests {
             approvals: Vec::new(),
             replaced: Default::default(),
         }
+    }
+
+    #[test]
+    fn an_expiring_certificate_is_marked_renewable_only_where_renewal_shows_it_so_and_none_waits() {
+        let expiring = |number: u8| Item {
+            kind: Kind::Expiring { days: 3, on: 9 },
+            fingerprint: Some(Fingerprint::of(&[number])),
+            name: format!("c{number}"),
+        };
+        let summary = SummaryView {
+            computed_at: 1,
+            checked_at: None,
+            listed: true,
+            counts: Counts {
+                valid: 0,
+                expiring: 2,
+                expired: 0,
+                not_in_ilm: None,
+            }
+            .into(),
+            attention: vec![
+                (&expiring(1)).into(),
+                (&expiring(2)).into(),
+                (&expiring(3)).into(),
+            ],
+            months: [0; 12],
+        };
+        let renewal = |renewable, waiting| RenewalView {
+            renewable,
+            automatic: true,
+            locked: false,
+            days_before: 30,
+            from: None,
+            new_key: true,
+            replaced: false,
+            replaced_on: None,
+            replaced_by: None,
+            can_revoke: false,
+            waiting,
+        };
+        let renewals = HashMap::from([
+            (Fingerprint::of(&[1]).to_string(), renewal(true, false)),
+            (Fingerprint::of(&[2]).to_string(), renewal(false, false)),
+            (Fingerprint::of(&[3]).to_string(), renewal(true, true)),
+        ]);
+
+        let marked = summary.with_renewable(&renewals);
+
+        let flags: Vec<bool> = marked
+            .attention
+            .iter()
+            .map(|item| match item {
+                AttentionItemView::Expiring { renewable, .. } => *renewable,
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(flags, [true, false, false]);
     }
 
     #[test]
@@ -684,7 +810,8 @@ mod tests {
         assert_eq!(json["matches"][&key]["validationStatus"], "odd");
         assert_eq!(json["matches"][&key]["fingerprint"], key);
         assert_eq!(json["firstPage"]["totalItems"], 1);
-        assert!(!json.to_string().contains("renew"));
+        assert!(json.get("allowed").is_none());
+        assert!(!json.to_string().contains("\"renew\""));
     }
 
     #[test]

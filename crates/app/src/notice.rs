@@ -10,7 +10,10 @@ use std::sync::{Mutex, PoisonError};
 
 use im_core::Platform;
 use im_core::identity::Fingerprint;
-use im_core::inventory::{Approval, Item, Kind as Attention, Prepared, Summary};
+use im_core::inventory::{
+    Approval, Item, Kind as Attention, Needs, Prepared, Reason, Refused, SignIn, Summary,
+};
+use im_core::requests::{Purpose, Waiting};
 use im_core::session::{EndReason, Followed, Outcome, SessionView};
 use im_core::settings::store::write_atomically;
 use serde::{Deserialize, Serialize};
@@ -21,6 +24,7 @@ use url::Url;
 use crate::local_time::date;
 
 const TITLE: &str = "Sign in again";
+const SIGN_IN_NOT_MOVED: &str = "The sign-in could not move over to the renewed certificate.";
 /// Where the notifications already sent are remembered, in the folder of the settings.
 const FILE: &str = "notified.json";
 const VERSION: u32 = 1;
@@ -120,6 +124,7 @@ struct Record<'a> {
 }
 
 const CERTIFICATE_KEYS: &str = "certificate:";
+const RENEWAL_KEYS: &str = "renewal:";
 
 /// What is remembered of a certificate told about, once for each kind.
 fn certificate_key(kind: Kind, fingerprint: &Fingerprint) -> String {
@@ -141,12 +146,24 @@ fn approval_key(approval: &str) -> String {
     format!("approval:waiting:{approval}")
 }
 
+/// What is remembered of a renewal that failed, once for each certificate it renews.
+fn renewal_failed_key(old: &Fingerprint) -> String {
+    format!("{RENEWAL_KEYS}failed:{old}")
+}
+
+/// Adds `key` to the remembered keys unless it is there.
+fn remember(kept: &mut Vec<String>, key: String) {
+    if !kept.contains(&key) {
+        kept.push(key);
+    }
+}
+
 /// A notification to show, and the key it is remembered by.
 struct Notice {
     key: String,
     /// The certificate on this computer it is about, if any.
     fingerprint: Option<Fingerprint>,
-    title: &'static str,
+    title: String,
     body: String,
     /// What the log says: the kind only.
     kind: &'static str,
@@ -187,17 +204,17 @@ fn certificate_notice(item: &Item) -> Option<Notice> {
     let (kind, title, body) = match item.kind {
         Attention::Expiring { on, .. } => (
             Kind::Expiring,
-            "Certificate expires soon",
+            "Certificate expires soon".to_owned(),
             format!("{name} expires on {}.", date(on)),
         ),
         Attention::Expired { on } => (
             Kind::Expired,
-            "Certificate expired",
+            "Certificate expired".to_owned(),
             format!("{name} expired on {}.", date(on)),
         ),
         Attention::Revoked => (
             Kind::Revoked,
-            "Certificate revoked",
+            "Certificate revoked".to_owned(),
             format!("{name} was revoked in ILM."),
         ),
         Attention::NotInIlm { .. } | Attention::Waiting { .. } | Attention::Approval { .. } => {
@@ -213,9 +230,56 @@ fn certificate_notice(item: &Item) -> Option<Notice> {
     })
 }
 
-/// The notification of a request that has ended, or whose certificate is installed; none for a request still waiting
-/// and for one that ended for another reason.
+/// What a renewal that failed says: the outcome only, as ILM's words reach the person with a refusal.
+fn renewal_failure(outcome: &Outcome) -> &'static str {
+    match outcome {
+        Outcome::Ended(EndReason::Rejected) => "ILM rejected the renewal.",
+        Outcome::Mismatch => "ILM issued a certificate for another key.",
+        Outcome::InstallFailed => "The renewed certificate could not be installed.",
+        _ => "ILM did not issue a renewed certificate.",
+    }
+}
+
+/// The notification of a renewal that failed or is stuck, or of a revocation that failed.
+fn lifecycle_notice(followed: &Followed) -> Option<Notice> {
+    let label = &followed.label;
+    let (key, title, body, kind) = if let Some(key) = followed.failed_notice_key() {
+        (
+            key,
+            format!("Renewal failed: {label}"),
+            renewal_failure(&followed.outcome).to_owned(),
+            "renewal failed",
+        )
+    } else if let Some(key) = followed.needs_notice_key() {
+        (
+            key,
+            format!("{label} cannot renew itself"),
+            SIGN_IN_NOT_MOVED.to_owned(),
+            "renewal needs",
+        )
+    } else {
+        (
+            followed.revoke_failed_notice_key()?,
+            format!("Revocation failed: {label}"),
+            "ILM did not revoke the certificate.".to_owned(),
+            "revoke failed",
+        )
+    };
+    Some(Notice {
+        key,
+        fingerprint: None,
+        title,
+        body,
+        kind,
+    })
+}
+
+/// The notification of a request that has ended, or whose certificate is installed; none for a request still waiting,
+/// for one that ended for another reason and for the quiet success of a renewal.
 fn request_notice(followed: &Followed) -> Option<Notice> {
+    if followed.replaces.is_some() {
+        return lifecycle_notice(followed);
+    }
     let certificate = followed.uuid.as_deref()?;
     let label = &followed.label;
     let (kind, title, body) = match &followed.outcome {
@@ -234,12 +298,12 @@ fn request_notice(followed: &Followed) -> Option<Notice> {
             "Certificate request failed",
             format!("Request failed: {label}"),
         ),
-        _ => return None,
+        _ => return lifecycle_notice(followed),
     };
     Some(Notice {
         key: request_key(kind, certificate),
         fingerprint: None,
-        title,
+        title: title.to_owned(),
         body,
         kind,
     })
@@ -308,7 +372,7 @@ impl Notices {
         let mut kept = held.clone();
         let on_computer: Vec<_> = local.iter().map(|print| format!(":{print}")).collect();
         kept.retain(|key| {
-            !key.starts_with(CERTIFICATE_KEYS)
+            !(key.starts_with(CERTIFICATE_KEYS) || key.starts_with(RENEWAL_KEYS))
                 || on_computer.iter().any(|suffix| key.ends_with(suffix))
         });
         let pruned = kept.len() != held.len();
@@ -328,7 +392,7 @@ impl Notices {
                 complete = false;
                 break;
             }
-            self.show(notice.title, &notice.body, notice.kind);
+            self.show(&notice.title, &notice.body, notice.kind);
             kept.push(notice.key.clone());
         }
         if complete && told < fresh.len() && may_tell() {
@@ -387,10 +451,20 @@ impl Notices {
         }
         let held = remembered.get_or_insert_with(|| self.load());
         let mut kept = held.clone();
-        for (ended, notice) in followed
-            .iter()
-            .filter_map(|ended| Some((ended, request_notice(ended)?)))
-        {
+        for ended in followed {
+            if let Some(key) = ended.revoked_notice_key() {
+                // The person revoked it here: ILM's own word of it is not news.
+                remember(&mut kept, key);
+                continue;
+            }
+            if let (Some(old), Outcome::Installed(_)) = (&ended.replaces, &ended.outcome) {
+                let failed = renewal_failed_key(old);
+                kept.retain(|key| *key != failed);
+                continue;
+            }
+            let Some(notice) = request_notice(ended) else {
+                continue;
+            };
             if kept.contains(&notice.key) {
                 continue;
             }
@@ -402,14 +476,78 @@ impl Notices {
                 if !may_tell() {
                     break;
                 }
-                self.show(notice.title, &notice.body, notice.kind);
+                self.show(&notice.title, &notice.body, notice.kind);
             }
             kept.push(notice.key);
+        }
+        if kept != *held {
+            *held = kept;
+            self.save(held);
+        }
+    }
+
+    /// Remembers the certificates of the revocations in `waiting` as told about, so the notice that ILM revoked
+    /// them is not sent: the person asked for those. `current` is asked as for `summary`.
+    pub fn revoking(&self, waiting: &[Waiting], current: impl Fn() -> bool) {
+        let mut remembered = self
+            .remembered
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if !current() {
+            return;
+        }
+        let held = remembered.get_or_insert_with(|| self.load());
+        let mut kept = held.clone();
+        for entry in waiting {
+            if let Purpose::Revoke { fingerprint, .. } = &entry.purpose {
+                remember(&mut kept, certificate_key(Kind::Revoked, fingerprint));
+            }
         }
         if kept.len() != held.len() {
             *held = kept;
             self.save(held);
         }
+    }
+
+    /// Tells the person about each renewal that cannot happen by itself, once for each certificate and kind, also
+    /// after a restart: a certificate that `needs` the person, a renewal ILM or this computer `refused`, a certificate
+    /// due while the person has to `sign_in` or unlock. `current` and `may_tell` are asked as for `summary`.
+    pub fn renewals(
+        &self,
+        needs: &[Needs],
+        refused: &[Refused],
+        sign_in: &[SignIn],
+        current: impl Fn() -> bool,
+        may_tell: impl Fn() -> bool,
+    ) {
+        let needs = needs.iter().map(|found| Notice {
+            key: found.key(),
+            fingerprint: None,
+            title: format!("{} cannot renew itself", found.name),
+            body: match found.reason {
+                Reason::NotAllowed => "ILM does not allow you to renew it.",
+                Reason::SmartCard => {
+                    "Its key is on a smart card, which Identity Manager cannot renew on this computer."
+                }
+            }
+            .to_owned(),
+            kind: "renewal needs",
+        });
+        let refused = refused.iter().map(|found| Notice {
+            key: found.key(),
+            fingerprint: None,
+            title: format!("Renewal failed: {}", found.name),
+            body: found.message.clone(),
+            kind: "renewal failed",
+        });
+        let sign_in = sign_in.iter().map(|found| Notice {
+            key: found.key(),
+            fingerprint: None,
+            title: format!("Sign in to renew {}", found.name),
+            body: "It expires soon. Sign in to Identity Manager so it can renew it.".to_owned(),
+            kind: "renewal sign-in",
+        });
+        self.tell_once(needs.chain(refused).chain(sign_in), current, may_tell);
     }
 
     /// Tells the person about each certificate in `ready`, once for each certificate, also after a restart. `current`
@@ -423,7 +561,7 @@ impl Notices {
         let notices = ready.iter().map(|found| Notice {
             key: prepared_key(&found.uuid),
             fingerprint: None,
-            title: "Certificate ready",
+            title: "Certificate ready".to_owned(),
             body: format!("A certificate is ready for you to issue: {}", found.name),
             kind: "ready",
         });
@@ -441,7 +579,7 @@ impl Notices {
         let notices = waiting.iter().map(|found| Notice {
             key: approval_key(&found.uuid),
             fingerprint: None,
-            title: "Approval waiting",
+            title: "Approval waiting".to_owned(),
             body: format!(
                 "An approval is waiting for you: {}",
                 found.certificate_name.as_deref().unwrap_or("a certificate")
@@ -475,7 +613,7 @@ impl Notices {
             if !may_tell() {
                 break;
             }
-            self.show(notice.title, &notice.body, notice.kind);
+            self.show(&notice.title, &notice.body, notice.kind);
             kept.push(notice.key);
         }
         if kept.len() != held.len() {
@@ -1107,6 +1245,7 @@ mod tests {
 
     fn installed() -> Outcome {
         Outcome::Installed(Installed {
+            fingerprint: Fingerprint::of(b"installed"),
             storage: Some(Storage::Software),
             not_after: DEC_3,
         })
@@ -1459,5 +1598,312 @@ mod tests {
 
         notices.followed(&done, || true, || true);
         assert_eq!(told(&log).len(), 1);
+    }
+
+    use im_core::inventory::{Needs, Reason, Refused, SignIn};
+    use im_core::requests::{Purpose, Waiting};
+
+    fn print(number: u8) -> Fingerprint {
+        Fingerprint::of(&[number])
+    }
+
+    fn renewal(old: u8, outcome: Outcome) -> Followed {
+        Followed {
+            replaces: Some(print(old)),
+            ..followed("new-1", "VPN", outcome)
+        }
+    }
+
+    fn refused(number: u8, name: &str, message: &str) -> Refused {
+        Refused {
+            fingerprint: print(number),
+            name: name.to_owned(),
+            message: message.to_owned(),
+        }
+    }
+
+    fn needs(number: u8, name: &str, reason: Reason) -> Needs {
+        Needs {
+            fingerprint: print(number),
+            name: name.to_owned(),
+            reason,
+        }
+    }
+
+    fn sign_in(number: u8, name: &str) -> SignIn {
+        SignIn {
+            fingerprint: print(number),
+            name: name.to_owned(),
+        }
+    }
+
+    fn renewals(notices: &Notices, needs: &[Needs], refused: &[Refused], sign_in: &[SignIn]) {
+        notices.renewals(needs, refused, sign_in, || true, || true);
+    }
+
+    #[test]
+    fn a_refused_renewal_is_told_with_the_message_once_also_after_a_restart() {
+        let folder = tempfile::tempdir().unwrap();
+        let (notices, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        let refusals = [refused(1, "VPN", "ILM refused the renewal.")];
+
+        renewals(&notices, &[], &refusals, &[]);
+        renewals(&notices, &[], &refusals, &[]);
+        assert_eq!(
+            told(&log),
+            [pair("Renewal failed: VPN", "ILM refused the renewal.")]
+        );
+
+        let (again, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        renewals(&again, &[], &refusals, &[]);
+        assert!(told(&log).is_empty());
+    }
+
+    #[test]
+    fn a_renewal_that_ended_or_cannot_be_installed_is_told_once_with_a_plain_line() {
+        let (notices, log) = notices(Platform::Macos);
+        let ended = [
+            renewal(1, Outcome::Ended(EndReason::Rejected)),
+            renewal(2, Outcome::InstallFailed),
+        ];
+
+        notices.followed(&ended, || true, || true);
+        notices.followed(&ended, || true, || true);
+
+        let told = told(&log);
+        assert_eq!(told.len(), 2);
+        assert!(told.iter().all(|(title, _)| title == "Renewal failed: VPN"));
+        assert!(told.iter().all(|(_, body)| !body.is_empty()));
+    }
+
+    #[test]
+    fn a_failure_is_told_again_after_a_later_renewal_of_the_certificate_succeeded() {
+        let (notices, log) = notices(Platform::Macos);
+        let failed = [renewal(1, Outcome::Mismatch)];
+
+        notices.followed(&failed, || true, || true);
+        assert_eq!(told(&log).len(), 1);
+        notices.followed(&[renewal(1, installed())], || true, || true);
+        assert!(told(&log).is_empty());
+        notices.followed(&failed, || true, || true);
+
+        assert_eq!(told(&log).len(), 1);
+    }
+
+    #[test]
+    fn a_refusal_is_told_again_after_the_renewal_succeeded() {
+        let (notices, log) = notices(Platform::Macos);
+        let refusals = [refused(1, "VPN", "No.")];
+
+        renewals(&notices, &[], &refusals, &[]);
+        notices.followed(&[renewal(1, installed())], || true, || true);
+        renewals(&notices, &[], &refusals, &[]);
+
+        assert_eq!(told(&log).len(), 2);
+    }
+
+    #[test]
+    fn a_certificate_that_cannot_renew_itself_is_told_with_its_reason() {
+        let (notices, log) = notices(Platform::Macos);
+
+        renewals(
+            &notices,
+            &[
+                needs(1, "VPN", Reason::NotAllowed),
+                needs(2, "Card", Reason::SmartCard),
+            ],
+            &[],
+            &[],
+        );
+        notices.followed(
+            &[renewal(3, Outcome::SwitchPending { failures: 3 })],
+            || true,
+            || true,
+        );
+
+        assert_eq!(
+            told(&log),
+            [
+                pair(
+                    "VPN cannot renew itself",
+                    "ILM does not allow you to renew it."
+                ),
+                pair(
+                    "Card cannot renew itself",
+                    "Its key is on a smart card, which Identity Manager cannot renew on this computer."
+                ),
+                pair(
+                    "VPN cannot renew itself",
+                    "The sign-in could not move over to the renewed certificate."
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_sign_in_that_could_not_move_is_told_after_the_third_failure_only_and_once() {
+        let (notices, log) = notices(Platform::Macos);
+
+        for failures in [1, 2] {
+            let moving = [renewal(1, Outcome::SwitchPending { failures })];
+            notices.followed(&moving, || true, || true);
+        }
+        assert!(told(&log).is_empty());
+        let stuck = [renewal(1, Outcome::SwitchPending { failures: 3 })];
+        notices.followed(&stuck, || true, || true);
+        notices.followed(&stuck, || true, || true);
+
+        assert_eq!(told(&log).len(), 1);
+    }
+
+    #[test]
+    fn a_certificate_due_while_signed_out_is_told_to_sign_in_once() {
+        let (notices, log) = notices(Platform::Windows);
+
+        renewals(&notices, &[], &[], &[sign_in(1, "VPN")]);
+        renewals(&notices, &[], &[], &[sign_in(1, "VPN")]);
+
+        assert_eq!(
+            told(&log),
+            [pair(
+                "Sign in to renew VPN",
+                "It expires soon. Sign in to Identity Manager so it can renew it."
+            )]
+        );
+    }
+
+    #[test]
+    fn a_quiet_success_and_a_moved_sign_in_tell_nothing() {
+        let (notices, log) = notices(Platform::Macos);
+
+        notices.followed(
+            &[
+                renewal(1, installed()),
+                renewal(2, Outcome::SignInMoved),
+                renewal(3, Outcome::Revoking),
+            ],
+            || true,
+            || true,
+        );
+
+        assert!(told(&log).is_empty());
+    }
+
+    #[test]
+    fn a_revocation_that_came_back_issued_is_told_once() {
+        let (notices, log) = notices(Platform::Macos);
+        let failed = [followed("c-9", "VPN", Outcome::NotRevoked)];
+
+        notices.followed(&failed, || true, || true);
+        notices.followed(&failed, || true, || true);
+
+        let told = told(&log);
+        assert_eq!(told.len(), 1);
+        assert_eq!(told[0].0, "Revocation failed: VPN");
+    }
+
+    fn revoking(number: u8) -> Waiting {
+        use im_core::ilm::IlmUrl;
+        Waiting {
+            ilm: IlmUrl::parse("https://ilm.example.com").unwrap(),
+            username: "person".to_owned(),
+            uuid: Some("c-9".to_owned()),
+            ra_profile: String::new(),
+            authority: String::new(),
+            key: None,
+            label: "VPN".to_owned(),
+            since: 0,
+            prepared: false,
+            purpose: Purpose::Revoke {
+                certificate: "c-9".to_owned(),
+                fingerprint: print(number),
+                remove: false,
+            },
+        }
+    }
+
+    #[test]
+    fn a_revocation_made_here_is_not_told_as_revoked_while_a_foreign_one_is() {
+        let (notices, log) = notices(Platform::Macos);
+
+        notices.revoking(&[revoking(1)], || true);
+        notices.followed(
+            &[followed(
+                "c-8",
+                "VPN",
+                Outcome::Revoked {
+                    fingerprint: print(2),
+                },
+            )],
+            || true,
+            || true,
+        );
+        let all = summary(vec![
+            item("One", 1, Attention::Revoked),
+            item("Two", 2, Attention::Revoked),
+            item("Three", 3, Attention::Revoked),
+        ]);
+        notices.summary(&all, &on_computer(3), || true, || true);
+
+        assert_eq!(
+            told(&log),
+            [pair("Certificate revoked", "Three was revoked in ILM.")]
+        );
+    }
+
+    #[test]
+    fn the_keys_of_renewals_of_certificates_that_left_the_computer_are_dropped() {
+        let folder = tempfile::tempdir().unwrap();
+        let (notices, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        let refusals = [refused(1, "VPN", "No.")];
+
+        renewals(&notices, &[], &refusals, &[sign_in(1, "VPN")]);
+        assert_eq!(told(&log).len(), 2);
+        notices.summary(&summary(Vec::new()), &on_computer(0), || true, || true);
+        renewals(&notices, &[], &refusals, &[sign_in(1, "VPN")]);
+
+        assert_eq!(told(&log).len(), 2);
+    }
+
+    #[test]
+    fn renewal_notices_wait_while_telling_is_not_allowed_and_for_a_superseded_check() {
+        let (notices, log) = notices(Platform::Macos);
+        let refusals = [refused(1, "VPN", "No.")];
+
+        notices.renewals(&[], &refusals, &[], || true, || false);
+        notices.renewals(&[], &refusals, &[], || false, || true);
+        assert!(told(&log).is_empty());
+
+        renewals(&notices, &[], &refusals, &[]);
+        assert_eq!(told(&log).len(), 1);
+    }
+
+    #[test]
+    fn the_log_holds_neither_the_name_nor_the_text_of_a_renewal_notice() {
+        let lines = crate::session::tests::capture_logs();
+        let (notices, _log) = notices(Platform::Macos);
+
+        renewals(
+            &notices,
+            &[needs(1, "Zebra-subject-name", Reason::NotAllowed)],
+            &[refused(2, "Zebra-subject-name", "Zebra-ilm-text")],
+            &[sign_in(3, "Zebra-subject-name")],
+        );
+        notices.followed(
+            &[Followed {
+                label: "Zebra-subject-name".to_owned(),
+                ..followed("c-9", "x", Outcome::NotRevoked)
+            }],
+            || true,
+            || true,
+        );
+
+        assert!(
+            lines
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|line| !line.contains("Zebra"))
+        );
     }
 }

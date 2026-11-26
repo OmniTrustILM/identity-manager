@@ -252,6 +252,12 @@ pub enum FollowView {
         #[cfg_attr(test, ts(type = "number"))]
         valid_until: i64,
     },
+    /// A renewal that kept the key of the old certificate is in the store of this computer.
+    Renewed {
+        /// Milliseconds since 1970 (UTC).
+        #[cfg_attr(test, ts(type = "number"))]
+        valid_until: i64,
+    },
     Waiting {
         stage: WaitingStage,
     },
@@ -271,13 +277,19 @@ impl From<&Outcome> for FollowView {
             Outcome::Installed(Installed {
                 storage: Some(storage),
                 not_after,
+                ..
             }) => Self::Installed {
                 storage: (*storage).into(),
                 valid_until: *not_after,
             },
-            // A renewal that kept its key has no storage to name; the wizard follows new requests only.
-            Outcome::Installed(_)
-            | Outcome::SwitchPending { .. }
+            Outcome::Installed(Installed {
+                storage: None,
+                not_after,
+                ..
+            }) => Self::Renewed {
+                valid_until: *not_after,
+            },
+            Outcome::SwitchPending { .. }
             | Outcome::SignInMoved
             | Outcome::Revoking
             | Outcome::Revoked { .. }
@@ -403,13 +415,22 @@ fn prepared<R: Runtime>(ilm: &Ilm<R>, uuid: &str) -> Result<Prepared, String> {
 }
 
 /// What the wizard is told of a request ILM took; the wizard tells how it ends when the window is visible.
-fn requested<R: Runtime>(app: &AppHandle<R>, ilm: &Ilm<R>, waiting: Waiting) -> RequestedView {
+pub(crate) fn requested<R: Runtime>(
+    app: &AppHandle<R>,
+    ilm: &Ilm<R>,
+    waiting: Waiting,
+) -> RequestedView {
     let shown = app
         .get_webview_window("main")
         .is_some_and(|window| window.is_visible().unwrap_or(false));
     if let Some(certificate) = waiting.uuid.as_ref().filter(|_| shown) {
         ilm.notices().wizard_shows(certificate);
     }
+    told_by_notification(waiting)
+}
+
+/// What a window that may close unseen is told of a request ILM took: how it ends is told by a notification.
+pub(crate) fn told_by_notification(waiting: Waiting) -> RequestedView {
     RequestedView {
         certificate: waiting.uuid.unwrap_or_default(),
         label: waiting.label,
@@ -607,6 +628,7 @@ mod tests {
     #[test]
     fn a_follow_that_knows_nothing_falls_back_to_the_latest_check() {
         let installed = Outcome::Installed(Installed {
+            fingerprint: im_core::identity::Fingerprint::of(b"installed"),
             storage: Some(Storage::Software),
             not_after: 7,
         });
@@ -845,6 +867,7 @@ mod tests {
     #[test]
     fn every_outcome_of_a_follow_has_a_state_for_the_interface() {
         let installed = Outcome::Installed(Installed {
+            fingerprint: im_core::identity::Fingerprint::of(b"installed"),
             storage: Some(Storage::Keychain),
             not_after: 4_000,
         });

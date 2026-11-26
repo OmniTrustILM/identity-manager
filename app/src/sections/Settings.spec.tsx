@@ -870,3 +870,51 @@ test('a refused warning time shows the reason under the row', async () => {
 
     expect(container.querySelector('[role="alert"]')?.textContent).toBe(strings.settingFailed);
 });
+
+const renewalSelect = () => {
+    const found = [...container.querySelectorAll('select')].find(
+        (each) => each.value === 'newKey' || each.value === 'off' || each.value === 'sameKey',
+    );
+    return found as HTMLSelectElement;
+};
+
+test('Automatic renewal offers Off, New key and Same key and sends the choice', async () => {
+    bridge((command, args) => {
+        if (command !== 'set_setting') {
+            return open;
+        }
+        const { key, value } = (args as { change: Change }).change;
+        return { ...open, [key]: { value, locked: false } };
+    });
+    await render('macos');
+
+    expect(container.querySelector(`label[for="${renewalSelect().id}"]`)?.textContent).toBe(strings.automaticRenewal);
+    expect([...renewalSelect().options].map((option) => option.textContent)).toEqual(['Off', 'New key', 'Same key']);
+    expect(renewalSelect().value).toBe('newKey');
+
+    await act(async () => {
+        renewalSelect().value = 'sameKey';
+        renewalSelect().dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(calls.at(-1)?.args).toEqual({ change: { key: 'automaticRenewal', value: 'sameKey' } });
+    expect(renewalSelect().value).toBe('sameKey');
+});
+
+test('Automatic renewal set by the organization is locked and says so', async () => {
+    bridge(() => ({ ...open, automaticRenewal: { value: 'off', locked: true } }));
+    await render('macos');
+
+    expect(renewalSelect().disabled).toBe(true);
+    expect(renewalSelect().value).toBe('off');
+    expect(document.getElementById(renewalSelect().getAttribute('aria-describedby') ?? '')?.textContent).toBe(
+        strings.managedByOrganization,
+    );
+});
+
+test('Automatic renewal is not shown on Linux', async () => {
+    bridge(() => open);
+    await render('linux');
+
+    expect(container.textContent).not.toContain(strings.automaticRenewal);
+});

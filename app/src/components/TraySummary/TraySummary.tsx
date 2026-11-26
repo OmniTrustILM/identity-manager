@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 import { useAppInfo } from '../../app-info';
 import { approvalDetail, attentionDetail, attentionLook, waitingDetail } from '../../attention';
 import {
@@ -12,6 +12,7 @@ import {
     unlock,
 } from '../../bridge';
 import { AppIcon, ChevronIcon, FineIcon, LockIcon, OfflineIcon, ProblemIcon, UnreachableIcon } from '../../design-system/icons';
+import { RenewStatus, useRenewNow } from '../../renewNow';
 import { useSession } from '../../session';
 import { strings } from '../../strings';
 import { useSummary } from '../../useSummary';
@@ -134,33 +135,68 @@ function target(item: AttentionItemView): string {
     return 'fingerprint' in item ? item.fingerprint : 'overview';
 }
 
-function Item({ item }: Readonly<{ item: AttentionItemView }>) {
+function Item({ item, onResize }: Readonly<{ item: AttentionItemView; onResize: () => void }>) {
     const { Icon, tone, textTone } = attentionLook(item);
+    const { progress, renew } = useRenewNow();
+    const seen = useRef(progress);
+    // What a renewal says changes the height of the content, and the window must follow.
+    useLayoutEffect(() => {
+        if (seen.current !== progress) {
+            seen.current = progress;
+            onResize();
+        }
+    }, [progress, onResize]);
     const certificate = item.kind === 'notInIlm' || item.kind === 'waiting' || item.kind === 'approval' ? null : item;
+    const renewable = item.kind === 'expiring' && item.renewable && progress?.kind !== 'working' && progress?.kind !== 'done';
     return (
-        <li>
-            <button
-                type="button"
-                tabIndex={0}
-                data-item
-                onClick={() => openMainWindow(target(item)).catch(() => undefined)}
-                className="flex w-full items-center gap-s3 rounded-control bg-row-hover px-s3 py-s2 text-left"
-            >
-                <Icon aria-hidden className={`size-icon shrink-0 ${tone}`} />
-                <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-body text-primary">{itemTitle(item)}</span>
-                    {certificate && <span className={`text-caption ${textTone}`}>{attentionDetail(certificate)}</span>}
-                    {item.kind === 'waiting' && <span className={`text-caption ${textTone}`}>{waitingDetail(item)}</span>}
-                    {item.kind === 'approval' && <span className={`text-caption ${textTone}`}>{approvalDetail(item)}</span>}
-                </span>
-                <ChevronIcon aria-hidden className="size-icon shrink-0 text-secondary" />
-            </button>
+        <li className="flex flex-col gap-s1">
+            <div className="flex items-center gap-s1">
+                <button
+                    type="button"
+                    tabIndex={0}
+                    data-item
+                    onClick={() => openMainWindow(target(item)).catch(() => undefined)}
+                    className="flex min-w-0 flex-1 items-center gap-s3 rounded-control bg-row-hover px-s3 py-s2 text-left"
+                >
+                    <Icon aria-hidden className={`size-icon shrink-0 ${tone}`} />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="text-body text-primary">{itemTitle(item)}</span>
+                        {certificate && <span className={`text-caption ${textTone}`}>{attentionDetail(certificate)}</span>}
+                        {item.kind === 'waiting' && <span className={`text-caption ${textTone}`}>{waitingDetail(item)}</span>}
+                        {item.kind === 'approval' && <span className={`text-caption ${textTone}`}>{approvalDetail(item)}</span>}
+                    </span>
+                    <ChevronIcon aria-hidden className="size-icon shrink-0 text-secondary" />
+                </button>
+                {renewable && (
+                    <button
+                        type="button"
+                        tabIndex={0}
+                        data-item
+                        aria-label={strings.renewName(item.name)}
+                        disabled={progress?.kind === 'busy'}
+                        onClick={() => renew(item.fingerprint)}
+                        className={`${secondary} shrink-0 disabled:opacity-disabled`}
+                    >
+                        {progress?.kind === 'busy' ? strings.renewing : strings.renew}
+                    </button>
+                )}
+            </div>
+            {progress && progress.kind !== 'busy' && (
+                <div className="px-s3">
+                    <RenewStatus progress={progress} />
+                </div>
+            )}
         </li>
     );
 }
 
 /** The counts, the first items that need attention and when ILM was last checked. */
-function Standing({ summary, offline, linux }: Readonly<{ summary: SummaryView; offline: boolean; linux: boolean }>) {
+function Standing({
+    summary,
+    offline,
+    linux,
+    onResize,
+}: Readonly<{ summary: SummaryView; offline: boolean; linux: boolean; onResize: () => void }>) {
     const items = linux ? summary.attention.filter((item) => item.kind !== 'approval') : summary.attention;
     const more = items.length - listed;
     let note: string | null = null;
@@ -176,7 +212,7 @@ function Standing({ summary, offline, linux }: Readonly<{ summary: SummaryView; 
                 <div className="flex flex-col gap-s1">
                     <ul className="flex flex-col gap-s1">
                         {items.slice(0, listed).map((item) => (
-                            <Item key={itemKey(item)} item={item} />
+                            <Item key={itemKey(item)} item={item} onResize={onResize} />
                         ))}
                     </ul>
                     {more > 0 && <p className="px-s3 text-body text-secondary">{strings.moreAttention(more)}</p>}
@@ -196,6 +232,7 @@ export function TraySummary() {
     const info = useAppInfo();
     const { view } = useSession();
     const content = useRef<HTMLDivElement>(null);
+    const [, resized] = useReducer((count: number) => count + 1, 0);
     // Nothing about the certificates is asked, or shown, while the application is locked or nobody is signed in.
     const open = view?.state === 'signedIn' || view?.state === 'unreachable';
     const summary = useSummary(open);
@@ -255,7 +292,9 @@ export function TraySummary() {
                         </div>
                     </div>
                 )}
-                {open && summary && <Standing summary={summary} offline={isOffline(view)} linux={info.platform === 'linux'} />}
+                {open && summary && (
+                    <Standing summary={summary} offline={isOffline(view)} linux={info.platform === 'linux'} onResize={resized} />
+                )}
                 <div className="flex flex-col gap-s2">
                     {action && (
                         <button type="button" tabIndex={0} onClick={() => action.run().catch(() => undefined)} className={primary}>

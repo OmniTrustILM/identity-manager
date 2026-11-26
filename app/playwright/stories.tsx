@@ -79,16 +79,37 @@ export function ShellStory({ platform }: StoryProps) {
     );
 }
 
+/** How the commands of renewal answer: the renewal is refused, or followed to `follow`; the switch returns `switched`. */
+export interface Renewing {
+    follow?: FollowView;
+    refuse?: string;
+    switched?: InventoryView;
+}
+
+function renewAnswer(command: string, renewing: Renewing | undefined) {
+    switch (command) {
+        case 'renew_now':
+            return renewing?.refuse ? Promise.reject(renewing.refuse) : { certificate: 'renewal', label: 'Renewal' };
+        case 'follow_request':
+            return renewing?.follow ?? { state: 'unknown' };
+        case 'set_renewal_switch':
+            return renewing?.switched;
+        default:
+            return undefined;
+    }
+}
+
 type SeenProps = Readonly<{
     session?: SessionView;
     refuse?: string;
     /** What the summary shows of the certificates; none while it is not known. */
     summary?: SummaryView | null;
     seen?: (command: string, args?: unknown) => void;
+    renewing?: Renewing;
 }>;
 
 /** Stands in for the commands of the summary and the unlock: each command is passed to `seen`, `refuse` rejects it. */
-function useCommands({ session, refuse, summary = null, seen }: SeenProps) {
+function useCommands({ session, refuse, summary = null, seen, renewing }: SeenProps) {
     useMemo(() => {
         mockIPC(
             (command, args) => {
@@ -99,11 +120,13 @@ function useCommands({ session, refuse, summary = null, seen }: SeenProps) {
                     return summary;
                 }
                 seen?.(command, args);
-                return refuse && (command === 'unlock' || command === 'sign_in_again') ? Promise.reject(refuse) : undefined;
+                return refuse && (command === 'unlock' || command === 'sign_in_again')
+                    ? Promise.reject(refuse)
+                    : renewAnswer(command, renewing);
             },
             { shouldMockEvents: true },
         );
-    }, [session, refuse, summary, seen]);
+    }, [session, refuse, summary, seen, renewing]);
 }
 
 export function TraySummaryStory({ platform, ...commands }: StoryProps & SeenProps) {
@@ -340,6 +363,8 @@ type CertificatesProps = StoryProps &
         adding?: Adding;
         /** What ILM lets the person request. */
         requesting?: Requesting;
+        /** How renewing answers. */
+        renewing?: Renewing;
     }>;
 
 interface Adding {
@@ -507,6 +532,7 @@ export function CertificatesStory({
     summary = null,
     adding,
     requesting,
+    renewing,
 }: CertificatesProps) {
     useMemo(() => {
         window.ilmRequests = [];
@@ -529,21 +555,22 @@ export function CertificatesStory({
                     case 'open_request_forms':
                     case 'request_offers':
                     case 'request_certificate':
-                    case 'follow_request':
                     case 'check_attributes':
                     case 'close_form':
                         return requestAnswer(command, requesting);
+                    case 'follow_request':
+                        return renewing ? renewAnswer(command, renewing) : requestAnswer(command, requesting);
                     case 'make_sign_in_certificate':
                         return refuseSignIn
                             ? Promise.reject(refuseSignIn)
                             : inventory && { ...inventory, signIn: (args as { fingerprint: string }).fingerprint };
                     default:
-                        return undefined;
+                        return renewAnswer(command, renewing);
                 }
             },
             { shouldMockEvents: true },
         );
-    }, [certificates, inventory, pages, delays, refuseSignIn, summary, adding, requesting]);
+    }, [certificates, inventory, pages, delays, refuseSignIn, summary, adding, requesting, renewing]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <main className="bg-surface p-s5" style={{ width }}>
@@ -561,10 +588,11 @@ type OverviewProps = StoryProps &
         adding?: Adding;
         /** The saved sign-in waits for ILM. */
         waiting?: boolean;
+        renewing?: Renewing;
     }>;
 
 /** The shell on Overview, against a stand-in for the commands, so that Show can open Certificates. */
-export function OverviewStory({ platform, summary, certificates, inventory, adding, waiting = false }: OverviewProps) {
+export function OverviewStory({ platform, summary, certificates, inventory, adding, waiting = false, renewing }: OverviewProps) {
     useMemo(() => {
         mockIPC(
             (command) => {
@@ -580,12 +608,12 @@ export function OverviewStory({ platform, summary, certificates, inventory, addi
                     case 'add_to_ilm':
                         return addAnswer(command, adding);
                     default:
-                        return undefined;
+                        return renewAnswer(command, renewing);
                 }
             },
             { shouldMockEvents: true },
         );
-    }, [summary, certificates, inventory, adding]);
+    }, [summary, certificates, inventory, adding, renewing]);
     return (
         <AppInfoContext.Provider value={useInfo(platform)}>
             <IlmWaitingContext.Provider value={waiting}>

@@ -592,6 +592,12 @@ mod tests {
     ];
     const SETTINGS_WINDOW_SESSION_COMMANDS: [&str; 3] = ["session", "sign_out", "unlock"];
     const SUMMARY_SESSION_COMMANDS: [&str; 3] = ["session", "unlock", "sign_in_again"];
+    const SUMMARY_RENEWAL_COMMANDS: [&str; 3] =
+        ["renew_now", "follow_request", "stop_following_request"];
+
+    fn summary_renews(label: &str, command: &str) -> bool {
+        label == "summary" && SUMMARY_RENEWAL_COMMANDS.contains(&command)
+    }
 
     #[test]
     fn the_summary_may_call_only_the_session_unlock_and_sign_in_again_commands() {
@@ -685,6 +691,35 @@ mod tests {
     }
 
     #[test]
+    fn the_summary_renewal_capability_grants_the_summary_only_renewing_and_following_the_renewal() {
+        let file = include_str!("../capabilities/summary-renewal.json");
+        let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
+        assert_eq!(parsed["windows"], serde_json::json!(["summary"]));
+        assert!(parsed.get("platforms").is_none());
+        assert_eq!(
+            capability_permissions(file),
+            serde_json::json!([
+                "allow-renew-now",
+                "allow-follow-request",
+                "allow-stop-following-request"
+            ])
+        );
+    }
+
+    #[test]
+    fn the_summary_is_not_refused_the_commands_that_renew_a_certificate_and_follow_the_renewal() {
+        for command in SUMMARY_RENEWAL_COMMANDS {
+            let body = if command == "renew_now" {
+                serde_json::json!({ "fingerprint": "00" })
+            } else {
+                serde_json::json!({ "certificate": "c-1" })
+            };
+            let answer = call_in("summary", LOCAL_ORIGIN, command, body);
+            assert!(!refused_by_capabilities(&answer), "{command}: {answer:?}");
+        }
+    }
+
+    #[test]
     fn the_certificates_capability_grants_only_the_certificate_commands_to_the_main_window() {
         let file = include_str!("../capabilities/certificates.json");
         let parsed: serde_json::Value = serde_json::from_str(file).unwrap();
@@ -698,18 +733,22 @@ mod tests {
                 "allow-ilm-certificates",
                 "allow-sync-now",
                 "allow-make-sign-in-certificate",
+                "allow-renew-now",
+                "allow-set-renewal-switch",
                 "allow-add-to-ilm-choices",
                 "allow-add-to-ilm"
             ])
         );
     }
 
-    const CERTIFICATE_COMMANDS: [(&str, &str); 7] = [
+    const CERTIFICATE_COMMANDS: [(&str, &str); 9] = [
         ("local_certificates", "{}"),
         ("ilm_status", "{}"),
         ("ilm_certificates", r#"{"page":1,"search":null}"#),
         ("sync_now", "{}"),
         ("make_sign_in_certificate", r#"{"fingerprint":"00"}"#),
+        ("renew_now", r#"{"fingerprint":"00"}"#),
+        ("set_renewal_switch", r#"{"fingerprint":"00","on":true}"#),
         ("add_to_ilm_choices", "{}"),
         (
             "add_to_ilm",
@@ -725,7 +764,7 @@ mod tests {
                 let answer = call_in(label, LOCAL_ORIGIN, command, body.clone());
                 assert_eq!(
                     refused_by_capabilities(&answer),
-                    label != "main",
+                    label != "main" && !summary_renews(label, command),
                     "{label} {command}: {answer:?}"
                 );
             }
@@ -829,7 +868,7 @@ mod tests {
                 let answer = call_in(label, LOCAL_ORIGIN, command, body.clone());
                 assert_eq!(
                     refused_by_capabilities(&answer),
-                    label != "main",
+                    label != "main" && !summary_renews(label, command),
                     "{label} {command}: {answer:?}"
                 );
             }

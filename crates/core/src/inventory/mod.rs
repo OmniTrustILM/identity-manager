@@ -3,6 +3,7 @@
 mod approvals;
 mod cache;
 mod prepared;
+mod renew;
 mod summary;
 #[cfg(test)]
 mod tests;
@@ -10,12 +11,13 @@ mod view;
 
 pub use approvals::Approval;
 pub use prepared::{Prepared, SubjectKind, SubjectPart, subject_parts};
+pub use renew::{Needs, Reason, Refused, Renewing, SignIn};
 pub use summary::{Counts, Item, Kind, Summary, WaitingState, summarize};
 use view::listed_by;
 pub use view::{
     AddChoicesView, AddResultView, ApprovalView, AttentionItemView, CountsView, IlmCertificateView,
     IlmPageView, IlmRaProfileView, InventoryView, MyRequestView, PreparedView, RegistrationView,
-    SummaryView, WaitingStateView,
+    RenewalView, SummaryView, WaitingStateView,
 };
 
 use std::collections::{HashMap, HashSet};
@@ -33,7 +35,7 @@ use crate::ilm::IlmUrl;
 use crate::ilm::actions::{self, MAX_UUIDS, Outcome};
 use crate::ilm::approvals::{DecideError, Decision, decide_request, read_decision};
 use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, MATCH_LIMIT, Search, State};
-use crate::ilm::issue::{StateError, read_state, state_request};
+use crate::ilm::issue::{IssuedState, StateError, read_state, state_request};
 use crate::ilm::profile::{IlmError, SignInCertificate, profile_request, read_profile};
 use crate::renewal;
 use crate::requests::Waiting;
@@ -192,6 +194,10 @@ struct Held {
     /// The approvals decided in this sign-in, or that ILM said no longer wait: a check that read ILM before the
     /// decision, or ILM listing an approval again for another step, must not bring them back.
     decided: HashSet<String>,
+    /// What ILM said of each matched certificate at the latest check, for the renewal of it. Not kept in the cache.
+    details: HashMap<Fingerprint, IssuedState>,
+    /// The automatic renewals that were not taken.
+    refused: Vec<Refused>,
 }
 
 impl Held {
@@ -308,6 +314,7 @@ async fn send(
 /// What a check found out.
 struct Found {
     snapshot: Snapshot,
+    details: HashMap<Fingerprint, IssuedState>,
     local: usize,
     actions: &'static str,
 }
@@ -354,9 +361,39 @@ impl Inventory {
         held(&self.held).status.clone()
     }
 
-    /// The requests for certificates the latest check followed, and how each stood.
+    /// The requests for certificates the latest check followed, and how each stood. A failed renewal of a
+    /// certificate that is no longer on this computer is left out.
     pub fn followed(&self) -> Vec<Followed> {
-        held(&self.held).followed.clone()
+        let held = held(&self.held);
+        let Some(local) = &held.local else {
+            return held.followed.clone();
+        };
+        held.followed
+            .iter()
+            .filter(|entry| {
+                (entry.failed_notice_key().is_none() && entry.needs_notice_key().is_none())
+                    || entry
+                        .replaces
+                        .is_some_and(|old| local.iter().any(|found| found.fingerprint == old))
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Whether a certificate a follow installed is not among the certificates read from this computer, or may not
+    /// be: a renewal whose sign-in has not moved over yet does not name its certificate.
+    pub fn installed_elsewhere(&self) -> bool {
+        let held = held(&self.held);
+        let Some(local) = &held.local else {
+            return false;
+        };
+        held.followed.iter().any(|entry| match &entry.outcome {
+            FollowOutcome::Installed(installed) => !local
+                .iter()
+                .any(|found| found.fingerprint == installed.fingerprint),
+            FollowOutcome::SwitchPending { .. } => true,
+            _ => false,
+        })
     }
 
     pub fn snapshot(&self) -> Option<Snapshot> {
@@ -600,11 +637,23 @@ impl Inventory {
                 })
                 .cloned(),
         );
+        let renewed: HashSet<Fingerprint> = kept
+            .iter()
+            .filter(|entry| matches!(entry.outcome, FollowOutcome::Installed(_)))
+            .filter_map(|entry| entry.replaces)
+            .collect();
+        kept.retain(|entry| {
+            entry.failed_notice_key().is_none()
+                || entry.replaces.is_none_or(|old| !renewed.contains(&old))
+        });
+        let refused = held.refused.len();
+        held.refused
+            .retain(|before| !renewed.contains(&before.fingerprint));
         let dropped = held
             .snapshot
             .as_mut()
             .is_some_and(|snapshot| prepared::drop_completed(&mut snapshot.prepared, &found));
-        let changed = kept != held.followed || dropped;
+        let changed = kept != held.followed || dropped || held.refused.len() != refused;
         held.followed = kept;
         if changed {
             held.rebuild(self.zone);
@@ -642,7 +691,7 @@ impl Inventory {
                     found.actions,
                     started.elapsed().as_millis()
                 );
-                self.keep(&who, epoch, found.snapshot);
+                self.keep(&who, epoch, found.snapshot, found.details);
             }
             Err(Failure::SignedOut) => log::debug!("ILM was not checked: the sign-in ended"),
             Err(Failure::Unreachable) => self.offline(epoch, UNREACHABLE, true),
@@ -655,7 +704,13 @@ impl Inventory {
     }
 
     /// Keeps `snapshot` unless the sign-in it was asked for has ended meanwhile.
-    fn keep(&self, who: &SignedInAs, epoch: u64, mut snapshot: Snapshot) {
+    fn keep(
+        &self,
+        who: &SignedInAs,
+        epoch: u64,
+        mut snapshot: Snapshot,
+        details: HashMap<Fingerprint, IssuedState>,
+    ) {
         let mut held = held(&self.held);
         if held.epoch != epoch {
             log::debug!("the answer of ILM is dropped: the sign-in ended");
@@ -672,6 +727,7 @@ impl Inventory {
             checked_at: snapshot.checked_at,
         };
         held.snapshot = Some(snapshot);
+        held.details = details;
         held.rebuild(self.zone);
     }
 
@@ -746,6 +802,7 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
         log::debug!("certificates are not listed for this person; ILM is not searched");
         return Ok(Found {
             snapshot,
+            details: HashMap::new(),
             local: unique.len(),
             actions: "not asked",
         });
@@ -813,25 +870,32 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
         }
     };
     snapshot.prepared = prepared::read(session, &who.username).await?;
-    snapshot.replaced = replaced(session, &snapshot.matches).await?;
+    let details = details(session, &snapshot.matches).await?;
+    let installed: HashSet<String> = snapshot
+        .matches
+        .values()
+        .map(|certificate| certificate.uuid.clone())
+        .collect();
+    snapshot.replaced = details
+        .iter()
+        .filter(|(_, detail)| renewal::replaced(detail, &installed))
+        .map(|(fingerprint, _)| *fingerprint)
+        .collect();
     Ok(Found {
         snapshot,
+        details,
         local: unique.len(),
         actions,
     })
 }
 
-/// The matched certificates that an issued successor installed here has replaced. A certificate whose
-/// successors ILM does not tell counts as not replaced.
-async fn replaced(
+/// What ILM says of each issued matched certificate: its successors and renewal window. A certificate whose
+/// details ILM does not tell is left out, and counts as not replaced.
+async fn details(
     session: &Session,
     matches: &HashMap<Fingerprint, IlmCertificate>,
-) -> Result<HashSet<Fingerprint>, Failure> {
-    let installed: HashSet<String> = matches
-        .values()
-        .map(|certificate| certificate.uuid.clone())
-        .collect();
-    let mut found = HashSet::new();
+) -> Result<HashMap<Fingerprint, IssuedState>, Failure> {
+    let mut found = HashMap::new();
     for (fingerprint, certificate) in matches {
         if certificate.state != State::Issued || certificate.archived {
             continue;
@@ -841,10 +905,9 @@ async fn replaced(
         })
         .await?;
         match read_state(response).await {
-            Ok(detail) if renewal::replaced(&detail, &installed) => {
-                found.insert(*fingerprint);
+            Ok(detail) => {
+                found.insert(*fingerprint, detail);
             }
-            Ok(_) => {}
             Err(StateError::Failed(IlmError::Unauthorized)) => return Err(Failure::SignedOut),
             Err(error) => log::debug!("the successors of a certificate are not known: {error}"),
         }

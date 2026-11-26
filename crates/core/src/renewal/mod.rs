@@ -57,6 +57,8 @@ pub enum Skip {
     Waiting,
     /// ILM lists a successor that is not issued yet.
     SuccessorPending,
+    /// ILM lists an issued successor, installed elsewhere or about to be installed here.
+    SuccessorIssued,
     /// The last automatic attempt here failed less than [`RETRY_AFTER`] ago.
     RecentFailure,
 }
@@ -73,6 +75,7 @@ impl Skip {
             Self::Off => "off",
             Self::Waiting => "waiting",
             Self::SuccessorPending => "successor-pending",
+            Self::SuccessorIssued => "successor-issued",
             Self::RecentFailure => "recent-failure",
         }
     }
@@ -125,13 +128,34 @@ pub fn replaced(detail: &IssuedState, installed: &HashSet<String>) -> bool {
     })
 }
 
+/// Whether the certificate is close enough to its expiry to be renewed: within the warning days, and within half
+/// its validity, so that a certificate valid for less than the warning days is not due again as soon as it arrives.
+pub fn expiring(local: &LocalCertificate, warn_days: WarnDays, now: SystemTime) -> bool {
+    local.not_after <= now + lead(local, warn_days)
+}
+
+/// How many whole days before its expiry the certificate becomes due, without a renewal window of ILM.
+pub fn days_before(local: &LocalCertificate, warn_days: WarnDays) -> u32 {
+    u32::try_from(lead(local, warn_days).as_secs() / DAY.as_secs()).unwrap_or(u32::MAX)
+}
+
+fn lead(local: &LocalCertificate, warn_days: WarnDays) -> Duration {
+    let warning = DAY * u32::from(warn_days.get());
+    let half = local
+        .not_after
+        .duration_since(local.not_before)
+        .unwrap_or_default()
+        / 2;
+    warning.min(half)
+}
+
 /// Whether a candidate is due, from the details ILM gives for it. A certificate with an installed successor is
 /// reported as replaced whether it is due or not.
 pub fn due(local: &LocalCertificate, detail: &IssuedState, facts: &Facts) -> Due {
     if replaced(detail, facts.installed) {
         return Due::Skipped(Skip::Replaced);
     }
-    let expiring = local.not_after <= facts.now + DAY * u32::from(facts.warn_days.get());
+    let expiring = expiring(local, facts.warn_days, facts.now);
     if !detail.renewal.as_ref().map_or(expiring, |info| info.due) {
         return Due::Not;
     }
@@ -146,6 +170,12 @@ pub fn due(local: &LocalCertificate, detail: &IssuedState, facts: &Facts) -> Due
         )
     }) {
         Due::Skipped(Skip::SuccessorPending)
+    } else if detail
+        .related
+        .iter()
+        .any(|related| related.state == State::Issued && related.relation != Relation::Pending)
+    {
+        Due::Skipped(Skip::SuccessorIssued)
     } else if facts.last_failure.is_some_and(|failed| {
         facts
             .now

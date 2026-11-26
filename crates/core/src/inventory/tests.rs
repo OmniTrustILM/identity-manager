@@ -12,6 +12,7 @@ use crate::session::tests::{LOG, World, capture_logs};
 
 mod approvals;
 mod prepared;
+mod renew;
 mod summary;
 
 const PROFILE: &str = "/api/v1/auth/profile";

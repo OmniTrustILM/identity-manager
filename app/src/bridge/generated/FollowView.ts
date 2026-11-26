@@ -11,4 +11,8 @@ export type FollowView = { "state": "installed", storage: StorageId,
 /**
  * Milliseconds since 1970 (UTC).
  */
+validUntil: number, } | { "state": "renewed", 
+/**
+ * Milliseconds since 1970 (UTC).
+ */
 validUntil: number, } | { "state": "waiting", stage: WaitingStage, } | { "state": "ended", reason: EndedReason, } | { "state": "notInstalled", cause: NotInstalledCause, } | { "state": "unknown" };

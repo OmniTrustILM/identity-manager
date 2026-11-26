@@ -41,8 +41,16 @@ const expiring: AttentionItemView = {
     name: 'vpn.example.com',
     days: 13,
     on: computedAt + 13 * day,
+    renewable: false,
 };
-const tomorrow: AttentionItemView = { kind: 'expiring', fingerprint: 'FP:soon', name: 'Soon', days: 1, on: computedAt + day };
+const tomorrow: AttentionItemView = {
+    kind: 'expiring',
+    fingerprint: 'FP:soon',
+    name: 'Soon',
+    days: 1,
+    on: computedAt + day,
+    renewable: false,
+};
 const approval: AttentionItemView = { kind: 'waiting', label: 'User mTLS', state: 'pendingApproval' };
 const issuing: AttentionItemView = { kind: 'waiting', label: 'Code signing', state: 'beingIssued' };
 const unmatched = (count: number): AttentionItemView => ({ kind: 'notInIlm', count });
@@ -74,6 +82,7 @@ let shown: string[];
 let choices: unknown;
 let added: unknown;
 /** While set, each read of the certificates waits here until it is answered. */
+let renewing: () => unknown;
 let reads: ((items: LocalCertificateView[]) => void)[] | null;
 
 beforeEach(() => {
@@ -89,6 +98,7 @@ beforeEach(() => {
     choices = { groups: null, raProfiles: null };
     added = [];
     reads = null;
+    renewing = () => ({ certificate: 'new', label: 'x' });
     mockIPC(
         (command, args) => {
             calls.push({ command, args });
@@ -108,6 +118,10 @@ beforeEach(() => {
                     return choices;
                 case 'add_to_ilm':
                     return added;
+                case 'renew_now':
+                    return renewing();
+                case 'follow_request':
+                    return { state: 'waiting', stage: 'pendingApproval' };
             }
         },
         { shouldMockEvents: true },
@@ -416,4 +430,51 @@ test('is read again when the inventory changes', async () => {
 
     expect(tiles()[0]).toBe('9Valid');
     expect(text()).toContain(strings.nothingNeedsAttention);
+});
+
+const renewable: AttentionItemView = { ...expiring, renewable: true };
+
+test('an expiring certificate that can be renewed has Renew, named by it, next to Show', async () => {
+    summary = stand([renewable, expiring]);
+    await render();
+
+    const names = [...(container.querySelector('section')?.querySelectorAll('ul > li button') ?? [])].map((each) =>
+        each.getAttribute('aria-label'),
+    );
+    expect(names).toEqual(['Show vpn.example.com', 'Renew vpn.example.com', 'Show vpn.example.com']);
+    expect(button('Renew vpn.example.com')?.textContent).toBe(strings.renew);
+});
+
+test('Renew renews that certificate and says it waits for approval, without another Renew', async () => {
+    summary = stand([renewable]);
+    await render();
+
+    await act(async () => button('Renew vpn.example.com')?.click());
+
+    expect(calls.find((call) => call.command === 'renew_now')?.args).toEqual({ fingerprint: 'FP:vpn' });
+    expect(container.querySelector('section ul output')?.textContent).toBe(strings.renewalWaitingForApproval);
+    expect(button('Renew vpn.example.com')).toBeUndefined();
+});
+
+test('a refused Renew says why and keeps the button', async () => {
+    summary = stand([renewable]);
+    renewing = () => Promise.reject('ILM does not allow this.');
+    await render();
+
+    await act(async () => button('Renew vpn.example.com')?.click());
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('ILM does not allow this.');
+    expect(button('Renew vpn.example.com')).toBeDefined();
+});
+
+test('while Renew is sent the button says Renewing and is disabled', async () => {
+    summary = stand([renewable]);
+    renewing = () => new Promise(() => undefined);
+    await render();
+
+    await act(async () => button('Renew vpn.example.com')?.click());
+
+    const busy = button('Renew vpn.example.com') as HTMLButtonElement;
+    expect(busy.textContent).toBe(strings.renewing);
+    expect(busy.disabled).toBe(true);
 });

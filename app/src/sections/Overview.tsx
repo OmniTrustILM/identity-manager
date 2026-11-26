@@ -13,6 +13,7 @@ import { ExpiredIcon, ExpiringIcon, FineIcon, type Icon, NotInIlmIcon, SignInKey
 import { useIlmWaiting } from '../ilm-waiting';
 import { useNavigation } from '../navigation';
 import { strings } from '../strings';
+import { RenewStatus, useRenewNow } from '../renewNow';
 import { useInventory } from '../useInventory';
 import { useSummary } from '../useSummary';
 import { AddToIlm } from './AddToIlm';
@@ -66,6 +67,7 @@ interface Unmatched {
 
 function Row({ item, unmatched, system }: Readonly<{ item: Problem; unmatched: Unmatched; system: System }>) {
     const { showCertificate } = useNavigation();
+    const { progress, renew } = useRenewNow();
     const { Icon, tone, textTone } = attentionLook(item);
     const names = unmatched.certificates.map((certificate) => certificate.name);
     let title: string;
@@ -80,16 +82,30 @@ function Row({ item, unmatched, system }: Readonly<{ item: Problem; unmatched: U
         detail = attentionDetail(item);
         action = { label: strings.show, name: strings.showCertificate(item.name), run: () => showCertificate(item.fingerprint) };
     }
+    const renewable = item.kind === 'expiring' && item.renewable && progress?.kind !== 'working' && progress?.kind !== 'done';
     return (
         <li className="flex items-center gap-s3 px-s3 py-s2">
             <Icon aria-hidden className={`size-icon shrink-0 ${tone}`} />
             <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-body text-primary">{title}</span>
                 {detail !== null && <span className={`text-caption ${textTone}`}>{detail}</span>}
+                <RenewStatus progress={progress} />
             </div>
             {action && (
                 <button tabIndex={0} type="button" aria-label={action.name} onClick={action.run} className={secondary}>
                     {action.label}
+                </button>
+            )}
+            {renewable && (
+                <button
+                    tabIndex={0}
+                    type="button"
+                    aria-label={strings.renewName(title)}
+                    disabled={progress?.kind === 'busy'}
+                    onClick={() => renew(item.fingerprint)}
+                    className={`${secondary} disabled:opacity-disabled`}
+                >
+                    {progress?.kind === 'busy' ? strings.renewing : strings.renew}
                 </button>
             )}
         </li>

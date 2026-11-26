@@ -42,6 +42,8 @@ fn main() {
                 "ilm_certificates",
                 "sync_now",
                 "make_sign_in_certificate",
+                "renew_now",
+                "set_renewal_switch",
                 "overview",
                 "add_to_ilm_choices",
                 "add_to_ilm",
