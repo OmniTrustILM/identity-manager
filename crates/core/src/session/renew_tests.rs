@@ -1051,6 +1051,120 @@ async fn a_sign_in_ilm_names_another_certificate_for_stays() {
 }
 
 #[tokio::test]
+async fn a_lost_answer_to_an_oauth_sign_in_move_is_learned_from_the_profile() {
+    let renewing = Renewing::signing_in_with_the_old_certificate().await;
+    renewing.accepts("rekey").await;
+    renewing.renew(NEW_KEY, false).await.unwrap();
+    let leaf = renewing.serves_new_key_certificate().await;
+    let leaf_fingerprint = Fingerprint::of(&leaf);
+    renewing.installs(&leaf);
+    renewing.takes_the_update(503, 5).await;
+    renewing.world.session.follow().await;
+    assert!(renewing.pending().is_some());
+    Mock::given(method("GET"))
+        .and(path(PROFILE))
+        .respond_with(ResponseTemplate::new(200).set_body_json(profile_naming(
+            "c-new",
+            &leaf_fingerprint,
+            "jdoe",
+        )))
+        .with_priority(1)
+        .mount(&renewing.world.ilm)
+        .await;
+
+    let found = renewing.world.session.follow().await;
+
+    assert_eq!(Renewing::outcomes(&found), [Outcome::SignInMoved]);
+    assert!(renewing.requests.all().is_empty());
+    assert_eq!(renewing.sign_in_uuid().as_deref(), Some("c-new"));
+    assert!(
+        renewing
+            .world
+            .session
+            .signs_in_with("c-new", &leaf_fingerprint)
+    );
+}
+
+// A rekey whose answer may have arrived.
+
+impl Renewing {
+    /// The rekey is answered with `status`; the renewal is sent with a new key.
+    async fn renew_with_rekey_answered(&self, status: u16) -> Result<Waiting, RequestError> {
+        self.answer("POST", &operation("rekey"), ResponseTemplate::new(status))
+            .await;
+        self.renew(NEW_KEY, false).await
+    }
+
+    fn age_the_renewal(&self, hours: i64) {
+        let mut entry = self.requests.all().remove(0);
+        entry.since -= hours * 3_600_000;
+        self.requests.add(entry).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn a_rekey_that_may_have_arrived_keeps_the_key_and_adopts_the_certificate_ilm_made() {
+    let renewing = Renewing::new().await;
+
+    let sent = renewing.renew_with_rekey_answered(503).await;
+
+    assert_eq!(sent, Err(RequestError::Unexpected(503)));
+    assert_eq!(renewing.keys.count(), 1);
+    assert_eq!(renewing.requests.all().len(), 1);
+    assert_eq!(renewing.requests.all()[0].uuid, None);
+    renewing
+        .serve_old(
+            json!([
+                { "uuid": "c-bad", "state": "failed", "relationType": "rekey" },
+                { "uuid": "c-new", "state": "issued", "relationType": "rekey" },
+            ]),
+            1,
+        )
+        .await;
+    renewing.serves_new_key_certificate().await;
+    let (other, _, _) = issued("web", &KeyPair::generate().unwrap());
+    renewing
+        .answer(
+            "GET",
+            &state_path("c-bad"),
+            ResponseTemplate::new(200).set_body_json(
+                json!({ "state": "issued", "certificateContent": STANDARD.encode(other) }),
+            ),
+        )
+        .await;
+
+    let found = renewing.world.session.follow().await;
+
+    assert!(matches!(
+        Renewing::outcomes(&found)[..],
+        [Outcome::Installed(_)]
+    ));
+    assert_eq!(renewing.installer.calls().len(), 1);
+    assert!(renewing.requests.all().is_empty());
+}
+
+#[tokio::test]
+async fn a_rekey_that_may_have_arrived_and_made_nothing_ends_after_a_day_and_deletes_the_key() {
+    let renewing = Renewing::new().await;
+    renewing.renew_with_rekey_answered(503).await.unwrap_err();
+
+    let waiting = renewing.world.session.follow().await;
+
+    assert!(waiting.is_empty());
+    assert_eq!(renewing.keys.count(), 1);
+    renewing.age_the_renewal(25);
+
+    let ended = renewing.world.session.follow().await;
+
+    assert_eq!(
+        Renewing::outcomes(&ended),
+        [Outcome::Ended(EndReason::NotSent)]
+    );
+    assert_eq!(renewing.keys.count(), 0);
+    assert!(renewing.requests.all().is_empty());
+}
+
+#[tokio::test]
 async fn a_sign_in_certificate_the_person_chose_meanwhile_stays() {
     let renewing = Renewing::signing_in_with_the_old_certificate().await;
     renewing.accepts("rekey").await;

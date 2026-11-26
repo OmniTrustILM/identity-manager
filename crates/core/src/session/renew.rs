@@ -9,7 +9,7 @@ use std::time::SystemTime;
 
 use x509_parser::prelude::{FromDer, X509Certificate};
 
-use super::request::{Outcome, SignedIn, Target, now_ms, refusal};
+use super::request::{Outcome, SignedIn, Target, may_have_arrived, now_ms, refusal};
 use super::{ChangeError, Credential, RequestError, Session, State as SignIn, lock};
 use crate::identity::Fingerprint;
 use crate::ilm::certificates::State;
@@ -175,9 +175,18 @@ impl Session {
         let sent = self
             .deliver(id, requests, old, target.uuid, entry, new_key)
             .await;
-        if sent.is_err() {
-            self.drop_renewal(requests, target.uuid, key_id.as_ref())
-                .await;
+        match &sent {
+            Err(error) if key_id.is_some() && may_have_arrived(error) => {
+                log::info!(
+                    "the renewal of {} may have reached ILM; its key is kept for a follow",
+                    target.uuid
+                );
+            }
+            Err(_) => {
+                self.drop_renewal(requests, target.uuid, key_id.as_ref())
+                    .await;
+            }
+            Ok(_) => {}
         }
         sent
     }
@@ -363,6 +372,64 @@ impl Session {
             }
             Err(failures) => Outcome::SwitchPending { failures },
         }
+    }
+
+    /// The certificate ILM made for the new key of a renewal whose answer was lost: among the successors of the
+    /// old certificate that are not over, the one that is for the key. Its UUID is written down.
+    pub(super) async fn find_successor(
+        &self,
+        id: &Arc<()>,
+        requests: &Requests,
+        entry: &Waiting,
+    ) -> Option<String> {
+        let (Purpose::Renew { replaces, .. }, Some(key)) = (&entry.purpose, &entry.key) else {
+            return None;
+        };
+        let key_id = key.clone();
+        let public_key = self
+            .in_keys(move |keys| keys.open(&key_id))
+            .await
+            .ok()??
+            .public_key()
+            .to_vec();
+        let response = self
+            .call_ilm_as(Some(id), None, |client, ilm| {
+                state_request(client, ilm, replaces)
+            })
+            .await
+            .ok()?;
+        let old = read_state(response).await.ok()?;
+        for related in old.related.iter().filter(|related| {
+            !matches!(
+                related.state,
+                State::Failed | State::Rejected | State::Revoked
+            )
+        }) {
+            let response = self
+                .call_ilm_as(Some(id), None, |client, ilm| {
+                    state_request(client, ilm, &related.uuid)
+                })
+                .await
+                .ok()?;
+            let Some(leaf) = read_state(response)
+                .await
+                .ok()
+                .and_then(|found| found.content)
+            else {
+                continue;
+            };
+            if is_for_key(&leaf, &public_key) {
+                log::info!(
+                    "the renewal of {replaces} was taken by ILM as {}",
+                    related.uuid
+                );
+                if let Err(error) = requests.set_uuid(key, &related.uuid) {
+                    log::warn!("the certificate of the renewal cannot be written down: {error}");
+                }
+                return Some(related.uuid.clone());
+            }
+        }
+        None
     }
 
     /// Decides where the certificate of a renewal with the key it has is installed: beside the old one, when it

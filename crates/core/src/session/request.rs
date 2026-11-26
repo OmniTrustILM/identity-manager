@@ -849,6 +849,22 @@ impl Session {
             return Some(self.retry_switch(id, requests, entry, pending).await);
         }
         let age = now_ms() - entry.since;
+        let adopted = if entry.uuid.is_none() {
+            self.find_successor(id, requests, entry).await
+        } else {
+            None
+        };
+        let adopted_entry;
+        let entry = match adopted {
+            Some(uuid) => {
+                adopted_entry = Waiting {
+                    uuid: Some(uuid),
+                    ..entry.clone()
+                };
+                &adopted_entry
+            }
+            None => entry,
+        };
         let Some(uuid) = entry.uuid.as_deref() else {
             return if age >= DAY_MS {
                 self.end(requests, entry, EndReason::NotSent).await

@@ -309,6 +309,9 @@ impl Session {
             })?;
         let old = person.sign_in.as_ref();
         if old.is_some_and(|held| held.uuid == uuid || held.fingerprint == fingerprint) {
+            if predecessor.is_some() {
+                self.learn_sign_in(&departing.id, person.sign_in.clone());
+            }
             return Err(ChangeError::AlreadySignIn);
         }
         if let (Some((before, before_fingerprint)), Some(held)) = (predecessor, old)
@@ -398,6 +401,15 @@ impl Session {
                 Ok(())
             }
             other => other,
+        }
+    }
+
+    /// Keeps what ILM says is the sign-in certificate of the person signed in as `id`.
+    fn learn_sign_in(&self, id: &Arc<()>, sign_in: Option<SignInCertificate>) {
+        if let State::SignedIn(active) = &mut *lock(&self.state)
+            && Arc::ptr_eq(&active.id, id)
+        {
+            active.person.sign_in = sign_in;
         }
     }
 
