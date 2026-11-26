@@ -51,6 +51,7 @@ impl Session {
         target: RenewalTarget<'_>,
         method: Method,
         automatic: bool,
+        proceed: &(dyn Fn() -> bool + Sync),
     ) -> Result<Waiting, RequestError> {
         let id = self.departing()?.id;
         let requests = self.requests.clone().ok_or(RequestError::NoStore)?;
@@ -64,13 +65,16 @@ impl Session {
             return Err(RequestError::AlreadyRenewing);
         }
         let sent = self
-            .renew_locked(&id, who, &requests, &target, method, automatic)
+            .renew_locked(&id, who, &requests, &target, method, automatic, proceed)
             .await;
         if let Err(error) = &sent
             && automatic
             && !matches!(
                 error,
-                RequestError::AlreadyRenewing | RequestError::SignedOut | RequestError::Offline
+                RequestError::AlreadyRenewing
+                    | RequestError::SignedOut
+                    | RequestError::Offline
+                    | RequestError::Withdrawn
             )
         {
             self.record_failure(&ilm, &username, target.fingerprint);
@@ -79,6 +83,7 @@ impl Session {
     }
 
     /// Checks that the certificate may be renewed, then sends the renewal.
+    #[allow(clippy::too_many_arguments)]
     async fn renew_locked(
         &self,
         id: &Arc<()>,
@@ -87,6 +92,7 @@ impl Session {
         target: &RenewalTarget<'_>,
         method: Method,
         automatic: bool,
+        proceed: &(dyn Fn() -> bool + Sync),
     ) -> Result<Waiting, RequestError> {
         let old = self.read_old(id, target).await?;
         if old.successor_pending || (automatic && old.successor_issued) {
@@ -103,7 +109,7 @@ impl Session {
         {
             return Err(RequestError::AlreadyRenewing);
         }
-        self.send_renewal(id, who, requests, &old, target, method, automatic)
+        self.send_renewal(id, who, requests, &old, target, method, automatic, proceed)
             .await
     }
 
@@ -161,6 +167,7 @@ impl Session {
         target: &RenewalTarget<'_>,
         method: Method,
         automatic: bool,
+        proceed: &(dyn Fn() -> bool + Sync),
     ) -> Result<Waiting, RequestError> {
         let subject = match method {
             Method::NewKey { .. } => rekey_subject(&old.der),
@@ -203,7 +210,7 @@ impl Session {
             },
         };
         let sent = self
-            .deliver(id, requests, old, target.uuid, entry, new_key)
+            .deliver(id, requests, old, target.uuid, entry, new_key, proceed)
             .await;
         match &sent {
             Err(error) if key_id.is_some() && may_have_arrived(error) => {
@@ -221,6 +228,7 @@ impl Session {
         sent
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn deliver(
         &self,
         id: &Arc<()>,
@@ -229,6 +237,7 @@ impl Session {
         replaces: &str,
         entry: Waiting,
         new_key: Option<(Box<dyn crate::keys::StoredKey>, RequestSubject)>,
+        proceed: &(dyn Fn() -> bool + Sync),
     ) -> Result<Waiting, RequestError> {
         requests.add(entry.clone()).map_err(|error| {
             log::warn!("the renewal cannot be written down: {error}");
@@ -241,7 +250,7 @@ impl Session {
                     tokio::task::spawn_blocking(move || signing_request(key.as_ref(), &subject))
                         .await
                         .expect("the key storage task does not panic")?;
-                self.call_ilm_as(Some(id), None, |client, ilm| {
+                self.call_ilm_as(Some(id), Some(proceed), |client, ilm| {
                     rekey_request(
                         client,
                         ilm,
@@ -254,7 +263,7 @@ impl Session {
                 .await?
             }
             None => {
-                self.call_ilm_as(Some(id), None, |client, ilm| {
+                self.call_ilm_as(Some(id), Some(proceed), |client, ilm| {
                     renew_request(client, ilm, &old.authority, &old.ra_profile, replaces)
                 })
                 .await?

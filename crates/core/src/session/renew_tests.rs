@@ -363,9 +363,18 @@ impl Renewing {
         method: Method,
         automatic: bool,
     ) -> Result<crate::requests::Waiting, RequestError> {
+        self.renew_while(method, automatic, &|| true).await
+    }
+
+    async fn renew_while(
+        &self,
+        method: Method,
+        automatic: bool,
+        proceed: &(dyn Fn() -> bool + Sync),
+    ) -> Result<crate::requests::Waiting, RequestError> {
         self.world
             .session
-            .renew(self.target(), method, automatic)
+            .renew(self.target(), method, automatic, proceed)
             .await
     }
 
@@ -685,7 +694,11 @@ async fn an_automatic_renewal_of_a_certificate_that_cannot_be_renewed_is_noted_a
         ..renewing.target()
     };
 
-    let refused = renewing.world.session.renew(target, NEW_KEY, true).await;
+    let refused = renewing
+        .world
+        .session
+        .renew(target, NEW_KEY, true, &|| true)
+        .await;
 
     assert_eq!(refused, Err(RequestError::NotRenewable));
     assert!(
@@ -726,6 +739,20 @@ async fn an_automatic_renewal_that_cannot_read_the_waiting_requests_is_noted_as_
 }
 
 #[tokio::test]
+async fn nothing_is_sent_when_the_application_is_locked_and_nothing_is_left_behind() {
+    let renewing = Renewing::new().await;
+    renewing.accepts("rekey").await;
+
+    let refused = renewing.renew_while(NEW_KEY, true, &|| false).await;
+
+    assert_eq!(refused, Err(RequestError::Withdrawn));
+    assert!(renewing.bodies("rekey").await.is_empty());
+    assert_eq!(renewing.keys.count(), 0, "a key is left");
+    assert!(renewing.requests.all().is_empty(), "a request is left");
+    assert_eq!(renewing.failure(), None);
+}
+
+#[tokio::test]
 async fn a_certificate_that_is_not_the_one_in_ilm_is_not_renewed() {
     let renewing = Renewing::new().await;
     renewing.accepts("rekey").await;
@@ -735,7 +762,11 @@ async fn a_certificate_that_is_not_the_one_in_ilm_is_not_renewed() {
         ..renewing.target()
     };
 
-    let refused = renewing.world.session.renew(target, NEW_KEY, false).await;
+    let refused = renewing
+        .world
+        .session
+        .renew(target, NEW_KEY, false, &|| true)
+        .await;
 
     assert_eq!(refused, Err(RequestError::NotRenewable));
     assert!(renewing.bodies("rekey").await.is_empty());

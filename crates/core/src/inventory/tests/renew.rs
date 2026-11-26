@@ -149,7 +149,7 @@ impl Auto {
             .await;
         self.setup
             .inventory
-            .renew_due(&self.setup.world.session, plan, || true)
+            .renew_due(&self.setup.world.session, plan, &|| true)
             .await;
     }
 
@@ -219,7 +219,7 @@ async fn nothing_is_renewed_when_the_batch_is_not_to_go_on() {
 
     auto.setup
         .inventory
-        .renew_due(&auto.setup.world.session, &plan, || false)
+        .renew_due(&auto.setup.world.session, &plan, &|| false)
         .await;
 
     assert_eq!(auto.sent("rekey").await, 0);
@@ -242,7 +242,7 @@ async fn nothing_is_renewed_when_the_sign_in_ended_after_the_check() {
 
     auto.setup
         .inventory
-        .renew_due(&auto.setup.world.session, &plan, move || {
+        .renew_due(&auto.setup.world.session, &plan, &move || {
             inventory.forget();
             true
         })
@@ -533,7 +533,7 @@ async fn a_replaced_certificate_is_not_renewed_and_shows_when_it_was_replaced() 
         .await;
     auto.setup
         .inventory
-        .renew_due(&auto.setup.world.session, &plan, || true)
+        .renew_due(&auto.setup.world.session, &plan, &|| true)
         .await;
 
     assert_eq!(auto.sent("rekey").await, 0);
@@ -617,6 +617,26 @@ async fn the_screens_are_told_what_renewal_does_for_a_certificate() {
     plan.policy.automatic_renewal = Some(AutomaticRenewal::Off);
     let view = auto.setup.inventory.renewal_views(&plan, &[])[&key].clone();
     assert!(view.locked && !view.automatic);
+}
+
+#[tokio::test]
+async fn a_certificate_whose_person_setting_is_off_is_not_shown_as_renewing_itself() {
+    let auto = Auto::expiring_in(10, &["detail", "renew"]).await;
+    let mut plan = plan(&auto.renewals, Platform::Macos);
+    plan.person.automatic_renewal = Some(AutomaticRenewal::Off);
+    auto.setup
+        .inventory
+        .check_local(
+            &auto.setup.world.session,
+            Trigger::Interval,
+            std::slice::from_ref(&auto.old),
+        )
+        .await;
+
+    let view =
+        auto.setup.inventory.renewal_views(&plan, &[])[&auto.old.fingerprint.to_string()].clone();
+
+    assert!(!view.automatic && !view.locked && view.renewable);
 }
 
 #[tokio::test]

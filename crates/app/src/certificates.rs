@@ -433,7 +433,7 @@ impl<R: Runtime> Ilm<R> {
         let offers = self.session.key_offers().await;
         let plan = self.renewing(offers);
         self.inventory
-            .renew_due(&self.session, &plan, || !self.guard.is_locked())
+            .renew_due(&self.session, &plan, &|| !self.guard.is_locked())
             .await;
     }
 

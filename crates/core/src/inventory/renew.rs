@@ -87,8 +87,6 @@ struct Entry<'a> {
     ilm: &'a IlmCertificate,
     allowed: &'a [String],
     replaced: bool,
-    /// The person switched its automatic renewal off.
-    switched_off: bool,
     choice: Choice,
     person: &'a (IlmUrl, String),
 }
@@ -114,7 +112,6 @@ fn entries<'a>(held: &'a Held, plan: &Renewing) -> Vec<Entry<'a>> {
                 ilm,
                 allowed: snapshot.allowed.get(&ilm.uuid).map_or(&[], Vec::as_slice),
                 replaced: snapshot.replaced.contains(&local.fingerprint),
-                switched_off,
                 choice: renewal::choice(&plan.policy, &plan.person, switched_off),
                 person,
             })
@@ -206,7 +203,12 @@ impl super::Inventory {
     /// the answer of a check that succeeded is acted on. A renewal that is not taken is kept for the person to be
     /// told, until a later one of the same certificate is. What was sent is followed at once, so the screens show
     /// it waiting. The batch stops when `proceed` says no or the sign-in ends.
-    pub async fn renew_due(&self, session: &Session, plan: &Renewing, proceed: impl Fn() -> bool) {
+    pub async fn renew_due(
+        &self,
+        session: &Session,
+        plan: &Renewing,
+        proceed: &(dyn Fn() -> bool + Sync),
+    ) {
         let now = SystemTime::now();
         let waiting = session.waiting_requests();
         let (epoch, due) = {
@@ -244,10 +246,14 @@ impl super::Inventory {
                 fingerprint: &fingerprint,
                 name: &name,
             };
-            match session.renew(target, method, true).await {
+            match session.renew(target, method, true, proceed).await {
                 Ok(_) => sent.push(fingerprint),
                 Err(RequestError::AlreadyRenewing) => log_skip(&uuid, Skip::Waiting),
-                Err(error @ (RequestError::SignedOut | RequestError::Offline)) => {
+                Err(
+                    error @ (RequestError::SignedOut
+                    | RequestError::Offline
+                    | RequestError::Withdrawn),
+                ) => {
                     log::info!("renewal of {uuid} was not sent: {error}");
                 }
                 Err(error) => {
@@ -368,7 +374,7 @@ impl super::Inventory {
                     entry.local.fingerprint.to_string(),
                     RenewalView {
                         renewable,
-                        automatic: !locked && !entry.switched_off,
+                        automatic: entry.choice != Choice::Off,
                         locked,
                         days_before: renewal::days_before(entry.local, held.days),
                         from: detail

@@ -90,7 +90,10 @@ impl<R: Runtime> Ilm<R> {
             name: &local.name,
         };
         let waiting = self
-            .working(self.session().renew(target, method, false))
+            .working(
+                self.session()
+                    .renew(target, method, false, &|| self.unlocked().is_ok()),
+            )
             .await;
         self.unlocked()?;
         let waiting = waiting?;

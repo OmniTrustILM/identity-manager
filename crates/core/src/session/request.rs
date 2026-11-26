@@ -92,6 +92,8 @@ pub enum RequestError {
     Malformed,
     /// The request could not be written down.
     Store,
+    /// The application withdrew the request before it was sent.
+    Withdrawn,
     /// ILM registered another subject for the certificate than the one the person reviewed.
     SubjectChanged,
     /// The certificate cannot be renewed: ILM does not know it as this one, or it has no RA Profile.
@@ -133,6 +135,7 @@ impl fmt::Display for RequestError {
                 f.write_str("ILM answered in a way this application does not understand.")
             }
             Self::Store => f.write_str("The request could not be recorded on this computer."),
+            Self::Withdrawn => CallError::Withdrawn.fmt(f),
             Self::SubjectChanged => {
                 f.write_str("Your administrator changed this certificate in ILM. Open it again.")
             }
@@ -168,7 +171,8 @@ impl From<CallError> for RequestError {
     fn from(error: CallError) -> Self {
         match error {
             CallError::SignedOut => Self::SignedOut,
-            CallError::Unreachable | CallError::Withdrawn => Self::Offline,
+            CallError::Unreachable => Self::Offline,
+            CallError::Withdrawn => Self::Withdrawn,
         }
     }
 }
