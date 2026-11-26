@@ -502,7 +502,7 @@ export const strings = {
     renewalGroupTitle: 'Renewal',
     renewAutomatically: 'Renew automatically',
     renewWhenRow: 'When',
-    daysBeforeExpiry: (count: number) => `${count === 1 ? '1 day' : `${count} days`} before expiry`,
+    daysBeforeExpiry: (count: number) => (count === 1 ? '1 day before expiry' : `${count} days before expiry`),
     renewalFrom: (date: string) => `From ${date}`,
     renewKeyRow: 'Private key',
     renewNewKey: 'New key each time',
