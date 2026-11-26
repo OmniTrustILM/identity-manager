@@ -95,10 +95,6 @@ impl Session {
         automatic: bool,
         proceed: &(dyn Fn() -> bool + Sync),
     ) -> Result<Waiting, RequestError> {
-        let old = self.read_old(id, target).await?;
-        if old.successor_pending || (automatic && old.successor_issued) {
-            return Err(RequestError::AlreadyRenewing);
-        }
         requests.readable().map_err(|error| {
             log::warn!("the waiting requests cannot be read: {error}");
             RequestError::Store
@@ -115,6 +111,10 @@ impl Session {
             .any(|entry| entry.revokes() == Some(target.uuid))
         {
             return Err(RequestError::AlreadyRevoking);
+        }
+        let old = self.read_old(id, target).await?;
+        if old.successor_pending || (automatic && old.successor_issued) {
+            return Err(RequestError::AlreadyRenewing);
         }
         self.send_renewal(id, who, requests, &old, target, method, automatic, proceed)
             .await
