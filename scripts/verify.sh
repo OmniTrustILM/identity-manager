@@ -299,8 +299,9 @@ identity_system() {
     [[ -s "$request" ]] || { echo "the key storage test wrote no request" >&2; exit 1; }
     openssl req -inform DER -in "$request" -verify -noout
     # Installs a certificate and its intermediate for a new key in each offered storage, finds the identity through
-    # the reader, and removes the certificates and the key again.
-    cargo test -p identity-manager --locked installer_installs_identity -- --ignored --nocapture
+    # the reader, and removes the certificates and the key again. Then installs a second certificate beside the first
+    # for the same key and removes both through the installer, the key with the last one.
+    cargo test -p identity-manager --locked install::tests::installer_ -- --ignored --nocapture
 }
 
 case "${1:-}" in
