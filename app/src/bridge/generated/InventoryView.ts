@@ -5,6 +5,7 @@ import type { IlmPageView } from "./IlmPageView";
 import type { InventoryStatus } from "./InventoryStatus";
 import type { MyRequestView } from "./MyRequestView";
 import type { PreparedView } from "./PreparedView";
+import type { RenewalView } from "./RenewalView";
 
 /**
  * What ILM is known to say about the certificates on this computer.
@@ -52,4 +53,8 @@ approvals: Array<ApprovalView>,
 /**
  * The requests of the person that ILM has not finished; given by `with_requests`.
  */
-requests: Array<MyRequestView>, };
+requests: Array<MyRequestView>, 
+/**
+ * The renewal of the certificates on this computer, by fingerprint; given by `with_renewals`.
+ */
+renewals: { [key in string]: RenewalView }, };

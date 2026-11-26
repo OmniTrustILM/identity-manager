@@ -104,7 +104,8 @@ impl Settings {
         }
     }
 
-    fn layers(&self) -> (Layer, Layer) {
+    /// The organization's settings and the person's, as they are now.
+    pub fn layers(&self) -> (Layer, Layer) {
         ((self.policy)(), store::load(&self.person_file))
     }
 

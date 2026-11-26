@@ -14,12 +14,16 @@ use im_core::identity::{
 };
 use im_core::ilm::approvals::{DecideError, Decision};
 use im_core::inventory::{
-    AddChoicesView, AddResultView, IlmPageView, Inventory, InventoryView, Prepared, Status,
-    Summary, SummaryView, Trigger,
+    AddChoicesView, AddResultView, IlmPageView, Inventory, InventoryView, Prepared, Renewing,
+    Status, Summary, SummaryView, Trigger,
 };
+use im_core::keys::Offer;
+use im_core::renewal::store::Renewals;
+use im_core::requests::Waiting;
 use im_core::session::{
     ChangeError, Followed, FormInput, Outcome, Session, SessionView, SignedInAs,
 };
+use im_core::{AppInfo, Platform};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
@@ -140,11 +144,14 @@ impl From<String> for AddToIlmError {
 pub struct Ilm<R: Runtime> {
     app: AppHandle<R>,
     session: Arc<Session>,
-    inventory: Arc<Inventory>,
+    pub(crate) inventory: Arc<Inventory>,
     guard: Arc<Guard>,
     settings: Arc<Settings>,
     local: Arc<dyn IdentityStore>,
     notices: Arc<Notices>,
+    /// The switches of automatic renewal and the failed attempts, the same the session writes.
+    renewals: Arc<Renewals>,
+    platform: Platform,
     /// How many checks, or changes that end in a check, are running.
     working: AtomicUsize,
     /// Held from reading the warning days to giving them to the inventory, so days read before a change cannot
@@ -153,6 +160,7 @@ pub struct Ilm<R: Runtime> {
 }
 
 impl<R: Runtime> Ilm<R> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         app: &AppHandle<R>,
         session: Arc<Session>,
@@ -161,6 +169,7 @@ impl<R: Runtime> Ilm<R> {
         settings: Arc<Settings>,
         local: Arc<dyn IdentityStore>,
         notices: Arc<Notices>,
+        renewals: Arc<Renewals>,
     ) -> Self {
         Self {
             app: app.clone(),
@@ -170,6 +179,8 @@ impl<R: Runtime> Ilm<R> {
             settings,
             local,
             notices,
+            renewals,
+            platform: AppInfo::current().platform,
             working: AtomicUsize::new(0),
             configuring: Mutex::new(()),
         }
@@ -177,7 +188,12 @@ impl<R: Runtime> Ilm<R> {
 
     pub(crate) async fn view(&self) -> InventoryView {
         let who = self.session.signed_in_as();
-        let stores_keys = !self.session.key_offers().await.is_empty();
+        let offers = self.session.key_offers().await;
+        let stores_keys = !offers.is_empty();
+        let waiting = self.session.waiting_requests();
+        let renewals = self
+            .inventory
+            .renewal_views(&self.renewing(offers.clone()), &waiting);
         InventoryView::new(
             self.inventory.status(),
             self.inventory.snapshot().as_ref(),
@@ -185,7 +201,25 @@ impl<R: Runtime> Ilm<R> {
             who.as_ref().is_some_and(SignedInAs::lists_certificates),
             can_request(who.as_ref(), stores_keys),
         )
-        .with_requests(&self.session.waiting_requests(), &self.inventory.followed())
+        .with_requests(&waiting, &self.inventory.followed())
+        .with_renewals(renewals)
+    }
+
+    /// What decides about renewal now: the settings, the switches and, of the key types `offers` name, those policy
+    /// lets a new key have.
+    pub(crate) fn renewing(&self, offers: Vec<Offer>) -> Renewing {
+        let (policy, person) = self.settings.layers();
+        Renewing {
+            platform: self.platform,
+            policy,
+            person,
+            offers: self.settings.allowed_offers(offers).0,
+            switches: self.renewals.clone(),
+        }
+    }
+
+    pub(crate) fn renewals(&self) -> &Renewals {
+        &self.renewals
     }
 
     /// The certificate registered in advance that the latest check of ILM found under `uuid`.
@@ -213,7 +247,7 @@ impl<R: Runtime> Ilm<R> {
 
     /// Tells the windows that the inventory changed; what changed is read with `ilm_status`, which refuses while
     /// the application is locked.
-    fn changed(&self) {
+    pub(crate) fn changed(&self) {
         if let Err(error) = self.app.emit(CHANGED, ()) {
             log::warn!("the inventory change could not be sent to the windows: {error}");
         }
@@ -265,16 +299,19 @@ impl<R: Runtime> Ilm<R> {
         );
         if let Some(summary) = summary {
             let current = || self.inventory.summary().as_ref() == Some(&summary);
+            let waiting = self.session.waiting_requests();
+            self.notices
+                .followed(&self.inventory.followed(), current, || {
+                    current() && !self.guard.is_locked()
+                });
+            self.notices.revoking(&waiting, current);
             self.notices.summary(
                 &known_in_ilm(&summary, &self.inventory.matched_fingerprints()),
                 &self.inventory.local_fingerprints(),
                 current,
                 || current() && !self.guard.is_locked(),
             );
-            self.notices
-                .followed(&self.inventory.followed(), current, || {
-                    current() && !self.guard.is_locked()
-                });
+            self.tell_renewals(&waiting, current);
             // Linux has no key storage to issue a prepared certificate with, and no Requests section to decide in.
             if !cfg!(target_os = "linux") {
                 self.notices.prepared(
@@ -296,6 +333,30 @@ impl<R: Runtime> Ilm<R> {
         }
     }
 
+    /// Tells the person what automatic renewal could not do: what needs them and what was refused while signed in,
+    /// and what is due while signed out or locked.
+    fn tell_renewals(&self, waiting: &[Waiting], current: impl Fn() -> bool) {
+        let plan = self.renewing(Vec::new());
+        let (needs, refused, sign_in) =
+            if self.session.signed_in_as().is_some() && !self.guard.is_locked() {
+                (
+                    self.inventory.renewal_needs(&plan, waiting),
+                    self.inventory.renewal_refused(),
+                    Vec::new(),
+                )
+            } else {
+                (
+                    Vec::new(),
+                    Vec::new(),
+                    self.inventory.renewal_sign_in(&plan),
+                )
+            };
+        self.notices
+            .renewals(&needs, &refused, &sign_in, &current, || {
+                current() && !self.guard.is_locked()
+            });
+    }
+
     /// A sign-in ended: what was kept about its certificates and notifications goes.
     pub(crate) fn signed_out(&self) {
         self.inventory.forget();
@@ -303,7 +364,7 @@ impl<R: Runtime> Ilm<R> {
         tray::set_attention(&self.app, false);
     }
 
-    async fn local_certificates(&self) -> Result<Vec<LocalCertificate>, String> {
+    pub(crate) async fn local_certificates(&self) -> Result<Vec<LocalCertificate>, String> {
         let store = self.local.clone();
         let read = tokio::task::spawn_blocking(move || store.certificates())
             .await
@@ -327,13 +388,53 @@ impl<R: Runtime> Ilm<R> {
         let local = self.local_certificates().await?;
         self.inventory.set_local(&local);
         if signed_in {
-            self.working(self.inventory.check_local(&self.session, trigger, &local))
-                .await;
+            self.forget_removed_switches(&local);
+            self.working(async {
+                self.inventory
+                    .check_local(&self.session, trigger, &local)
+                    .await;
+                self.read_installed().await;
+                self.renew_due().await;
+                self.read_installed().await;
+            })
+            .await;
         } else {
             self.publish_summary();
             self.changed();
         }
         Ok(())
+    }
+
+    /// Reads the store again when a follow installed a certificate after it was read, so the summary counts it.
+    async fn read_installed(&self) {
+        if self.inventory.installed_elsewhere()
+            && let Ok(local) = self.local_certificates().await
+        {
+            self.inventory.set_local(&local);
+        }
+    }
+
+    /// Forgets the switches and failed attempts of certificates that are no longer on this computer.
+    fn forget_removed_switches(&self, local: &[LocalCertificate]) {
+        let Some(who) = self.session.signed_in_as() else {
+            return;
+        };
+        let present: Vec<Fingerprint> = local.iter().map(|found| found.fingerprint).collect();
+        if let Err(error) = self.renewals.prune(&who.ilm, &who.username, &present) {
+            log::warn!("the renewal switches cannot be pruned: {error}");
+        }
+    }
+
+    /// Renews the certificates the latest check found due, unless the application is locked.
+    async fn renew_due(&self) {
+        if self.guard.is_locked() {
+            return;
+        }
+        let offers = self.session.key_offers().await;
+        let plan = self.renewing(offers);
+        self.inventory
+            .renew_due(&self.session, &plan, || !self.guard.is_locked())
+            .await;
     }
 
     /// Takes the saved answer of the person who signed in, then checks ILM.
@@ -400,7 +501,7 @@ impl<R: Runtime> Ilm<R> {
     }
 
     /// The inventory, unless the application locked while it was read.
-    async fn locked_view(&self) -> Result<InventoryView, String> {
+    pub(crate) async fn locked_view(&self) -> Result<InventoryView, String> {
         let view = self.view().await;
         self.unlocked()?;
         Ok(view)
@@ -418,7 +519,12 @@ impl<R: Runtime> Ilm<R> {
         self.unlocked()?;
         let summary = self.inventory.summary();
         self.unlocked()?;
-        Ok(summary.as_ref().map(SummaryView::from))
+        let renewals = self
+            .inventory
+            .renewal_views(&self.renewing(Vec::new()), &self.session.waiting_requests());
+        Ok(summary
+            .as_ref()
+            .map(|summary| SummaryView::from(summary).with_renewable(&renewals)))
     }
 
     async fn add_choices(&self) -> Result<AddChoicesView, String> {

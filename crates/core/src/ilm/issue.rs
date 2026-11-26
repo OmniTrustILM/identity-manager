@@ -344,7 +344,10 @@ pub async fn read_state(response: Response) -> Result<IssuedState, StateError> {
                 Some(Related {
                     uuid: related.uuid?,
                     state: State::from_code(&related.state?),
-                    relation: Relation::from_code(&related.relation_type?),
+                    // The detail lists successors without their relation; one it does not name is unknown.
+                    relation: Relation::from_code(
+                        related.relation_type.as_deref().unwrap_or_default(),
+                    ),
                 })
             })
             .collect(),
@@ -726,7 +729,8 @@ mod tests {
                 { "uuid": "c-4", "state": "requested", "relationType": "pending" },
                 { "uuid": "c-5", "state": "issued", "relationType": "replacement" },
                 { "uuid": "c-6", "state": "issued", "relationType": "other" },
-                { "state": "issued", "relationType": "renewal" }
+                { "state": "issued", "relationType": "renewal" },
+                { "uuid": "c-7", "state": "issued" }
             ],
             "sourceCertificateUuid": "c-0"
         })))
@@ -759,6 +763,7 @@ mod tests {
                 ("c-4", State::Requested, Relation::Pending),
                 ("c-5", State::Issued, Relation::Replacement),
                 ("c-6", State::Issued, Relation::Other("other".into())),
+                ("c-7", State::Issued, Relation::Other(String::new())),
             ]
         );
         assert_eq!(found.source_certificate.as_deref(), Some("c-0"));

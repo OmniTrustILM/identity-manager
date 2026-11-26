@@ -51,6 +51,8 @@ export type { FollowView } from './generated/FollowView';
 export type { KeyTypeId } from './generated/KeyTypeId';
 export type { NotInstalledCause } from './generated/NotInstalledCause';
 export type { RequestedView } from './generated/RequestedView';
+export type { RenewalView } from './generated/RenewalView';
+export type { AutomaticRenewal } from './generated/AutomaticRenewal';
 export type { RequestFailure } from './generated/RequestFailure';
 export type { RequestFormsView } from './generated/RequestFormsView';
 export type { RequestOffers } from './generated/RequestOffers';
@@ -264,6 +266,16 @@ export function completeCertificate(
     subject: SubjectPart[],
 ): Promise<RequestedView> {
     return invoke<RequestedView>('complete_certificate', { uuid, forms, storage, keyType, challenge, subject });
+}
+
+/** Renews the certificate with this fingerprint now and returns the renewal to follow; rejects with a `RequestFailure`. */
+export function renewNow(fingerprint: string): Promise<RequestedView> {
+    return invoke<RequestedView>('renew_now', { fingerprint });
+}
+
+/** Switches the automatic renewal of the certificate with this fingerprint on or off. */
+export function setRenewalSwitch(fingerprint: string, on: boolean): Promise<InventoryView> {
+    return invoke<InventoryView>('set_renewal_switch', { fingerprint, on });
 }
 
 /** How the request that made this certificate stands. */

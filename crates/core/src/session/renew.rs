@@ -12,12 +12,12 @@ use x509_parser::prelude::{FromDer, X509Certificate};
 use super::request::{Outcome, SignedIn, Target, may_have_arrived, now_ms, refusal};
 use super::{ChangeError, Credential, RequestError, Session, State as SignIn, lock};
 use crate::identity::Fingerprint;
-use crate::ilm::certificates::State;
+use crate::ilm::certificates::{Relation, State};
 use crate::ilm::issue::{IssueError, StateError, read_issued, read_state, state_request};
 use crate::ilm::renew::{rekey_request, renew_request};
 use crate::install::is_for_key;
 use crate::keys::{KeyId, RequestSubject, rekey_subject, signing_request};
-use crate::renewal::Method;
+use crate::renewal::{Method, RETRY_AFTER};
 use crate::requests::{PendingSwitch, Purpose, Requests, Waiting};
 
 /// The installed certificate to renew, as the application knows it.
@@ -37,6 +37,8 @@ pub(super) struct Old {
     der: Vec<u8>,
     /// Whether ILM lists a successor that is not issued yet.
     successor_pending: bool,
+    /// Whether ILM lists a successor that is issued.
+    successor_issued: bool,
 }
 
 impl Session {
@@ -53,14 +55,43 @@ impl Session {
         let id = self.departing()?.id;
         let requests = self.requests.clone().ok_or(RequestError::NoStore)?;
         let _following = self.following.lock().await;
-        let old = self.read_old(&id, &target).await?;
-        if old.successor_pending {
-            return Err(RequestError::AlreadyRenewing);
-        }
         let who = self
             .current_sign_in()
             .filter(|who| Arc::ptr_eq(&who.id, &id))
             .ok_or(RequestError::SignedOut)?;
+        let (ilm, username) = (who.ilm.clone(), who.username.clone());
+        if automatic && self.failed_recently(&ilm, &username, target.fingerprint) {
+            return Err(RequestError::AlreadyRenewing);
+        }
+        let sent = self
+            .renew_locked(&id, who, &requests, &target, method, automatic)
+            .await;
+        if let Err(error) = &sent
+            && automatic
+            && !matches!(
+                error,
+                RequestError::AlreadyRenewing | RequestError::SignedOut | RequestError::Offline
+            )
+        {
+            self.record_failure(&ilm, &username, target.fingerprint);
+        }
+        sent
+    }
+
+    /// Checks that the certificate may be renewed, then sends the renewal.
+    async fn renew_locked(
+        &self,
+        id: &Arc<()>,
+        who: SignedIn,
+        requests: &Requests,
+        target: &RenewalTarget<'_>,
+        method: Method,
+        automatic: bool,
+    ) -> Result<Waiting, RequestError> {
+        let old = self.read_old(id, target).await?;
+        if old.successor_pending || (automatic && old.successor_issued) {
+            return Err(RequestError::AlreadyRenewing);
+        }
         requests.readable().map_err(|error| {
             log::warn!("the waiting requests cannot be read: {error}");
             RequestError::Store
@@ -72,14 +103,8 @@ impl Session {
         {
             return Err(RequestError::AlreadyRenewing);
         }
-        let (ilm, username) = (who.ilm.clone(), who.username.clone());
-        let sent = self
-            .send_renewal(&id, who, &requests, &old, &target, method, automatic)
-            .await;
-        if sent.is_err() && automatic {
-            self.record_failure(&ilm, &username, target.fingerprint);
-        }
-        sent
+        self.send_renewal(id, who, requests, &old, target, method, automatic)
+            .await
     }
 
     /// The certificate as ILM has it, when ILM and this computer agree that it is the one to renew or revoke.
@@ -113,11 +138,16 @@ impl Session {
                 State::Requested | State::PendingApproval | State::PendingIssue
             )
         });
+        let successor_issued = found
+            .related
+            .iter()
+            .any(|related| related.state == State::Issued && related.relation != Relation::Pending);
         Ok(Old {
             authority,
             ra_profile: profile.uuid,
             der,
             successor_pending,
+            successor_issued,
         })
     }
 
@@ -504,6 +534,23 @@ impl Session {
         {
             self.record_failure(&entry.ilm, &entry.username, replaces_fingerprint);
         }
+    }
+
+    /// Whether an automatic attempt on the certificate failed less than [`RETRY_AFTER`] ago.
+    fn failed_recently(
+        &self,
+        ilm: &crate::ilm::IlmUrl,
+        username: &str,
+        certificate: &Fingerprint,
+    ) -> bool {
+        self.renewals
+            .as_ref()
+            .and_then(|renewals| renewals.last_failure(ilm, username, certificate))
+            .is_some_and(|failed| {
+                SystemTime::now()
+                    .duration_since(failed)
+                    .map_or(true, |ago| ago < RETRY_AFTER)
+            })
     }
 
     fn record_failure(&self, ilm: &crate::ilm::IlmUrl, username: &str, certificate: &Fingerprint) {

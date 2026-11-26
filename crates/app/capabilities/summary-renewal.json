@@ -1,0 +1,11 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "summary-renewal",
+    "description": "The tray summary may renew a certificate now and follow that renewal, and nothing else of the certificates.",
+    "windows": ["summary"],
+    "permissions": [
+        "allow-renew-now",
+        "allow-follow-request",
+        "allow-stop-following-request"
+    ]
+}

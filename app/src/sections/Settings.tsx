@@ -1,6 +1,16 @@
 import { Fragment, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { useAppInfo } from '../app-info';
-import { type Change, connect, getSettings, type LogLevel, type Platform, setSetting, type SettingsView, signOut } from '../bridge';
+import {
+    type AutomaticRenewal,
+    type Change,
+    connect,
+    getSettings,
+    type LogLevel,
+    type Platform,
+    setSetting,
+    type SettingsView,
+    signOut,
+} from '../bridge';
 import { ConnectionIcon, InfoIcon, LockIcon, SettingsIcon } from '../design-system/icons';
 import { LockNote } from '../components/Switch/LockNote';
 import { Select } from '../components/Switch/Select';
@@ -14,6 +24,7 @@ import { Unlock } from './Unlock';
 const logLevels: readonly LogLevel[] = ['error', 'warn', 'info', 'debug'];
 const checkChoices = [5, 15, 30, 60];
 const warnChoices = [7, 14, 30, 60, 90];
+const renewalChoices: readonly AutomaticRenewal[] = ['off', 'newKey', 'sameKey'];
 const idleChoices = [null, 5, 15, 30, 60];
 
 const idleKey = (minutes: number | null) => (minutes === null ? 'never' : String(minutes));
@@ -338,6 +349,22 @@ export function Settings() {
                             />
                         )}
                     />
+                    {platform !== 'linux' && (
+                        <Row
+                            label={strings.automaticRenewal}
+                            locked={view.automaticRenewal.locked}
+                            error={errors.automaticRenewal}
+                            renderControl={(props) => (
+                                <Select
+                                    {...props}
+                                    value={view.automaticRenewal.value}
+                                    options={renewalChoices}
+                                    label={(choice) => strings.automaticRenewalChoices[choice]}
+                                    onChange={(value) => change({ key: 'automaticRenewal', value })}
+                                />
+                            )}
+                        />
+                    )}
                 </Group>
             ),
         },

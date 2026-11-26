@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/experimental-ct-react';
-import { TraySummaryStory } from '../../../playwright/stories';
+import { type Renewing, TraySummaryStory } from '../../../playwright/stories';
 import type { Locator, Page } from '@playwright/test';
 import { keyboardReady } from '../../../playwright/focus';
 import { attentionItems, summary } from '../../../playwright/ilm';
-import type { Platform, SessionView, SummaryView } from '../../bridge';
+import type { AttentionItemView, Platform, SessionView, SummaryView } from '../../bridge';
 
 type Scheme = 'light' | 'dark';
+
+const day = 24 * 60 * 60 * 1000;
 
 const controls: Record<Platform, string> = { macos: '28px', windows: '32px', linux: '34px' };
 const surfaces: Record<Platform, Record<Scheme, string>> = {
@@ -14,7 +16,12 @@ const surfaces: Record<Platform, Record<Scheme, string>> = {
     linux: { light: 'rgb(250, 250, 251)', dark: 'rgb(34, 34, 38)' },
 };
 
-type Story = { session?: SessionView; summary?: SummaryView | null; seen?: (command: string, args?: unknown) => void };
+type Story = {
+    session?: SessionView;
+    summary?: SummaryView | null;
+    seen?: (command: string, args?: unknown) => void;
+    renewing?: Renewing;
+};
 
 async function open(
     page: Page,
@@ -274,4 +281,50 @@ test('locked or signed out it shows no counts and no names', async ({ mount, pag
     await expect(page.getByText('Identity Manager is locked')).toBeVisible();
     await expect(page.getByRole('list')).toHaveCount(0);
     await expect(page.getByText('Build server')).toHaveCount(0);
+});
+
+const renewableItem: AttentionItemView = {
+    kind: 'expiring',
+    fingerprint: 'LO:vpn.example.com',
+    name: 'vpn.example.com',
+    days: 13,
+    on: Date.now() + 13 * day,
+    renewable: true,
+};
+
+test('Renew sits after its item, keeps Open Identity Manager focused, and is reached and pressed by the keyboard', async ({
+    mount,
+    page,
+}) => {
+    const seen: { command: string; args: unknown }[] = [];
+    await open(page, mount, 'windows', 'light', {
+        session: signedIn,
+        summary: summary([renewableItem]),
+        seen: (command, args) => seen.push({ command, args }),
+        renewing: { follow: { state: 'renewed', validUntil: Date.now() + 365 * day } },
+    });
+    const renew = page.getByRole('button', { name: 'Renew vpn.example.com' });
+    await expect(renew).toBeVisible();
+    await keyboardReady(page);
+    await expect(page.getByRole('button', { name: 'Open Identity Manager' })).toBeFocused();
+
+    await page.keyboard.press('Shift+Tab');
+    await expect(renew).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByText('Renewed. The new certificate is installed.')).toBeVisible();
+    await expect.poll(() => seen.map((each) => each.command)).toContain('renew_now');
+    expect(seen.map((each) => each.command)).not.toContain('open_main_window');
+});
+
+test('a refused Renew says why in the tray', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'dark', {
+        session: signedIn,
+        summary: summary([renewableItem]),
+        renewing: { refuse: 'ILM does not allow this.' },
+    });
+
+    await page.getByRole('button', { name: 'Renew vpn.example.com' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('ILM does not allow this.');
 });

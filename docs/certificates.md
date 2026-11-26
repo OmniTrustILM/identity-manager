@@ -185,3 +185,56 @@ After "Issue certificate", the certificate is installed as after a request (see 
 The person's requests that are waiting for approval or being issued are listed with their state and when they were
 requested. A request that ends is no longer listed; its outcome was shown or notified. A request waiting for approval
 cannot be cancelled from Identity Manager, as ILM cannot cancel it.
+
+## Automatic renewal
+
+Identity Manager renews the certificates of this computer that ILM manages, before they expire. It does so while you
+are signed in and Identity Manager is not locked. Nothing is renewed on Linux.
+
+### When it renews
+
+A certificate is renewed when ILM's renewal window for the RA Profile has opened. When the RA Profile has no window,
+it is renewed when it expires within the warning time (see "What the overview counts"), or within half its validity
+when that is shorter. The check runs with every check of ILM. A certificate is not renewed again while ILM has a
+renewal of it waiting or issued. When a renewal fails, the next attempt for that certificate waits at least a day.
+
+A certificate is renewed only when ILM allows you to renew it. ILM needs the permissions `certificates:renew` and
+`certificates:create` for you, and `certificates:revoke` to revoke a certificate. Without the permission to renew,
+the certificate shows no renewal controls, is not renewed, and one notification says so.
+
+### New key or same key
+
+By default each renewal makes a new private key, in the same kind of storage as the old key: the login keychain, the
+Windows key store or the TPM, as your organization's policy allows. The key type is the old one when the storage
+offers it. The new certificate is installed beside the old one.
+
+Renewal with the same key is used when you choose it, and automatically when a new key cannot be made where the old
+one is, for example on a smart card. The key is then not touched. On macOS a smart-card certificate cannot be renewed
+by Identity Manager itself, and a notification says so.
+
+### The settings
+
+- **Settings, General, "Automatic renewal":** Off, New key or Same key. Your organization can fix it with the
+  `AutomaticRenewal` policy key, see [policy.md](policy.md); the row is then locked. With Off from policy, no
+  certificate is renewed automatically.
+- **"Renew automatically"** in the Renewal group of a certificate's details. It is kept on this computer, belongs to
+  that certificate and is carried to the renewed certificate. The details also show when the renewal happens and
+  whether it uses a new key or the same key.
+- **"Renew now"** renews the certificate at once, whatever the switch says. ILM must still allow it.
+
+### After a renewal
+
+- A renewal that needs approval shows in Overview, under "Requests in progress", as "Renewal waiting for approval".
+  Identity Manager installs the certificate once ILM has issued it.
+- When the old certificate was your sign-in certificate, the sign-in moves to the renewed one.
+- The old certificate stays on the computer until it expires. It is shown as "Replaced", needs no attention and
+  causes no expiry notification.
+
+### Notifications
+
+A renewal that works is quiet. A notification is shown, once for each case, when:
+
+- a renewal failed ("Renewal failed", with ILM's reason),
+- a certificate is due while you are signed out or Identity Manager is locked ("Sign in to renew"), or
+- a certificate cannot renew itself, with the reason: ILM does not allow it, it is a smart-card certificate on macOS,
+  or the sign-in could not move to the renewed certificate.

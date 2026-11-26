@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { keyboardReady } from '../../playwright/focus';
 import { ilmCertificate, inventory, summary } from '../../playwright/ilm';
 import { CertificatesStory, UnreachableStory } from '../../playwright/stories';
-import type { LocalCertificateView, Platform } from '../bridge';
+import type { InventoryView, LocalCertificateView, Platform, RenewalView } from '../bridge';
 
 type Scheme = 'light' | 'dark';
 
@@ -365,7 +365,9 @@ const attentionColour: Record<'macos' | 'windows', Record<Scheme, string>> = {
     windows: { light: 'rgb(157, 93, 0)', dark: 'rgb(252, 225, 0)' },
 };
 const soon = certificate('Soon', { notAfter: Date.now() + 12 * day });
-const soonSummary = summary([{ kind: 'expiring', fingerprint: soon.fingerprint, name: 'Soon', days: 12, on: soon.notAfter }]);
+const soonSummary = summary([
+    { kind: 'expiring', fingerprint: soon.fingerprint, name: 'Soon', days: 12, on: soon.notAfter, renewable: false },
+]);
 
 for (const os of ['macos', 'windows'] as const) {
     for (const scheme of ['light', 'dark'] as const) {
@@ -493,4 +495,136 @@ test('the toolbar has no Request certificate without the permission or without p
         requesting: { profiles: [{ uuid: 'ra-1', name: 'User mTLS', description: null, authority: null, authority_uuid: null }] },
     });
     await expect(page.getByRole('button', { name: 'Request certificate' })).toHaveCount(0);
+});
+
+const renewable = certificate('Personal mTLS');
+const renewalView = (over: Partial<RenewalView> = {}): RenewalView => ({
+    renewable: true,
+    automatic: true,
+    locked: false,
+    daysBefore: 30,
+    from: null,
+    newKey: true,
+    replaced: false,
+    replacedOn: null,
+    replacedBy: null,
+    canRevoke: false,
+    waiting: false,
+    ...over,
+});
+const withRenewal = (over: Partial<RenewalView> = {}, extra: Partial<InventoryView> = {}) =>
+    known({ renewals: { [renewable.fingerprint]: renewalView(over) }, ...extra });
+const renewalGroup = (page: Page) => page.getByRole('region', { name: 'Renewal' });
+
+for (const os of ['macos', 'windows'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+        test(`on ${os} in ${scheme} the Renewal group has the switch, the timing, the key and the hint`, async ({ mount, page }) => {
+            await open(page, mount, os, scheme, 1100, [renewable], { inventory: withRenewal() });
+
+            const group = renewalGroup(page);
+            await expect(group.getByRole('heading', { level: 3, name: 'Renewal' })).toBeVisible();
+            await expect(group.getByRole('switch', { name: 'Renew automatically' })).toBeChecked();
+            await expect(group.getByText('30 days before expiry')).toBeVisible();
+            await expect(group.getByText('New key each time')).toBeVisible();
+            await expect(page.getByText('While you are signed in, the app renews this certificate.')).toBeVisible();
+            await expect(page.getByRole('button', { name: 'Renew now' })).toBeVisible();
+        });
+    }
+}
+
+test('the ILM window and the same key are said, and a switch that is off shows off', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', 1100, [renewable], {
+        inventory: withRenewal({ automatic: false, from: Date.now() + 5 * day, newKey: false }),
+    });
+
+    const group = renewalGroup(page);
+    await expect(group.getByRole('switch', { name: 'Renew automatically' })).not.toBeChecked();
+    await expect(group.getByText(/^From /)).toBeVisible();
+    await expect(group.getByText('Same key')).toBeVisible();
+});
+
+test('a switch that policy fixes is disabled and described by the lock note', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'light', 1100, [renewable], { inventory: withRenewal({ automatic: false, locked: true }) });
+
+    const toggle = page.getByRole('switch', { name: 'Renew automatically' });
+    await expect(toggle).toBeDisabled();
+    await expect(toggle).toHaveAccessibleDescription('Managed by your organization');
+});
+
+test('the keyboard alone turns the switch and the shown state follows the answer', async ({ mount, page }) => {
+    const on = withRenewal();
+    await open(page, mount, 'macos', 'light', 1100, [renewable], {
+        inventory: on,
+        renewing: { switched: withRenewal({ automatic: false }) },
+    });
+    await keyboardReady(page);
+    const toggle = page.getByRole('switch', { name: 'Renew automatically' });
+    await toggle.focus();
+    await page.keyboard.press('Space');
+
+    await expect(toggle).not.toBeChecked();
+});
+
+test('Renew now by keyboard shows that the renewal waits for approval and cannot be repeated', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', 1100, [renewable], {
+        inventory: withRenewal(),
+        renewing: { follow: { state: 'waiting', stage: 'pendingApproval' } },
+    });
+    await keyboardReady(page);
+    const renew = page.getByRole('button', { name: 'Renew now' });
+    await renew.focus();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('status').filter({ hasText: 'Renewal waiting for approval' })).toBeVisible();
+    await expect(renew).toBeDisabled();
+});
+
+test('Renew now says that the new certificate is installed', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'dark', 1100, [renewable], {
+        inventory: withRenewal(),
+        renewing: { follow: { state: 'renewed', validUntil: Date.now() + 365 * day } },
+    });
+    await page.getByRole('button', { name: 'Renew now' }).click();
+
+    await expect(page.getByText('Renewed. The new certificate is installed.')).toBeVisible();
+});
+
+test('a refused Renew now is an alert in words', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'light', 1100, [renewable], {
+        inventory: withRenewal(),
+        renewing: { refuse: 'ILM does not allow this.' },
+    });
+    await page.getByRole('button', { name: 'Renew now' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('ILM does not allow this.');
+    await expect(page.getByRole('button', { name: 'Renew now' })).toBeEnabled();
+});
+
+test('a replaced certificate says by what and when, with no switch and no Renew now', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', 1100, [renewable], {
+        inventory: withRenewal({ renewable: false, replaced: true, replacedOn: Date.now() - 3 * day }),
+    });
+
+    await expect(renewalGroup(page).getByText(/^Replaced by renewal on /)).toBeVisible();
+    await expect(page.getByRole('switch')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Renew now' })).toHaveCount(0);
+});
+
+test('Show the new certificate selects the certificate that replaced it', async ({ mount, page }) => {
+    const successor = certificate('Renewed mTLS');
+    await open(page, mount, 'macos', 'light', 1100, [renewable, successor], {
+        inventory: withRenewal({ renewable: false, replaced: true, replacedBy: successor.fingerprint }),
+    });
+    await page.getByRole('option', { name: /Personal mTLS/ }).click();
+    await page.getByRole('button', { name: 'Show the new certificate' }).click();
+
+    await expect(page.getByRole('heading', { level: 2, name: 'Renewed mTLS' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show the new certificate' })).toHaveCount(0);
+});
+
+test('there is no Renewal group without an entry for the certificate', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', 1100, [renewable], { inventory: known({}) });
+
+    await expect(page.getByRole('heading', { level: 3, name: 'Private key' })).toBeVisible();
+    await expect(renewalGroup(page)).toHaveCount(0);
 });

@@ -149,7 +149,7 @@ test('on Windows the state word follows the switch', async ({ mount, page }) => 
     await expect(page.getByText('On', { exact: true })).toBeVisible();
     await page.getByRole('switch', { name: 'Start at login' }).click();
 
-    await expect(page.getByText('Off', { exact: true })).toBeVisible();
+    await expect(page.locator('span[aria-hidden]', { hasText: /^Off$/ })).toBeVisible();
 });
 
 test('a refused change shows its reason under the row and keeps the stored value', async ({ mount, page }) => {
@@ -404,4 +404,35 @@ test('the keyboard alone reaches Warn before expiry after Check ILM every and ch
     await expect(page.getByRole('combobox', { name: 'Warn before expiry' })).toBeFocused();
     await page.getByRole('combobox', { name: 'Warn before expiry' }).selectOption('60');
     await expect(page.getByRole('combobox', { name: 'Warn before expiry' })).toHaveValue('60');
+});
+
+test('Automatic renewal is a select with Off, New key and Same key, reached by the keyboard after Warn before expiry', async ({
+    mount,
+    page,
+}) => {
+    await open(page, mount, 'windows', 'light', { view: unlocked });
+    await keyboardReady(page);
+
+    await page.getByRole('combobox', { name: 'Warn before expiry' }).focus();
+    await page.keyboard.press('Tab');
+    const renewal = page.getByRole('combobox', { name: 'Automatic renewal' });
+    await expect(renewal).toBeFocused();
+    await expect(renewal.locator('option')).toHaveText(['Off', 'New key', 'Same key']);
+    await renewal.selectOption('sameKey');
+    await expect(renewal).toHaveValue('sameKey');
+});
+
+test('Automatic renewal set by the organization is locked and says so', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'dark', { view: { ...unlocked, automaticRenewal: { value: 'off', locked: true } } });
+
+    const renewal = page.getByRole('combobox', { name: 'Automatic renewal' });
+    await expect(renewal).toBeDisabled();
+    await expect(renewal).toHaveValue('off');
+    await expect(renewal).toHaveAccessibleDescription('Managed by your organization');
+});
+
+test('Automatic renewal is not on Linux', async ({ mount, page }) => {
+    await open(page, mount, 'linux', 'light', { view: unlocked });
+
+    await expect(page.getByRole('combobox', { name: 'Automatic renewal' })).toHaveCount(0);
 });

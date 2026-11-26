@@ -9,6 +9,8 @@
         "allow-ilm-certificates",
         "allow-sync-now",
         "allow-make-sign-in-certificate",
+        "allow-renew-now",
+        "allow-set-renewal-switch",
         "allow-add-to-ilm-choices",
         "allow-add-to-ilm"
     ]

@@ -18,7 +18,7 @@ fn local(expires_in_days: u32, location: KeyLocation, key: KeyAlgorithm) -> Loca
         issuer: "Root".to_owned(),
         issuer_name: "CN=Root".to_owned(),
         serial: "01".to_owned(),
-        not_before: now() - DAY,
+        not_before: now() - DAY * 365,
         not_after: now() + DAY * expires_in_days,
         uses: Vec::new(),
         alternative_names: Vec::new(),
@@ -276,12 +276,31 @@ fn a_successor_installed_here_means_replaced_even_when_not_due() {
 }
 
 #[test]
-fn a_successor_not_installed_here_does_not_replace() {
+fn an_issued_successor_not_installed_here_does_not_replace_but_stops_renewing() {
     let installed = HashSet::from(["other".to_owned()]);
     let mut found = detail();
     found.renewal = window(true);
     found.related = vec![related("c-2", State::Issued, Relation::Renewal)];
-    assert_eq!(due(&keychain_ec(5), &found, &facts(&installed)), Due::Yes);
+    assert!(!replaced(&found, &installed));
+    assert_eq!(
+        due(&keychain_ec(5), &found, &facts(&installed)),
+        Due::Skipped(Skip::SuccessorIssued)
+    );
+}
+
+#[test]
+fn a_certificate_shorter_than_the_warning_days_is_due_from_half_its_validity() {
+    let installed = HashSet::new();
+    let facts = facts(&installed);
+    let mut short = keychain_ec(30);
+    short.not_before = now() - DAY * 10;
+    assert_eq!(due(&short, &detail(), &facts), Due::Not);
+    short.not_before = now() - DAY * 30;
+    assert_eq!(due(&short, &detail(), &facts), Due::Yes);
+    short.not_before = now() - DAY * 29;
+    assert_eq!(due(&short, &detail(), &facts), Due::Not);
+    assert_eq!(days_before(&short, facts.warn_days), 29);
+    assert_eq!(days_before(&keychain_ec(30), facts.warn_days), 30);
 }
 
 fn offer(storage: Storage, types: &[KeyType]) -> Offer {
@@ -495,6 +514,7 @@ fn every_skip_has_its_own_code() {
         Skip::Off,
         Skip::Waiting,
         Skip::SuccessorPending,
+        Skip::SuccessorIssued,
         Skip::RecentFailure,
     ];
     let codes: HashSet<&str> = all.iter().map(|skip| skip.code()).collect();

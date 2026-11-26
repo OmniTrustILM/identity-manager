@@ -602,6 +602,130 @@ async fn nothing_is_sent_while_ilm_lists_a_successor_that_is_not_issued() {
 }
 
 #[tokio::test]
+async fn an_automatic_renewal_is_not_sent_when_ilm_lists_an_issued_successor() {
+    let renewing = Renewing::new().await;
+    renewing
+        .serve_old(
+            json!([{ "uuid": "c-9", "state": "issued", "relationType": "renewal" }]),
+            1,
+        )
+        .await;
+    renewing.accepts("rekey").await;
+
+    let refused = renewing.renew(NEW_KEY, true).await;
+
+    assert_eq!(refused, Err(RequestError::AlreadyRenewing));
+    assert!(renewing.bodies("rekey").await.is_empty());
+    assert_eq!(renewing.keys.count(), 0);
+    assert_eq!(renewing.failure(), None);
+}
+
+#[tokio::test]
+async fn a_renewal_of_the_person_is_sent_although_ilm_lists_an_issued_successor() {
+    let renewing = Renewing::new().await;
+    renewing
+        .serve_old(
+            json!([{ "uuid": "c-9", "state": "issued", "relationType": "renewal" }]),
+            1,
+        )
+        .await;
+    renewing.accepts("rekey").await;
+
+    renewing.renew(NEW_KEY, false).await.unwrap();
+
+    assert_eq!(renewing.bodies("rekey").await.len(), 1);
+}
+
+#[tokio::test]
+async fn an_automatic_renewal_waits_when_an_attempt_failed_less_than_a_day_ago() {
+    let renewing = Renewing::new().await;
+    renewing.accepts("rekey").await;
+    renewing
+        .renewals
+        .record_failure(
+            &renewing.ilm(),
+            "jdoe",
+            &renewing.fingerprint,
+            SystemTime::now(),
+        )
+        .unwrap();
+
+    let refused = renewing.renew(NEW_KEY, true).await;
+
+    assert_eq!(refused, Err(RequestError::AlreadyRenewing));
+    assert!(renewing.bodies("rekey").await.is_empty());
+    assert_eq!(renewing.keys.count(), 0);
+}
+
+#[tokio::test]
+async fn a_renewal_of_the_person_is_sent_although_an_attempt_failed_a_moment_ago() {
+    let renewing = Renewing::new().await;
+    renewing.accepts("rekey").await;
+    renewing
+        .renewals
+        .record_failure(
+            &renewing.ilm(),
+            "jdoe",
+            &renewing.fingerprint,
+            SystemTime::now(),
+        )
+        .unwrap();
+
+    renewing.renew(NEW_KEY, false).await.unwrap();
+
+    assert_eq!(renewing.bodies("rekey").await.len(), 1);
+}
+
+#[tokio::test]
+async fn an_automatic_renewal_of_a_certificate_that_cannot_be_renewed_is_noted_as_failed() {
+    let renewing = Renewing::new().await;
+    let other = Fingerprint::of(b"another certificate");
+    let target = RenewalTarget {
+        fingerprint: &other,
+        ..renewing.target()
+    };
+
+    let refused = renewing.world.session.renew(target, NEW_KEY, true).await;
+
+    assert_eq!(refused, Err(RequestError::NotRenewable));
+    assert!(
+        renewing
+            .renewals
+            .last_failure(&renewing.ilm(), "jdoe", &other)
+            .is_some()
+    );
+}
+
+#[tokio::test]
+async fn an_automatic_renewal_refused_for_a_running_renewal_is_not_noted_as_failed() {
+    let renewing = Renewing::new().await;
+    renewing
+        .serve_old(
+            json!([{ "uuid": "c-9", "state": "pending_issue", "relationType": "renewal" }]),
+            1,
+        )
+        .await;
+
+    let refused = renewing.renew(NEW_KEY, true).await;
+
+    assert_eq!(refused, Err(RequestError::AlreadyRenewing));
+    assert_eq!(renewing.failure(), None);
+}
+
+#[tokio::test]
+async fn an_automatic_renewal_that_cannot_read_the_waiting_requests_is_noted_as_failed() {
+    let renewing = Renewing::new().await;
+    renewing.accepts("rekey").await;
+    std::fs::write(renewing.folder.path().join("requests.json"), "not json").unwrap();
+
+    let refused = renewing.renew(NEW_KEY, true).await;
+
+    assert_eq!(refused, Err(RequestError::Store));
+    assert!(renewing.failure().is_some());
+    assert!(renewing.bodies("rekey").await.is_empty());
+}
+
+#[tokio::test]
 async fn a_certificate_that_is_not_the_one_in_ilm_is_not_renewed() {
     let renewing = Renewing::new().await;
     renewing.accepts("rekey").await;

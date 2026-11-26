@@ -861,7 +861,7 @@ test('the expiry text is in the attention colour within the warning days and exp
         null,
         (command) =>
             command === 'overview'
-                ? summaryWith([{ kind: 'expiring', fingerprint: 'FP:soon', name: 'Soon', days: 12, on: at(12) }])
+                ? summaryWith([{ kind: 'expiring', fingerprint: 'FP:soon', name: 'Soon', days: 12, on: at(12), renewable: false }])
                 : undefined,
         [later, soon, gone],
     );

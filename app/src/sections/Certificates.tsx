@@ -22,6 +22,7 @@ import { AddToIlm } from './AddToIlm';
 import { arrowTarget, codeLabel, Field, FingerprintGroup, Group, status, SyncLine, validationTone } from './certificateParts';
 import { IlmCertificates } from './IlmCertificates';
 import { Request } from './Request';
+import { RenewalGroup, showsRenewal } from './RenewalGroup';
 
 /** At most one request this often when the window comes back; the request the first answer needs is not delayed. */
 const refreshEvery = 2000;
@@ -202,6 +203,7 @@ function Detail({
     expiring,
     system,
     apply,
+    onShow,
 }: Readonly<{
     certificate: LocalCertificateView;
     now: number;
@@ -209,10 +211,12 @@ function Detail({
     expiring: boolean;
     system: System;
     apply: (view: InventoryView) => void;
+    onShow: (fingerprint: string) => void;
 }>) {
     const state = status(certificate, now);
     const known = lookedUp(inventory, certificate.fingerprint);
     const match = inventory?.matches[certificate.fingerprint];
+    const renewal = inventory?.renewals[certificate.fingerprint];
     // The dialog stays open while it reports, although the check that follows makes ILM know the certificate.
     const [adding, setAdding] = useState(false);
     const waiting = useIlmWaiting();
@@ -248,6 +252,15 @@ function Detail({
                 <Field label={strings.location}>{detailLocation(certificate)}</Field>
                 <Field label={strings.algorithm}>{algorithm(certificate.key)}</Field>
             </Group>
+            {showsRenewal(renewal) && (
+                <RenewalGroup
+                    key={`renewal:${certificate.fingerprint}`}
+                    fingerprint={certificate.fingerprint}
+                    view={renewal}
+                    apply={apply}
+                    onShow={onShow}
+                />
+            )}
             <Group title={strings.namesGroupTitle}>
                 <Field label={strings.subject}>{certificate.subject}</Field>
                 {certificate.alternativeNames.length > 0 && (
@@ -575,6 +588,7 @@ export function Certificates() {
                                 expiring={expiring.has(items[selected].fingerprint)}
                                 system={system}
                                 apply={apply}
+                                onShow={setChosen}
                             />
                         )}
                     </div>

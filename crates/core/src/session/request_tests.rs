@@ -1369,6 +1369,7 @@ async fn an_issued_certificate_is_installed_with_its_chain_and_the_request_ends_
     assert_eq!(
         Requesting::outcomes(&found),
         [Outcome::Installed(Installed {
+            fingerprint: crate::identity::Fingerprint::of(&leaf),
             storage: Some(Storage::Software),
             not_after: leaf_not_after(&leaf),
         })]

@@ -13,7 +13,11 @@ days: number,
 /**
  * Milliseconds since 1970 (UTC).
  */
-on: number, } | { "kind": "expired", fingerprint: string, name: string, 
+on: number, 
+/**
+ * Whether the person can renew it now; given by `SummaryView::with_renewable`.
+ */
+renewable: boolean, } | { "kind": "expired", fingerprint: string, name: string, 
 /**
  * Milliseconds since 1970 (UTC).
  */

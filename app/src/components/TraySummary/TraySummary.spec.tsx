@@ -33,6 +33,7 @@ let opened: unknown[];
 let root: Root;
 let calls: string[];
 let reports: unknown[];
+let renewing: () => unknown;
 
 beforeEach(async () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -43,6 +44,7 @@ beforeEach(async () => {
     reports = [];
     session = signedIn;
     refusal = undefined;
+    renewing = () => ({ certificate: 'new', label: 'x' });
     summary = null;
     overviews = 0;
     opened = [];
@@ -66,6 +68,12 @@ beforeEach(async () => {
                 opened.push((args as { target?: string }).target);
             }
             calls.push(command);
+            if (command === 'renew_now') {
+                return renewing();
+            }
+            if (command === 'follow_request') {
+                return { state: 'installed', storage: 'keychain', validUntil: checkedAt };
+            }
             if (refusal && (command === 'unlock' || command === 'sign_in_again')) {
                 return Promise.reject(refusal);
             }
@@ -114,6 +122,7 @@ const expiring: AttentionItemView = {
     name: 'vpn.example.com',
     days: 13,
     on: checkedAt + 13 * day,
+    renewable: false,
 };
 const unmatched: AttentionItemView = { kind: 'notInIlm', count: 3 };
 const changeTo = (view: SessionView) => act(async () => emit('session-changed', view));
@@ -467,4 +476,60 @@ test('says nothing about the sign-in while it starts', async () => {
     await changeTo({ state: 'starting' });
 
     expect(container.querySelectorAll('p')).toHaveLength(1);
+});
+
+const renewable: AttentionItemView = { ...expiring, renewable: true };
+const renewButton = () => items().find((item) => item.getAttribute('aria-label') === 'Renew vpn.example.com');
+
+test('a renewable expiring certificate has a Renew button after its row, which keeps Open Identity Manager first', async () => {
+    await shows(stand([renewable]));
+
+    expect(items().map((item) => item.textContent)).toEqual([
+        `vpn.example.com${strings.expiresOnDate(strings.date(renewable.on), 13)}`,
+        strings.renew,
+    ]);
+    expect(renewButton()?.tabIndex).toBe(0);
+    expect(document.activeElement?.textContent).toBe(strings.openApp);
+});
+
+test('Renew renews the certificate and says it is renewed, without opening the main window', async () => {
+    await shows(stand([renewable]));
+
+    await act(async () => renewButton()?.click());
+
+    expect(calls).toContain('renew_now');
+    expect(opened).toEqual([]);
+    expect(container.querySelector('output')?.textContent).toBe(strings.renewalDone);
+    expect(renewButton()).toBeUndefined();
+});
+
+test('a refused Renew says why in the tray and the button stays', async () => {
+    renewing = () => Promise.reject('ILM does not allow this.');
+    await shows(stand([renewable]));
+
+    await act(async () => renewButton()?.click());
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('ILM does not allow this.');
+    expect(renewButton()).toBeDefined();
+});
+
+test('the window is told its new height when a refused Renew adds the reason under the item', async () => {
+    renewing = () => Promise.reject('ILM does not allow this.');
+    await shows(stand([renewable]));
+    const before = reports.length;
+
+    await act(async () => renewButton()?.click());
+
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
+    expect(reports.length).toBeGreaterThan(before);
+});
+
+test('while Renew is sent the button says Renewing and is disabled', async () => {
+    renewing = () => new Promise(() => undefined);
+    await shows(stand([renewable]));
+
+    await act(async () => renewButton()?.click());
+
+    expect(renewButton()?.textContent).toBe(strings.renewing);
+    expect((renewButton() as HTMLButtonElement).disabled).toBe(true);
 });

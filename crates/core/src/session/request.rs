@@ -272,6 +272,8 @@ pub const SWITCH_FAILURES_BEFORE_NOTICE: u8 = 3;
 /// What an installed certificate is: where its key is kept, and until when it is valid.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Installed {
+    /// The fingerprint of the installed certificate.
+    pub fingerprint: Fingerprint,
     /// Where the key is kept; none when the renewal kept the key of the old certificate.
     pub storage: Option<Storage>,
     /// Milliseconds since 1970 UTC.
@@ -1003,7 +1005,11 @@ impl Session {
         {
             log::warn!("request {uuid} could not be removed: {error}");
         }
-        Some(Outcome::Installed(Installed { storage, not_after }))
+        Some(Outcome::Installed(Installed {
+            fingerprint: new,
+            storage,
+            not_after,
+        }))
     }
 
     pub(super) fn remove_entry(&self, requests: &Requests, entry: &Waiting) -> std::io::Result<()> {

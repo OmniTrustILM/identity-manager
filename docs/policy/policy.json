@@ -6,6 +6,7 @@
   "LockAfterIdle": 15,
   "CheckInterval": 30,
   "ExpiryWarningDays": 30,
+  "AutomaticRenewal": "newKey",
   "SignInProvider": "Corporate",
   "SignInMethod": "oauth",
   "KeyStorages": "software,tpm",

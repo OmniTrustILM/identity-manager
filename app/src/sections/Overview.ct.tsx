@@ -248,3 +248,37 @@ for (const scheme of ['light', 'dark'] as const) {
         expect(icon).toBe(accent);
     });
 }
+
+const renewableItem = { ...attentionItems.expiring, renewable: true };
+
+test('an expiring certificate that can be renewed has Renew, reached and pressed by the keyboard', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', {
+        summary: summary([renewableItem]),
+        renewing: { follow: { state: 'waiting', stage: 'pendingApproval' } },
+    });
+    await keyboardReady(page);
+
+    const renew = page.getByRole('button', { name: 'Renew vpn.example.com' });
+    await page.getByRole('button', { name: 'Show vpn.example.com' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(renew).toBeFocused();
+    await expect(renew).toHaveText('Renew');
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('status').filter({ hasText: 'Renewal waiting for approval' })).toBeVisible();
+    await expect(renew).toHaveCount(0);
+});
+
+test('a refused Renew says why next to the certificate', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'dark', { summary: summary([renewableItem]), renewing: { refuse: 'ILM does not allow this.' } });
+
+    await page.getByRole('button', { name: 'Renew vpn.example.com' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('ILM does not allow this.');
+});
+
+test('a certificate that cannot be renewed has no Renew', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light');
+
+    await expect(page.getByRole('button', { name: /^Renew / })).toHaveCount(0);
+});
