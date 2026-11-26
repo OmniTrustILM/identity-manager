@@ -735,13 +735,14 @@ mod tests {
                 "allow-make-sign-in-certificate",
                 "allow-renew-now",
                 "allow-set-renewal-switch",
+                "allow-revoke-certificate",
                 "allow-add-to-ilm-choices",
                 "allow-add-to-ilm"
             ])
         );
     }
 
-    const CERTIFICATE_COMMANDS: [(&str, &str); 9] = [
+    const CERTIFICATE_COMMANDS: [(&str, &str); 10] = [
         ("local_certificates", "{}"),
         ("ilm_status", "{}"),
         ("ilm_certificates", r#"{"page":1,"search":null}"#),
@@ -749,6 +750,10 @@ mod tests {
         ("make_sign_in_certificate", r#"{"fingerprint":"00"}"#),
         ("renew_now", r#"{"fingerprint":"00"}"#),
         ("set_renewal_switch", r#"{"fingerprint":"00","on":true}"#),
+        (
+            "revoke_certificate",
+            r#"{"fingerprint":"00","reason":"unspecified","remove":false}"#,
+        ),
         ("add_to_ilm_choices", "{}"),
         (
             "add_to_ilm",

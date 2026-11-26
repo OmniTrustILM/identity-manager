@@ -33,6 +33,7 @@ use crate::ilm::certificates::search_text;
 use crate::ilm::profile::SignInCertificate;
 use crate::ilm::renew::Reason;
 use crate::install::{RecordingInstaller, Removal};
+use crate::inventory::RevokingStage;
 use crate::keys::testing::InMemoryStorage;
 use crate::keys::{KeyType, Storage};
 use crate::renewal::Method;
@@ -750,6 +751,22 @@ async fn nothing_is_sent_when_the_application_is_locked_and_nothing_is_left_behi
     assert_eq!(renewing.keys.count(), 0, "a key is left");
     assert!(renewing.requests.all().is_empty(), "a request is left");
     assert_eq!(renewing.failure(), None);
+}
+
+#[tokio::test]
+async fn nothing_is_revoked_when_the_application_is_locked_and_nothing_is_left_behind() {
+    let renewing = Renewing::new().await;
+    renewing.takes_the_revocation().await;
+
+    let refused = renewing
+        .world
+        .session
+        .revoke(renewing.target(), Reason::KeyCompromise, true, &|| false)
+        .await;
+
+    assert_eq!(refused, Err(RequestError::Withdrawn));
+    assert!(renewing.bodies("revoke").await.is_empty());
+    assert!(renewing.requests.all().is_empty(), "a revocation is left");
 }
 
 #[tokio::test]
@@ -1595,7 +1612,7 @@ impl Renewing {
     async fn revoke(&self, remove: bool) -> Result<crate::requests::Waiting, RequestError> {
         self.world
             .session
-            .revoke(self.target(), Reason::KeyCompromise, remove)
+            .revoke(self.target(), Reason::KeyCompromise, remove, &|| true)
             .await
     }
 
@@ -1875,7 +1892,10 @@ async fn a_revoked_certificate_with_a_renewal_waiting_is_removed_once_the_renewa
 
     let waiting = renewing.world.session.follow().await;
 
-    assert_eq!(Renewing::outcomes(&waiting), [Outcome::Revoking]);
+    assert_eq!(
+        Renewing::outcomes(&waiting),
+        [Outcome::Revoking(RevokingStage::BeingRevoked)]
+    );
     assert!(renewing.removals().is_empty());
     assert_eq!(renewing.requests.all().len(), 2);
 
@@ -2066,24 +2086,31 @@ async fn a_removal_that_fails_is_tried_again_and_the_entry_stays() {
     assert!(renewing.requests.all().is_empty());
 }
 
-#[tokio::test]
-async fn a_revocation_still_being_made_waits_and_removes_nothing() {
+/// A revocation that ILM holds in `code` waits, and nothing is removed.
+async fn assert_revocation_waits(code: &str, stage: RevokingStage) {
     let renewing = Renewing::new().await;
     renewing.takes_the_revocation().await;
     renewing.revoke(true).await.unwrap();
+    renewing.serves_old_in(code).await;
 
-    for code in ["pending_revoke", "pending_approval"] {
-        renewing.serves_old_in(code).await;
+    let found = renewing.world.session.follow().await;
 
-        let found = renewing.world.session.follow().await;
-
-        assert_eq!(Renewing::outcomes(&found), [Outcome::Revoking], "{code}");
-        assert_eq!(found[0].failed_notice_key(), None);
-        assert_eq!(found[0].revoked_notice_key(), None);
-        assert_eq!(found[0].revoke_failed_notice_key(), None);
-    }
+    assert_eq!(Renewing::outcomes(&found), [Outcome::Revoking(stage)]);
+    assert_eq!(found[0].failed_notice_key(), None);
+    assert_eq!(found[0].revoked_notice_key(), None);
+    assert_eq!(found[0].revoke_failed_notice_key(), None);
     assert!(renewing.removals().is_empty());
     assert_eq!(renewing.requests.all().len(), 1);
+}
+
+#[tokio::test]
+async fn a_revocation_ilm_is_making_waits_as_being_revoked_and_removes_nothing() {
+    assert_revocation_waits("pending_revoke", RevokingStage::BeingRevoked).await;
+}
+
+#[tokio::test]
+async fn a_revocation_waiting_for_approval_waits_as_such_and_removes_nothing() {
+    assert_revocation_waits("pending_approval", RevokingStage::PendingApproval).await;
 }
 
 impl Renewing {
@@ -2104,7 +2131,10 @@ async fn a_certificate_still_issued_just_after_the_send_is_still_being_revoked()
 
     let found = renewing.world.session.follow().await;
 
-    assert_eq!(Renewing::outcomes(&found), [Outcome::Revoking]);
+    assert_eq!(
+        Renewing::outcomes(&found),
+        [Outcome::Revoking(RevokingStage::BeingRevoked)]
+    );
     assert_eq!(found[0].revoke_failed_notice_key(), None);
     assert!(renewing.removals().is_empty());
     assert_eq!(renewing.requests.all().len(), 1);
@@ -2142,7 +2172,7 @@ async fn a_certificate_that_is_not_the_one_in_ilm_is_not_revoked() {
     let refused = renewing
         .world
         .session
-        .revoke(target, Reason::Unspecified, false)
+        .revoke(target, Reason::Unspecified, false, &|| true)
         .await;
 
     assert_eq!(refused, Err(RequestError::NotRevocable));

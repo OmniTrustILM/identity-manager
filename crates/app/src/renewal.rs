@@ -14,14 +14,14 @@ use crate::certificates::{Ilm, ilm};
 use crate::request::{RequestFailure, RequestedView, requested, signed_in, told_by_notification};
 use crate::summary;
 
-const NOT_ALLOWED: &str = "ILM does not allow this.";
+pub(crate) const NOT_ALLOWED: &str = "ILM does not allow this.";
 const NOT_RENEWABLE: &str = "This certificate cannot be renewed.";
-const NOT_HERE: &str = "This certificate is not on this computer.";
+pub(crate) const NOT_HERE: &str = "This certificate is not on this computer.";
 const SMART_CARD: &str = "A certificate with its key on a smart card cannot be renewed here.";
 const NOT_AVAILABLE: &str = "Renewing is not available on this system.";
 const LOCKED_BY_POLICY: &str = "Automatic renewal is managed by your organization.";
 
-fn parse(fingerprint: &str) -> Result<Fingerprint, String> {
+pub(crate) fn parse(fingerprint: &str) -> Result<Fingerprint, String> {
     fingerprint.parse().map_err(|_| NOT_HERE.to_owned())
 }
 

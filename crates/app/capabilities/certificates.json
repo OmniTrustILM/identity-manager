@@ -11,6 +11,7 @@
         "allow-make-sign-in-certificate",
         "allow-renew-now",
         "allow-set-renewal-switch",
+        "allow-revoke-certificate",
         "allow-add-to-ilm-choices",
         "allow-add-to-ilm"
     ]

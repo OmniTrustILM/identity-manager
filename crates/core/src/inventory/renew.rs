@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use super::view::RenewalView;
+use super::view::{RenewalView, RevokingStage};
 use super::{Held, Status, held};
 use crate::app_info::Platform;
 use crate::identity::{Fingerprint, LocalCertificate};
@@ -16,7 +16,7 @@ use crate::keys::{Offer, rekey_subject};
 use crate::renewal::store::Renewals;
 use crate::renewal::{self, Choice, Due, Facts, Method, NeedsYou, Skip};
 use crate::requests::Waiting;
-use crate::session::{RenewalTarget, RequestError, Session};
+use crate::session::{Followed, Outcome, RenewalTarget, RequestError, Session};
 use crate::settings::Layer;
 
 /// What the application knows about renewal that the inventory does not.
@@ -192,6 +192,22 @@ fn judge(
     }
 }
 
+/// The stage of the revocation of `certificate`: as the latest follow found it, which may be newer than the check,
+/// else from the state the check read.
+fn revoking_stage(followed: &[Followed], certificate: &IlmCertificate) -> RevokingStage {
+    followed
+        .iter()
+        .find_map(|found| match found.outcome {
+            Outcome::Revoking(stage)
+                if found.uuid.as_deref() == Some(certificate.uuid.as_str()) =>
+            {
+                Some(stage)
+            }
+            _ => None,
+        })
+        .unwrap_or_else(|| RevokingStage::of(&certificate.state))
+}
+
 /// Whether a request can carry the subject of the certificate as ILM has it; true when ILM gave no content.
 fn subject_reproducible(detail: Option<&IssuedState>) -> bool {
     detail
@@ -346,7 +362,8 @@ impl super::Inventory {
     }
 
     /// What the screens show of the renewal of each certificate, by fingerprint: those ILM lets the person renew,
-    /// revoke, or that a successor has replaced. `waiting` are the requests of the person that wait for ILM.
+    /// revoke, whose revocation waits, or that a successor has replaced. `waiting` are the requests of the person
+    /// that wait for ILM.
     pub fn renewal_views(
         &self,
         plan: &Renewing,
@@ -364,7 +381,11 @@ impl super::Inventory {
                 let renewable =
                     !entry.replaced && renewal::candidate(entry.ilm, entry.allowed).is_ok();
                 let can_revoke = entry.allowed.iter().any(|action| action == "revoke");
-                if !(renewable || entry.replaced || can_revoke) {
+                let revoking = waiting
+                    .iter()
+                    .any(|found| found.revokes() == Some(entry.ilm.uuid.as_str()))
+                    .then(|| revoking_stage(&held.followed, entry.ilm));
+                if !(renewable || entry.replaced || can_revoke || revoking.is_some()) {
                     return None;
                 }
                 let detail = held.details.get(&entry.local.fingerprint);
@@ -415,6 +436,7 @@ impl super::Inventory {
                                     )
                                 })
                             }),
+                        revoking,
                     },
                 ))
             })

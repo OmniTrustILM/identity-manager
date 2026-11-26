@@ -16,18 +16,20 @@ use crate::ilm::certificates::{Relation, State};
 use crate::ilm::issue::{IssueError, StateError, read_state, state_request};
 use crate::ilm::renew::{Reason, read_revoked, revoke_request};
 use crate::install::is_for_key;
+use crate::inventory::RevokingStage;
 use crate::requests::{Purpose, Requests, Waiting};
 
 impl Session {
     /// Asks ILM to revoke the certificate for `reason`. The revocation is written down, then sent; when ILM
     /// refuses it, the written revocation is removed. When ILM may have taken it although its answer did not say
-    /// so, the written revocation stays and a follow tells. `remove` says whether the certificate and its key are
-    /// removed from this computer once ILM has revoked it.
+    /// so, the written revocation stays and a follow tells. Nothing is sent once `proceed` says no. `remove` says
+    /// whether the certificate and its key are removed from this computer once ILM has revoked it.
     pub async fn revoke(
         &self,
         target: RenewalTarget<'_>,
         reason: Reason,
         remove: bool,
+        proceed: &(dyn Fn() -> bool + Sync),
     ) -> Result<Waiting, RequestError> {
         let id = self.departing()?.id;
         let requests = self.requests.clone().ok_or(RequestError::NoStore)?;
@@ -75,7 +77,7 @@ impl Session {
             RequestError::Store
         })?;
         let response = self
-            .call_ilm_as(Some(&id), None, |client, ilm| {
+            .call_ilm_as(Some(&id), Some(proceed), |client, ilm| {
                 revoke_request(
                     client,
                     ilm,
@@ -155,7 +157,7 @@ impl Session {
                         .any(|other| other.renews() == Some(certificate))
                 {
                     log::info!("certificate {certificate} stays while a renewal of it waits");
-                    return Some(Outcome::Revoking);
+                    return Some(Outcome::Revoking(RevokingStage::BeingRevoked));
                 }
                 let successor = found.related.iter().any(|related| {
                     related.relation != Relation::Rekey
@@ -177,12 +179,13 @@ impl Session {
                 Some(Outcome::NotRevoked)
             }
             other => {
+                let stage = RevokingStage::of(&other);
                 let to = other.code().to_owned();
                 let from = lock(&self.seen).insert(certificate.clone(), to.clone());
                 if from.as_deref() != Some(to.as_str()) {
                     log::info!("revocation of {certificate}: {to}");
                 }
-                Some(Outcome::Revoking)
+                Some(Outcome::Revoking(stage))
             }
         }
     }

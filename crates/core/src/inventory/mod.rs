@@ -17,7 +17,7 @@ use view::listed_by;
 pub use view::{
     AddChoicesView, AddResultView, ApprovalView, AttentionItemView, CountsView, IlmCertificateView,
     IlmPageView, IlmRaProfileView, InventoryView, MyRequestView, PreparedView, RegistrationView,
-    RenewalView, SummaryView, WaitingStateView,
+    RenewalView, RevokingStage, SummaryView, WaitingStateView,
 };
 
 use std::collections::{HashMap, HashSet};

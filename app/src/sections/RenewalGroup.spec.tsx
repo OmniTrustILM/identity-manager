@@ -41,6 +41,7 @@ const renewal = (over: Partial<RenewalView> = {}): RenewalView => ({
     replacedBy: null,
     canRevoke: false,
     waiting: false,
+    revoking: null,
     ...over,
 });
 
@@ -300,4 +301,17 @@ test.each([
 
     expect(group()).toBeUndefined();
     expect(renewSwitch()).toBeNull();
+});
+
+test('Revoke… is shown only when ILM allows revoking the certificate', async () => {
+    const revoke = () => [...container.querySelectorAll('button')].find((each) => each.textContent === strings.revoke);
+    await render();
+    expect(revoke()).toBeUndefined();
+
+    current = { ...current, renewals: { 'FP:one': renewal({ canRevoke: true }) } };
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await render();
+
+    expect(revoke()).toBeDefined();
 });

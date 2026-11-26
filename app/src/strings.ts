@@ -1,4 +1,5 @@
 import type { AutomaticRenewal } from './bridge/generated/AutomaticRenewal';
+import type { RevokeReason } from './bridge/generated/RevokeReason';
 import type { AttributeConstraintView } from './bridge/generated/AttributeConstraintView';
 import type { AttributeFieldKind } from './bridge/generated/AttributeFieldKind';
 import type { AttributeProblem } from './bridge/generated/AttributeProblem';
@@ -520,6 +521,28 @@ export const strings = {
     renewalNotInstalled: 'ILM renewed the certificate, but it could not be installed. The app will try again.',
     renewalFailed: 'The certificate could not be renewed.',
     renewalSwitchFailed: 'The switch could not be changed.',
+    revoke: 'Revoke…',
+    revokeConfirm: 'Revoke',
+    revokeQuestion: (name: string) => `Revoke ${name}?`,
+    revokeMessage: 'It stops working everywhere within minutes. This cannot be undone.',
+    revokeReasonLabel: 'Reason',
+    revokeReasons: {
+        cessationOfOperation: 'No longer needed',
+        superseded: 'Replaced',
+        keyCompromise: 'Key compromised',
+        affiliationChanged: 'Affiliation changed',
+        privilegeWithdrawn: 'Privilege withdrawn',
+        unspecified: 'Unspecified',
+    } satisfies Record<RevokeReason, string>,
+    revokeDeleteWithKey: (platform: 'macos' | 'windows') =>
+        `Delete it and its private key from this ${platform === 'macos' ? 'Mac' : 'PC'}`,
+    revokeRemoveFromComputer: 'Remove it from this PC',
+    revoking: 'Revoking…',
+    revokePendingApproval: 'Revocation waiting for approval',
+    revokeDone: 'Revoked.',
+    revokeDoneRemoved: 'Revoked and removed from this computer.',
+    revokeNotRevoked: 'ILM did not revoke it.',
+    revokeFailed: 'The certificate could not be revoked.',
     replacedByRenewal: 'Replaced by renewal',
     showRenewedCertificate: 'Show the new certificate',
     replacedByRenewalOn: (date: string) => `Replaced by renewal on ${date}`,

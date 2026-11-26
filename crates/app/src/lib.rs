@@ -19,6 +19,7 @@ mod mode;
 mod notice;
 mod renewal;
 mod request;
+mod revoke;
 mod self_check;
 mod session;
 mod settings;
@@ -125,6 +126,7 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             certificates::add_to_ilm,
             renewal::renew_now,
             renewal::set_renewal_switch,
+            revoke::revoke_certificate,
             attributes::attribute_callback,
             attributes::check_attributes,
             attributes::close_form,

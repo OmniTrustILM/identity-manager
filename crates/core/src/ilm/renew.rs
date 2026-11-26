@@ -4,7 +4,7 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use reqwest::{Client, RequestBuilder, Response};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use url::Url;
 
@@ -12,7 +12,12 @@ use super::IlmUrl;
 use super::issue::{IssueError, refusal};
 
 /// Why the person revokes a certificate: the reasons a certificate holder can give.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename = "RevokeReason", rename_all = "camelCase")
+)]
 #[serde(rename_all = "camelCase")]
 pub enum Reason {
     Unspecified,
@@ -183,6 +188,29 @@ mod tests {
         ];
         for (reason, code) in codes {
             assert_eq!(serde_json::to_value(reason).unwrap(), json!(code));
+        }
+    }
+
+    #[test]
+    fn only_the_six_reasons_are_accepted() {
+        for code in [
+            "unspecified",
+            "keyCompromise",
+            "affiliationChanged",
+            "superseded",
+            "cessationOfOperation",
+            "privilegeWithdrawn",
+        ] {
+            assert!(
+                serde_json::from_value::<Reason>(json!(code)).is_ok(),
+                "{code}"
+            );
+        }
+        for code in ["certificateHold", "aACompromise"] {
+            assert!(
+                serde_json::from_value::<Reason>(json!(code)).is_err(),
+                "{code}"
+            );
         }
     }
 

@@ -68,3 +68,35 @@ test('while busy the focus stays in the dialog', async () => {
 
     expect(document.activeElement).toBe(dialog());
 });
+
+const renderWith = (destructive?: boolean) =>
+    act(async () =>
+        root.render(
+            <ConfirmDialog
+                title="Revoke it?"
+                confirmLabel="Revoke"
+                destructive={destructive}
+                busy={false}
+                macos
+                onConfirm={vi.fn()}
+                onCancel={vi.fn()}
+            />,
+        ),
+    );
+const confirmButton = () => [...container.querySelectorAll('button')].find((each) => each.textContent === 'Revoke') as HTMLButtonElement;
+
+test('a destructive confirming button is red instead of the accent, its text in the colour of the surface', async () => {
+    await renderWith(true);
+
+    expect(confirmButton().className).toContain('bg-bad');
+    expect(confirmButton().className).toContain('text-surface');
+    expect(confirmButton().className).not.toContain('bg-accent');
+    expect(confirmButton().className).not.toContain('text-on-accent');
+});
+
+test('the confirming button has the accent unless the question is destructive', async () => {
+    await renderWith();
+
+    expect(confirmButton().className).toContain('bg-accent');
+    expect(confirmButton().className).not.toContain('bg-bad');
+});

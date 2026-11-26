@@ -510,6 +510,7 @@ const renewalView = (over: Partial<RenewalView> = {}): RenewalView => ({
     replacedBy: null,
     canRevoke: false,
     waiting: false,
+    revoking: null,
     ...over,
 });
 const withRenewal = (over: Partial<RenewalView> = {}, extra: Partial<InventoryView> = {}) =>
@@ -627,4 +628,75 @@ test('there is no Renewal group without an entry for the certificate', async ({ 
 
     await expect(page.getByRole('heading', { level: 3, name: 'Private key' })).toBeVisible();
     await expect(renewalGroup(page)).toHaveCount(0);
+});
+
+const revocable = (over: Partial<LocalCertificateView> = {}) => certificate('Personal mTLS', over);
+const withRevoke = (cert: LocalCertificateView) => known({ renewals: { [cert.fingerprint]: renewalView({ canRevoke: true }) } });
+
+for (const [name, os, cert, checkbox] of [
+    ['a keychain certificate', 'macos', revocable(), 'Delete it and its private key from this Mac'],
+    ['a smart-card certificate', 'windows', revocable({ location: 'smartCard', cardName: 'YubiKey 5 NFC' }), 'Remove it from this PC'],
+] as const) {
+    test(`the keyboard reaches the Revoke question over ${name} and Escape cancels it`, async ({ mount, page }) => {
+        await open(page, mount, os, 'light', 1100, [cert], { inventory: withRevoke(cert) });
+        await keyboardReady(page);
+
+        const revoke = page.getByRole('button', { name: 'Revoke…' });
+        await revoke.focus();
+        await page.keyboard.press('Enter');
+
+        const dialog = page.getByRole('dialog', { name: 'Revoke Personal mTLS?' });
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByRole('button', { name: 'Revoke', exact: true })).toBeFocused();
+        const reason = dialog.getByRole('combobox', { name: 'Reason' });
+        await expect(reason).toHaveValue('cessationOfOperation');
+        const remove = dialog.getByRole('checkbox', { name: checkbox });
+        await expect(remove).not.toBeChecked();
+
+        await reason.focus();
+        await page.keyboard.press('Tab');
+        await expect(remove).toBeFocused();
+        await page.keyboard.press('Space');
+        await expect(remove).toBeChecked();
+
+        await page.keyboard.press('Escape');
+        await expect(dialog).toHaveCount(0);
+        await expect(revoke).toBeFocused();
+    });
+}
+
+test('a refused revocation is an alert in the question, which stays open', async ({ mount, page }) => {
+    const cert = revocable();
+    await open(page, mount, 'windows', 'dark', 1100, [cert], {
+        inventory: withRevoke(cert),
+        renewing: { refuse: 'ILM does not allow this.' },
+    });
+    await page.getByRole('button', { name: 'Revoke…' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Revoke Personal mTLS?' });
+    await dialog.getByRole('button', { name: 'Revoke', exact: true }).click();
+
+    await expect(dialog.getByRole('alert')).toHaveText('ILM does not allow this.');
+});
+
+test('a revocation that ILM took is followed under the button', async ({ mount, page }) => {
+    const cert = revocable();
+    await open(page, mount, 'macos', 'light', 1100, [cert], { inventory: withRevoke(cert), renewing: { follow: { state: 'revoked' } } });
+    await page.getByRole('button', { name: 'Revoke…' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Revoke', exact: true }).click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: 'Revoked.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Revoke…' })).toBeDisabled();
+});
+
+test('a revocation waiting for approval is told from the view, with Revoke… off', async ({ mount, page }) => {
+    const cert = revocable();
+    await open(page, mount, 'macos', 'light', 1100, [cert], {
+        inventory: known({
+            renewals: { [cert.fingerprint]: renewalView({ renewable: false, canRevoke: false, revoking: 'pendingApproval' }) },
+        }),
+    });
+
+    await expect(page.getByRole('status').filter({ hasText: 'Revocation waiting for approval' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Revoke…' })).toBeDisabled();
 });
