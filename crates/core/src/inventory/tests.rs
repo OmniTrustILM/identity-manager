@@ -218,6 +218,64 @@ async fn a_check_keeps_the_matches_the_first_page_and_the_allowed_actions() {
     assert_eq!(setup.requests("POST", ALLOWED).await.len(), 1);
 }
 
+/// Answers the detail of `uuid` as an issued certificate with the successors `related`.
+async fn serves_detail(setup: &Setup, uuid: &str, related: Value) {
+    setup
+        .mock("GET", &format!("/api/v1/certificates/{uuid}"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "state": "issued",
+            "relatedCertificates": related,
+        })))
+        .mount(&setup.world.ilm)
+        .await;
+}
+
+#[tokio::test]
+async fn a_certificate_with_an_issued_successor_installed_here_is_replaced() {
+    let setup = Setup::new().await;
+    let old = certificate("u-1", &print(1), true);
+    let new = certificate("u-2", &print(2), true);
+    let other = certificate("u-3", &print(3), true);
+    setup
+        .ilm_answers(vec![old, new.clone(), other], vec![new])
+        .await;
+    serves_detail(
+        &setup,
+        "u-1",
+        json!([{ "uuid": "u-2", "state": "issued", "relationType": "renewal" }]),
+    )
+    .await;
+    serves_detail(
+        &setup,
+        "u-2",
+        json!([{ "uuid": "u-9", "state": "issued", "relationType": "renewal" }]),
+    )
+    .await;
+    serves_detail(
+        &setup,
+        "u-3",
+        json!([{ "uuid": "u-2", "state": "pending_issue", "relationType": "renewal" }]),
+    )
+    .await;
+
+    setup.check(&[print(1), print(2), print(3)]).await;
+
+    let snapshot = setup.inventory.snapshot().unwrap();
+    assert_eq!(snapshot.replaced, [print(1)].into());
+}
+
+#[tokio::test]
+async fn a_detail_ilm_does_not_give_leaves_a_certificate_unreplaced() {
+    let setup = Setup::new().await;
+    let old = certificate("u-1", &print(1), true);
+    setup.ilm_answers(vec![old.clone()], vec![old]).await;
+
+    let status = setup.check(&[print(1)]).await;
+
+    assert!(matches!(status, Status::Fresh { .. }));
+    assert!(setup.inventory.snapshot().unwrap().replaced.is_empty());
+}
+
 #[tokio::test]
 async fn nothing_is_matched_without_local_certificates() {
     let setup = Setup::new().await;
@@ -823,6 +881,7 @@ async fn the_cache_is_written_after_a_check_and_holds_only_metadata() {
             "listed",
             "matches",
             "prepared",
+            "replaced",
             "signIn",
             "username",
             "version"
@@ -947,6 +1006,7 @@ fn empty_snapshot() -> Snapshot {
         allowed: HashMap::new(),
         prepared: Vec::new(),
         approvals: Vec::new(),
+        replaced: Default::default(),
     }
 }
 

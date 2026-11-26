@@ -1101,12 +1101,13 @@ mod tests {
             uuid: Some(uuid.to_owned()),
             label: label.to_owned(),
             outcome,
+            replaces: None,
         }
     }
 
     fn installed() -> Outcome {
         Outcome::Installed(Installed {
-            storage: Storage::Software,
+            storage: Some(Storage::Software),
             not_after: DEC_3,
         })
     }
@@ -1207,6 +1208,7 @@ mod tests {
             uuid: None,
             label: "x".to_owned(),
             outcome: Outcome::Ended(EndReason::NotSent),
+            replaces: None,
         };
 
         notices.followed(

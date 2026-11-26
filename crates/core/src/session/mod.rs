@@ -9,9 +9,13 @@ mod attributes_tests;
 mod certificate;
 #[cfg(test)]
 mod certificate_tests;
+mod renew;
+#[cfg(test)]
+mod renew_tests;
 mod request;
 #[cfg(test)]
 mod request_tests;
+mod revoke;
 #[cfg(test)]
 mod sign_in_certificate_tests;
 mod store;
@@ -39,6 +43,7 @@ use crate::oauth::client::{ClientId, client_identity};
 use crate::oauth::loopback::{AuthorizationRequest, FLOW_TIMEOUT, wait_for_code};
 use crate::oauth::metadata::{MetadataError, ProviderMetadata, provider_metadata};
 use crate::oauth::token::{TokenError, Tokens, exchange, refresh, revoke};
+use crate::renewal::store::Renewals;
 use crate::requests::Requests;
 use crate::settings::SignInMethod;
 use crate::token::AccessToken;
@@ -46,6 +51,7 @@ pub use add_to_ilm::{AddChoices, AddOutcome, AddResult, FormInput};
 pub use attributes::FormError;
 pub use certificate::ChangeError;
 use certificate::certificate_choice;
+pub use renew::RenewalTarget;
 pub use request::{
     Completion, EndReason, Followed, Installed, Outcome, RequestError, RequestForms, RequestInput,
 };
@@ -392,6 +398,8 @@ pub struct Session {
     installer: Arc<dyn CertificateInstaller>,
     /// The requests waiting for ILM; none until the application gives the folder that holds them.
     requests: Option<Arc<Requests>>,
+    /// The switches of automatic renewal and the failed attempts; none until the application gives the folder.
+    renewals: Option<Arc<Renewals>>,
     /// Held for a whole follow of the waiting requests, so two follows do not end the same request.
     following: tokio::sync::Mutex<()>,
     /// The last state of each followed certificate, to log only its changes.
@@ -473,6 +481,7 @@ impl Session {
             keys: Arc::new(NoKeyStorage),
             installer: Arc::new(NoInstaller),
             requests: None,
+            renewals: None,
             following: tokio::sync::Mutex::new(()),
             seen: Mutex::default(),
         }
@@ -539,6 +548,13 @@ impl Session {
     #[must_use]
     pub fn with_requests(mut self, requests: Arc<Requests>) -> Self {
         self.requests = Some(requests);
+        self
+    }
+
+    /// The switches of automatic renewal; by default none are kept.
+    #[must_use]
+    pub fn with_renewals(mut self, renewals: Arc<Renewals>) -> Self {
+        self.renewals = Some(renewals);
         self
     }
 

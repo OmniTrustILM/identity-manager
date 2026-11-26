@@ -244,3 +244,27 @@ async fn the_matched_fingerprints_are_the_local_certificates_ilm_knows_and_none_
     assert_eq!(matched, expected);
     assert_eq!(setup.inventory.local_fingerprints().len(), 3);
 }
+
+#[tokio::test]
+async fn a_replaced_certificate_is_left_out_of_the_attention() {
+    let setup = Setup::new().await;
+    let old = certificate("u-1", &print(1), true);
+    let new = certificate("u-2", &print(2), true);
+    setup.ilm_answers(vec![old, new.clone()], vec![new]).await;
+    serves_detail(
+        &setup,
+        "u-1",
+        json!([{ "uuid": "u-2", "state": "issued", "relationType": "rekey" }]),
+    )
+    .await;
+    let here = [local("old", 1, in_days(3)), local("new", 2, in_days(300))];
+
+    setup
+        .inventory
+        .check_local(&setup.world.session, Trigger::Start, &here)
+        .await;
+
+    let summary = setup.inventory.summary().unwrap();
+    assert!(summary.attention.is_empty(), "{:?}", summary.attention);
+    assert!(!summary.needs_attention());
+}

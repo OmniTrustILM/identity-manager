@@ -15,6 +15,7 @@ use super::add_to_ilm::sendable;
 use super::attributes::Form;
 use super::{CallError, ChangeError, FormError, FormInput, Session, State as SignIn, lock};
 use crate::attributes::{Definitions, FieldProblem, FormContext, FormView, Values, request};
+use crate::identity::Fingerprint;
 use crate::ilm::IlmUrl;
 use crate::ilm::certificates::State;
 use crate::ilm::issue::{
@@ -29,12 +30,14 @@ use crate::keys::{
     KeyError, KeyId, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable,
     registered_subject, signing_request, subject,
 };
-use crate::requests::{Requests, Waiting};
+use crate::requests::{Purpose, Requests, Waiting};
 
 const DAY_MS: i64 = 86_400_000;
 /// How long ILM may take to attach a request to a certificate registered in advance that it was just given one
 /// for.
 const SETTLING_MS: i64 = 5 * 60_000;
+/// How long ILM may take to start a revocation it has accepted.
+pub(super) const REVOKE_SETTLING_MS: i64 = 10 * 60_000;
 const NOT_ALLOWED: &str = "ILM does not allow this.";
 
 /// The forms of one request for a certificate.
@@ -91,6 +94,14 @@ pub enum RequestError {
     Store,
     /// ILM registered another subject for the certificate than the one the person reviewed.
     SubjectChanged,
+    /// The certificate cannot be renewed: ILM does not know it as this one, or it has no RA Profile.
+    NotRenewable,
+    /// A renewal of the certificate is under way already.
+    AlreadyRenewing,
+    /// The certificate cannot be revoked: ILM does not know it as this one, or it has no RA Profile.
+    NotRevocable,
+    /// A revocation of the certificate is under way already.
+    AlreadyRevoking,
 }
 
 impl fmt::Display for RequestError {
@@ -125,6 +136,10 @@ impl fmt::Display for RequestError {
             Self::SubjectChanged => {
                 f.write_str("Your administrator changed this certificate in ILM. Open it again.")
             }
+            Self::NotRenewable => f.write_str("This certificate cannot be renewed."),
+            Self::AlreadyRenewing => f.write_str("This certificate is being renewed already."),
+            Self::NotRevocable => f.write_str("This certificate cannot be revoked."),
+            Self::AlreadyRevoking => f.write_str("This certificate is being revoked already."),
         }
     }
 }
@@ -235,12 +250,30 @@ pub enum Outcome {
     Mismatch,
     /// The installation failed; the request stays, and the next follow tries again.
     InstallFailed,
+    /// A renewed certificate is installed but the sign-in has not moved over to it; each follow tries again.
+    SwitchPending {
+        failures: u8,
+    },
+    /// The sign-in has moved over to the renewed certificate that an earlier follow installed.
+    SignInMoved,
+    /// ILM has not finished revoking the certificate, or waits for an approval.
+    Revoking,
+    /// ILM revoked the certificate, and it is removed from this computer when that was asked.
+    Revoked {
+        fingerprint: Fingerprint,
+    },
+    /// The certificate is issued again after the revocation was sent: ILM did not revoke it.
+    NotRevoked,
 }
+
+/// How many failures to move the sign-in over make the person's help needed.
+pub const SWITCH_FAILURES_BEFORE_NOTICE: u8 = 3;
 
 /// What an installed certificate is: where its key is kept, and until when it is valid.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Installed {
-    pub storage: Storage,
+    /// Where the key is kept; none when the renewal kept the key of the old certificate.
+    pub storage: Option<Storage>,
     /// Milliseconds since 1970 UTC.
     pub not_after: i64,
 }
@@ -251,6 +284,53 @@ pub struct Followed {
     pub uuid: Option<String>,
     pub label: String,
     pub outcome: Outcome,
+    /// The installed certificate a renewal replaces.
+    pub replaces: Option<Fingerprint>,
+}
+
+impl Followed {
+    /// The key of the notice that a renewal failed, when this renewal did: it ended without a certificate or the
+    /// certificate cannot be installed. The notice is cleared when a later renewal of the certificate succeeds.
+    pub fn failed_notice_key(&self) -> Option<String> {
+        let failed = matches!(
+            self.outcome,
+            Outcome::Ended(_) | Outcome::Mismatch | Outcome::InstallFailed
+        );
+        self.replaces
+            .filter(|_| failed)
+            .map(|old| format!("renewal:failed:{old}"))
+    }
+
+    /// The key of the notice that a renewal cannot renew itself, when the sign-in could not move over to its
+    /// certificate often enough.
+    pub fn needs_notice_key(&self) -> Option<String> {
+        let stuck = matches!(
+            self.outcome,
+            Outcome::SwitchPending { failures } if failures >= SWITCH_FAILURES_BEFORE_NOTICE
+        );
+        self.replaces
+            .filter(|_| stuck)
+            .map(|old| format!("renewal:needs:{old}"))
+    }
+}
+
+impl Followed {
+    /// The key of the notice that a revocation failed, when it did.
+    pub fn revoke_failed_notice_key(&self) -> Option<String> {
+        match (&self.outcome, &self.uuid) {
+            (Outcome::NotRevoked, Some(uuid)) => Some(format!("revoke:failed:{uuid}")),
+            _ => None,
+        }
+    }
+
+    /// The key of the notice that a certificate was revoked in ILM, when this follow saw a revocation made here: the
+    /// person asked for it, so the notice is not needed.
+    pub fn revoked_notice_key(&self) -> Option<String> {
+        match &self.outcome {
+            Outcome::Revoked { fingerprint } => Some(format!("certificate:revoked:{fingerprint}")),
+            _ => None,
+        }
+    }
 }
 
 /// What a request or a completion asks of ILM.
@@ -272,7 +352,7 @@ struct Attributes {
     custom: Vec<Value>,
 }
 
-fn now_ms() -> i64 {
+pub(super) fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_millis() as i64)
@@ -605,10 +685,11 @@ impl Session {
             uuid: order.registered.map(|(uuid, _)| uuid.to_owned()),
             ra_profile: order.ra_profile.uuid.clone(),
             authority: order.authority.to_owned(),
-            key: key_id.clone(),
+            key: Some(key_id.clone()),
             label,
             since: now_ms(),
             prepared: order.registered.is_some(),
+            purpose: Purpose::Issue,
         };
         requests.add(entry.clone()).map_err(|error| {
             log::warn!("the request cannot be written down: {error}");
@@ -671,8 +752,23 @@ impl Session {
         self.forget(requests, key, "a request that failed").await;
     }
 
+    /// Deletes the key of `entry`, if it has one, and then its written request; a request without a key is only
+    /// removed.
+    async fn forget_entry(&self, requests: &Requests, entry: &Waiting, what: &str) -> bool {
+        match (&entry.key, entry.renews()) {
+            (Some(key), _) => self.forget(requests, key, what).await,
+            (None, Some(replaces)) => {
+                if let Err(error) = requests.remove_renewal(replaces) {
+                    log::warn!("{what} could not be removed: {error}");
+                }
+                true
+            }
+            (None, None) => true,
+        }
+    }
+
     /// Deletes `key`, and the written request of it only when the key is gone. Whether it is, is the answer.
-    async fn forget(&self, requests: &Requests, key: &KeyId, what: &str) -> bool {
+    pub(super) async fn forget(&self, requests: &Requests, key: &KeyId, what: &str) -> bool {
         let id = key.clone();
         if let Err(error) = self.in_keys(move |keys| keys.delete(&id)).await {
             log::warn!("the key of {what} could not be deleted: {error}");
@@ -685,7 +781,7 @@ impl Session {
     }
 
     /// Who is signed in, and the sign-in they are, read together.
-    fn current_sign_in(&self) -> Option<SignedIn> {
+    pub(super) fn current_sign_in(&self) -> Option<SignedIn> {
         match &*lock(&self.state) {
             SignIn::SignedIn(active) => Some(SignedIn {
                 ilm: active.ilm.clone(),
@@ -726,8 +822,14 @@ impl Session {
         requests.save_pending();
         let mut found = Vec::new();
         for entry in requests.of(&who.ilm, &who.username) {
-            if let Some(outcome) = self.follow_one(&who.id, &requests, &entry).await {
+            let followed = if matches!(entry.purpose, Purpose::Revoke { .. }) {
+                self.follow_revocation(&who.id, &requests, &entry).await
+            } else {
+                self.follow_one(&who.id, &requests, &entry).await
+            };
+            if let Some(outcome) = followed {
                 found.push(Followed {
+                    replaces: entry.replaces_fingerprint(),
                     uuid: entry.uuid,
                     label: entry.label,
                     outcome,
@@ -743,6 +845,9 @@ impl Session {
         requests: &Requests,
         entry: &Waiting,
     ) -> Option<Outcome> {
+        if let Some(pending) = entry.pending_switch() {
+            return Some(self.retry_switch(id, requests, entry, pending).await);
+        }
         let age = now_ms() - entry.since;
         let Some(uuid) = entry.uuid.as_deref() else {
             return if age >= DAY_MS {
@@ -812,12 +917,13 @@ impl Session {
     ) -> Option<Outcome> {
         let uuid = entry.uuid.as_deref().unwrap_or("not sent");
         if !self
-            .forget(requests, &entry.key, &format!("request {uuid}"))
+            .forget_entry(requests, entry, &format!("request {uuid}"))
             .await
         {
             return None;
         }
         log::info!("request {uuid} ended: {}", reason.text());
+        self.note_failed_attempt(entry);
         if let Some(uuid) = &entry.uuid {
             lock(&self.seen).remove(uuid);
         }
@@ -840,61 +946,90 @@ impl Session {
             .await
             .ok()?;
         let chain = read_chain(response).await.ok()?;
-        let key_id = entry.key.clone();
-        let opened = self.in_keys(move |keys| keys.open(&key_id)).await;
-        let key = match opened {
-            Ok(Some(key)) => key,
-            Ok(None) => return self.end(requests, entry, EndReason::KeyGone).await,
-            Err(error) => {
-                log::warn!("the key of request {uuid} cannot be opened: {error}");
-                return None;
-            }
-        };
         let Ok((_, parsed)) = X509Certificate::from_der(&leaf) else {
             log::warn!("the certificate of request {uuid} cannot be read");
             return None;
         };
         let not_after = parsed.validity().not_after.timestamp() * 1000;
-        if !is_for_key(&leaf, key.public_key()) {
-            log::warn!("the certificate {uuid} is not for the key of its request");
-            return Some(Outcome::Mismatch);
-        }
+        let target = match &entry.key {
+            Some(key_id) => {
+                let key_id = key_id.clone();
+                let opened = self.in_keys(move |keys| keys.open(&key_id)).await;
+                let key = match opened {
+                    Ok(Some(key)) => key,
+                    Ok(None) => return self.end(requests, entry, EndReason::KeyGone).await,
+                    Err(error) => {
+                        log::warn!("the key of request {uuid} cannot be opened: {error}");
+                        return None;
+                    }
+                };
+                if !is_for_key(&leaf, key.public_key()) {
+                    log::warn!("the certificate {uuid} is not for the key of its request");
+                    return Some(Outcome::Mismatch);
+                }
+                Target::Key(entry.key.clone()?)
+            }
+            None => match self.beside_target(id, entry, &leaf).await {
+                Ok(target) => target,
+                Err(outcome) => return outcome,
+            },
+        };
         let chain = intermediates(chain);
         let count = chain.len();
         let installer = self.installer.clone();
-        let key_id = entry.key.clone();
-        let installed =
-            tokio::task::spawn_blocking(move || installer.install(&key_id, &leaf, &chain))
-                .await
-                .expect("the installer task does not panic");
+        let installed_leaf = leaf.clone();
+        let installed = tokio::task::spawn_blocking(move || match &target {
+            Target::Key(key_id) => installer.install(key_id, &installed_leaf, &chain),
+            Target::Beside(old) => installer.install_beside(old, &installed_leaf, &chain),
+        })
+        .await
+        .expect("the installer task does not panic");
         if let Err(error) = installed {
             log::warn!("the certificate {uuid} could not be installed: {error}");
             return Some(Outcome::InstallFailed);
         }
-        log::info!(
-            "certificate installed: {uuid}, {:?}, {count} intermediates",
-            entry.key.storage
-        );
+        let storage = entry.key.as_ref().map(|key| key.storage);
+        let place = storage.map_or_else(|| "same key".to_owned(), |storage| format!("{storage:?}"));
+        log::info!("certificate installed: {uuid}, {place}, {count} intermediates");
         lock(&self.seen).remove(uuid);
-        if let Err(error) = requests.remove(&entry.key) {
+        let new = Fingerprint::of(&leaf);
+        self.renewed(entry, &new);
+        if self.move_over(id, requests, entry, new, 0).await.is_ok()
+            && let Err(error) = self.remove_entry(requests, entry)
+        {
             log::warn!("request {uuid} could not be removed: {error}");
         }
-        Some(Outcome::Installed(Installed {
-            storage: entry.key.storage,
-            not_after,
-        }))
+        Some(Outcome::Installed(Installed { storage, not_after }))
+    }
+
+    pub(super) fn remove_entry(&self, requests: &Requests, entry: &Waiting) -> std::io::Result<()> {
+        match (&entry.key, entry.renews()) {
+            (Some(key), _) => requests.remove(key),
+            (None, Some(replaces)) => requests.remove_renewal(replaces),
+            (None, None) => entry.revokes().map_or(Ok(()), |certificate| {
+                requests.remove_revocation(certificate)
+            }),
+        }
     }
 }
 
+/// Where an issued certificate is installed.
+pub(super) enum Target {
+    /// With the key of the request.
+    Key(KeyId),
+    /// Beside the installed certificate, whose key it shares.
+    Beside(Fingerprint),
+}
+
 /// Who is signed in, with the sign-in they are.
-struct SignedIn {
-    ilm: IlmUrl,
-    username: String,
-    id: Arc<()>,
+pub(super) struct SignedIn {
+    pub(super) ilm: IlmUrl,
+    pub(super) username: String,
+    pub(super) id: Arc<()>,
 }
 
 /// Whether ILM may have taken a request although its answer did not say so.
-fn may_have_arrived(error: &RequestError) -> bool {
+pub(super) fn may_have_arrived(error: &RequestError) -> bool {
     matches!(
         error,
         RequestError::Offline | RequestError::Unexpected(_) | RequestError::Malformed
@@ -902,7 +1037,7 @@ fn may_have_arrived(error: &RequestError) -> bool {
 }
 
 /// The status behind a refusal, for the log; never ILM's text.
-fn refusal(error: &IssueError) -> String {
+pub(super) fn refusal(error: &IssueError) -> String {
     match error {
         IssueError::Refused(_) => "refused".to_owned(),
         IssueError::NotAllowed => "403".to_owned(),

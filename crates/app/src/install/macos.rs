@@ -2,6 +2,7 @@
 //! application label is the hash of the certificate's public key, which makes the identity. No trust setting is
 //! touched.
 
+use im_core::identity::Fingerprint;
 use im_core::install::{CertificateInstaller, InstallError};
 use im_core::keys::KeyId;
 use security_framework::certificate::SecCertificate;
@@ -41,6 +42,14 @@ impl CertificateInstaller for Keychain {
                 "the keychain did not pair the certificate with the key",
             ))
         }
+    }
+
+    fn install_beside(&self, _: &Fingerprint, _: &[u8], _: &[Vec<u8>]) -> Result<(), InstallError> {
+        Err(not_supported("install beside"))
+    }
+
+    fn remove(&self, _: &Fingerprint, _: bool) -> Result<(), InstallError> {
+        Err(not_supported("remove"))
     }
 }
 
@@ -82,6 +91,10 @@ fn has_identity(label: &[u8], leaf: &[u8]) -> Result<bool, InstallError> {
         }
         _ => false,
     }))
+}
+
+fn not_supported(operation: &str) -> InstallError {
+    failed(operation, "not supported yet")
 }
 
 fn failed(operation: &str, reason: &str) -> InstallError {

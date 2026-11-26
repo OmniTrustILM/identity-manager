@@ -33,7 +33,9 @@ use crate::ilm::IlmUrl;
 use crate::ilm::actions::{self, MAX_UUIDS, Outcome};
 use crate::ilm::approvals::{DecideError, Decision, decide_request, read_decision};
 use crate::ilm::certificates::{self, CertificatePage, IlmCertificate, MATCH_LIMIT, Search, State};
+use crate::ilm::issue::{StateError, read_state, state_request};
 use crate::ilm::profile::{IlmError, SignInCertificate, profile_request, read_profile};
+use crate::renewal;
 use crate::requests::Waiting;
 use crate::session::{CallError, Followed, Outcome as FollowOutcome, Session, SignedInAs};
 use crate::settings::WarnDays;
@@ -88,6 +90,9 @@ pub struct Snapshot {
     /// The requests for certificates that wait for the person's approval; empty when ILM has none or could not say.
     #[serde(default)]
     pub approvals: Vec<Approval>,
+    /// The certificates on this computer that a successor installed here has replaced.
+    #[serde(default)]
+    pub replaced: HashSet<Fingerprint>,
 }
 
 /// How far the snapshot can be trusted.
@@ -727,6 +732,7 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
         allowed: HashMap::new(),
         prepared: Vec::new(),
         approvals: Vec::new(),
+        replaced: Default::default(),
     };
     snapshot.approvals = approvals::read(session, &person.uuid).await?;
     let mut unique = Vec::new();
@@ -807,11 +813,43 @@ async fn collect(session: &Session, local: &[Fingerprint]) -> Result<Found, Fail
         }
     };
     snapshot.prepared = prepared::read(session, &who.username).await?;
+    snapshot.replaced = replaced(session, &snapshot.matches).await?;
     Ok(Found {
         snapshot,
         local: unique.len(),
         actions,
     })
+}
+
+/// The matched certificates that an issued successor installed here has replaced. A certificate whose
+/// successors ILM does not tell counts as not replaced.
+async fn replaced(
+    session: &Session,
+    matches: &HashMap<Fingerprint, IlmCertificate>,
+) -> Result<HashSet<Fingerprint>, Failure> {
+    let installed: HashSet<String> = matches
+        .values()
+        .map(|certificate| certificate.uuid.clone())
+        .collect();
+    let mut found = HashSet::new();
+    for (fingerprint, certificate) in matches {
+        if certificate.state != State::Issued || certificate.archived {
+            continue;
+        }
+        let response = send(session, |client, ilm| {
+            state_request(client, ilm, &certificate.uuid)
+        })
+        .await?;
+        match read_state(response).await {
+            Ok(detail) if renewal::replaced(&detail, &installed) => {
+                found.insert(*fingerprint);
+            }
+            Ok(_) => {}
+            Err(StateError::Failed(IlmError::Unauthorized)) => return Err(Failure::SignedOut),
+            Err(error) => log::debug!("the successors of a certificate are not known: {error}"),
+        }
+    }
+    Ok(found)
 }
 
 /// Fills `allowed` for `uuids` and tells how ILM answered. Nothing is kept unless ILM answers every chunk.

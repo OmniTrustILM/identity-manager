@@ -172,6 +172,34 @@ impl<'de> Deserialize<'de> for WarnDays {
     }
 }
 
+/// Whether certificates renew themselves, and with which key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub enum AutomaticRenewal {
+    Off,
+    /// A new key for each renewal.
+    #[default]
+    NewKey,
+    /// The key the certificate already has.
+    SameKey,
+}
+
+impl AutomaticRenewal {
+    pub fn parse(text: &str) -> Option<Self> {
+        match text.trim() {
+            "off" => Some(Self::Off),
+            "newKey" => Some(Self::NewKey),
+            "sameKey" => Some(Self::SameKey),
+            _ => None,
+        }
+    }
+}
+
 /// The certificate last used to sign in, with the ILM address it signed in to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RememberedCertificate {
@@ -189,6 +217,7 @@ pub struct Layer {
     pub lock_after_idle: Option<IdleMinutes>,
     pub check_every: Option<CheckMinutes>,
     pub warn_days: Option<WarnDays>,
+    pub automatic_renewal: Option<AutomaticRenewal>,
     /// Which sign-in provider to use; only policy sets it.
     pub sign_in_provider: Option<String>,
     /// Which way of signing in is allowed; only policy sets it.
@@ -260,6 +289,7 @@ pub struct SettingsView {
     pub check_every: Entry<u16>,
     /// Days before expiry from which a certificate counts as expiring.
     pub warn_days: Entry<u16>,
+    pub automatic_renewal: Entry<AutomaticRenewal>,
     /// What the system can do; the settings do not know it, so `view` says unsupported until the application
     /// reads the system.
     pub unlock: Unlock,
@@ -283,6 +313,7 @@ pub enum Change {
     ),
     CheckEvery(#[cfg_attr(any(test, feature = "ts"), ts(as = "u16"))] CheckMinutes),
     WarnDays(#[cfg_attr(any(test, feature = "ts"), ts(as = "u16"))] WarnDays),
+    AutomaticRenewal(AutomaticRenewal),
 }
 
 /// A change to a setting that policy fixes.
@@ -375,6 +406,19 @@ pub fn warn_days(policy: &Layer, person: &Layer) -> WarnDays {
     warn_days_of(policy, person).0
 }
 
+fn automatic_renewal_of(policy: &Layer, person: &Layer) -> (AutomaticRenewal, Source) {
+    resolve(
+        policy.automatic_renewal,
+        person.automatic_renewal,
+        AutomaticRenewal::default(),
+    )
+}
+
+/// Whether and how certificates renew themselves, policy over the person's choice over the default.
+pub fn automatic_renewal(policy: &Layer, person: &Layer) -> AutomaticRenewal {
+    automatic_renewal_of(policy, person).0
+}
+
 /// The offers policy allows, in their order, and the storage to preselect: the policy default when
 /// it is allowed, else the first allowed one.
 pub fn allowed_offers(offers: Vec<Offer>, policy: &Layer) -> (Vec<Offer>, Option<Storage>) {
@@ -416,6 +460,7 @@ pub fn view(policy: &Layer, person: &Layer) -> SettingsView {
             let (days, source) = warn_days_of(policy, person);
             (days.get(), source)
         }),
+        automatic_renewal: entry(automatic_renewal_of(policy, person)),
         unlock: Unlock::Unsupported,
     }
 }
@@ -475,6 +520,13 @@ pub fn apply(change: Change, policy: &Layer, person: &mut Layer) -> Result<(), L
             }
             log::info!("the expiry warning is now {} days", value.get());
             person.warn_days = Some(value);
+        }
+        Change::AutomaticRenewal(value) => {
+            if policy.automatic_renewal.is_some() {
+                return Err(Locked("Automatic renewal"));
+            }
+            log::info!("automatic renewal is now {value:?}");
+            person.automatic_renewal = Some(value);
         }
     }
     Ok(())
@@ -1112,6 +1164,7 @@ mod tests {
                 "lockAfterIdle": { "value": null, "locked": false },
                 "checkEvery": { "value": 15, "locked": false },
                 "warnDays": { "value": 30, "locked": false },
+                "automaticRenewal": { "value": "newKey", "locked": false },
                 "unlock": "unsupported",
             })
         );
@@ -1178,6 +1231,86 @@ mod tests {
         assert!(
             serde_json::from_value::<Change>(json!({ "key": "logLevel", "value": "loud" }))
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn automatic_renewal_defaults_to_a_new_key_and_follows_person_then_policy() {
+        let none = Layer::default();
+        assert_eq!(automatic_renewal(&none, &none), AutomaticRenewal::NewKey);
+        let person = Layer {
+            automatic_renewal: Some(AutomaticRenewal::SameKey),
+            ..Layer::default()
+        };
+        let by_person = view(&none, &person);
+        assert_eq!(
+            by_person.automatic_renewal,
+            Entry {
+                value: AutomaticRenewal::SameKey,
+                locked: false
+            }
+        );
+        let policy = Layer {
+            automatic_renewal: Some(AutomaticRenewal::Off),
+            ..Layer::default()
+        };
+        let by_policy = view(&policy, &person);
+        assert_eq!(
+            by_policy.automatic_renewal,
+            Entry {
+                value: AutomaticRenewal::Off,
+                locked: true
+            }
+        );
+    }
+
+    #[test]
+    fn a_locked_automatic_renewal_is_refused_and_an_unlocked_one_stored() {
+        let mut person = Layer::default();
+        apply(
+            Change::AutomaticRenewal(AutomaticRenewal::SameKey),
+            &Layer::default(),
+            &mut person,
+        )
+        .unwrap();
+        assert_eq!(person.automatic_renewal, Some(AutomaticRenewal::SameKey));
+        let policy = Layer {
+            automatic_renewal: Some(AutomaticRenewal::Off),
+            ..Layer::default()
+        };
+        let refused = apply(
+            Change::AutomaticRenewal(AutomaticRenewal::NewKey),
+            &policy,
+            &mut person,
+        )
+        .unwrap_err();
+        assert_eq!(
+            refused.to_string(),
+            "Automatic renewal is managed by your organization."
+        );
+    }
+
+    #[test]
+    fn automatic_renewal_reads_its_three_names_only() {
+        for (text, expected) in [
+            ("off", Some(AutomaticRenewal::Off)),
+            ("newKey", Some(AutomaticRenewal::NewKey)),
+            (" sameKey ", Some(AutomaticRenewal::SameKey)),
+            ("newkey", None),
+            ("on", None),
+            ("", None),
+        ] {
+            assert_eq!(AutomaticRenewal::parse(text), expected, "{text:?}");
+        }
+        let change: Change =
+            serde_json::from_value(json!({ "key": "automaticRenewal", "value": "sameKey" }))
+                .unwrap();
+        assert_eq!(change, Change::AutomaticRenewal(AutomaticRenewal::SameKey));
+        assert!(
+            serde_json::from_value::<Change>(
+                json!({ "key": "automaticRenewal", "value": "always" })
+            )
+            .is_err()
         );
     }
 }

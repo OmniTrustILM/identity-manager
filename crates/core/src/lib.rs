@@ -11,6 +11,7 @@ pub mod keys;
 pub mod lock;
 pub mod oauth;
 pub mod policy;
+pub mod renewal;
 pub mod requests;
 pub mod session;
 pub mod settings;

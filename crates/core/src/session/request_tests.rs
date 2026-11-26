@@ -33,7 +33,7 @@ use crate::keys::testing::InMemoryStorage;
 use crate::keys::{
     KeyError, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable, signing_request,
 };
-use crate::requests::{Requests, Waiting};
+use crate::requests::{Purpose, Requests, Waiting};
 use crate::session::{Completion, FormInput};
 
 const REQUEST_ATTRIBUTES: &str = "/api/v1/certificates/csr/attributes";
@@ -315,10 +315,11 @@ impl Requesting {
             uuid: uuid.map(str::to_owned),
             ra_profile: "ra-1".into(),
             authority: "auth-1".into(),
-            key: key.id().clone(),
+            key: Some(key.id().clone()),
             label: "seeded".into(),
             since,
             prepared,
+            purpose: Purpose::Issue,
         };
         self.requests.add(entry.clone()).unwrap();
         entry
@@ -326,7 +327,11 @@ impl Requesting {
 
     /// A certificate and its chain for the key of `entry`, served as what ILM issued for `uuid`.
     async fn serve_issued(&self, uuid: &str, entry: &Waiting) -> (Vec<u8>, Vec<u8>) {
-        let key = self.keys.open(&entry.key).unwrap().unwrap();
+        let key = self
+            .keys
+            .open(entry.key.as_ref().unwrap())
+            .unwrap()
+            .unwrap();
         let subject = RequestSubject {
             names: vec![(NameType::CommonName, "web".into())],
             alternative_names: Vec::new(),
@@ -529,7 +534,13 @@ async fn the_request_goes_to_ilm_with_the_subject_of_the_form_and_the_attributes
     assert_eq!(waiting.username, "jdoe");
     assert_eq!(requesting.requests.all(), std::slice::from_ref(&waiting));
     assert_eq!(requesting.keys.count(), 1);
-    assert!(requesting.keys.open(&waiting.key).unwrap().is_some());
+    assert!(
+        requesting
+            .keys
+            .open(waiting.key.as_ref().unwrap())
+            .unwrap()
+            .is_some()
+    );
 }
 
 #[tokio::test]
@@ -1190,13 +1201,14 @@ async fn a_request_of_someone_else_for_the_same_certificate_does_not_stop_a_comp
         uuid: Some("c-9".to_owned()),
         ra_profile: "ra-1".to_owned(),
         authority: "a-1".to_owned(),
-        key: crate::keys::KeyId {
+        key: Some(crate::keys::KeyId {
             storage: Storage::Software,
             name: "k-other".to_owned(),
-        },
+        }),
         label: "theirs".to_owned(),
         since: 1,
         prepared: true,
+        purpose: Purpose::Issue,
     };
     requesting.requests.add(earlier).unwrap();
 
@@ -1357,7 +1369,7 @@ async fn an_issued_certificate_is_installed_with_its_chain_and_the_request_ends_
     assert_eq!(
         Requesting::outcomes(&found),
         [Outcome::Installed(Installed {
-            storage: Storage::Software,
+            storage: Some(Storage::Software),
             not_after: leaf_not_after(&leaf),
         })]
     );
@@ -1366,7 +1378,7 @@ async fn an_issued_certificate_is_installed_with_its_chain_and_the_request_ends_
     assert_eq!(
         requesting.installer.calls(),
         [Installation {
-            key: entry.key.clone(),
+            key: entry.key.clone().unwrap(),
             leaf,
             intermediates: 1
         }]
@@ -1404,7 +1416,7 @@ async fn a_certificate_of_another_key_is_a_mismatch_and_nothing_is_installed_or_
             .installer
             .calls()
             .iter()
-            .all(|call| call.key != entry.key)
+            .all(|call| Some(&call.key) != entry.key.as_ref())
     );
     assert!(
         requesting
@@ -1413,7 +1425,13 @@ async fn a_certificate_of_another_key_is_a_mismatch_and_nothing_is_installed_or_
             .iter()
             .any(|kept| kept.key == entry.key)
     );
-    assert!(requesting.keys.open(&entry.key).unwrap().is_some());
+    assert!(
+        requesting
+            .keys
+            .open(entry.key.as_ref().unwrap())
+            .unwrap()
+            .is_some()
+    );
 }
 
 #[tokio::test]
@@ -1439,7 +1457,7 @@ async fn an_issued_certificate_whose_key_is_gone_ends_the_request() {
     let requesting = Requesting::new().await;
     let entry = requesting.seed(Some("c-1"), false, now());
     requesting.serve_issued("c-1", &entry).await;
-    requesting.keys.delete(&entry.key).unwrap();
+    requesting.keys.delete(entry.key.as_ref().unwrap()).unwrap();
 
     let found = requesting.follow().await;
 
@@ -1455,7 +1473,11 @@ async fn an_issued_certificate_whose_key_is_gone_ends_the_request() {
 async fn a_chain_that_cannot_be_read_leaves_everything_as_it_is() {
     let requesting = Requesting::new().await;
     let entry = requesting.seed(Some("c-1"), false, now());
-    let key = requesting.keys.open(&entry.key).unwrap().unwrap();
+    let key = requesting
+        .keys
+        .open(entry.key.as_ref().unwrap())
+        .unwrap()
+        .unwrap();
     let csr = signing_request(key.as_ref(), &RequestSubject::default()).unwrap();
     let (leaf, _, _) = issued_for(&csr);
     requesting
@@ -1788,7 +1810,7 @@ async fn only_the_requests_of_the_person_signed_in_at_this_ilm_are_followed() {
         .unwrap();
     let other_person = Waiting {
         username: "someone-else".into(),
-        key: key.id().clone(),
+        key: Some(key.id().clone()),
         uuid: Some("c-2".into()),
         ..mine.clone()
     };
@@ -1798,7 +1820,7 @@ async fn only_the_requests_of_the_person_signed_in_at_this_ilm_are_followed() {
         .unwrap();
     let other_ilm = Waiting {
         ilm: IlmUrl::parse("other.example.com").unwrap(),
-        key: key.id().clone(),
+        key: Some(key.id().clone()),
         uuid: Some("c-3".into()),
         ..mine.clone()
     };
@@ -1910,10 +1932,11 @@ async fn a_request_that_has_no_installer_keeps_waiting_to_be_installed() {
             uuid: Some("c-1".into()),
             ra_profile: "ra-1".into(),
             authority: "auth-1".into(),
-            key: key.id().clone(),
+            key: Some(key.id().clone()),
             label: "x".into(),
             since: now(),
             prepared: false,
+            purpose: Purpose::Issue,
         })
         .unwrap();
     for (route, body) in [

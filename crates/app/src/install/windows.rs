@@ -4,6 +4,7 @@
 
 use std::ptr::null_mut;
 
+use im_core::identity::Fingerprint;
 use im_core::install::{CertificateInstaller, InstallError};
 use im_core::keys::{KeyId, Storage};
 use windows::Win32::Foundation::CRYPT_E_NOT_FOUND;
@@ -68,6 +69,14 @@ impl CertificateInstaller for PersonalStore {
         stored.reach_key()?;
         log::info!("certificate installed: {:?}", key.storage);
         Ok(())
+    }
+
+    fn install_beside(&self, _: &Fingerprint, _: &[u8], _: &[Vec<u8>]) -> Result<(), InstallError> {
+        Err(failed_with("install beside", "not supported yet"))
+    }
+
+    fn remove(&self, _: &Fingerprint, _: bool) -> Result<(), InstallError> {
+        Err(failed_with("remove", "not supported yet"))
     }
 }
 

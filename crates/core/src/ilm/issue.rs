@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::IlmUrl;
-use super::certificates::{RegistrationState, State, millis};
+use super::certificates::{
+    RaProfile, RegistrationState, Related, Relation, RenewalInfo, State, millis,
+};
 use super::profile::{IlmError, read_rejection};
 
 /// What goes to ILM with a request for a certificate: the signed request (DER) and the attributes as request
@@ -113,6 +115,14 @@ pub struct IssuedState {
     pub request_attached: bool,
     /// The registration of a certificate registered in advance; none when ILM does not say.
     pub registration: Option<Registration>,
+    /// When ILM wants the certificate renewed; none without a renewal window.
+    pub renewal: Option<RenewalInfo>,
+    /// The certificates ILM made from this one or is making.
+    pub related: Vec<Related>,
+    /// The certificate this one renews or replaces.
+    pub source_certificate: Option<String>,
+    /// The RA Profile the certificate belongs to, with its authority.
+    pub ra_profile: Option<RaProfile>,
 }
 
 #[derive(Deserialize)]
@@ -132,6 +142,36 @@ struct RawState {
     subject_alternative_names: Option<BTreeMap<String, Vec<String>>>,
     certificate_request: Option<Value>,
     registration: Option<RawRegistration>,
+    renewal_info: Option<RawRenewalInfo>,
+    #[serde(default)]
+    related_certificates: Vec<RawRelated>,
+    source_certificate_uuid: Option<String>,
+    ra_profile: Option<RawRaProfile>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawRenewalInfo {
+    window_start: Option<Value>,
+    window_end: Option<Value>,
+    #[serde(default)]
+    due: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawRelated {
+    uuid: Option<String>,
+    state: Option<String>,
+    relation_type: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawRaProfile {
+    uuid: Option<String>,
+    name: Option<String>,
+    authority_instance_uuid: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -220,14 +260,22 @@ pub async fn read_issued(response: Response) -> Result<String, IssueError> {
             }
             Ok(issued.uuid)
         }
-        StatusCode::UNAUTHORIZED => Err(IssueError::Failed(IlmError::Unauthorized)),
-        StatusCode::FORBIDDEN => Err(IssueError::NotAllowed),
+        _ => Err(refusal(response).await),
+    }
+}
+
+/// What ILM's answer says when it did not take a request that creates or changes a certificate.
+pub(super) async fn refusal(response: Response) -> IssueError {
+    let status = response.status();
+    match status {
+        StatusCode::UNAUTHORIZED => IssueError::Failed(IlmError::Unauthorized),
+        StatusCode::FORBIDDEN => IssueError::NotAllowed,
         StatusCode::BAD_REQUEST | StatusCode::NOT_FOUND | StatusCode::UNPROCESSABLE_ENTITY => {
-            Err(IssueError::Refused(read_rejection(response).await))
+            IssueError::Refused(read_rejection(response).await)
         }
         _ => {
-            log::warn!("ILM answered the issue request with {status}");
-            Err(IssueError::Failed(IlmError::Unexpected(status.as_u16())))
+            log::warn!("ILM answered the request with {status}");
+            IssueError::Failed(IlmError::Unexpected(status.as_u16()))
         }
     }
 }
@@ -282,6 +330,30 @@ pub async fn read_state(response: Response) -> Result<IssuedState, StateError> {
             Some(Registration {
                 state: RegistrationState::from_code(&registration.state?),
                 expires_at: registration.expires_at.as_ref().and_then(millis),
+            })
+        }),
+        renewal: raw.renewal_info.map(|info| RenewalInfo {
+            window_start: info.window_start.as_ref().and_then(millis),
+            window_end: info.window_end.as_ref().and_then(millis),
+            due: info.due,
+        }),
+        related: raw
+            .related_certificates
+            .into_iter()
+            .filter_map(|related| {
+                Some(Related {
+                    uuid: related.uuid?,
+                    state: State::from_code(&related.state?),
+                    relation: Relation::from_code(&related.relation_type?),
+                })
+            })
+            .collect(),
+        source_certificate: raw.source_certificate_uuid.filter(|uuid| !uuid.is_empty()),
+        ra_profile: raw.ra_profile.and_then(|profile| {
+            Some(RaProfile {
+                uuid: profile.uuid?,
+                name: profile.name?,
+                authority_uuid: profile.authority_instance_uuid,
             })
         }),
     })
@@ -635,6 +707,89 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(none.registration, None);
+    }
+
+    #[tokio::test]
+    async fn the_renewal_details_are_read() {
+        let found = state(ResponseTemplate::new(200).set_body_json(json!({
+            "state": "issued",
+            "raProfile": { "uuid": "r-1", "name": "Servers", "authorityInstanceUuid": "a-1" },
+            "renewalInfo": {
+                "windowStart": "2026-01-01T00:00:00Z",
+                "windowEnd": 1798761600000i64,
+                "due": true,
+                "source": "policy"
+            },
+            "relatedCertificates": [
+                { "uuid": "c-2", "state": "pending_issue", "relationType": "renewal" },
+                { "uuid": "c-3", "state": "issued", "relationType": "rekey" },
+                { "uuid": "c-4", "state": "requested", "relationType": "pending" },
+                { "uuid": "c-5", "state": "issued", "relationType": "replacement" },
+                { "uuid": "c-6", "state": "issued", "relationType": "other" },
+                { "state": "issued", "relationType": "renewal" }
+            ],
+            "sourceCertificateUuid": "c-0"
+        })))
+        .await
+        .unwrap();
+        assert_eq!(
+            found.renewal,
+            Some(RenewalInfo {
+                window_start: Some(1_767_225_600_000),
+                window_end: Some(1_798_761_600_000),
+                due: true
+            })
+        );
+        let related: Vec<_> = found
+            .related
+            .iter()
+            .map(|related| {
+                (
+                    related.uuid.as_str(),
+                    related.state.clone(),
+                    related.relation.clone(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            related,
+            [
+                ("c-2", State::PendingIssue, Relation::Renewal),
+                ("c-3", State::Issued, Relation::Rekey),
+                ("c-4", State::Requested, Relation::Pending),
+                ("c-5", State::Issued, Relation::Replacement),
+                ("c-6", State::Issued, Relation::Other("other".into())),
+            ]
+        );
+        assert_eq!(found.source_certificate.as_deref(), Some("c-0"));
+        let profile = found.ra_profile.unwrap();
+        assert_eq!(profile.uuid, "r-1");
+        assert_eq!(profile.authority_uuid.as_deref(), Some("a-1"));
+    }
+
+    #[tokio::test]
+    async fn a_detail_without_renewal_details_still_reads() {
+        let found = state(ResponseTemplate::new(200).set_body_json(json!({ "state": "issued" })))
+            .await
+            .unwrap();
+        assert_eq!(found.renewal, None);
+        assert!(found.related.is_empty());
+        assert_eq!(found.source_certificate, None);
+        assert_eq!(found.ra_profile, None);
+        let due_only = state(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({ "state": "issued", "renewalInfo": {} })),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            due_only.renewal,
+            Some(RenewalInfo {
+                window_start: None,
+                window_end: None,
+                due: false
+            })
+        );
     }
 
     #[tokio::test]

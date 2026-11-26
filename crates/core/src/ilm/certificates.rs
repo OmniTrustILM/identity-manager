@@ -97,6 +97,34 @@ ilm_enum!(
     }
 );
 
+ilm_enum!(
+    /// How a certificate relates to the one it was made from.
+    Relation {
+        Pending => "pending",
+        Renewal => "renewal",
+        Rekey => "rekey",
+        Replacement => "replacement",
+    }
+);
+
+/// When ILM wants a certificate renewed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenewalInfo {
+    /// Milliseconds since the Unix epoch.
+    pub window_start: Option<i64>,
+    /// Milliseconds since the Unix epoch.
+    pub window_end: Option<i64>,
+    pub due: bool,
+}
+
+/// A certificate made from another one, as the other one lists it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Related {
+    pub uuid: String,
+    pub state: State,
+    pub relation: Relation,
+}
+
 /// The RA Profile that manages a certificate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RaProfile {

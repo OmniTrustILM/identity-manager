@@ -305,7 +305,7 @@ impl InventoryView {
         }
     }
 
-    /// Lists the requests `waiting` of the person, each waiting for approval when the latest `followed` check found
+    /// Lists the requests `waiting` of the person, leaving out revocations, each waiting for approval when the latest `followed` check found
     /// it so, else being issued; a request that ends leaves `waiting`. A certificate one of them completes is not
     /// offered as prepared any more.
     #[must_use]
@@ -314,6 +314,7 @@ impl InventoryView {
             .retain(|found| !is_begun(&found.uuid, waiting));
         self.requests = waiting
             .iter()
+            .filter(|entry| !matches!(entry.purpose, crate::requests::Purpose::Revoke { .. }))
             .map(|entry| {
                 let approval = followed.iter().any(|found| {
                     found.uuid.is_some()
@@ -613,6 +614,7 @@ mod tests {
             allowed: HashMap::from([("u-1".to_owned(), vec!["renew".to_owned()])]),
             prepared: Vec::new(),
             approvals: Vec::new(),
+            replaced: Default::default(),
         }
     }
 
@@ -742,13 +744,14 @@ mod tests {
             uuid: uuid.map(str::to_owned),
             ra_profile: "ra-1".to_owned(),
             authority: "a-1".to_owned(),
-            key: KeyId {
+            key: Some(KeyId {
                 storage: Storage::Software,
                 name: key.to_owned(),
-            },
+            }),
             label: format!("label of {key}"),
             since,
             prepared: false,
+            purpose: crate::requests::Purpose::Issue,
         }
     }
 
@@ -757,6 +760,7 @@ mod tests {
             uuid: Some(uuid.to_owned()),
             label: "x".to_owned(),
             outcome,
+            replaces: None,
         }
     }
 
@@ -875,5 +879,22 @@ mod tests {
                 { "uuid": null, "label": "label of k-6", "since": 60, "state": "beingIssued" }
             ])
         );
+    }
+
+    #[test]
+    fn a_revocation_is_not_listed_as_a_request() {
+        let mut revoking = waiting(Some("c-1"), "k-1", 10);
+        revoking.key = None;
+        revoking.purpose = crate::requests::Purpose::Revoke {
+            certificate: "c-1".to_owned(),
+            fingerprint: crate::identity::Fingerprint::of(&[1]),
+            remove: false,
+        };
+
+        let view = InventoryView::new(Status::Never, None, false, true, true)
+            .with_requests(&[revoking, waiting(Some("c-2"), "k-2", 20)], &[]);
+
+        assert_eq!(view.requests.len(), 1);
+        assert_eq!(view.requests[0].uuid.as_deref(), Some("c-2"));
     }
 }

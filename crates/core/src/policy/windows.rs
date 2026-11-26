@@ -1,8 +1,8 @@
 //! The Windows source: the values of a registry key.
 
 use super::{
-    CHECK_INTERVAL, DEFAULT_KEY_STORAGE, EXPIRY_WARNING_DAYS, ILM_URL, KEY_STORAGES,
-    LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUIRE_UNLOCK, RawMap, SIGN_IN_METHOD,
+    AUTOMATIC_RENEWAL, CHECK_INTERVAL, DEFAULT_KEY_STORAGE, EXPIRY_WARNING_DAYS, ILM_URL,
+    KEY_STORAGES, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUIRE_UNLOCK, RawMap, SIGN_IN_METHOD,
     SIGN_IN_PROVIDER, START_AT_LOGIN,
 };
 #[cfg(windows)]
@@ -102,6 +102,7 @@ fn known_name(name: String) -> String {
         SIGN_IN_METHOD,
         KEY_STORAGES,
         DEFAULT_KEY_STORAGE,
+        AUTOMATIC_RENEWAL,
     ]
     .into_iter()
     .find(|known| known.eq_ignore_ascii_case(&name))
@@ -237,5 +238,22 @@ mod tests {
     fn dword_two_is_not_a_bool_for_the_layer() {
         let layer = to_layer(&parse(vec![("StartAtLogin", RegValue::Dword(2))]), "test");
         assert_eq!(layer.start_at_login, None);
+    }
+
+    #[test]
+    fn the_automatic_renewal_string_reaches_the_layer_in_any_case() {
+        let layer = to_layer(
+            &parse(vec![("automaticrenewal", RegValue::Sz("off".into()))]),
+            "test",
+        );
+        assert_eq!(
+            layer.automatic_renewal,
+            Some(crate::settings::AutomaticRenewal::Off)
+        );
+        let layer = to_layer(
+            &parse(vec![("AutomaticRenewal", RegValue::Dword(1))]),
+            "test",
+        );
+        assert_eq!(layer.automatic_renewal, None);
     }
 }

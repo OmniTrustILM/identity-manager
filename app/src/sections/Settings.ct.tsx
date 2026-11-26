@@ -15,6 +15,7 @@ const view: SettingsView = {
     lockAfterIdle: { value: null, locked: false },
     checkEvery: { value: 15, locked: false },
     warnDays: { value: 30, locked: false },
+    automaticRenewal: { value: 'newKey', locked: false },
     unlock: 'unsupported',
 };
 const unlocked: SettingsView = {

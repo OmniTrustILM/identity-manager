@@ -1,6 +1,7 @@
 use tempfile::tempdir;
 
 use super::*;
+use crate::identity::Fingerprint;
 use crate::keys::Storage;
 
 fn ilm() -> IlmUrl {
@@ -14,18 +15,34 @@ fn waiting(name: &str) -> Waiting {
         uuid: None,
         ra_profile: "ra-1".into(),
         authority: "auth-1".into(),
-        key: KeyId {
+        key: Some(KeyId {
             storage: Storage::Software,
             name: name.into(),
-        },
+        }),
         label: format!("label of {name}"),
         since: 1_700_000_000_000,
         prepared: false,
+        purpose: Purpose::Issue,
     }
 }
 
 fn key(name: &str) -> KeyId {
-    waiting(name).key
+    waiting(name).key.unwrap()
+}
+
+fn renewal(replaces: &str, same_key: bool) -> Waiting {
+    Waiting {
+        key: (!same_key).then(|| key(&format!("new-{replaces}"))),
+        purpose: Purpose::Renew {
+            replaces: replaces.into(),
+            replaces_fingerprint: Fingerprint::of(replaces.as_bytes()),
+            sign_in: true,
+            same_key,
+            automatic: false,
+            switch: None,
+        },
+        ..waiting("renewal")
+    }
 }
 
 #[test]
@@ -216,4 +233,106 @@ fn the_file_is_for_its_owner_only() {
         .permissions()
         .mode();
     assert_eq!(mode & 0o777, 0o600);
+}
+
+#[test]
+fn a_file_of_requests_without_a_purpose_reads_as_issue_requests() {
+    let dir = tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("requests.json"),
+        r#"{"version":1,"waiting":[{"ilm":"https://ilm.example.com","username":"jdoe","uuid":"c-1",
+        "raProfile":"ra-1","authority":"auth-1","key":{"storage":"Software","name":"k-1"},
+        "label":"old","since":5,"prepared":true}]}"#,
+    )
+    .unwrap();
+
+    let all = Requests::new(dir.path()).all();
+
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].purpose, Purpose::Issue);
+    assert_eq!(all[0].key, Some(key("k-1")));
+}
+
+#[test]
+fn a_renewal_with_and_without_a_key_survives_a_new_instance() {
+    let dir = tempdir().unwrap();
+    let requests = Requests::new(dir.path());
+    requests.add(renewal("c-1", false)).unwrap();
+    requests.add(renewal("c-2", true)).unwrap();
+
+    let again = Requests::new(dir.path()).all();
+
+    assert_eq!(again, [renewal("c-1", false), renewal("c-2", true)]);
+    assert_eq!(again[1].key, None);
+}
+
+#[test]
+fn a_revocation_keeps_no_key_and_no_request() {
+    let dir = tempdir().unwrap();
+    let revoking = Waiting {
+        key: None,
+        purpose: Purpose::Revoke {
+            certificate: "c-1".into(),
+            fingerprint: Fingerprint::of(b"c-1"),
+            remove: true,
+        },
+        ..waiting("revoking")
+    };
+    Requests::new(dir.path()).add(revoking.clone()).unwrap();
+
+    assert_eq!(Requests::new(dir.path()).all(), [revoking]);
+}
+
+#[test]
+fn a_renewal_without_a_key_is_told_by_its_certificate() {
+    let dir = tempdir().unwrap();
+    let requests = Requests::new(dir.path());
+    requests.add(renewal("c-1", true)).unwrap();
+    requests.add(renewal("c-2", true)).unwrap();
+    let mut again = renewal("c-1", true);
+    again.label = "again".into();
+    requests.add(again.clone()).unwrap();
+    assert_eq!(requests.all(), [renewal("c-2", true), again]);
+
+    requests.set_renewal_uuid("c-2", "n-2").unwrap();
+    assert_eq!(requests.all()[0].uuid.as_deref(), Some("n-2"));
+    assert_eq!(requests.all()[1].uuid, None);
+
+    requests.remove_renewal("c-1").unwrap();
+    requests.remove_renewal("c-1").unwrap();
+    assert_eq!(requests.all().len(), 1);
+    assert_eq!(requests.all()[0].uuid.as_deref(), Some("n-2"));
+}
+
+#[test]
+fn a_pending_switch_is_kept_and_a_file_without_one_reads_as_none() {
+    let dir = tempdir().unwrap();
+    let requests = Requests::new(dir.path());
+    requests.add(renewal("c-1", false)).unwrap();
+    requests.add(renewal("c-2", true)).unwrap();
+    assert_eq!(requests.all()[0].pending_switch(), None);
+    let pending = PendingSwitch {
+        fingerprint: Fingerprint::of(b"new"),
+        failures: 2,
+    };
+
+    requests.set_switch("c-2", pending).unwrap();
+
+    let again = Requests::new(dir.path()).all();
+    assert_eq!(again[0].pending_switch(), None);
+    assert_eq!(again[1].pending_switch(), Some(pending));
+}
+
+#[test]
+fn a_renewal_written_before_switches_existed_has_none_pending() {
+    let dir = tempdir().unwrap();
+    let old = serde_json::json!({ "version": 1, "waiting": [{
+        "ilm": "https://ilm.example.com", "username": "jdoe", "uuid": "n-1", "raProfile": "ra-1",
+        "authority": "auth-1", "label": "old", "since": 5, "prepared": false,
+        "purpose": { "kind": "renew", "replaces": "c-1",
+            "replacesFingerprint": Fingerprint::of(b"c-1"),
+            "signIn": true, "sameKey": true, "automatic": false } }] });
+    std::fs::write(dir.path().join("requests.json"), old.to_string()).unwrap();
+
+    assert_eq!(Requests::new(dir.path()).all()[0].pending_switch(), None);
 }
