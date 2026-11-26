@@ -238,3 +238,26 @@ A renewal that works is quiet. A notification is shown, once for each case, when
 - a certificate is due while you are signed out or Identity Manager is locked ("Sign in to renew"), or
 - a certificate cannot renew itself, with the reason: ILM does not allow it, it is a smart-card certificate on macOS,
   or the sign-in could not move to the renewed certificate.
+
+## Revoke
+
+"Revoke…" in a certificate's details asks ILM to revoke the certificate. It is shown only when ILM allows you to
+revoke it, which needs the permission `certificates:revoke`. Nothing is revoked on Linux.
+
+- **Reason:** No longer needed (the default), Replaced, Key compromised, Affiliation changed, Privilege withdrawn or
+  Unspecified. ILM records it with the revocation.
+- **"Delete it and its private key from this Mac"** ("this PC" on Windows) removes the certificate and deletes its key
+  once ILM has revoked it. It is offered for a key in the login keychain, the Windows key store or the TPM. The key is
+  kept while another certificate on this computer, or a renewal of it in ILM, may use it, and on Windows when an older
+  cryptographic provider holds it; the certificate is removed all the same.
+- **"Remove it from this PC"** is offered for a smart-card certificate on Windows instead: the certificate is removed,
+  and the key stays on the card. On macOS a smart-card certificate is on the card only, so nothing is offered.
+
+Revoking cannot be undone. The certificate stops working everywhere within minutes. With an approval profile in ILM,
+the revocation waits for approval first, and the details say "Revocation waiting for approval" until it is decided.
+While a revocation waits, the certificate is not renewed, automatically or with Renew now.
+Nothing leaves the computer before ILM says the certificate is revoked; without the option ticked, the certificate
+stays and is listed as revoked.
+
+A revocation you made here causes no "revoked" notification. When ILM does not revoke the certificate, a notification
+"Revocation failed" says so, unless the details still show it.

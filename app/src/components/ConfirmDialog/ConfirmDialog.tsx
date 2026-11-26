@@ -2,6 +2,7 @@ import { type ReactNode, type SyntheticEvent, useEffect, useId, useRef } from 'r
 import { strings } from '../../strings';
 
 const primary = 'h-button rounded-control bg-accent px-s3 text-body text-on-accent disabled:opacity-disabled';
+const destructiveButton = 'h-button rounded-control bg-bad px-s3 text-body text-surface disabled:opacity-disabled';
 const secondary = 'h-button rounded-control border border-button-edge bg-button px-s3 text-body text-primary disabled:opacity-disabled';
 
 /**
@@ -14,6 +15,7 @@ export function ConfirmDialog({
     children,
     extra,
     confirmLabel,
+    destructive = false,
     busy,
     macos,
     onConfirm,
@@ -24,6 +26,8 @@ export function ConfirmDialog({
     /** More under the message, such as a field or an error. */
     extra?: ReactNode;
     confirmLabel: string;
+    /** The confirming button is red: the answer cannot be taken back. */
+    destructive?: boolean;
     busy: boolean;
     macos: boolean;
     onConfirm: () => void;
@@ -55,7 +59,14 @@ export function ConfirmDialog({
     };
 
     const confirmButton = (
-        <button ref={confirm} tabIndex={0} type="button" disabled={busy} onClick={onConfirm} className={primary}>
+        <button
+            ref={confirm}
+            tabIndex={0}
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+            className={destructive ? destructiveButton : primary}
+        >
             {confirmLabel}
         </button>
     );

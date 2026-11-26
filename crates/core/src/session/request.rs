@@ -25,7 +25,7 @@ use crate::ilm::issue::{
 use crate::ilm::profile::IlmError;
 use crate::ilm::upload::{RaProfileChoice, ra_profiles_request, read_ra_profiles};
 use crate::install::{intermediates, is_for_key};
-use crate::inventory::{SubjectPart, subject_parts};
+use crate::inventory::{RevokingStage, SubjectPart, subject_parts};
 use crate::keys::{
     KeyError, KeyId, KeyStorage, KeyType, NameType, RequestSubject, Storage, Unmappable,
     registered_subject, signing_request, subject,
@@ -261,7 +261,7 @@ pub enum Outcome {
     /// The sign-in has moved over to the renewed certificate that an earlier follow installed.
     SignInMoved,
     /// ILM has not finished revoking the certificate, or waits for an approval.
-    Revoking,
+    Revoking(RevokingStage),
     /// ILM revoked the certificate, and it is removed from this computer when that was asked.
     Revoked {
         fingerprint: Fingerprint,

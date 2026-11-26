@@ -705,6 +705,7 @@ impl Notices {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use im_core::inventory::RevokingStage;
     use std::sync::{Arc, Mutex};
 
     /// What was shown, and the folder of the record while the test runs.
@@ -1780,7 +1781,7 @@ mod tests {
             &[
                 renewal(1, installed()),
                 renewal(2, Outcome::SignInMoved),
-                renewal(3, Outcome::Revoking),
+                renewal(3, Outcome::Revoking(RevokingStage::BeingRevoked)),
             ],
             || true,
             || true,

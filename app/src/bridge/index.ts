@@ -15,6 +15,7 @@ import type { RaProfileChoice } from './generated/RaProfileChoice';
 import type { ApprovalDecision } from './generated/ApprovalDecision';
 import type { ApprovalFailure } from './generated/ApprovalFailure';
 import type { RequestedView } from './generated/RequestedView';
+import type { RevokeReason } from './generated/RevokeReason';
 import type { RequestFailure } from './generated/RequestFailure';
 import type { RequestFormsView } from './generated/RequestFormsView';
 import type { RequestOffers } from './generated/RequestOffers';
@@ -51,6 +52,8 @@ export type { FollowView } from './generated/FollowView';
 export type { KeyTypeId } from './generated/KeyTypeId';
 export type { NotInstalledCause } from './generated/NotInstalledCause';
 export type { RequestedView } from './generated/RequestedView';
+export type { RevokeReason } from './generated/RevokeReason';
+export type { RevokingStage } from './generated/RevokingStage';
 export type { RenewalView } from './generated/RenewalView';
 export type { AutomaticRenewal } from './generated/AutomaticRenewal';
 export type { RequestFailure } from './generated/RequestFailure';
@@ -271,6 +274,11 @@ export function completeCertificate(
 /** Renews the certificate with this fingerprint now and returns the renewal to follow; rejects with a `RequestFailure`. */
 export function renewNow(fingerprint: string): Promise<RequestedView> {
     return invoke<RequestedView>('renew_now', { fingerprint });
+}
+
+/** Revokes the certificate with this fingerprint and returns the revocation to follow; rejects with a `RequestFailure`. */
+export function revokeCertificate(fingerprint: string, reason: RevokeReason, remove: boolean): Promise<RequestedView> {
+    return invoke<RequestedView>('revoke_certificate', { fingerprint, reason, remove });
 }
 
 /** Switches the automatic renewal of the certificate with this fingerprint on or off. */

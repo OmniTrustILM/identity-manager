@@ -7,7 +7,7 @@ use im_core::attributes::{FieldProblem, FormView};
 use im_core::ilm::certificates::State;
 use im_core::ilm::issue::Challenge;
 use im_core::ilm::upload::RaProfileChoice;
-use im_core::inventory::{Prepared, SubjectPart};
+use im_core::inventory::{Prepared, RevokingStage, SubjectPart};
 use im_core::keys::{KeyType, Offer, Storage};
 use im_core::session::{
     CallError, Completion, EndReason, Followed, Installed, Outcome, RequestError, RequestInput,
@@ -267,6 +267,14 @@ pub enum FollowView {
     NotInstalled {
         cause: NotInstalledCause,
     },
+    /// ILM has not finished revoking the certificate, or waits for an approval.
+    Revoking {
+        stage: RevokingStage,
+    },
+    /// ILM revoked the certificate.
+    Revoked,
+    /// ILM issued the certificate again after the revocation was sent: it is not revoked.
+    NotRevoked,
     /// Nothing is known of the request now: ILM did not answer, or another check has finished it.
     Unknown,
 }
@@ -289,11 +297,10 @@ impl From<&Outcome> for FollowView {
             }) => Self::Renewed {
                 valid_until: *not_after,
             },
-            Outcome::SwitchPending { .. }
-            | Outcome::SignInMoved
-            | Outcome::Revoking
-            | Outcome::Revoked { .. }
-            | Outcome::NotRevoked => Self::Unknown,
+            Outcome::SwitchPending { .. } | Outcome::SignInMoved => Self::Unknown,
+            Outcome::Revoking(stage) => Self::Revoking { stage: *stage },
+            Outcome::Revoked { .. } => Self::Revoked,
+            Outcome::NotRevoked => Self::NotRevoked,
             Outcome::Waiting(State::PendingApproval) => Self::Waiting {
                 stage: WaitingStage::PendingApproval,
             },
@@ -336,7 +343,9 @@ fn standing_or_latest(
 ) -> FollowView {
     match standing(own, certificate) {
         FollowView::Unknown => match standing(latest, certificate) {
-            found @ (FollowView::Waiting { .. } | FollowView::NotInstalled { .. }) => found,
+            found @ (FollowView::Waiting { .. }
+            | FollowView::NotInstalled { .. }
+            | FollowView::Revoking { .. }) => found,
             _ if waiting
                 .iter()
                 .any(|entry| entry.uuid.as_deref() == Some(certificate)) =>
@@ -908,6 +917,21 @@ mod tests {
                 Outcome::InstallFailed,
                 json!({ "state": "notInstalled", "cause": "installFailed" }),
             ),
+            (
+                Outcome::Revoking(RevokingStage::BeingRevoked),
+                json!({ "state": "revoking", "stage": "beingRevoked" }),
+            ),
+            (
+                Outcome::Revoking(RevokingStage::PendingApproval),
+                json!({ "state": "revoking", "stage": "pendingApproval" }),
+            ),
+            (
+                Outcome::Revoked {
+                    fingerprint: im_core::identity::Fingerprint::of(b"revoked"),
+                },
+                json!({ "state": "revoked" }),
+            ),
+            (Outcome::NotRevoked, json!({ "state": "notRevoked" })),
         ];
         for (outcome, expected) in cases {
             let found = [followed(Some("c-1"), outcome)];
@@ -916,6 +940,56 @@ mod tests {
                 expected
             );
         }
+    }
+
+    #[test]
+    fn a_revocation_found_by_the_latest_check_is_told_when_the_own_follow_knows_nothing() {
+        let latest = [followed(
+            Some("c-1"),
+            Outcome::Revoking(RevokingStage::PendingApproval),
+        )];
+        assert_eq!(
+            standing_or_latest(&[], &latest, &[], "c-1"),
+            FollowView::Revoking {
+                stage: RevokingStage::PendingApproval
+            }
+        );
+        let latest = [followed(Some("c-1"), Outcome::NotRevoked)];
+        assert_eq!(
+            standing_or_latest(&[], &latest, &[], "c-1"),
+            FollowView::NotRevoked
+        );
+    }
+
+    #[test]
+    fn a_revocation_still_waiting_is_told_as_revoking() {
+        let latest = [followed(
+            Some("c-1"),
+            Outcome::Revoking(RevokingStage::BeingRevoked),
+        )];
+        let revocation = Waiting {
+            ilm: IlmUrl::parse("ilm.example.com").unwrap(),
+            username: "jdoe".to_owned(),
+            uuid: Some("c-1".to_owned()),
+            ra_profile: "ra-1".to_owned(),
+            authority: "a-1".to_owned(),
+            key: None,
+            label: "web".to_owned(),
+            since: 1,
+            prepared: false,
+            purpose: im_core::requests::Purpose::Revoke {
+                certificate: "c-1".to_owned(),
+                fingerprint: im_core::identity::Fingerprint::of(b"revoked"),
+                remove: false,
+            },
+        };
+
+        assert_eq!(
+            standing_or_latest(&[], &latest, &[revocation], "c-1"),
+            FollowView::Revoking {
+                stage: RevokingStage::BeingRevoked
+            }
+        );
     }
 
     #[test]

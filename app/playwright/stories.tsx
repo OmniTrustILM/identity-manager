@@ -89,6 +89,7 @@ export interface Renewing {
 function renewAnswer(command: string, renewing: Renewing | undefined) {
     switch (command) {
         case 'renew_now':
+        case 'revoke_certificate':
             return renewing?.refuse ? Promise.reject(renewing.refuse) : { certificate: 'renewal', label: 'Renewal' };
         case 'follow_request':
             return renewing?.follow ?? { state: 'unknown' };

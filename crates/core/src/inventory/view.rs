@@ -204,6 +204,32 @@ impl From<&Approval> for ApprovalView {
     }
 }
 
+/// What ILM is doing with the revocation of a certificate that is not yet revoked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub enum RevokingStage {
+    /// The revocation waits for an approval in ILM.
+    PendingApproval,
+    /// ILM is revoking the certificate.
+    BeingRevoked,
+}
+
+impl RevokingStage {
+    /// The stage of a revocation of a certificate that ILM holds in `state`.
+    pub fn of(state: &State) -> Self {
+        if *state == State::PendingApproval {
+            Self::PendingApproval
+        } else {
+            Self::BeingRevoked
+        }
+    }
+}
+
 /// What the screens show of the renewal of a certificate on this computer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -238,6 +264,8 @@ pub struct RenewalView {
     pub can_revoke: bool,
     /// A renewal of it waits for ILM, here or in ILM.
     pub waiting: bool,
+    /// A revocation of it sent from this computer is not finished; none when there is none.
+    pub revoking: Option<RevokingStage>,
 }
 
 /// A request of the person that ILM has not finished.
@@ -724,6 +752,7 @@ mod tests {
             replaced_by: None,
             can_revoke: false,
             waiting,
+            revoking: None,
         };
         let renewals = HashMap::from([
             (Fingerprint::of(&[1]).to_string(), renewal(true, false)),

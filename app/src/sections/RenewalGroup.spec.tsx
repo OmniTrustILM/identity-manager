@@ -1,4 +1,5 @@
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
+import { emit } from '@tauri-apps/api/event';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -41,6 +42,7 @@ const renewal = (over: Partial<RenewalView> = {}): RenewalView => ({
     replacedBy: null,
     canRevoke: false,
     waiting: false,
+    revoking: null,
     ...over,
 });
 
@@ -90,6 +92,8 @@ beforeEach(() => {
                     return follow;
                 case 'set_renewal_switch':
                     return switchAnswer();
+                case 'revoke_certificate':
+                    return { certificate: 'cert-1', label: 'Personal mTLS' };
             }
         },
         { shouldMockEvents: true },
@@ -300,4 +304,33 @@ test.each([
 
     expect(group()).toBeUndefined();
     expect(renewSwitch()).toBeNull();
+});
+
+test('Revoke… is shown only when ILM allows revoking the certificate', async () => {
+    const revoke = () => [...container.querySelectorAll('button')].find((each) => each.textContent === strings.revoke);
+    await render();
+    expect(revoke()).toBeUndefined();
+
+    current = { ...current, renewals: { 'FP:one': renewal({ canRevoke: true }) } };
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await render();
+
+    expect(revoke()).toBeDefined();
+});
+
+test('how a revocation ended stays shown when ILM no longer lets the person revoke and nothing waits', async () => {
+    const button = (text: string) => [...container.querySelectorAll('button')].find((each) => each.textContent === text);
+    current = { ...current, renewals: { 'FP:one': renewal({ canRevoke: true }) } };
+    follow = { state: 'notRevoked' };
+    await render();
+    await act(async () => button(strings.revoke)?.click());
+    await act(async () => button(strings.revokeConfirm)?.click());
+    expect(detail().textContent).toContain(strings.revokeNotRevoked);
+
+    current = { ...current, renewals: {} };
+    await act(async () => emit('inventory-changed'));
+
+    expect(detail().textContent).toContain(strings.revokeNotRevoked);
+    expect(button(strings.revoke)).toBeUndefined();
 });

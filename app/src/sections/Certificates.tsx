@@ -23,6 +23,7 @@ import { arrowTarget, codeLabel, Field, FingerprintGroup, Group, status, SyncLin
 import { IlmCertificates } from './IlmCertificates';
 import { Request } from './Request';
 import { RenewalGroup, showsRenewal } from './RenewalGroup';
+import { RevokeAction } from './RevokeAction';
 
 /** At most one request this often when the window comes back; the request the first answer needs is not delayed. */
 const refreshEvery = 2000;
@@ -278,6 +279,9 @@ function Detail({
                     system={system}
                     apply={apply}
                 />
+            )}
+            {inventory && (
+                <RevokeAction key={`revoke:${certificate.fingerprint}`} certificate={certificate} system={system} renewal={renewal} />
             )}
         </section>
     );

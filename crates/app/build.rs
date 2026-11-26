@@ -44,6 +44,7 @@ fn main() {
                 "make_sign_in_certificate",
                 "renew_now",
                 "set_renewal_switch",
+                "revoke_certificate",
                 "overview",
                 "add_to_ilm_choices",
                 "add_to_ilm",

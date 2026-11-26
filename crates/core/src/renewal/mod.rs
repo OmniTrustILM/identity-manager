@@ -53,7 +53,7 @@ pub enum Skip {
     Replaced,
     /// Automatic renewal is off by setting, policy or the certificate's switch.
     Off,
-    /// A waiting entry of this computer already renews it.
+    /// A waiting entry of this computer already renews or revokes it.
     Waiting,
     /// ILM lists a successor that is not issued yet.
     SuccessorPending,
@@ -94,7 +94,7 @@ pub struct Facts<'a> {
     pub now: SystemTime,
     pub warn_days: WarnDays,
     pub choice: Choice,
-    /// A waiting entry of this computer renews the certificate.
+    /// A waiting entry of this computer renews or revokes the certificate.
     pub waiting: bool,
     /// The ILM uuids of the certificates installed here.
     pub installed: &'a HashSet<String>,

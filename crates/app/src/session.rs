@@ -448,6 +448,7 @@ pub(crate) mod tests {
                 crate::certificates::add_to_ilm,
                 crate::renewal::renew_now,
                 crate::renewal::set_renewal_switch,
+                crate::revoke::revoke_certificate,
                 crate::attributes::attribute_callback,
                 crate::attributes::check_attributes,
                 crate::attributes::close_form,
@@ -952,6 +953,10 @@ pub(crate) mod tests {
             (
                 "set_renewal_switch",
                 serde_json::json!({ "fingerprint": "00", "on": false }),
+            ),
+            (
+                "revoke_certificate",
+                serde_json::json!({ "fingerprint": "00", "reason": "unspecified", "remove": false }),
             ),
         ];
         let fixture = fixture(Mode::SelfCheck);

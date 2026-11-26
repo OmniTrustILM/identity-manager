@@ -23,6 +23,8 @@ const OPERATIONS: &str = "/api/v2/operations/authorities/auth-1/raProfiles/ra-1/
 struct Auto {
     setup: Setup,
     renewals: Arc<Renewals>,
+    requests: Arc<Requests>,
+    _renewals_folder: tempfile::TempDir,
     old: LocalCertificate,
     der: Vec<u8>,
     /// Counts down so that the latest detail served wins.
@@ -48,11 +50,12 @@ impl Auto {
         let mut world = World::new().await;
         let renewals_folder = tempfile::tempdir().unwrap();
         let renewals = Arc::new(Renewals::new(renewals_folder.path()));
+        let requests = Arc::new(Requests::new(renewals_folder.path()));
         world.session = world
             .session
             .with_key_storage(Arc::new(InMemoryStorage::new(&[Storage::Software])))
             .with_installer(Arc::new(RecordingInstaller::new()))
-            .with_requests(Arc::new(Requests::new(renewals_folder.path())))
+            .with_requests(requests.clone())
             .with_renewals(renewals.clone());
         world.code_grant("access", Some("refresh"), 3600).await;
         world.profile_for("access").await;
@@ -102,6 +105,8 @@ impl Auto {
         let auto = Auto {
             setup,
             renewals,
+            requests,
+            _renewals_folder: renewals_folder,
             old,
             der,
             priority: AtomicU8::new(200),
@@ -478,6 +483,29 @@ async fn a_recent_failure_holds_the_next_attempt_back() {
 }
 
 #[tokio::test]
+async fn a_certificate_whose_revocation_waits_is_not_renewed_and_offers_no_renewal() {
+    let auto = Auto::expiring_in(10, &["detail", "renew", "revoke"]).await;
+    let mut revocation = auto.revocation();
+    revocation.since = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    auto.requests.add(revocation.clone()).unwrap();
+    auto.accepts("rekey").await;
+    auto.accepts("renew").await;
+    let plan = plan(&auto.renewals, Platform::Macos);
+
+    auto.check(&plan).await;
+
+    assert_eq!(auto.sent("rekey").await, 0);
+    assert_eq!(auto.sent("renew").await, 0);
+    let view = &auto.setup.inventory.renewal_views(&plan, &[revocation])
+        [&auto.old.fingerprint.to_string()];
+    assert!(!view.renewable);
+    assert_eq!(view.revoking, Some(RevokingStage::BeingRevoked));
+}
+
+#[tokio::test]
 async fn a_certificate_with_a_successor_on_its_way_is_not_renewed_again() {
     let auto = Auto::expiring_in(10, &["detail", "renew"]).await;
     auto.serve_detail(
@@ -770,4 +798,128 @@ async fn the_log_of_an_automatic_renewal_holds_no_subject_or_key() {
         !log.contains("web.example.com") && !log.contains("jdoe"),
         "{log}"
     );
+}
+
+impl Auto {
+    /// A revocation of the old certificate that waits for ILM.
+    fn revocation(&self) -> Waiting {
+        Waiting {
+            ilm: self.ilm(),
+            username: "jdoe".to_owned(),
+            uuid: Some("c-old".to_owned()),
+            ra_profile: "ra-1".to_owned(),
+            authority: "auth-1".to_owned(),
+            key: None,
+            label: "web".to_owned(),
+            since: 1,
+            prepared: false,
+            purpose: crate::requests::Purpose::Revoke {
+                certificate: "c-old".to_owned(),
+                fingerprint: self.old.fingerprint,
+                remove: false,
+            },
+        }
+    }
+
+    /// The view of the old certificate after a check, with `waiting` requests.
+    async fn view_with(&self, waiting: &[Waiting]) -> Option<RenewalView> {
+        let plan = plan(&self.renewals, Platform::Macos);
+        self.setup
+            .inventory
+            .check_local(
+                &self.setup.world.session,
+                Trigger::Interval,
+                std::slice::from_ref(&self.old),
+            )
+            .await;
+        self.setup
+            .inventory
+            .renewal_views(&plan, waiting)
+            .remove(&self.old.fingerprint.to_string())
+    }
+}
+
+#[tokio::test]
+async fn a_certificate_nobody_revokes_has_no_revoking_stage() {
+    let auto = Auto::expiring_in(10, &["detail", "renew", "revoke"]).await;
+
+    let view = auto.view_with(&[]).await.unwrap();
+
+    assert_eq!(view.revoking, None);
+}
+
+#[tokio::test]
+async fn a_revocation_that_waits_is_shown_as_being_revoked() {
+    let auto = Auto::expiring_in(10, &["detail", "renew", "revoke"]).await;
+
+    let view = auto.view_with(&[auto.revocation()]).await.unwrap();
+
+    assert_eq!(view.revoking, Some(RevokingStage::BeingRevoked));
+}
+
+#[tokio::test]
+async fn a_revocation_of_a_certificate_pending_approval_in_ilm_is_shown_as_waiting_for_approval() {
+    let auto = Auto::expiring_in(10, &["detail", "revoke"]).await;
+    let mut found = certificate("c-old", &auto.old.fingerprint, true);
+    found["state"] = json!("pending_approval");
+    auto.setup
+        .mock("POST", SEARCH)
+        .and(body_string_contains("FINGERPRINT"))
+        .respond_with(page(vec![found], 1))
+        .with_priority(1)
+        .mount(&auto.setup.world.ilm)
+        .await;
+
+    let view = auto.view_with(&[auto.revocation()]).await.unwrap();
+
+    assert_eq!(view.revoking, Some(RevokingStage::PendingApproval));
+}
+
+#[tokio::test]
+async fn a_revocation_the_follow_found_waiting_for_approval_is_shown_so_before_the_next_check_reads_it()
+ {
+    let auto = Auto::expiring_in(10, &["detail", "revoke"]).await;
+    auto.requests.add(auto.revocation()).unwrap();
+    auto.setup
+        .mock("GET", "/api/v1/certificates/c-old")
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "state": "pending_approval",
+            "certificateContent": STANDARD.encode(&auto.der),
+            "raProfile": { "uuid": "ra-1", "name": "Servers", "authorityInstanceUuid": "auth-1" },
+            "relatedCertificates": [],
+        })))
+        .with_priority(1)
+        .mount(&auto.setup.world.ilm)
+        .await;
+
+    let view = auto.view_with(&[auto.revocation()]).await.unwrap();
+
+    assert_eq!(view.revoking, Some(RevokingStage::PendingApproval));
+}
+
+#[tokio::test]
+async fn a_certificate_with_a_waiting_revocation_keeps_its_view_when_ilm_no_longer_lets_the_person_revoke_it()
+ {
+    let auto = Auto::expiring_in(10, &["detail"]).await;
+
+    let view = auto.view_with(&[auto.revocation()]).await.unwrap();
+
+    assert!(!view.can_revoke && !view.renewable);
+    assert_eq!(view.revoking, Some(RevokingStage::BeingRevoked));
+}
+
+#[tokio::test]
+async fn a_revocation_of_another_certificate_is_not_shown() {
+    let auto = Auto::expiring_in(10, &["detail", "revoke"]).await;
+    let mut other = auto.revocation();
+    other.uuid = Some("c-other".to_owned());
+    other.purpose = crate::requests::Purpose::Revoke {
+        certificate: "c-other".to_owned(),
+        fingerprint: Fingerprint::of(b"other"),
+        remove: false,
+    };
+
+    let view = auto.view_with(&[other]).await.unwrap();
+
+    assert_eq!(view.revoking, None);
 }
