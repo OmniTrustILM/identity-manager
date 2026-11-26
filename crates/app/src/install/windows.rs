@@ -145,7 +145,7 @@ fn delete_own_key(
         log::info!("certificate removal keeps the key: its provider or container is not named");
         return Ok(false);
     };
-    if !deletable(&provider) || info.get().dwFlags.contains(CRYPT_MACHINE_KEYSET) {
+    if !deletable(&provider, info.get().dwFlags) {
         log::info!("certificate removal keeps the key: it is a machine key or in {provider}");
         return Ok(false);
     }
@@ -171,13 +171,15 @@ fn delete_own_key(
     delete_key(target)
 }
 
-/// Whether keys of this provider are ones the application deletes: the software and the platform provider.
-fn deletable(provider: &str) -> bool {
-    [MS_KEY_STORAGE_PROVIDER, MS_PLATFORM_CRYPTO_PROVIDER]
-        .iter()
-        // SAFETY: the provider names are NUL-terminated static wide strings.
-        .filter_map(|name| unsafe { name.to_string() }.ok())
-        .any(|name| name.eq_ignore_ascii_case(provider))
+/// Whether a key of this provider and these flags is one the application deletes: a key of the current user in the
+/// software or the platform provider.
+fn deletable(provider: &str, flags: CRYPT_KEY_FLAGS) -> bool {
+    !flags.contains(CRYPT_MACHINE_KEYSET)
+        && [MS_KEY_STORAGE_PROVIDER, MS_PLATFORM_CRYPTO_PROVIDER]
+            .iter()
+            // SAFETY: the provider names are NUL-terminated static wide strings.
+            .filter_map(|name| unsafe { name.to_string() }.ok())
+            .any(|name| name.eq_ignore_ascii_case(provider))
 }
 
 /// Deletes the key of the certificate through the handle the certificate opens, which the system checks against
@@ -527,4 +529,29 @@ pub(super) fn remove(der: &[u8]) {
 #[cfg(test)]
 pub(super) fn holds(der: &[u8]) -> bool {
     Store::open(w!("CA")).is_ok_and(|store| matches!(store.find(der), Ok(Some(_))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_user_keys_of_the_software_and_platform_provider_are_deleted() {
+        let user = CRYPT_KEY_FLAGS(0);
+        assert!(deletable("Microsoft Software Key Storage Provider", user));
+        assert!(deletable("microsoft platform crypto provider", user));
+        assert!(!deletable(
+            "Microsoft Smart Card Key Storage Provider",
+            user
+        ));
+        assert!(!deletable(
+            "Microsoft Enhanced RSA and AES Cryptographic Provider",
+            user
+        ));
+        assert!(!deletable("", user));
+        assert!(!deletable(
+            "Microsoft Software Key Storage Provider",
+            CRYPT_MACHINE_KEYSET
+        ));
+    }
 }
