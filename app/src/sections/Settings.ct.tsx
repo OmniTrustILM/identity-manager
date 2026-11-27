@@ -9,6 +9,7 @@ type Scheme = 'light' | 'dark';
 
 const view: SettingsView = {
     startAtLogin: { value: true, locked: false },
+    automaticUpdates: { value: true, locked: false },
     logLevel: { value: 'debug', locked: true },
     ilmUrl: { value: null, locked: false },
     requireUnlock: { value: true, locked: false },
@@ -94,6 +95,7 @@ for (const os of ['macos', 'windows', 'linux'] as const) {
             await open(page, mount, os, scheme);
 
             await expect(page.getByRole('switch', { name: 'Start at login' })).toBeChecked();
+            await expect(page.getByRole('switch', { name: 'Check for updates' })).toHaveCount(os === 'linux' ? 0 : 1);
             const level = page.getByRole('combobox', { name: 'Log level' });
             await expect(level).toBeDisabled();
             await expect(level).toHaveValue('debug');
@@ -146,7 +148,7 @@ test('the keyboard alone changes the switch and the page shows the stored value'
 test('on Windows the state word follows the switch', async ({ mount, page }) => {
     await open(page, mount, 'windows', 'light', { view: unlocked });
 
-    await expect(page.getByText('On', { exact: true })).toBeVisible();
+    await expect(page.getByText('On', { exact: true })).toHaveCount(2);
     await page.getByRole('switch', { name: 'Start at login' }).click();
 
     await expect(page.locator('span[aria-hidden]', { hasText: /^Off$/ })).toBeVisible();
@@ -435,4 +437,34 @@ test('Automatic renewal is not on Linux', async ({ mount, page }) => {
     await open(page, mount, 'linux', 'light', { view: unlocked });
 
     await expect(page.getByRole('combobox', { name: 'Automatic renewal' })).toHaveCount(0);
+});
+
+test('the keyboard alone toggles Check for updates after Start at login and sends the change', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'light', { view: unlocked });
+    await keyboardReady(page);
+    const updates = page.getByRole('switch', { name: 'Check for updates' });
+    await page.getByRole('switch', { name: 'Start at login' }).focus();
+
+    await page.keyboard.press('Tab');
+    await expect(updates).toBeFocused();
+    await expect(updates).toBeChecked();
+    await page.keyboard.press('Space');
+    await expect(updates).not.toBeChecked();
+});
+
+test('Check for updates set by the organization is locked and says so', async ({ mount, page }) => {
+    await open(page, mount, 'windows', 'light', {
+        view: { ...unlocked, automaticUpdates: { value: false, locked: true } },
+    });
+
+    const updates = page.getByRole('switch', { name: 'Check for updates' });
+    await expect(updates).toBeDisabled();
+    await expect(updates).not.toBeChecked();
+    await expect(updates).toHaveAccessibleDescription('Managed by your organization');
+});
+
+test('Check for updates is not on Linux', async ({ mount, page }) => {
+    await open(page, mount, 'linux', 'light', { view: unlocked });
+
+    await expect(page.getByRole('switch', { name: 'Check for updates' })).toHaveCount(0);
 });

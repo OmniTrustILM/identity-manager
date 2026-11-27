@@ -92,6 +92,7 @@ describe('bridge', () => {
 
     const view = {
         startAtLogin: { value: true, locked: false },
+        automaticUpdates: { value: true, locked: false },
         logLevel: { value: 'info' as const, locked: true },
     };
 

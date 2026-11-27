@@ -8,6 +8,7 @@ the person sees its value but cannot change it.
 | Name           | Type                         | Default | Meaning                                                           |
 |----------------|------------------------------|---------|-------------------------------------------------------------------|
 | `StartAtLogin` | boolean                      | `true`  | Start Identity Manager when the person signs in.                  |
+| `AutomaticUpdates` | boolean                  | `true`  | Check for signed updates of Identity Manager and offer to install them. When false, the app never contacts the release host. |
 | `LogLevel`     | string: `error`, `warn`, `info`, `debug` | `info`  | How much the application writes to its log.                       |
 | `IlmUrl`       | string                       | none    | The address of your ILM, for example `https://ilm.example.com`. HTTPS only; a path is allowed, a trailing slash, query, fragment or user name is not. |
 | `RequireUnlock` | boolean                    | `true`  | Ask the system to confirm the person after a start with a saved sign-in and after the computer locks. Ignored where the system cannot confirm the person. |
@@ -121,7 +122,7 @@ The person's own choices are stored in `settings.json` in the application's conf
 | Windows | `%APPDATA%\com.omnitrust.identity-manager\settings.json`                  |
 | Linux   | `~/.config/com.omnitrust.identity-manager/settings.json`                  |
 
-Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `requireUnlock` (boolean), `lockAfterIdle` (number of minutes), `checkEvery` (number of minutes) and `warnDays` (number of days) and `automaticRenewal` (string). `SignInProvider`, `SignInMethod`, `KeyStorages`, `DefaultKeyStorage`, `CompletePrepared`, `RequestProfiles` and `SignInCertificateProfile` have no key here: only policy sets them. The file also keeps `signInCertificate`, the ILM address and the fingerprint of the certificate last used to sign in there; it is used only while that address is the ILM address.
+Its keys are `startAtLogin` (boolean), `automaticUpdates` (boolean), `logLevel` (string), `ilmUrl` (string), `requireUnlock` (boolean), `lockAfterIdle` (number of minutes), `checkEvery` (number of minutes) and `warnDays` (number of days) and `automaticRenewal` (string). `SignInProvider`, `SignInMethod`, `KeyStorages`, `DefaultKeyStorage`, `CompletePrepared`, `RequestProfiles` and `SignInCertificateProfile` have no key here: only policy sets them. The file also keeps `signInCertificate`, the ILM address and the fingerprint of the certificate last used to sign in there; it is used only while that address is the ILM address.
 
 ## Examples
 
@@ -131,4 +132,4 @@ Its keys are `startAtLogin` (boolean), `logLevel` (string), `ilmUrl` (string), `
 - Linux: [policy/policy.json](policy/policy.json); install it as root:
   `sudo install -d -m 0755 /etc/identity-manager && sudo install -m 0644 policy.json /etc/identity-manager/policy.json`.
 
-All three set `StartAtLogin` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `RequireUnlock` to true, `LockAfterIdle` to 15, `CheckInterval` to 30, `ExpiryWarningDays` to 30, `AutomaticRenewal` to `newKey`, `SignInProvider` to `Corporate`, `SignInMethod` to `oauth`, `KeyStorages` to `software,tpm`, `DefaultKeyStorage` to `software`, `CompletePrepared` to true, `RequestProfiles` to `Workstation, Email` and `SignInCertificateProfile` to `Workstation`, except the macOS profile, which sets both storages to `keychain`, the only storage macOS offers. The example keeps `SignInMethod` at `oauth`, so it sets no sign-in certificate; remove that key to use `SignInCertificateProfile`.
+All three set `StartAtLogin` to false, `AutomaticUpdates` to false, `LogLevel` to `debug`, `IlmUrl` to `https://ilm.example.com`, `RequireUnlock` to true, `LockAfterIdle` to 15, `CheckInterval` to 30, `ExpiryWarningDays` to 30, `AutomaticRenewal` to `newKey`, `SignInProvider` to `Corporate`, `SignInMethod` to `oauth`, `KeyStorages` to `software,tpm`, `DefaultKeyStorage` to `software`, `CompletePrepared` to true, `RequestProfiles` to `Workstation, Email` and `SignInCertificateProfile` to `Workstation`, except the macOS profile, which sets both storages to `keychain`, the only storage macOS offers. The example keeps `SignInMethod` at `oauth`, so it sets no sign-in certificate; remove that key to use `SignInCertificateProfile`.

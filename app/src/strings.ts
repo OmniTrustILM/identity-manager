@@ -212,6 +212,7 @@ export const strings = {
     settingsWindow: 'Settings…',
     general: 'General',
     startAtLogin: 'Start at login',
+    checkForUpdates: 'Check for updates',
     logLevel: 'Log level',
     checkEvery: 'Check ILM every',
     warnBeforeExpiry: 'Warn before expiry',

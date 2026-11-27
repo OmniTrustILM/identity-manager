@@ -5,4 +5,4 @@ import type { LogLevel } from "./LogLevel";
 /**
  * One setting changed by the person.
  */
-export type Change = { "key": "startAtLogin", "value": boolean } | { "key": "logLevel", "value": LogLevel } | { "key": "ilmUrl", "value": string } | { "key": "requireUnlock", "value": boolean } | { "key": "lockAfterIdle", "value": number | null } | { "key": "checkEvery", "value": number } | { "key": "warnDays", "value": number } | { "key": "automaticRenewal", "value": AutomaticRenewal };
+export type Change = { "key": "startAtLogin", "value": boolean } | { "key": "automaticUpdates", "value": boolean } | { "key": "logLevel", "value": LogLevel } | { "key": "ilmUrl", "value": string } | { "key": "requireUnlock", "value": boolean } | { "key": "lockAfterIdle", "value": number | null } | { "key": "checkEvery", "value": number } | { "key": "warnDays", "value": number } | { "key": "automaticRenewal", "value": AutomaticRenewal };

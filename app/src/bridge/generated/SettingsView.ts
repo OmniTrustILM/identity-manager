@@ -7,7 +7,7 @@ import type { Unlock } from "./Unlock";
 /**
  * Every setting as the interface shows it.
  */
-export type SettingsView = { startAtLogin: Entry<boolean>, logLevel: Entry<LogLevel>, ilmUrl: Entry<string | null>, requireUnlock: Entry<boolean>, lockAfterIdle: Entry<number | null>, 
+export type SettingsView = { startAtLogin: Entry<boolean>, automaticUpdates: Entry<boolean>, logLevel: Entry<LogLevel>, ilmUrl: Entry<string | null>, requireUnlock: Entry<boolean>, lockAfterIdle: Entry<number | null>, 
 /**
  * Minutes between two checks with ILM.
  */

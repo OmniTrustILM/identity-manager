@@ -17,6 +17,8 @@
 			<string>Identity Manager settings</string>
 			<key>StartAtLogin</key>
 			<false/>
+			<key>AutomaticUpdates</key>
+			<false/>
 			<key>LogLevel</key>
 			<string>debug</string>
 			<key>IlmUrl</key>

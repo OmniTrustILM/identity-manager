@@ -156,6 +156,14 @@ fn approval_key(approval: &str) -> String {
     format!("approval:waiting:{approval}")
 }
 
+/// The start of what is remembered of a version of the application offered.
+const UPDATE_PREFIX: &str = "update:";
+
+/// What is remembered of a version of the application offered, once for each version.
+fn update_key(version: &str) -> String {
+    format!("{UPDATE_PREFIX}{version}")
+}
+
 /// What is remembered of a renewal that failed, once for each certificate it renews.
 fn renewal_failed_key(old: &Fingerprint) -> String {
     format!("{RENEWAL_KEYS}failed:{old}")
@@ -456,7 +464,7 @@ impl Notices {
                 || on_computer.iter().any(|suffix| key.ends_with(suffix))
         });
         let pruned = kept.len() != held.len();
-        let first = kept.is_empty();
+        let first = kept.iter().all(|key| key.starts_with(UPDATE_PREFIX));
         let fresh: Vec<_> = notices
             .iter()
             .filter(|notice| !kept.contains(&notice.key))
@@ -630,6 +638,28 @@ impl Notices {
         self.tell_once(needs.chain(refused).chain(sign_in), current, may_tell);
     }
 
+    /// Tells the person that `version` of the application can be installed, once for each version, also after a
+    /// restart.
+    pub fn update_available(&self, version: &str) {
+        let notice = Notice {
+            key: update_key(version),
+            fingerprint: None,
+            title: format!("Identity Manager {version} is available"),
+            body: "Choose Install update in the Identity Manager menu.".to_owned(),
+            kind: "update available",
+        };
+        self.tell_once([notice].into_iter(), || true, || true);
+    }
+
+    /// Tells the person that the update could not be installed and that the current version keeps running.
+    pub fn update_failed(&self) {
+        self.show(
+            "The update could not be installed",
+            "Identity Manager keeps running the current version.",
+            "update failed",
+        );
+    }
+
     /// Tells the person about each certificate in `ready`, once for each certificate, also after a restart. `current`
     /// and `may_tell` are asked as for `summary`.
     pub fn prepared(
@@ -744,17 +774,27 @@ impl Notices {
             .contains(certificate)
     }
 
-    /// Forgets what was sent and what the wizard shows, as a sign-out does: the next person is told again.
+    /// Forgets what was sent and what the wizard shows, as a sign-out does: the next person is told again. The
+    /// versions of the application offered are kept, as they do not belong to the person.
     pub fn forget(&self) {
         self.wizard
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clear();
-        *self
+        let mut remembered = self
             .remembered
             .lock()
-            .unwrap_or_else(PoisonError::into_inner) = None;
-        if let Err(error) = std::fs::remove_file(&self.file)
+            .unwrap_or_else(PoisonError::into_inner);
+        let offered: Vec<String> = remembered
+            .take()
+            .unwrap_or_else(|| self.load())
+            .into_iter()
+            .filter(|key| key.starts_with(UPDATE_PREFIX))
+            .collect();
+        if !offered.is_empty() {
+            self.save(&offered);
+            *remembered = Some(offered);
+        } else if let Err(error) = std::fs::remove_file(&self.file)
             && error.kind() != ErrorKind::NotFound
         {
             log::warn!("the record of notifications could not be deleted: {error}");
@@ -1757,6 +1797,83 @@ mod tests {
 
     fn renewals(notices: &Notices, needs: &[Needs], refused: &[Refused], sign_in: &[SignIn]) {
         notices.renewals(needs, refused, sign_in, || true, || true);
+    }
+
+    #[test]
+    fn an_offered_version_is_told_once_also_after_a_restart_and_a_newer_one_again() {
+        let folder = tempfile::tempdir().unwrap();
+        let (notices, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+
+        notices.update_available("0.2.0");
+        notices.update_available("0.2.0");
+        assert_eq!(
+            told(&log),
+            [pair(
+                "Identity Manager 0.2.0 is available",
+                "Choose Install update in the Identity Manager menu."
+            )]
+        );
+
+        let (again, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        again.update_available("0.2.0");
+        assert!(told(&log).is_empty());
+        again.update_available("0.3.0");
+        assert_eq!(told(&log).len(), 1);
+    }
+
+    #[test]
+    fn a_summary_does_not_forget_an_offered_version() {
+        let (notices, log) = notices(Platform::Macos);
+        notices.update_available("0.2.0");
+        notices.summary(&summary(Vec::new()), &[], || true, || true);
+        notices.update_available("0.2.0");
+        assert_eq!(told(&log).len(), 1);
+    }
+
+    #[test]
+    fn a_sign_out_keeps_the_offered_versions_and_forgets_the_rest() {
+        let folder = tempfile::tempdir().unwrap();
+        let (notices, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        let soon = summary(vec![expiring("Ada", 1)]);
+        notices.update_available("0.2.0");
+        notices.summary(&soon, &on_computer(6), || true, || true);
+        assert_eq!(told(&log).len(), 2);
+
+        notices.forget();
+
+        let (again, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        again.update_available("0.2.0");
+        assert!(told(&log).is_empty());
+        again.summary(&soon, &on_computer(6), || true, || true);
+        assert_eq!(told(&log).len(), 1);
+    }
+
+    #[test]
+    fn an_offered_version_does_not_end_the_first_run_limit() {
+        let (notices, log) = notices(Platform::Macos);
+        notices.update_available("0.2.0");
+        let many = summary(
+            (1..=6)
+                .map(|number| expiring(&format!("c{number}"), number))
+                .collect(),
+        );
+
+        notices.summary(&many, &on_computer(6), || true, || true);
+
+        assert_eq!(told(&log).len(), 1 + 4);
+    }
+
+    #[test]
+    fn a_failed_update_is_told_with_a_plain_line() {
+        let (notices, log) = notices(Platform::Macos);
+        notices.update_failed();
+        assert_eq!(
+            told(&log),
+            [pair(
+                "The update could not be installed",
+                "Identity Manager keeps running the current version."
+            )]
+        );
     }
 
     #[test]

@@ -12,6 +12,7 @@ use super::{
 use crate::ilm::IlmUrl;
 
 const START_AT_LOGIN: &str = "startAtLogin";
+const AUTOMATIC_UPDATES: &str = "automaticUpdates";
 const LOG_LEVEL: &str = "logLevel";
 const ILM_URL: &str = "ilmUrl";
 const REQUIRE_UNLOCK: &str = "requireUnlock";
@@ -56,6 +57,7 @@ fn parse(entries: Map<String, Value>) -> Layer {
     for (key, value) in entries {
         match key.as_str() {
             START_AT_LOGIN => layer.start_at_login = value.as_bool(),
+            AUTOMATIC_UPDATES => layer.automatic_updates = value.as_bool(),
             LOG_LEVEL => layer.log_level = serde_json::from_value::<LogLevel>(value).ok(),
             ILM_URL => layer.ilm_url = serde_json::from_value::<IlmUrl>(value).ok(),
             REQUIRE_UNLOCK => layer.require_unlock = value.as_bool(),
@@ -74,6 +76,7 @@ fn parse(entries: Map<String, Value>) -> Layer {
         }
         let kept = match key.as_str() {
             START_AT_LOGIN => layer.start_at_login.is_some(),
+            AUTOMATIC_UPDATES => layer.automatic_updates.is_some(),
             LOG_LEVEL => layer.log_level.is_some(),
             ILM_URL => layer.ilm_url.is_some(),
             REQUIRE_UNLOCK => layer.require_unlock.is_some(),
@@ -97,6 +100,9 @@ pub fn save(path: &Path, layer: &Layer) -> io::Result<()> {
     let mut entries = Map::new();
     if let Some(value) = layer.start_at_login {
         entries.insert(START_AT_LOGIN.into(), Value::Bool(value));
+    }
+    if let Some(value) = layer.automatic_updates {
+        entries.insert(AUTOMATIC_UPDATES.into(), Value::Bool(value));
     }
     if let Some(value) = layer.log_level {
         entries.insert(LOG_LEVEL.into(), serde_json::to_value(value)?);
@@ -168,6 +174,7 @@ mod tests {
     fn person() -> Layer {
         Layer {
             start_at_login: Some(false),
+            automatic_updates: Some(false),
             log_level: Some(LogLevel::Debug),
             ilm_url: Some(IlmUrl::parse("ilm.example.com").unwrap()),
             require_unlock: Some(false),
@@ -223,6 +230,7 @@ mod tests {
             written,
             serde_json::json!({
                 "startAtLogin": false,
+                "automaticUpdates": false,
                 "logLevel": "debug",
                 "ilmUrl": "https://ilm.example.com",
                 "requireUnlock": false,

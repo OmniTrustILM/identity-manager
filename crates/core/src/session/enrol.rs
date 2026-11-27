@@ -163,6 +163,7 @@ impl Session {
         storage: Storage,
         key_type: KeyType,
     ) -> Result<Waiting, RequestError> {
+        let _claiming = self.claiming.read().await;
         let (Some(who), Some(enrolments)) = (self.current_sign_in(), &self.enrolments) else {
             return self.request(ra_profile, forms, storage, key_type).await;
         };
@@ -262,6 +263,7 @@ impl Session {
                 return self.failed(run, key, &profile.name, ChangeError::from(error).into());
             }
         };
+        let claiming = self.claiming.read().await;
         let outcome = match self.unattended_forms(&forms) {
             Err(reason) => {
                 log::info!(
@@ -274,6 +276,7 @@ impl Session {
                     reason,
                 })
             }
+            Ok(_) if !(run.proceed)() => None,
             Ok(input) => match self.claim(run, &profile.uuid) {
                 Err(error) => {
                     log::warn!("the enrolment cannot be written down: {error}");
@@ -300,6 +303,7 @@ impl Session {
                 }
             },
         };
+        drop(claiming);
         self.close_request_forms(&forms);
         outcome
     }

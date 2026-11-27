@@ -1,10 +1,10 @@
 //! The Windows source: the values of a registry key.
 
 use super::{
-    AUTOMATIC_RENEWAL, CHECK_INTERVAL, COMPLETE_PREPARED, DEFAULT_KEY_STORAGE, EXPIRY_WARNING_DAYS,
-    ILM_URL, KEY_STORAGES, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUEST_PROFILES,
-    REQUIRE_UNLOCK, RawMap, SIGN_IN_CERTIFICATE_PROFILE, SIGN_IN_METHOD, SIGN_IN_PROVIDER,
-    START_AT_LOGIN,
+    AUTOMATIC_RENEWAL, AUTOMATIC_UPDATES, CHECK_INTERVAL, COMPLETE_PREPARED, DEFAULT_KEY_STORAGE,
+    EXPIRY_WARNING_DAYS, ILM_URL, KEY_STORAGES, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue,
+    REQUEST_PROFILES, REQUIRE_UNLOCK, RawMap, SIGN_IN_CERTIFICATE_PROFILE, SIGN_IN_METHOD,
+    SIGN_IN_PROVIDER, START_AT_LOGIN,
 };
 #[cfg(windows)]
 use crate::settings::Layer;
@@ -93,6 +93,7 @@ pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> R
 fn known_name(name: String) -> String {
     [
         START_AT_LOGIN,
+        AUTOMATIC_UPDATES,
         LOG_LEVEL,
         ILM_URL,
         REQUIRE_UNLOCK,
@@ -148,6 +149,7 @@ mod tests {
         let layer = to_layer(
             &parse(vec![
                 ("startatlogin", RegValue::Dword(0)),
+                ("AUTOMATICUPDATES", RegValue::Dword(0)),
                 ("LOGLEVEL", RegValue::Sz("debug".into())),
                 ("ilmurl", RegValue::Sz("ilm.example.com".into())),
                 ("SIGNINPROVIDER", RegValue::Sz("Corporate".into())),
@@ -156,6 +158,7 @@ mod tests {
             "test",
         );
         assert_eq!(layer.start_at_login, Some(false));
+        assert_eq!(layer.automatic_updates, Some(false));
         assert_eq!(layer.log_level, Some(crate::settings::LogLevel::Debug));
         assert_eq!(
             layer.ilm_url,
