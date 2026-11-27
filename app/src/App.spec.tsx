@@ -63,6 +63,7 @@ function mockBridge(
             if (command === 'settings') {
                 return {
                     startAtLogin: { value: true, locked: false },
+                    automaticUpdates: { value: true, locked: false },
                     logLevel: { value: 'info', locked: true },
                     ilmUrl: { value: 'https://ilm.example.com', locked: false },
                     requireUnlock: { value: true, locked: false },

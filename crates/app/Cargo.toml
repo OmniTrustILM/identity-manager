@@ -24,6 +24,8 @@ tauri-plugin-log = "2.10.2"
 tauri-plugin-notification = "2.8.1"
 tauri-plugin-opener = "2.7.3"
 tauri-plugin-single-instance = "2.5.5"
+# Without its own rustls, which brings a second crypto provider; it uses the TLS of reqwest that im-core sets up.
+tauri-plugin-updater = { version = "=2.14.1", default-features = false, features = ["system-proxy", "zip"] }
 tokio = { version = "1.54.1", features = ["sync", "time"] }
 url = "2.5.8"
 

@@ -30,6 +30,7 @@ pub enum PolicyValue {
 pub type RawMap = BTreeMap<String, PolicyValue>;
 
 pub(crate) const START_AT_LOGIN: &str = "StartAtLogin";
+pub(crate) const AUTOMATIC_UPDATES: &str = "AutomaticUpdates";
 pub(crate) const LOG_LEVEL: &str = "LogLevel";
 pub(crate) const ILM_URL: &str = "IlmUrl";
 pub(crate) const REQUIRE_UNLOCK: &str = "RequireUnlock";
@@ -51,6 +52,7 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
     for (name, value) in raw {
         match (name.as_str(), value) {
             (START_AT_LOGIN, PolicyValue::Bool(on)) => layer.start_at_login = Some(*on),
+            (AUTOMATIC_UPDATES, PolicyValue::Bool(on)) => layer.automatic_updates = Some(*on),
             (LOG_LEVEL, PolicyValue::Text(text)) => match parse_level(text) {
                 Some(level) => layer.log_level = Some(level),
                 None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
@@ -115,6 +117,7 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
             }
             (
                 START_AT_LOGIN
+                | AUTOMATIC_UPDATES
                 | LOG_LEVEL
                 | ILM_URL
                 | REQUIRE_UNLOCK
@@ -170,6 +173,7 @@ fn parse_level(text: &str) -> Option<LogLevel> {
 pub fn merge(machine: Layer, user: Layer) -> Layer {
     Layer {
         start_at_login: machine.start_at_login.or(user.start_at_login),
+        automatic_updates: machine.automatic_updates.or(user.automatic_updates),
         log_level: machine.log_level.or(user.log_level),
         ilm_url: machine.ilm_url.or(user.ilm_url),
         require_unlock: machine.require_unlock.or(user.require_unlock),
@@ -326,11 +330,13 @@ mod tests {
         let layer = to_layer(
             &raw(&[
                 ("StartAtLogin", PolicyValue::Bool(false)),
+                ("AutomaticUpdates", PolicyValue::Bool(false)),
                 ("LogLevel", text("debug")),
             ]),
             "test",
         );
         assert_eq!(layer.start_at_login, Some(false));
+        assert_eq!(layer.automatic_updates, Some(false));
         assert_eq!(layer.log_level, Some(LogLevel::Debug));
     }
 
@@ -588,6 +594,7 @@ mod tests {
         let layer = to_layer(
             &raw(&[
                 ("StartAtLogin", PolicyValue::Int(2)),
+                ("AutomaticUpdates", PolicyValue::Int(0)),
                 ("LogLevel", text("loud")),
                 ("Other", PolicyValue::Bool(true)),
             ]),
@@ -597,6 +604,7 @@ mod tests {
         let layer = to_layer(
             &raw(&[
                 ("StartAtLogin", text("true")),
+                ("AutomaticUpdates", text("false")),
                 ("LogLevel", PolicyValue::Bool(true)),
             ]),
             "test",
@@ -608,11 +616,13 @@ mod tests {
     fn machine_wins_per_key() {
         let machine = Layer {
             start_at_login: Some(false),
+            automatic_updates: Some(false),
             ilm_url: IlmUrl::parse("machine.example.com").ok(),
             ..Layer::default()
         };
         let user = Layer {
             start_at_login: Some(true),
+            automatic_updates: Some(true),
             log_level: Some(LogLevel::Warn),
             ilm_url: IlmUrl::parse("user.example.com").ok(),
             sign_in_provider: Some("Corporate".into()),
@@ -645,6 +655,7 @@ mod tests {
         assert_eq!(merged.lock_after_idle, IdleMinutes::new(10));
         assert_eq!(merged.sign_in_method, Some(SignInMethod::Certificate));
         assert_eq!(merged.start_at_login, Some(false));
+        assert_eq!(merged.automatic_updates, Some(false));
         assert_eq!(merged.log_level, Some(LogLevel::Warn));
         assert_eq!(merged.ilm_url, IlmUrl::parse("machine.example.com").ok());
         assert_eq!(merged.sign_in_provider.as_deref(), Some("Corporate"));

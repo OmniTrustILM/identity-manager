@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use im_core::session::SessionView;
@@ -9,7 +10,7 @@ use tauri::{AppHandle, Manager, Runtime};
 
 use crate::certificates::Ilm;
 use crate::lock::Guard;
-use crate::{session, settings_window, show_main_window, summary};
+use crate::{session, settings_window, show_main_window, summary, update};
 
 const TRAY_ID: &str = "main";
 
@@ -23,17 +24,20 @@ pub enum State {
     Unreachable,
 }
 
-/// Everything the tray shows: the state, and whether a signed-out person can repeat the sign-in that ended.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Everything the tray shows: the state, whether a signed-out person can repeat the sign-in that ended, and the
+/// version of an update that can be installed.
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Look {
     state: State,
     again: bool,
+    update: Option<String>,
 }
 
 impl Look {
     const START: Look = Look {
         state: State::SignedOut,
         again: false,
+        update: None,
     };
 
     /// The tray shows the real sign-in, never the lock; a locked view carries nothing and counts as signed out.
@@ -51,7 +55,11 @@ impl Look {
                 (State::SignedOut, false)
             }
         };
-        Look { state, again }
+        Look {
+            state,
+            again,
+            update: None,
+        }
     }
 
     /// The look with the certificates that need attention (or not) taken into account.
@@ -64,6 +72,11 @@ impl Look {
             _ => self,
         }
     }
+
+    /// The look with the update that can be installed (or none).
+    fn with_update(self, update: Option<String>) -> Look {
+        Look { update, ..self }
+    }
 }
 
 /// What the tray was told, and what it shows.
@@ -71,6 +84,7 @@ struct Seen {
     view: Look,
     attention: bool,
     locked: bool,
+    update: Option<String>,
     shown: Look,
 }
 
@@ -83,6 +97,7 @@ impl Shown {
             view: Look::START,
             attention: false,
             locked: false,
+            update: None,
             shown: Look::START,
         }))
     }
@@ -90,16 +105,24 @@ impl Shown {
     fn change(&self, tell: impl FnOnce(&mut Seen)) -> Option<Look> {
         let mut seen = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         tell(&mut seen);
-        let next = seen.view.with_attention(seen.attention && !seen.locked);
+        let next = seen
+            .view
+            .clone()
+            .with_attention(seen.attention && !seen.locked)
+            .with_update(seen.update.clone());
         (seen.shown != next).then(|| {
-            seen.shown = next;
+            seen.shown = next.clone();
             next
         })
     }
 
     /// What the tray was last told to show.
     fn latest(&self) -> Look {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner).shown
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .shown
+            .clone()
     }
 
     /// The new look when the view changes what the tray shows.
@@ -115,6 +138,11 @@ impl Shown {
     /// The new look when whether certificates need attention changes what the tray shows.
     fn attention(&self, attention: bool) -> Option<Look> {
         self.change(|seen| seen.attention = attention)
+    }
+
+    /// The new look when the version of the update that can be installed changes what the tray shows.
+    fn update_offered(&self, update: Option<String>) -> Option<Look> {
+        self.change(|seen| seen.update = update)
     }
 }
 
@@ -142,7 +170,7 @@ fn icon_bytes(state: State, template: bool) -> &'static [u8] {
 }
 
 /// The tray menu entries (id, label) of a system, with the way to sign in first while signed out.
-fn menu_for(platform: Platform, look: Look) -> Vec<(&'static str, &'static str)> {
+fn menu_for(platform: Platform, look: &Look) -> Vec<(&'static str, Cow<'static, str>)> {
     let open = ("open", "Open Identity Manager");
     let sign_in = match (look.state, look.again) {
         (State::SignedOut, true) => Some(("sign-in-again", "Sign in again")),
@@ -151,6 +179,12 @@ fn menu_for(platform: Platform, look: Look) -> Vec<(&'static str, &'static str)>
     };
     // Linux's tray reports no clicks, so the menu is the only way to the summary.
     let summary = (platform == Platform::Linux).then_some(("summary", "Show summary"));
+    let install = look.update.as_ref().map(|version| {
+        (
+            "install-update",
+            format!("Install update {version}\u{2026}"),
+        )
+    });
     let (settings, quit) = match platform {
         Platform::Linux => (("settings", "Preferences"), ("quit", "Quit")),
         Platform::Macos => (
@@ -162,7 +196,10 @@ fn menu_for(platform: Platform, look: Look) -> Vec<(&'static str, &'static str)>
     summary
         .into_iter()
         .chain(sign_in)
-        .chain([open, settings, quit])
+        .chain([open])
+        .map(|(id, label)| (id, Cow::Borrowed(label)))
+        .chain(install.map(|(id, label)| (id, Cow::Owned(label))))
+        .chain([settings, quit].map(|(id, label)| (id, Cow::Borrowed(label))))
         .collect()
 }
 
@@ -171,6 +208,7 @@ pub enum Action {
     Summary,
     SignIn,
     SignInAgain,
+    InstallUpdate,
     Open,
     Settings,
     Quit,
@@ -181,6 +219,7 @@ pub fn action_for(id: &str) -> Option<Action> {
         "summary" => Some(Action::Summary),
         "sign-in" => Some(Action::SignIn),
         "sign-in-again" => Some(Action::SignInAgain),
+        "install-update" => Some(Action::InstallUpdate),
         "open" => Some(Action::Open),
         "settings" => Some(Action::Settings),
         "quit" => Some(Action::Quit),
@@ -200,6 +239,7 @@ fn run_action<R: Runtime>(app: &AppHandle<R>, action: Action) {
                 }
             });
         }
+        Action::InstallUpdate => update::install(app),
         Action::Settings => settings_window::open(app),
         Action::Quit => app.exit(0),
     }
@@ -208,7 +248,7 @@ fn run_action<R: Runtime>(app: &AppHandle<R>, action: Action) {
 fn build_menu<R: Runtime>(
     app: &AppHandle<R>,
     platform: Platform,
-    look: Look,
+    look: &Look,
 ) -> tauri::Result<Menu<R>> {
     let items = menu_for(platform, look)
         .into_iter()
@@ -221,7 +261,7 @@ fn build_menu<R: Runtime>(
     Menu::with_items(app, &entries)
 }
 
-fn apply<R: Runtime>(app: &AppHandle<R>, look: Look) -> tauri::Result<()> {
+fn apply<R: Runtime>(app: &AppHandle<R>, look: &Look) -> tauri::Result<()> {
     let Some(tray) = app.tray_by_id(TRAY_ID) else {
         return Ok(());
     };
@@ -241,7 +281,7 @@ fn show<R: Runtime>(app: &AppHandle<R>, look: Look) {
         let look = handle
             .try_state::<Arc<Shown>>()
             .map_or(look, |shown| shown.latest());
-        if let Err(error) = apply(&handle, look) {
+        if let Err(error) = apply(&handle, &look) {
             log::warn!("updating the tray failed: {error}");
         }
     });
@@ -257,6 +297,16 @@ pub fn set_attention<R: Runtime>(app: &AppHandle<R>, attention: bool) {
         return;
     };
     if let Some(look) = shown.attention(attention) {
+        show(app, look);
+    }
+}
+
+/// Tells the tray which version of the application can be installed, or none, which adds or removes the entry.
+pub fn set_update<R: Runtime>(app: &AppHandle<R>, version: Option<String>) {
+    let Some(shown) = app.try_state::<Arc<Shown>>() else {
+        return;
+    };
+    if let Some(look) = shown.update_offered(version) {
         show(app, look);
     }
 }
@@ -295,7 +345,7 @@ pub fn create<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let platform = AppInfo::current().platform;
     let macos = platform == Platform::Macos;
     let look = Look::START;
-    let menu = build_menu(app, platform, look)?;
+    let menu = build_menu(app, platform, &look)?;
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(Image::from_bytes(icon_bytes(look.state, macos))?)
@@ -340,26 +390,40 @@ mod tests {
     const SIGNED_OUT_AGAIN: Look = Look {
         state: State::SignedOut,
         again: true,
+        update: None,
     };
     const FINE: Look = Look {
         state: State::Fine,
         again: false,
+        update: None,
     };
     const UNREACHABLE: Look = Look {
         state: State::Unreachable,
         again: false,
+        update: None,
     };
     const ATTENTION: Look = Look {
         state: State::Attention,
         again: false,
+        update: None,
     };
     const PLATFORMS: [Platform; 3] = [Platform::Linux, Platform::Macos, Platform::Windows];
 
-    fn ids(platform: Platform, look: Look) -> Vec<&'static str> {
+    fn ids(platform: Platform, look: &Look) -> Vec<&'static str> {
         menu_for(platform, look)
             .into_iter()
             .map(|(id, _)| id)
             .collect()
+    }
+
+    fn pairs<'a>(menu: &'a [(&'static str, Cow<'static, str>)]) -> Vec<(&'a str, &'a str)> {
+        menu.iter()
+            .map(|(id, label)| (*id, label.as_ref()))
+            .collect()
+    }
+
+    fn with_update(look: Look, version: &str) -> Look {
+        look.with_update(Some(version.to_owned()))
     }
 
     fn signed_in(unreachable: bool) -> SessionView {
@@ -540,7 +604,7 @@ mod tests {
     #[test]
     fn linux_lists_show_summary_open_preferences_then_quit() {
         assert_eq!(
-            menu_for(Platform::Linux, FINE),
+            pairs(&menu_for(Platform::Linux, &FINE)),
             [
                 ("summary", "Show summary"),
                 ("open", "Open Identity Manager"),
@@ -553,7 +617,7 @@ mod tests {
     #[test]
     fn macos_lists_open_settings_then_quit_identity_manager() {
         assert_eq!(
-            menu_for(Platform::Macos, FINE),
+            pairs(&menu_for(Platform::Macos, &FINE)),
             [
                 ("open", "Open Identity Manager"),
                 ("settings", "Settings\u{2026}"),
@@ -565,7 +629,7 @@ mod tests {
     #[test]
     fn windows_lists_open_settings_then_exit() {
         assert_eq!(
-            menu_for(Platform::Windows, UNREACHABLE),
+            pairs(&menu_for(Platform::Windows, &UNREACHABLE)),
             [
                 ("open", "Open Identity Manager"),
                 ("settings", "Settings"),
@@ -577,9 +641,9 @@ mod tests {
     #[test]
     fn signed_out_adds_a_sign_in_entry_before_open_on_every_system() {
         for platform in PLATFORMS {
-            let plain = menu_for(platform, SIGNED_OUT);
-            let again = menu_for(platform, SIGNED_OUT_AGAIN);
-            let position = |menu: &[(&str, &str)], id| menu.iter().position(|e| e.0 == id);
+            let plain = menu_for(platform, &SIGNED_OUT);
+            let again = menu_for(platform, &SIGNED_OUT_AGAIN);
+            let position = |menu: &[(&str, Cow<str>)], id| menu.iter().position(|e| e.0 == id);
             assert_eq!(
                 plain[position(&plain, "sign-in").unwrap()].1,
                 "Sign in\u{2026}"
@@ -599,7 +663,7 @@ mod tests {
     fn signed_in_and_unreachable_have_no_sign_in_entry() {
         for platform in PLATFORMS {
             for look in [FINE, ATTENTION, UNREACHABLE] {
-                let ids = ids(platform, look);
+                let ids = ids(platform, &look);
                 assert!(!ids.contains(&"sign-in") && !ids.contains(&"sign-in-again"));
             }
         }
@@ -607,16 +671,16 @@ mod tests {
 
     #[test]
     fn show_summary_is_on_linux_only() {
-        assert!(ids(Platform::Linux, FINE).contains(&"summary"));
-        assert!(!ids(Platform::Macos, FINE).contains(&"summary"));
-        assert!(!ids(Platform::Windows, FINE).contains(&"summary"));
+        assert!(ids(Platform::Linux, &FINE).contains(&"summary"));
+        assert!(!ids(Platform::Macos, &FINE).contains(&"summary"));
+        assert!(!ids(Platform::Windows, &FINE).contains(&"summary"));
     }
 
     #[test]
     fn every_menu_id_has_an_action() {
         for platform in PLATFORMS {
             for look in [FINE, UNREACHABLE, SIGNED_OUT, SIGNED_OUT_AGAIN] {
-                for id in ids(platform, look) {
+                for id in ids(platform, &look) {
                     assert!(action_for(id).is_some(), "{id} on {platform:?}");
                 }
             }
@@ -624,9 +688,38 @@ mod tests {
         assert_eq!(action_for("sign-in"), Some(Action::SignIn));
         assert_eq!(action_for("sign-in-again"), Some(Action::SignInAgain));
         assert_eq!(action_for("summary"), Some(Action::Summary));
+        assert_eq!(action_for("install-update"), Some(Action::InstallUpdate));
         assert_eq!(action_for("open"), Some(Action::Open));
         assert_eq!(action_for("settings"), Some(Action::Settings));
         assert_eq!(action_for("quit"), Some(Action::Quit));
+    }
+
+    #[test]
+    fn an_offered_update_adds_an_entry_with_its_version_just_above_settings() {
+        for platform in PLATFORMS {
+            let menu = menu_for(platform, &with_update(FINE, "0.2.0"));
+            let entries = pairs(&menu);
+            let install = entries.iter().position(|e| e.0 == "install-update");
+            let settings = entries.iter().position(|e| e.0 == "settings");
+            assert_eq!(entries[install.unwrap()].1, "Install update 0.2.0\u{2026}");
+            assert_eq!(install.unwrap() + 1, settings.unwrap());
+            assert!(!ids(platform, &FINE).contains(&"install-update"));
+        }
+    }
+
+    #[test]
+    fn the_update_entry_comes_and_goes_with_the_offer() {
+        let shown = Shown::new();
+        assert_eq!(shown.update(&signed_in(false)), Some(FINE));
+        let offered = shown.update_offered(Some("0.2.0".to_owned())).unwrap();
+        assert_eq!(offered.update.as_deref(), Some("0.2.0"));
+        assert_eq!(shown.update_offered(Some("0.2.0".to_owned())), None);
+        assert_eq!(
+            shown.update(&signed_in(true)).unwrap().update,
+            offered.update
+        );
+        assert_eq!(shown.update_offered(None).unwrap().update, None);
+        assert_eq!(shown.latest().update, None);
     }
 
     #[test]

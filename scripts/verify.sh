@@ -120,8 +120,8 @@ as_root() {
 policy_system() {
     [[ -n "${CI:-}" ]] || { echo "policy-system changes system policy and runs on CI runners only (CI is not set)" >&2; exit 1; }
     local policy_xml='<?xml version="1.0" encoding="UTF-8"?>
-<plist version="1.0"><dict><key>StartAtLogin</key><false/><key>LogLevel</key><string>debug</string><key>CompletePrepared</key><true/><key>RequestProfiles</key><string>Web, Mail</string><key>SignInCertificateProfile</key><string>Sign-in</string></dict></plist>'
-    local policy_json='{"StartAtLogin": false, "LogLevel": "debug", "CompletePrepared": true, "RequestProfiles": "Web, Mail", "SignInCertificateProfile": "Sign-in"}'
+<plist version="1.0"><dict><key>StartAtLogin</key><false/><key>AutomaticUpdates</key><false/><key>LogLevel</key><string>debug</string><key>CompletePrepared</key><true/><key>RequestProfiles</key><string>Web, Mail</string><key>SignInCertificateProfile</key><string>Sign-in</string></dict></plist>'
+    local policy_json='{"StartAtLogin": false, "AutomaticUpdates": false, "LogLevel": "debug", "CompletePrepared": true, "RequestProfiles": "Web, Mail", "SignInCertificateProfile": "Sign-in"}'
     scratch=$(mktemp -d)
     case "$(uname -s)" in
         Darwin)
@@ -152,6 +152,7 @@ policy_system() {
             if MSYS2_ARG_CONV_EXCL='*' reg query "$key" > /dev/null 2>&1; then refuse_existing "$key"; fi
             trap 'MSYS2_ARG_CONV_EXCL="*" reg delete "$key" /f || true; rm -rf "$scratch"' EXIT
             MSYS2_ARG_CONV_EXCL='*' reg add "$key" /v StartAtLogin /t REG_DWORD /d 0 /f
+            MSYS2_ARG_CONV_EXCL='*' reg add "$key" /v AutomaticUpdates /t REG_DWORD /d 0 /f
             MSYS2_ARG_CONV_EXCL='*' reg add "$key" /v LogLevel /t REG_SZ /d debug /f
             MSYS2_ARG_CONV_EXCL='*' reg add "$key" /v CompletePrepared /t REG_DWORD /d 1 /f
             MSYS2_ARG_CONV_EXCL='*' reg add "$key" /v RequestProfiles /t REG_SZ /d "Web, Mail" /f

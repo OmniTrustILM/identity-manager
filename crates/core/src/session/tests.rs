@@ -336,6 +336,28 @@ async fn a_new_session_is_starting() {
 }
 
 #[tokio::test]
+async fn holding_the_sends_keeps_the_next_hold_waiting_until_it_is_dropped() {
+    let world = World::new().await;
+    let held = world.session.hold_sends().await;
+    let waiting = tokio::time::timeout(Duration::from_millis(50), world.session.hold_sends()).await;
+    assert!(waiting.is_err());
+    drop(held);
+    let free = tokio::time::timeout(Duration::from_secs(5), world.session.hold_sends()).await;
+    assert!(free.is_ok());
+}
+
+#[tokio::test]
+async fn holding_the_sends_waits_for_a_change_of_the_sign_in_certificate() {
+    let world = World::new().await;
+    let changing = world.session.changing.lock().await;
+    let waiting = tokio::time::timeout(Duration::from_millis(50), world.session.hold_sends()).await;
+    assert!(waiting.is_err());
+    drop(changing);
+    let free = tokio::time::timeout(Duration::from_secs(5), world.session.hold_sends()).await;
+    assert!(free.is_ok());
+}
+
+#[tokio::test]
 async fn connect_lists_the_published_provider_and_remembers_the_address() {
     let world = World::new().await;
 

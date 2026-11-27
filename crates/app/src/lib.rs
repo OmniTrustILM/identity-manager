@@ -26,6 +26,7 @@ mod settings;
 mod settings_window;
 mod summary;
 mod tray;
+mod update;
 
 use im_core::AppInfo;
 use log::LevelFilter;
@@ -80,6 +81,11 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
     builder = builder.plugin(tauri_plugin_opener::init());
     // Only the Rust side notifies; no window is granted the plugin's permissions.
     builder = builder.plugin(tauri_plugin_notification::init());
+    // The updater has no work on Linux, and the mock apps of the tests have no configuration for it. Only the Rust
+    // side updates; no window is granted the plugin's permissions.
+    if !cfg!(test) && !cfg!(target_os = "linux") {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
     #[cfg(target_os = "macos")]
     if !cfg!(test) {
         builder = builder
@@ -187,6 +193,7 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
                 session::system_guard(app.handle(), mode),
                 certificates::system_identities(),
             );
+            update::start(app.handle(), mode);
             log::info!("starting {} {} in {mode:?} mode", info.name, info.version);
             if mode == Mode::SelfCheck {
                 self_check::start_timer(app.handle().clone());

@@ -1,5 +1,6 @@
 {
   "StartAtLogin": false,
+  "AutomaticUpdates": false,
   "LogLevel": "debug",
   "IlmUrl": "https://ilm.example.com",
   "RequireUnlock": true,

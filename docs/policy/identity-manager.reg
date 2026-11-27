@@ -2,6 +2,7 @@ Windows Registry Editor Version 5.00
 
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\OmniTrustILM\IdentityManager]
 "StartAtLogin"=dword:00000000
+"AutomaticUpdates"=dword:00000000
 "LogLevel"="debug"
 "IlmUrl"="https://ilm.example.com"
 "RequireUnlock"=dword:00000001

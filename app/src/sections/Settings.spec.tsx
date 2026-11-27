@@ -10,6 +10,7 @@ import { Settings } from './Settings';
 
 const open: SettingsView = {
     startAtLogin: { value: true, locked: false },
+    automaticUpdates: { value: true, locked: false },
     logLevel: { value: 'info', locked: false },
     ilmUrl: { value: null, locked: false },
     requireUnlock: { value: true, locked: false },
@@ -72,7 +73,11 @@ async function openPane(title: string) {
     await act(async () => tab.click());
 }
 
-const toggle = () => container.querySelector('input[role="switch"]') as HTMLInputElement;
+const switchLabelled = (label: string) => {
+    const row = [...container.querySelectorAll('label')].find((candidate) => candidate.textContent === label);
+    return (row ? container.querySelector(`input[role="switch"][id="${row.htmlFor}"]`) : null) as HTMLInputElement | null;
+};
+const toggle = () => switchLabelled(strings.startAtLogin) as HTMLInputElement;
 const select = () => container.querySelector('select') as HTMLSelectElement;
 const alerts = () => [...container.querySelectorAll('[role="alert"]')].map((alert) => alert.textContent);
 
@@ -917,4 +922,53 @@ test('Automatic renewal is not shown on Linux', async () => {
     await render('linux');
 
     expect(container.textContent).not.toContain(strings.automaticRenewal);
+});
+
+test('shows Check for updates after Start at login, on or off as the view says, labelled for its switch', async () => {
+    bridge(() => ({ ...open, automaticUpdates: { value: false, locked: false } }));
+
+    await render();
+
+    const updates = switchLabelled(strings.checkForUpdates) as HTMLInputElement;
+    expect(updates.checked).toBe(false);
+    expect(toggle().checked).toBe(true);
+    expect(updates.disabled).toBe(false);
+    expect(container.textContent).not.toContain(strings.managedByOrganization);
+    const switches = [...container.querySelectorAll('input[role="switch"]')];
+    expect(switches.indexOf(updates)).toBe(switches.indexOf(toggle()) + 1);
+});
+
+test('changing Check for updates sends the change', async () => {
+    bridge(() => open);
+    await render();
+
+    await act(async () => switchLabelled(strings.checkForUpdates)?.click());
+
+    expect(calls.at(-1)).toEqual({
+        command: 'set_setting',
+        args: { change: { key: 'automaticUpdates', value: false } satisfies Change },
+    });
+});
+
+test('Check for updates set by the organization is disabled and says so', async () => {
+    bridge(() => ({ ...open, automaticUpdates: { value: false, locked: true } }));
+
+    await render();
+
+    const updates = switchLabelled(strings.checkForUpdates) as HTMLInputElement;
+    expect(updates.disabled).toBe(true);
+    expect(updates.checked).toBe(false);
+    expect(container.textContent).toContain(strings.managedByOrganization);
+    expect(toggle().disabled).toBe(false);
+    const note = document.getElementById(updates.getAttribute('aria-describedby') ?? '');
+    expect(note?.textContent).toContain(strings.managedByOrganization);
+});
+
+test('Check for updates is not on Linux', async () => {
+    bridge(() => open);
+
+    await render('linux');
+
+    expect(switchLabelled(strings.checkForUpdates)).toBeNull();
+    expect(toggle()).not.toBeNull();
 });

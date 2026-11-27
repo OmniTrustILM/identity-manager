@@ -120,6 +120,20 @@ mod tests {
     }
 
     #[test]
+    fn automatic_updates_reaches_the_layer() {
+        let layer = to_layer(
+            &parse_json(br#"{"AutomaticUpdates": false}"#, "test"),
+            "test",
+        );
+        assert_eq!(layer.automatic_updates, Some(false));
+        let layer = to_layer(
+            &parse_json(br#"{"AutomaticUpdates": "false"}"#, "test"),
+            "test",
+        );
+        assert_eq!(layer.automatic_updates, None);
+    }
+
+    #[test]
     fn key_storage_strings_reach_the_layer() {
         use crate::keys::Storage;
         let json = br#"{"KeyStorages": "software, tpm", "DefaultKeyStorage": "tpm"}"#;

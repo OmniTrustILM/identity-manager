@@ -17,5 +17,6 @@ pub mod requests;
 pub mod session;
 pub mod settings;
 pub mod token;
+pub mod update;
 
 pub use app_info::{AppInfo, Platform};

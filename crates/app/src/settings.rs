@@ -185,12 +185,13 @@ fn level_name(level: LogLevel) -> String {
 }
 
 /// One line per setting with its effective value and the layer it comes from.
-fn start_lines(policy: &Layer, person: &Layer) -> [String; 3] {
+fn start_lines(policy: &Layer, person: &Layer) -> [String; 4] {
     let view = settings::view(policy, person);
     let [
         (login, login_source),
         (level, level_source),
         (ilm, ilm_source),
+        (updates, updates_source),
     ] = settings::sources(policy, person);
     [
         format!(
@@ -204,6 +205,10 @@ fn start_lines(policy: &Layer, person: &Layer) -> [String; 3] {
         format!(
             "{ilm} is {} from {ilm_source}",
             view.ilm_url.value.as_deref().unwrap_or("not set")
+        ),
+        format!(
+            "{updates} is {} from {updates_source}",
+            view.automatic_updates.value
         ),
     ]
 }
@@ -625,7 +630,8 @@ mod tests {
             [
                 "StartAtLogin is false from person".to_string(),
                 "LogLevel is warn from policy".to_string(),
-                "IlmUrl is https://ilm.example.com from person".to_string()
+                "IlmUrl is https://ilm.example.com from person".to_string(),
+                "AutomaticUpdates is true from default".to_string()
             ]
         );
         assert_eq!(

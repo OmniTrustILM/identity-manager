@@ -129,6 +129,7 @@ test('the app information is required where it is read', async () => {
 
 const settingsView = {
     startAtLogin: { value: true, locked: false },
+    automaticUpdates: { value: true, locked: false },
     logLevel: { value: 'info', locked: false },
     requireUnlock: { value: true, locked: false },
     lockAfterIdle: { value: null, locked: false },

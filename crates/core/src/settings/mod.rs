@@ -211,6 +211,7 @@ pub struct RememberedCertificate {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Layer {
     pub start_at_login: Option<bool>,
+    pub automatic_updates: Option<bool>,
     pub log_level: Option<LogLevel>,
     pub ilm_url: Option<IlmUrl>,
     pub require_unlock: Option<bool>,
@@ -287,6 +288,7 @@ pub enum Unlock {
 )]
 pub struct SettingsView {
     pub start_at_login: Entry<bool>,
+    pub automatic_updates: Entry<bool>,
     pub log_level: Entry<LogLevel>,
     pub ilm_url: Entry<Option<String>>,
     pub require_unlock: Entry<bool>,
@@ -311,6 +313,7 @@ pub struct SettingsView {
 )]
 pub enum Change {
     StartAtLogin(bool),
+    AutomaticUpdates(bool),
     LogLevel(LogLevel),
     IlmUrl(#[cfg_attr(any(test, feature = "ts"), ts(as = "String"))] IlmUrl),
     RequireUnlock(bool),
@@ -335,6 +338,7 @@ impl fmt::Display for Locked {
 impl std::error::Error for Locked {}
 
 const DEFAULT_START_AT_LOGIN: bool = true;
+const DEFAULT_AUTOMATIC_UPDATES: bool = true;
 const DEFAULT_REQUIRE_UNLOCK: bool = true;
 const DEFAULT_CHECK_EVERY: u16 = 15;
 const DEFAULT_WARN_DAYS: u16 = 30;
@@ -359,6 +363,14 @@ fn start_at_login(policy: &Layer, person: &Layer) -> (bool, Source) {
         policy.start_at_login,
         person.start_at_login,
         DEFAULT_START_AT_LOGIN,
+    )
+}
+
+fn automatic_updates(policy: &Layer, person: &Layer) -> (bool, Source) {
+    resolve(
+        policy.automatic_updates,
+        person.automatic_updates,
+        DEFAULT_AUTOMATIC_UPDATES,
     )
 }
 
@@ -463,6 +475,7 @@ pub fn allowed_offers(offers: Vec<Offer>, policy: &Layer) -> (Vec<Offer>, Option
 pub fn view(policy: &Layer, person: &Layer) -> SettingsView {
     SettingsView {
         start_at_login: entry(start_at_login(policy, person)),
+        automatic_updates: entry(automatic_updates(policy, person)),
         log_level: entry(log_level(policy, person)),
         ilm_url: entry({
             let (url, source) = ilm_url(policy, person);
@@ -487,11 +500,12 @@ pub fn view(policy: &Layer, person: &Layer) -> SettingsView {
 }
 
 /// The layer each effective value comes from, by setting name.
-pub fn sources(policy: &Layer, person: &Layer) -> [(&'static str, Source); 3] {
+pub fn sources(policy: &Layer, person: &Layer) -> [(&'static str, Source); 4] {
     [
         ("StartAtLogin", start_at_login(policy, person).1),
         ("LogLevel", log_level(policy, person).1),
         ("IlmUrl", ilm_url(policy, person).1),
+        ("AutomaticUpdates", automatic_updates(policy, person).1),
     ]
 }
 
@@ -503,6 +517,12 @@ pub fn apply(change: Change, policy: &Layer, person: &mut Layer) -> Result<(), L
                 return Err(Locked("Start at login"));
             }
             person.start_at_login = Some(value);
+        }
+        Change::AutomaticUpdates(value) => {
+            if policy.automatic_updates.is_some() {
+                return Err(Locked("Automatic updates"));
+            }
+            person.automatic_updates = Some(value);
         }
         Change::LogLevel(value) => {
             if policy.log_level.is_some() {
@@ -670,7 +690,8 @@ mod tests {
             [
                 ("StartAtLogin", Source::Person),
                 ("LogLevel", Source::Policy),
-                ("IlmUrl", Source::Default)
+                ("IlmUrl", Source::Default),
+                ("AutomaticUpdates", Source::Default)
             ]
         );
         assert_eq!(
@@ -678,7 +699,8 @@ mod tests {
             [
                 ("StartAtLogin", Source::Default),
                 ("LogLevel", Source::Default),
-                ("IlmUrl", Source::Default)
+                ("IlmUrl", Source::Default),
+                ("AutomaticUpdates", Source::Default)
             ]
         );
         assert_eq!(Source::Policy.to_string(), "policy");
@@ -1152,6 +1174,63 @@ mod tests {
     }
 
     #[test]
+    fn automatic_updates_are_on_by_default() {
+        let view = view(&Layer::default(), &Layer::default());
+        assert_eq!(
+            view.automatic_updates,
+            Entry {
+                value: true,
+                locked: false
+            }
+        );
+    }
+
+    #[test]
+    fn managed_automatic_updates_lock_the_entry() {
+        let policy = Layer {
+            automatic_updates: Some(false),
+            ..Layer::default()
+        };
+        let person = Layer {
+            automatic_updates: Some(true),
+            ..Layer::default()
+        };
+        assert_eq!(
+            view(&policy, &person).automatic_updates,
+            Entry {
+                value: false,
+                locked: true
+            }
+        );
+        assert_eq!(
+            sources(&policy, &person)[3],
+            ("AutomaticUpdates", Source::Policy)
+        );
+    }
+
+    #[test]
+    fn automatic_updates_are_changed_unless_policy_fixes_them() {
+        let mut person = Layer::default();
+        apply(
+            Change::AutomaticUpdates(false),
+            &Layer::default(),
+            &mut person,
+        )
+        .unwrap();
+        assert_eq!(person.automatic_updates, Some(false));
+        let policy = Layer {
+            automatic_updates: Some(false),
+            ..Layer::default()
+        };
+        let refused = apply(Change::AutomaticUpdates(true), &policy, &mut person).unwrap_err();
+        assert_eq!(
+            refused.to_string(),
+            "Automatic updates is managed by your organization."
+        );
+        assert_eq!(person.automatic_updates, Some(false));
+    }
+
+    #[test]
     fn warn_days_are_changed_unless_policy_fixes_them() {
         let mut person = Layer::default();
         let sixty = WarnDays::option(60).unwrap();
@@ -1179,6 +1258,7 @@ mod tests {
             json,
             json!({
                 "startAtLogin": { "value": false, "locked": true },
+                "automaticUpdates": { "value": true, "locked": false },
                 "logLevel": { "value": "debug", "locked": true },
                 "ilmUrl": { "value": null, "locked": false },
                 "requireUnlock": { "value": true, "locked": false },
@@ -1198,6 +1278,9 @@ mod tests {
         let level: Change =
             serde_json::from_value(json!({ "key": "logLevel", "value": "warn" })).unwrap();
         assert_eq!(login, Change::StartAtLogin(false));
+        let updates: Change =
+            serde_json::from_value(json!({ "key": "automaticUpdates", "value": false })).unwrap();
+        assert_eq!(updates, Change::AutomaticUpdates(false));
         assert_eq!(level, Change::LogLevel(LogLevel::Warn));
         let address: Change =
             serde_json::from_value(json!({ "key": "ilmUrl", "value": "ilm.example.com" })).unwrap();

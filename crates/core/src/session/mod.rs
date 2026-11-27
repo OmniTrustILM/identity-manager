@@ -522,6 +522,18 @@ impl Session {
         }
     }
 
+    /// Waits until no request, renewal, revocation, enrolment or change of the sign-in certificate is under way,
+    /// and keeps further ones waiting until the guards are dropped.
+    pub async fn hold_sends(
+        &self,
+    ) -> (
+        tokio::sync::MutexGuard<'_, ()>,
+        tokio::sync::MutexGuard<'_, ()>,
+    ) {
+        let following = self.following.lock().await;
+        (following, self.changing.lock().await)
+    }
+
     /// The address of ILM while a saved sign-in cannot be renewed because ILM or the identity provider cannot be
     /// reached.
     pub fn unreachable_at(&self) -> Option<IlmUrl> {

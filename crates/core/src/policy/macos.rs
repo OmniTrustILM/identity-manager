@@ -187,6 +187,14 @@ mod tests {
     }
 
     #[test]
+    fn automatic_updates_reaches_the_layer() {
+        let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
+<key>AutomaticUpdates</key><false/></dict></plist>"#;
+        let layer = crate::policy::to_layer(&parse_plist(xml, "test"), "test");
+        assert_eq!(layer.automatic_updates, Some(false));
+    }
+
+    #[test]
     fn a_plist_integer_is_not_a_bool_for_the_layer() {
         let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
 <key>StartAtLogin</key><integer>1</integer></dict></plist>"#;

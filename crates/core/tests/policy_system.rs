@@ -11,6 +11,8 @@ fn the_installed_policy_is_read_and_locks_the_settings() {
 
     assert!(!view.start_at_login.value);
     assert!(view.start_at_login.locked);
+    assert!(!view.automatic_updates.value);
+    assert!(view.automatic_updates.locked);
     assert_eq!(view.log_level.value, LogLevel::Debug);
     assert!(view.log_level.locked);
 

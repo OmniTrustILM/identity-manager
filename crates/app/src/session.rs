@@ -227,6 +227,11 @@ impl SignIn {
     }
 }
 
+/// The session of the person, once the application has built it.
+pub fn shared<R: Runtime>(app: &AppHandle<R>) -> Option<Arc<Session>> {
+    app.try_state::<SignIn>().map(|state| state.session.clone())
+}
+
 fn state<R: Runtime>(app: &AppHandle<R>) -> State<'_, SignIn> {
     app.state::<SignIn>()
 }

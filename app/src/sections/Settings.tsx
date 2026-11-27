@@ -302,6 +302,20 @@ export function Settings() {
                             />
                         )}
                     />
+                    {platform !== 'linux' && (
+                        <Row
+                            label={strings.checkForUpdates}
+                            locked={view.automaticUpdates.locked}
+                            error={errors.automaticUpdates}
+                            renderControl={(props) => (
+                                <Switch
+                                    {...props}
+                                    checked={view.automaticUpdates.value}
+                                    onChange={(value) => change({ key: 'automaticUpdates', value })}
+                                />
+                            )}
+                        />
+                    )}
                     <Row
                         label={strings.logLevel}
                         locked={view.logLevel.locked}
