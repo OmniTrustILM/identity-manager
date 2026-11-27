@@ -824,3 +824,45 @@ async fn a_run_stops_when_another_sign_in_takes_over() {
         "{outcome:?}"
     );
 }
+
+#[tokio::test]
+async fn a_profile_whose_request_never_left_is_not_kept_as_done() {
+    use super::{Credential, State, lock};
+
+    let enrolling = Enrolling::new().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    enrolling
+        .world
+        .grant("refresh_token", ResponseTemplate::new(500), None)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(CUSTOM))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(Vec::<Value>::new())
+                .set_delay(std::time::Duration::from_millis(1500)),
+        )
+        .with_priority(1)
+        .mount(&enrolling.world.ilm)
+        .await;
+    if let State::SignedIn(active) = &mut *lock(&enrolling.world.session.state)
+        && let Credential::OAuth(oauth) = &mut active.credential
+    {
+        oauth.expires_at = std::time::Instant::now() + std::time::Duration::from_secs(61);
+    }
+
+    let outcome = enrolling.enrol(&requesting_profile()).await;
+
+    assert!(
+        matches!(
+            &outcome[..],
+            [Enrolled::Failed {
+                error: RequestError::Offline,
+                ..
+            }]
+        ),
+        "{outcome:?}"
+    );
+    assert!(enrolling.posted(ISSUE).await.is_empty());
+    assert!(!enrolling.standing().is_done("ra-1"));
+}

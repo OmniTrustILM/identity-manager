@@ -4,6 +4,8 @@
 //! Each request goes through the same paths as the person's own, so a key never outlives the knowledge of why it
 //! exists. No value, subject, request, certificate or key handle goes to the log.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use super::request::{Origin, SignedIn};
 use super::{ChangeError, RequestError, RequestForms, Session, SignedInAs};
 use crate::attributes::Needs;
@@ -83,9 +85,9 @@ impl Run<'_> {
 }
 
 impl Session {
-    /// Enrols what `plan` says, one item after the other, in the first key storage `policy` allows with its
-    /// preferred key type. Items are sent with `proceed` asked before each; when it says no, or the sign-in ends,
-    /// the run stops. An item the person is needed for, and one already waiting, creates nothing.
+    /// Enrols what `plan` says, one item after the other, in the key storage `policy` chooses (its default, else
+    /// the first it allows) with its preferred key type. Items are sent with `proceed` asked before each; when it
+    /// says no, or the sign-in ends, the run stops. An item the person is needed for, and one already waiting, creates nothing.
     pub async fn enrol(
         &self,
         plan: &Plan,
@@ -221,10 +223,21 @@ impl Session {
                 }
                 Ok(false) => None,
                 Ok(true) => {
+                    let leaving = AtomicBool::new(false);
+                    let proceed = || {
+                        let go = (run.proceed)();
+                        leaving.fetch_or(go, Ordering::SeqCst);
+                        go
+                    };
+                    let origin = Origin {
+                        enrolled: true,
+                        proceed: Some(&proceed),
+                    };
                     let sent = self
-                        .request_from(profile, input, run.storage, run.key_type, run.origin())
+                        .request_from(profile, input, run.storage, run.key_type, origin)
                         .await;
-                    self.release_unless_sent(run, &profile.uuid, &sent);
+                    let left = leaving.load(Ordering::SeqCst);
+                    self.release_unless_sent(run, &profile.uuid, left, &sent);
                     self.sent(run, key, &profile.uuid, false, sent)
                 }
             },
@@ -242,16 +255,18 @@ impl Session {
         }
     }
 
-    /// Forgets that the RA Profile is done when ILM surely did not get its request. One whose answer was lost may
-    /// have arrived and stays done: the person can still request it.
+    /// Forgets that the RA Profile is done when ILM surely did not get its request: nothing `left` for ILM, or ILM
+    /// answered that it did not take it. One whose answer was lost may have arrived and stays done: the person can
+    /// still request it.
     fn release_unless_sent(
         &self,
         run: &Run<'_>,
         ra_profile: &str,
+        left: bool,
         sent: &Result<Waiting, RequestError>,
     ) {
         match sent {
-            Err(error) if may_have_arrived(error) => {
+            Err(error) if left && may_have_arrived(error) => {
                 log::warn!(
                     "the answer to the request of the RA Profile {ra_profile} was lost; it is not requested again"
                 );
