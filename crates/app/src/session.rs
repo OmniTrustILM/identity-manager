@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::sync::Arc;
 
+use im_core::enrolment::Enrolments;
 use im_core::identity::IdentityStore;
 use im_core::ilm::IlmUrl;
 use im_core::ilm::attributes::{WebTarget, web_url};
@@ -121,6 +122,7 @@ pub fn manage<R: Runtime>(
         .with_key_storage(Arc::from(crate::key_storage::system()))
         .with_installer(crate::install::system())
         .with_requests(Arc::new(Requests::new(settings.folder())))
+        .with_enrolments(Arc::new(Enrolments::new(settings.folder())))
         .with_renewals(renewals.clone()),
     );
     let inventory =

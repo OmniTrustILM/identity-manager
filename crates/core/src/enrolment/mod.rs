@@ -27,7 +27,8 @@ pub struct Conditions {
 }
 
 impl Conditions {
-    fn allow(&self) -> bool {
+    /// Whether nothing stops enrolment.
+    pub fn allow(&self) -> bool {
         !self.linux && !self.locked && self.signed_in && self.fresh
     }
 }
@@ -60,20 +61,16 @@ pub fn plan(
     if !conditions.allow() || allowed_offers(offers, policy).0.is_empty() {
         return Plan::default();
     }
-    let complete = if complete_prepared(policy) {
-        prepared
-            .iter()
-            .filter(|found| {
-                found.is_open_at(now)
-                    && !asks_for_challenge(found)
-                    && !is_begun(&found.uuid, waiting)
-                    && !standing.failed_within_a_day(&prepared_key(&found.uuid), now)
-            })
-            .cloned()
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let complete = prepared
+        .iter()
+        .filter(|found| {
+            completes_by_itself(policy, found)
+                && found.is_open_at(now)
+                && !is_begun(&found.uuid, waiting)
+                && !standing.failed_within_a_day(&prepared_key(&found.uuid), now)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
     let request = requested(now, policy, who, profiles, waiting, standing);
     if !complete.is_empty() || !request.is_empty() {
         log::info!(
@@ -83,6 +80,12 @@ pub fn plan(
         );
     }
     Plan { complete, request }
+}
+
+/// Whether policy completes `found` without the person: it switches completion on and the registration does not ask
+/// for the challenge.
+pub fn completes_by_itself(policy: &Layer, found: &Prepared) -> bool {
+    complete_prepared(policy) && !asks_for_challenge(found)
 }
 
 fn asks_for_challenge(found: &Prepared) -> bool {

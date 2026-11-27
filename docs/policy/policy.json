@@ -10,5 +10,8 @@
   "SignInProvider": "Corporate",
   "SignInMethod": "oauth",
   "KeyStorages": "software,tpm",
-  "DefaultKeyStorage": "software"
+  "DefaultKeyStorage": "software",
+  "CompletePrepared": true,
+  "RequestProfiles": "Workstation, Email",
+  "SignInCertificateProfile": "Workstation"
 }

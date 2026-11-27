@@ -77,7 +77,7 @@ fn state_path(uuid: &str) -> String {
     format!("/api/v1/certificates/{uuid}")
 }
 
-fn der_of(body: &Value) -> Vec<u8> {
+pub(super) fn der_of(body: &Value) -> Vec<u8> {
     STANDARD.decode(body["request"].as_str().unwrap()).unwrap()
 }
 
@@ -96,7 +96,7 @@ fn authority(name: &str) -> (CertificateParams, KeyPair) {
 
 /// A certificate for the key that signed `csr`, the certificate of the authority that issued it, and the
 /// self-signed root above that authority.
-fn issued_for(csr: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+pub(super) fn issued_for(csr: &[u8]) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
     let (root_params, root_key) = authority("Test Root");
     let root = root_params.self_signed(&root_key).unwrap();
     let root_issuer = Issuer::new(root_params, root_key);

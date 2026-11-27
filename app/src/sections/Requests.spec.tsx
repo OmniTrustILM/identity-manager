@@ -87,6 +87,7 @@ test('the section is wanted when the inventory has prepared certificates or requ
     expect(hasRequests(inventory())).toBe(false);
     expect(hasRequests(inventory({ prepared: [prepared('A', null)] }))).toBe(true);
     expect(hasRequests(inventory({ requests: [waiting('B', 'beingIssued', 1)] }))).toBe(true);
+    expect(hasRequests(inventory({ asked: [{ uuid: 'ra-1', name: 'Servers' }] }))).toBe(true);
 });
 
 test('the days to issue are rounded up and a window that has closed is over', () => {
@@ -400,4 +401,83 @@ test('the reject dialog does not open again when its request returns', async () 
 test('the empty state stays only when all three lists are empty', async () => {
     await render(inventory({ approvals: [approval()] }));
     expect(text()).not.toContain('Nothing to issue or follow');
+});
+
+const asked = (name: string, uuid = `ra-${name}`) => ({ uuid, name });
+
+test('the profiles the organization asks for are the first group, named, with the hint and a button named after the profile', async () => {
+    await render(inventory({ asked: [asked('Servers')], prepared: [prepared('A', null)] }));
+
+    expect(groups()).toEqual(['Asked by your organization', 'Ready for you to issue']);
+    expect(rows('Asked by your organization')).toEqual([`Servers${strings.askedHint}${strings.requestEllipsis}`]);
+    expect(button('Request Servers')).not.toBeNull();
+    expect(container.querySelector('header p')?.textContent).toBe('1 asked by your organization, 1 ready to issue');
+});
+
+test('the asked group comes after the approvals', async () => {
+    await render(inventory({ asked: [asked('Servers')], approvals: [approval()] }));
+
+    expect(groups()).toEqual(['Waiting for your approval', 'Asked by your organization']);
+});
+
+test('two asked profiles are two rows and the subtitle counts them', async () => {
+    await render(inventory({ asked: [asked('Servers'), asked('Mail')] }));
+
+    expect(rows('Asked by your organization')).toHaveLength(2);
+    expect(container.querySelector('header p')?.textContent).toBe('2 asked by your organization');
+});
+
+test('a page with only an asked profile shows the group, not the empty state', async () => {
+    await render(inventory({ asked: [asked('Servers')] }));
+
+    expect(groups()).toEqual(['Asked by your organization']);
+    expect(text()).not.toContain(strings.nothingToIssue);
+});
+
+test('Request… opens the wizard at the attributes of that profile and sends it as asked', async () => {
+    const sent: unknown[] = [];
+    mockIPC(
+        (command, args) => {
+            switch (command) {
+                case 'ilm_status':
+                    return current;
+                case 'open_request_forms':
+                    return { request: null, issue: null, custom: null };
+                case 'request_offers':
+                    return {
+                        storages: [{ storage: 'keychain', keyTypes: ['ecP256'], defaultKeyType: 'ecP256' }],
+                        defaultStorage: 'keychain',
+                    };
+                case 'request_certificate':
+                    sent.push(args);
+                    return { certificate: 'cert-1', label: 'Servers' };
+                case 'follow_request':
+                    return { state: 'unknown' };
+            }
+        },
+        { shouldMockEvents: true },
+    );
+    await render(inventory({ asked: [asked('Servers')] }));
+
+    await click(button('Request Servers'));
+    expect(dialog().querySelector('[aria-current="step"]')?.textContent).toBe('2Attributes');
+    const press = (label: string) => click(dialogButton(label));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await press(strings.continue);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    await press(strings.continue);
+    await press(strings.requestCertificate);
+
+    expect(sent).toEqual([expect.objectContaining({ raProfile: 'ra-Servers', asked: true })]);
+});
+
+test('the row leaves once the inventory no longer lists the profile', async () => {
+    await render(inventory({ asked: [asked('Servers'), asked('Mail')] }));
+
+    await change(inventory({ asked: [asked('Mail')] }));
+
+    expect(rows('Asked by your organization')).toHaveLength(1);
+    expect(button('Request Servers')).toBeNull();
+    await change(inventory());
+    expect(groups()).toEqual(['Nothing to issue or follow']);
 });

@@ -406,6 +406,7 @@ fn a_followed_request_that_completed_a_certificate_leaves_it_out_unless_it_waits
         label: uuid.to_owned(),
         outcome,
         replaces: None,
+        enrolled: false,
     };
     let mut list = vec![
         prepared("c-1"),

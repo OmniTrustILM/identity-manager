@@ -501,6 +501,7 @@ pub async fn request_certificate<R: Runtime>(
     forms: RequestInput,
     storage: StorageId,
     key_type: KeyTypeId,
+    asked: Option<bool>,
 ) -> Result<RequestedView, RequestFailure> {
     let ilm = ilm(&app);
     ilm.unlocked()?;
@@ -509,8 +510,24 @@ pub async fn request_certificate<R: Runtime>(
     offered(&allowed_offers(&app).await.0, storage, key_type)?;
     let chosen = profile(&ilm, &ra_profile).await?;
     ilm.unlocked()?;
+    let asked = asked.unwrap_or(false);
     let waiting = ilm
-        .working(ilm.session().request(&chosen, forms, storage, key_type))
+        .working(async {
+            if !asked {
+                return ilm
+                    .session()
+                    .request(&chosen, forms, storage, key_type)
+                    .await;
+            }
+            let sent = ilm
+                .session()
+                .request_asked(&chosen, forms, storage, key_type)
+                .await;
+            if sent.is_ok() {
+                ilm.inventory.unask(&chosen.uuid);
+            }
+            sent
+        })
         .await;
     ilm.unlocked()?;
     Ok(requested(&app, &ilm, waiting?))
@@ -891,6 +908,7 @@ mod tests {
             label: "web".to_owned(),
             outcome,
             replaces: None,
+            enrolled: false,
         }
     }
 

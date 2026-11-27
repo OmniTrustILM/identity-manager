@@ -1,9 +1,9 @@
 import type { AttentionItemView } from './bridge';
-import { ExpiredIcon, ExpiringIcon, type Icon, NotInIlmIcon, RevokedIcon } from './design-system/icons';
+import { ExpiredIcon, ExpiringIcon, type Icon, NotInIlmIcon, RequestsIcon, RevokedIcon } from './design-system/icons';
 import { strings } from './strings';
 
 /** The item of an attention list that is about one certificate. */
-export type CertificateItem = Exclude<AttentionItemView, { kind: 'notInIlm' | 'waiting' | 'approval' }>;
+export type CertificateItem = Exclude<AttentionItemView, { kind: 'notInIlm' | 'waiting' | 'approval' | 'asked' }>;
 
 /** The icon of an item with its colour, and the colour of its text. */
 export function attentionLook(item: AttentionItemView): { Icon: Icon; tone: string; textTone: string } {
@@ -14,6 +14,8 @@ export function attentionLook(item: AttentionItemView): { Icon: Icon; tone: stri
             return { Icon: ExpiredIcon, tone: 'text-bad', textTone: 'text-bad' };
         case 'revoked':
             return { Icon: RevokedIcon, tone: 'text-bad', textTone: 'text-bad' };
+        case 'asked':
+            return { Icon: RequestsIcon, tone: 'text-accent', textTone: 'text-secondary' };
         case 'waiting':
         case 'approval':
             return { Icon: ExpiringIcon, tone: 'text-accent', textTone: 'text-secondary' };

@@ -30,6 +30,9 @@ pub enum Kind {
         uuid: String,
         action: ApprovalAction,
     },
+    /// An RA Profile the organization's policy asks the person to request from; the item's name is the profile's
+    /// and `uuid` is its own.
+    Asked { uuid: String },
 }
 
 /// What ILM is doing with a request that is not yet a certificate.
@@ -93,7 +96,10 @@ impl Summary {
             .filter(|item| {
                 !matches!(
                     item.kind,
-                    Kind::NotInIlm { .. } | Kind::Waiting { .. } | Kind::Approval { .. }
+                    Kind::NotInIlm { .. }
+                        | Kind::Waiting { .. }
+                        | Kind::Approval { .. }
+                        | Kind::Asked { .. }
                 )
             })
             .count()
@@ -119,6 +125,17 @@ impl Summary {
     ) -> Self {
         self.with_items(approvals.into_iter().map(|(uuid, name, action)| Item {
             kind: Kind::Approval { uuid, action },
+            fingerprint: None,
+            name,
+        }))
+    }
+
+    /// Lists the RA Profiles the organization asks the person to request from, given as uuid and name, after the
+    /// approvals.
+    #[must_use]
+    pub fn with_asked(self, asked: impl IntoIterator<Item = (String, String)>) -> Self {
+        self.with_items(asked.into_iter().map(|(uuid, name)| Item {
+            kind: Kind::Asked { uuid },
             fingerprint: None,
             name,
         }))
@@ -864,6 +881,28 @@ pub(super) mod tests {
             ]
         );
         assert_eq!(summary.needing_attention(), 0);
+        assert!(!summary.needs_attention());
+    }
+
+    #[test]
+    fn asked_profiles_are_listed_after_the_approvals_without_switching_the_attention_on() {
+        let summary = summarize(&[], None, days(30), now(), |_| 0)
+            .with_approvals([(
+                "a-1".to_owned(),
+                "demo220".to_owned(),
+                ApprovalAction::Renew,
+            )])
+            .with_asked([("ra-1".to_owned(), "Servers".to_owned())]);
+
+        let last = summary.attention.last().unwrap();
+        assert_eq!(last.name, "Servers");
+        assert_eq!(
+            last.kind,
+            Kind::Asked {
+                uuid: "ra-1".to_owned()
+            }
+        );
+        assert_eq!(summary.attention.len(), 2);
         assert!(!summary.needs_attention());
     }
 

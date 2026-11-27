@@ -1,17 +1,21 @@
 //! Enrolment by policy: certificates prepared in advance are completed and RA Profiles requested without the
 //! person, while nothing that needs the person is sent.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use serde_json::{Value, json};
 use tempfile::TempDir;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, Request, Respond, ResponseTemplate};
 
+use super::request_tests::{der_of, issued_for};
 use super::tests::{LOG, World, capture_logs};
 use super::{Enrolled, RequestError, SessionView};
+use crate::Platform;
 use crate::attributes::Needs;
 use crate::attributes::fixtures::{default_request_set, definition, demo_request_set};
 use crate::enrolment::{Conditions, plan, sign_in_key};
@@ -23,7 +27,9 @@ use crate::ilm::certificates::{RaProfile, search_text};
 use crate::ilm::profile::ResourceActions;
 use crate::ilm::upload::RaProfileChoice;
 use crate::install::RecordingInstaller;
-use crate::inventory::{Inventory, Prepared, SubjectKind, SubjectPart, Trigger};
+use crate::inventory::{
+    AskedProfile, Inventory, InventoryView, Kind, Prepared, SubjectKind, SubjectPart, Trigger,
+};
 use crate::keys::testing::InMemoryStorage;
 use crate::keys::{KeyStorage, KeyType, Storage};
 use crate::requests::{Purpose, Requests, Waiting};
@@ -110,6 +116,7 @@ impl Respond for Stops {
 struct Enrolling {
     world: World,
     keys: Arc<InMemoryStorage>,
+    installer: Arc<RecordingInstaller>,
     requests: Arc<Requests>,
     enrolments: Arc<Enrolments>,
     jane: TestIdentity,
@@ -126,6 +133,7 @@ impl Enrolling {
         let requests = Arc::new(Requests::new(folder.path()));
         let enrolments = Arc::new(Enrolments::new(folder.path()));
         let keys = Arc::new(InMemoryStorage::new(&[Storage::Software]));
+        let installer = Arc::new(RecordingInstaller::new());
         let jane = TestCa::new().issue(Issue::client("Jane"));
         let mut world = World::new()
             .await
@@ -136,11 +144,24 @@ impl Enrolling {
                 (client_for_tests(), CertificateAsked::offered_for_tests())
             }))
             .with_key_storage(keys.clone())
-            .with_installer(Arc::new(RecordingInstaller::new()))
+            .with_installer(installer.clone())
             .with_requests(requests.clone())
             .with_enrolments(enrolments.clone());
         world.code_grant("access", Some("refresh"), 3600).await;
-        world.profile_for("access").await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/auth/profile"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "uuid": "u-1",
+                "username": "jdoe",
+                "firstName": "Jane",
+                "lastName": "Doe",
+                "permissions": {
+                    "allowedListings": ["certificates"],
+                    "allowedActions": [{ "resource": "certificates", "actions": ["list", "create"] }],
+                },
+            })))
+            .mount(&world.ilm)
+            .await;
         for (route, body) in [
             (REQUEST_ATTRIBUTES, request_set),
             (
@@ -177,6 +198,7 @@ impl Enrolling {
         Self {
             world,
             keys,
+            installer,
             requests,
             enrolments,
             jane,
@@ -241,6 +263,55 @@ impl Enrolling {
         self.enrolments
             .standing(&self.world.address(), "jdoe")
             .unwrap()
+    }
+
+    /// ILM lists the RA Profile `Servers` for the person and has nothing else to say at a check.
+    async fn listing_profiles(&self) {
+        self.answer(
+            "GET",
+            "/api/v1/raProfiles",
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "uuid": "ra-1",
+                "name": "Servers",
+                "enabled": true,
+                "authorityInstanceName": "Corporate CA",
+                "authorityInstanceUuid": "auth-1",
+            }])),
+        )
+        .await;
+        self.answer(
+            "POST",
+            "/api/v1/certificates",
+            ResponseTemplate::new(200).set_body_json(json!({
+                "certificates": [],
+                "pageNumber": 1,
+                "totalPages": 1,
+                "totalItems": 0,
+            })),
+        )
+        .await;
+    }
+
+    /// A check of ILM that succeeds, in a new inventory.
+    async fn checked(&self) -> Arc<Inventory> {
+        let inventory = Arc::new(Inventory::new(self._folder.path()));
+        inventory.attach(&self.world.session);
+        inventory
+            .check(&self.world.session, Trigger::SyncNow, &[])
+            .await;
+        inventory
+    }
+
+    async fn enrol_due(
+        &self,
+        inventory: &Inventory,
+        policy: &Layer,
+        platform: Platform,
+        proceed: &(dyn Fn() -> bool + Sync),
+    ) -> Vec<Enrolled> {
+        inventory
+            .enrol_due(&self.world.session, policy, platform, proceed)
+            .await
     }
 
     fn seed_waiting(&self, uuid: Option<&str>) {
@@ -345,10 +416,11 @@ async fn a_refused_request_deletes_its_key_and_entry_and_records_the_failure() {
 
     let outcome = enrolling.enrol(&requesting_profile()).await;
 
-    let [Enrolled::Failed { key, error }] = &outcome[..] else {
+    let [Enrolled::Failed { key, name, error }] = &outcome[..] else {
         panic!("{outcome:?}");
     };
     assert_eq!(key, &profile_key("ra-1"));
+    assert_eq!(name, "Servers");
     assert!(matches!(error, RequestError::Refused(_)));
     assert_eq!(enrolling.keys.count(), 0);
     assert!(enrolling.requests.all().is_empty());
@@ -863,6 +935,465 @@ async fn a_profile_whose_request_never_left_is_not_kept_as_done() {
         ),
         "{outcome:?}"
     );
+    assert!(enrolling.posted(ISSUE).await.is_empty());
+    assert!(!enrolling.standing().is_done("ra-1"));
+}
+
+fn asking_for_servers() -> Layer {
+    Layer {
+        request_profiles: Some(vec!["Servers".into()]),
+        ..Layer::default()
+    }
+}
+
+#[tokio::test]
+async fn the_check_after_a_sign_in_requests_the_profiles_policy_names() {
+    let enrolling = Enrolling::new().await;
+    enrolling.listing_profiles().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let inventory = enrolling.checked().await;
+
+    let outcome = enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+
+    assert_eq!(
+        outcome,
+        [Enrolled::Sent {
+            key: profile_key("ra-1"),
+            uuid: "c-1".into()
+        }]
+    );
+    assert_eq!(enrolling.posted(ISSUE).await.len(), 1);
+    assert!(inventory.asked().is_empty());
+}
+
+#[tokio::test]
+async fn two_enrolments_started_together_run_one_after_the_other() {
+    let delay = std::time::Duration::from_millis(300);
+    let enrolling = Enrolling::new().await;
+    enrolling
+        .answer(
+            "GET",
+            "/api/v1/raProfiles",
+            ResponseTemplate::new(200)
+                .set_body_json(json!([{
+                    "uuid": "ra-1",
+                    "name": "Servers",
+                    "enabled": true,
+                    "authorityInstanceName": "Corporate CA",
+                    "authorityInstanceUuid": "auth-1",
+                }]))
+                .set_delay(delay),
+        )
+        .await;
+    enrolling.listing_profiles().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let inventory = enrolling.checked().await;
+    let policy = asking_for_servers();
+
+    let started = std::time::Instant::now();
+    let (first, second) = tokio::join!(
+        enrolling.enrol_due(&inventory, &policy, Platform::Macos, &|| true),
+        enrolling.enrol_due(&inventory, &policy, Platform::Macos, &|| true),
+    );
+
+    assert!(started.elapsed() >= delay * 2);
+    assert_eq!(first.len() + second.len(), 1);
+    assert_eq!(enrolling.posted(ISSUE).await.len(), 1);
+}
+
+#[tokio::test]
+async fn nothing_is_enrolled_while_the_application_is_locked() {
+    let enrolling = Enrolling::new().await;
+    enrolling.listing_profiles().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let inventory = enrolling.checked().await;
+
+    let outcome = enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| {
+            false
+        })
+        .await;
+
+    assert!(outcome.is_empty());
+    assert!(enrolling.posted(ISSUE).await.is_empty());
+    assert_eq!(enrolling.keys.count(), 0);
+}
+
+#[tokio::test]
+async fn nothing_is_enrolled_on_linux() {
+    let enrolling = Enrolling::new().await;
+    enrolling.listing_profiles().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let inventory = enrolling.checked().await;
+
+    let outcome = enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Linux, &|| true)
+        .await;
+
+    assert!(outcome.is_empty());
+    assert!(enrolling.posted(ISSUE).await.is_empty());
+}
+
+#[tokio::test]
+async fn nothing_is_enrolled_before_a_check_of_ilm_succeeded() {
+    let enrolling = Enrolling::new().await;
+    enrolling.listing_profiles().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let inventory = Inventory::new(enrolling._folder.path());
+
+    let outcome = enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+
+    assert!(outcome.is_empty());
+    assert!(enrolling.posted(ISSUE).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_profile_is_requested_once_across_a_sign_out_and_a_sign_in_and_a_restart() {
+    let enrolling = Enrolling::new().await;
+    enrolling.listing_profiles().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let policy = asking_for_servers();
+    let inventory = enrolling.checked().await;
+    enrolling
+        .enrol_due(&inventory, &policy, Platform::Macos, &|| true)
+        .await;
+    assert_eq!(enrolling.posted(ISSUE).await.len(), 1);
+    // The certificate was installed and its entry is gone, so only what the store keeps stops a second request.
+    for entry in enrolling.requests.all() {
+        enrolling.requests.remove(&entry.key.unwrap()).unwrap();
+    }
+
+    enrolling.world.session.sign_out().await;
+    assert!(matches!(
+        enrolling.world.sign_in().await,
+        SessionView::SignedIn { .. }
+    ));
+    let again = enrolling.checked().await;
+    let outcome = enrolling
+        .enrol_due(&again, &policy, Platform::Macos, &|| true)
+        .await;
+
+    assert!(outcome.is_empty());
+    assert_eq!(enrolling.posted(ISSUE).await.len(), 1);
+    let restarted = Enrolments::new(enrolling._folder.path());
+    assert!(
+        restarted
+            .standing(&enrolling.world.address(), "jdoe")
+            .unwrap()
+            .is_done("ra-1")
+    );
+}
+
+#[tokio::test]
+async fn a_profile_that_needs_the_person_is_asked_until_it_is_requested() {
+    let enrolling = Enrolling::with(default_request_set()).await;
+    enrolling.listing_profiles().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let inventory = enrolling.checked().await;
+    let asked = || {
+        vec![AskedProfile {
+            uuid: "ra-1".into(),
+            name: "Servers".into(),
+        }]
+    };
+
+    enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+
+    assert_eq!(inventory.asked(), asked());
+    let view = InventoryView::new(
+        inventory.status(),
+        inventory.snapshot().as_ref(),
+        false,
+        true,
+        true,
+    )
+    .with_asked(inventory.asked())
+    .with_requests(&[], &[]);
+    assert_eq!(view.asked, asked());
+    inventory.set_local(&[]);
+    let summary = inventory.summary().unwrap();
+    assert_eq!(
+        summary
+            .attention
+            .iter()
+            .map(|item| item.kind.clone())
+            .collect::<Vec<_>>(),
+        [Kind::Asked {
+            uuid: "ra-1".into()
+        }]
+    );
+    assert_eq!(summary.attention[0].name, "Servers");
+    assert!(!summary.needs_attention());
+    // A request that waits for ILM is not asked any more, and neither is one the person has sent.
+    enrolling.seed_waiting(Some("c-0"));
+    let waiting = enrolling.requests.all();
+    let view = InventoryView::new(
+        inventory.status(),
+        inventory.snapshot().as_ref(),
+        false,
+        true,
+        true,
+    )
+    .with_asked(inventory.asked())
+    .with_requests(&waiting, &[]);
+    assert!(view.asked.is_empty());
+    inventory.unask("ra-1");
+    assert!(inventory.asked().is_empty());
+    assert!(inventory.summary().unwrap().attention.is_empty());
+}
+
+#[tokio::test]
+async fn a_request_from_certificates_takes_the_profile_out_of_the_summary_at_the_next_follow() {
+    let enrolling = Enrolling::with(default_request_set()).await;
+    enrolling.listing_profiles().await;
+    let inventory = enrolling.checked().await;
+    enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+    inventory.set_local(&[]);
+    assert_eq!(inventory.summary().unwrap().attention.len(), 1);
+    enrolling.seed_waiting(Some("c-0"));
+
+    let (_, changed) = inventory.follow(&enrolling.world.session).await;
+
+    assert!(changed);
+    assert!(inventory.summary().unwrap().attention.is_empty());
+    assert!(inventory.asked().is_empty());
+}
+
+#[tokio::test]
+async fn the_asked_profiles_leave_with_the_sign_in() {
+    let enrolling = Enrolling::with(default_request_set()).await;
+    enrolling.listing_profiles().await;
+    let inventory = enrolling.checked().await;
+    enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+    assert_eq!(inventory.asked().len(), 1);
+
+    enrolling.world.session.sign_out().await;
+
+    assert!(inventory.asked().is_empty());
+}
+
+#[tokio::test]
+async fn a_profile_requested_from_the_asked_item_is_marked_enrolled_and_done() {
+    let enrolling = Enrolling::new().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let session = &enrolling.world.session;
+    let forms = session
+        .open_request_forms("auth-1", "ra-1", false)
+        .await
+        .unwrap();
+    let request = session.unattended_forms(&forms).unwrap();
+
+    let sent = session
+        .request_asked(&choice(), request, Storage::Software, KeyType::EcP256)
+        .await;
+
+    let waiting = sent.unwrap();
+    assert_eq!(waiting.uuid.as_deref(), Some("c-1"));
+    assert!(waiting.enrolled);
+    assert!(enrolling.standing().is_done("ra-1"));
+    assert!(enrolling.requests.all()[0].enrolled);
+}
+
+#[tokio::test]
+async fn a_hand_request_that_ilm_refuses_does_not_make_the_profile_done() {
+    let enrolling = Enrolling::new().await;
+    enrolling
+        .answer(
+            "POST",
+            ISSUE,
+            ResponseTemplate::new(400).set_body_json(json!({ "message": "No." })),
+        )
+        .await;
+    let session = &enrolling.world.session;
+
+    let sent = session
+        .request_asked(
+            &choice(),
+            crate::session::RequestInput::default(),
+            Storage::Software,
+            KeyType::EcP256,
+        )
+        .await;
+
+    assert!(sent.is_err());
+    assert!(!enrolling.standing().is_done("ra-1"));
+    assert!(enrolling.requests.all().is_empty());
+}
+
+#[tokio::test]
+async fn a_sign_out_and_a_sign_in_while_the_profiles_are_listed_send_nothing() {
+    let enrolling = Enrolling::new().await;
+    enrolling
+        .answer(
+            "GET",
+            "/api/v1/raProfiles",
+            ResponseTemplate::new(200)
+                .set_body_json(json!([{
+                    "uuid": "ra-1",
+                    "name": "Servers",
+                    "enabled": true,
+                    "authorityInstanceName": "Corporate CA",
+                    "authorityInstanceUuid": "auth-1",
+                }]))
+                .set_delay(std::time::Duration::from_millis(500)),
+        )
+        .await;
+    enrolling.listing_profiles().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let inventory = enrolling.checked().await;
+    let policy = asking_for_servers();
+
+    let (outcome, ()) = tokio::join!(
+        enrolling.enrol_due(&inventory, &policy, Platform::Macos, &|| true),
+        async {
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+            enrolling.world.session.sign_out().await;
+            assert!(matches!(
+                enrolling.world.sign_in().await,
+                SessionView::SignedIn { .. }
+            ));
+        },
+    );
+
+    assert!(outcome.iter().all(|done| *done == Enrolled::Stopped));
+    assert!(enrolling.posted(ISSUE).await.is_empty());
+    assert_eq!(enrolling.keys.count(), 0);
+}
+
+type Made = Arc<Mutex<Option<(Vec<u8>, Vec<u8>, Vec<u8>)>>>;
+
+/// ILM issuing at once: the request makes the certificate, and the state and the chain tell it.
+enum Issues {
+    Request(Made),
+    State(Made),
+    Chain(Made),
+}
+
+impl Respond for Issues {
+    fn respond(&self, request: &Request) -> ResponseTemplate {
+        let encode = |der: &[u8]| STANDARD.encode(der);
+        match self {
+            Self::Request(made) => {
+                let body: Value = serde_json::from_slice(&request.body).unwrap();
+                *made.lock().unwrap() = Some(issued_for(&der_of(&body)));
+                ResponseTemplate::new(200).set_body_json(json!({ "uuid": "c-1" }))
+            }
+            Self::State(made) => {
+                let (leaf, _, _) = made.lock().unwrap().clone().unwrap();
+                ResponseTemplate::new(200).set_body_json(
+                    json!({ "state": "issued", "certificateContent": encode(&leaf) }),
+                )
+            }
+            Self::Chain(made) => {
+                let (_, authority, root) = made.lock().unwrap().clone().unwrap();
+                ResponseTemplate::new(200).set_body_json(json!({
+                    "completeChain": true,
+                    "certificates": [
+                        { "certificateContent": encode(&authority) },
+                        { "certificateContent": encode(&root) },
+                    ],
+                }))
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_certificate_ilm_issues_at_once_is_installed_when_the_enrolment_returns() {
+    let enrolling = Enrolling::new().await;
+    enrolling.listing_profiles().await;
+    let made = Made::default();
+    enrolling
+        .answer("POST", ISSUE, Issues::Request(made.clone()))
+        .await;
+    enrolling
+        .answer(
+            "GET",
+            "/api/v1/certificates/c-1",
+            Issues::State(made.clone()),
+        )
+        .await;
+    enrolling
+        .answer("GET", "/api/v1/certificates/c-1/chain", Issues::Chain(made))
+        .await;
+    let inventory = enrolling.checked().await;
+
+    let outcome = enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+
+    assert_eq!(outcome.len(), 1, "{outcome:?}");
+    assert_eq!(enrolling.installer.calls().len(), 1);
+    assert!(enrolling.requests.all().is_empty());
+}
+
+#[tokio::test]
+async fn a_profile_already_done_is_not_requested_again_from_the_asked_item() {
+    let enrolling = Enrolling::new().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let session = &enrolling.world.session;
+    let forms = session
+        .open_request_forms("auth-1", "ra-1", false)
+        .await
+        .unwrap();
+    let request = session.unattended_forms(&forms).unwrap();
+    enrolling
+        .enrolments
+        .mark_done(&enrolling.world.address(), "jdoe", "ra-1")
+        .unwrap();
+
+    let sent = session
+        .request_asked(&choice(), request, Storage::Software, KeyType::EcP256)
+        .await;
+
+    assert!(
+        matches!(sent, Err(RequestError::AlreadyRequested)),
+        "{sent:?}"
+    );
+    assert!(enrolling.posted(ISSUE).await.is_empty());
+    assert_eq!(enrolling.keys.count(), 0);
+    assert!(enrolling.requests.all().is_empty());
+}
+
+#[tokio::test]
+async fn a_hand_request_that_never_left_does_not_make_the_profile_done() {
+    use super::{Credential, State, lock};
+
+    let enrolling = Enrolling::new().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    let session = &enrolling.world.session;
+    let forms = session
+        .open_request_forms("auth-1", "ra-1", false)
+        .await
+        .unwrap();
+    let request = session.unattended_forms(&forms).unwrap();
+    enrolling
+        .world
+        .grant("refresh_token", ResponseTemplate::new(500), None)
+        .await;
+    if let State::SignedIn(active) = &mut *lock(&session.state)
+        && let Credential::OAuth(oauth) = &mut active.credential
+    {
+        oauth.expires_at = std::time::Instant::now() + std::time::Duration::from_secs(61);
+    }
+    // The token has less than a minute left by the time the request is sent, so it is renewed first.
+    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+
+    let sent = session
+        .request_asked(&choice(), request, Storage::Software, KeyType::EcP256)
+        .await;
+
+    assert!(matches!(sent, Err(RequestError::Offline)), "{sent:?}");
     assert!(enrolling.posted(ISSUE).await.is_empty());
     assert!(!enrolling.standing().is_done("ra-1"));
 }

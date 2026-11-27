@@ -7,7 +7,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::request::{Origin, SignedIn};
-use super::{ChangeError, RequestError, RequestForms, Session, SignedInAs};
+use super::{ChangeError, RequestError, RequestForms, RequestInput, Session, SignedInAs};
 use crate::attributes::Needs;
 use crate::enrolment::{Plan, Standing, prepared_key, profile_key, sign_in_key};
 use crate::ilm::upload::RaProfileChoice;
@@ -32,8 +32,12 @@ pub enum Enrolled {
     /// The certificate registered in advance needs the person; nothing was created.
     PreparedAsked { uuid: String, reason: Needs },
     /// The request failed and the failure is recorded; the key and the written request are gone, except for a
-    /// completion whose answer was lost.
-    Failed { key: String, error: RequestError },
+    /// completion whose answer was lost. `name` is the RA Profile's or the prepared certificate's.
+    Failed {
+        key: String,
+        name: String,
+        error: RequestError,
+    },
     /// The caller's `proceed` said no, or the sign-in ended; the rest of the plan is left.
     Stopped,
 }
@@ -52,11 +56,12 @@ pub enum SignInByPolicy {
 }
 
 impl SignInByPolicy {
-    /// Whether this is the failure the person is told about, which happens once.
+    /// Whether the person is to be told: from the third failure on, as the notice of an earlier one may have been
+    /// refused while the application was locked. The notice itself is kept to once.
     pub fn needs_notice(&self) -> bool {
         matches!(
             self,
-            Self::Failed { failures, .. } if *failures == SIGN_IN_FAILURES_BEFORE_NOTICE
+            Self::Failed { failures, .. } if *failures >= SIGN_IN_FAILURES_BEFORE_NOTICE
         )
     }
 }
@@ -138,17 +143,68 @@ impl Session {
         done
     }
 
+    /// What enrolment has kept for the signed-in person; none without a store, when the file cannot be read or when
+    /// nobody is signed in, so nothing is enrolled on a guess.
+    pub fn standing(&self) -> Option<Standing> {
+        let (who, enrolments) = (self.current_sign_in()?, self.enrolments.as_ref()?);
+        enrolments
+            .standing(&who.ilm, &who.username)
+            .map_err(|error| log::warn!("the enrolment cannot be read: {error}"))
+            .ok()
+    }
+
+    /// Asks `ra_profile`, which policy asked the person to request from, on the person's own forms. As for
+    /// enrolment, the waiting entry is marked enrolled and the RA Profile goes into done; it is not done again when
+    /// ILM surely did not take the request. An RA Profile that is done already is not requested.
+    pub async fn request_asked(
+        &self,
+        ra_profile: &RaProfileChoice,
+        forms: RequestInput,
+        storage: Storage,
+        key_type: KeyType,
+    ) -> Result<Waiting, RequestError> {
+        let (Some(who), Some(enrolments)) = (self.current_sign_in(), &self.enrolments) else {
+            return self.request(ra_profile, forms, storage, key_type).await;
+        };
+        let claimed = enrolments
+            .mark_done(&who.ilm, &who.username, &ra_profile.uuid)
+            .map_err(|error| {
+                log::warn!("the enrolment cannot be written down: {error}");
+                RequestError::Store
+            })?;
+        if !claimed {
+            return Err(RequestError::AlreadyRequested);
+        }
+        let leaving = AtomicBool::new(false);
+        let proceed = || {
+            leaving.store(true, Ordering::SeqCst);
+            true
+        };
+        let origin = Origin {
+            enrolled: true,
+            proceed: Some(&proceed),
+        };
+        let sent = self
+            .request_from(ra_profile, forms, storage, key_type, origin)
+            .await;
+        let left = leaving.load(Ordering::SeqCst);
+        self.release_unless_sent(&who, &ra_profile.uuid, left, &sent);
+        sent
+    }
+
     async fn enrol_prepared(&self, run: &Run<'_>, found: &Prepared) -> Option<Enrolled> {
         let key = prepared_key(&found.uuid);
         let Some(authority) = found.ra_profile.authority_uuid.as_deref() else {
-            return self.failed(run, key, RequestError::NoAuthority);
+            return self.failed(run, key, &found.name, RequestError::NoAuthority);
         };
         let forms = match self
             .open_request_forms(authority, &found.ra_profile.uuid, true)
             .await
         {
             Ok(forms) => forms,
-            Err(error) => return self.failed(run, key, ChangeError::from(error).into()),
+            Err(error) => {
+                return self.failed(run, key, &found.name, ChangeError::from(error).into());
+            }
         };
         let outcome = match self.unattended_forms(&forms) {
             Err(reason) => {
@@ -185,7 +241,7 @@ impl Session {
                         run.origin(),
                     )
                     .await;
-                self.sent(run, key, &found.uuid, true, sent)
+                self.sent(run, key, &found.name, &found.uuid, true, sent)
             }
         };
         self.close_request_forms(&forms);
@@ -195,14 +251,16 @@ impl Session {
     async fn enrol_profile(&self, run: &Run<'_>, profile: &RaProfileChoice) -> Option<Enrolled> {
         let key = profile_key(&profile.uuid);
         let Some(authority) = profile.authority_uuid.as_deref() else {
-            return self.failed(run, key, RequestError::NoAuthority);
+            return self.failed(run, key, &profile.name, RequestError::NoAuthority);
         };
         let forms = match self
             .open_request_forms(authority, &profile.uuid, false)
             .await
         {
             Ok(forms) => forms,
-            Err(error) => return self.failed(run, key, ChangeError::from(error).into()),
+            Err(error) => {
+                return self.failed(run, key, &profile.name, ChangeError::from(error).into());
+            }
         };
         let outcome = match self.unattended_forms(&forms) {
             Err(reason) => {
@@ -219,7 +277,7 @@ impl Session {
             Ok(input) => match self.claim(run, &profile.uuid) {
                 Err(error) => {
                     log::warn!("the enrolment cannot be written down: {error}");
-                    self.failed(run, key, RequestError::Store)
+                    self.failed(run, key, &profile.name, RequestError::Store)
                 }
                 Ok(false) => None,
                 Ok(true) => {
@@ -237,8 +295,8 @@ impl Session {
                         .request_from(profile, input, run.storage, run.key_type, origin)
                         .await;
                     let left = leaving.load(Ordering::SeqCst);
-                    self.release_unless_sent(run, &profile.uuid, left, &sent);
-                    self.sent(run, key, &profile.uuid, false, sent)
+                    self.release_unless_sent(&run.who, &profile.uuid, left, &sent);
+                    self.sent(run, key, &profile.name, &profile.uuid, false, sent)
                 }
             },
         };
@@ -260,7 +318,7 @@ impl Session {
     /// still request it.
     fn release_unless_sent(
         &self,
-        run: &Run<'_>,
+        who: &SignedIn,
         ra_profile: &str,
         left: bool,
         sent: &Result<Waiting, RequestError>,
@@ -273,8 +331,7 @@ impl Session {
             }
             Err(_) => {
                 if let Some(enrolments) = &self.enrolments
-                    && let Err(error) =
-                        enrolments.unmark_done(&run.who.ilm, &run.who.username, ra_profile)
+                    && let Err(error) = enrolments.unmark_done(&who.ilm, &who.username, ra_profile)
                 {
                     log::warn!("the enrolment cannot be written down: {error}");
                 }
@@ -303,6 +360,7 @@ impl Session {
         &self,
         run: &Run<'_>,
         key: String,
+        name: &str,
         what: &str,
         prepared: bool,
         sent: Result<Waiting, RequestError>,
@@ -325,15 +383,21 @@ impl Session {
                 }
                 Some(Enrolled::Sent { key, uuid })
             }
-            Ok(_) => self.failed(run, key, RequestError::Malformed),
+            Ok(_) => self.failed(run, key, name, RequestError::Malformed),
             Err(RequestError::AlreadyRequested) => None,
             Err(RequestError::SignedOut | RequestError::Withdrawn) => Some(Enrolled::Stopped),
-            Err(error) => self.failed(run, key, error),
+            Err(error) => self.failed(run, key, name, error),
         }
     }
 
     /// Records that the attempt at `key` failed, so it is not made again for a day.
-    fn failed(&self, run: &Run<'_>, key: String, error: RequestError) -> Option<Enrolled> {
+    fn failed(
+        &self,
+        run: &Run<'_>,
+        key: String,
+        name: &str,
+        error: RequestError,
+    ) -> Option<Enrolled> {
         let (status, texts) = match &error {
             RequestError::NotAllowed => ("403".to_owned(), 0),
             RequestError::Unexpected(status) => (status.to_string(), 0),
@@ -347,7 +411,11 @@ impl Session {
         {
             log::warn!("the enrolment cannot be written down: {error}");
         }
-        Some(Enrolled::Failed { key, error })
+        Some(Enrolled::Failed {
+            key,
+            name: name.to_owned(),
+            error,
+        })
     }
 
     fn close_request_forms(&self, forms: &RequestForms) {
@@ -362,7 +430,8 @@ impl Session {
     /// Makes the certificates enrolment installed, and only those from the RA Profile policy names for the
     /// sign-in certificate, the person's sign-in certificate in ILM. It needs the latest check of `inventory` to
     /// have matched the certificate here. Nothing changes under a provider-only policy, for a certificate that is
-    /// not installed here with its key or already signs in. A change that failed waits a day.
+    /// not installed here with its key or already signs in. A change that failed waits a day. Runs, and enrolment, take
+    /// turns, so two at once never both try a change that fails.
     pub async fn sign_in_by_policy(
         &self,
         inventory: &Inventory,
@@ -382,6 +451,7 @@ impl Session {
         if policy.sign_in_method == Some(SignInMethod::Oauth) {
             return Vec::new();
         }
+        let _alone = inventory.alone().await;
         let (Ok(standing), Some(snapshot)) = (
             enrolments.standing(&who.ilm, &who.username),
             inventory.snapshot(),
@@ -428,7 +498,7 @@ impl Session {
                 Err(ChangeError::SignedOut | ChangeError::Offline | ChangeError::Withdrawn) => {
                     break;
                 }
-                Err(_) => done.push(self.sign_in_failed(&who, &standing, uuid)),
+                Err(error) => done.push(self.sign_in_failed(&who, &standing, uuid, &error)),
             }
         }
         done
@@ -448,7 +518,13 @@ impl Session {
         }
     }
 
-    fn sign_in_failed(&self, who: &SignedInAs, standing: &Standing, uuid: &str) -> SignInByPolicy {
+    fn sign_in_failed(
+        &self,
+        who: &SignedInAs,
+        standing: &Standing,
+        uuid: &str,
+        error: &ChangeError,
+    ) -> SignInByPolicy {
         let key = sign_in_key(uuid);
         if let Some(enrolments) = &self.enrolments
             && let Err(error) = enrolments.record_failure(&who.ilm, &who.username, &key, now_ms())
@@ -456,7 +532,19 @@ impl Session {
             log::warn!("the enrolment cannot be written down: {error}");
         }
         let failures = standing.failures(&key).saturating_add(1);
-        log::warn!("the sign-in certificate {uuid} could not be set by policy ({failures} failed)");
+        // What ILM said may repeat values of the certificate, so only how much it said is logged.
+        let reason = match error {
+            ChangeError::Rejected(messages) => {
+                format!(
+                    "ILM did not accept the change ({} message(s))",
+                    messages.len()
+                )
+            }
+            other => other.to_string(),
+        };
+        log::warn!(
+            "the sign-in certificate {uuid} could not be set by policy ({failures} failed): {reason}"
+        );
         SignInByPolicy::Failed {
             uuid: uuid.to_owned(),
             failures,

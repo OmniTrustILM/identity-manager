@@ -303,6 +303,8 @@ pub struct Followed {
     pub outcome: Outcome,
     /// The installed certificate a renewal replaces.
     pub replaces: Option<Fingerprint>,
+    /// Whether enrolment by policy made the request.
+    pub enrolled: bool,
 }
 
 impl Followed {
@@ -926,6 +928,7 @@ impl Session {
             if let Some(outcome) = followed {
                 found.push(Followed {
                     replaces: entry.replaces_fingerprint(),
+                    enrolled: entry.enrolled,
                     uuid: entry.uuid,
                     label: entry.label,
                     outcome,

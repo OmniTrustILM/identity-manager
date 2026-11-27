@@ -437,15 +437,20 @@ export const strings = {
     done: 'Done',
 
     requests: 'Requests',
-    requestsSummary: (waiting: number, ready: number, inProgress: number) =>
+    requestsSummary: (asked: number, waiting: number, ready: number, inProgress: number) =>
         [
             waiting > 0 && `${waiting} waiting for your approval`,
+            asked > 0 && `${asked} asked by your organization`,
             ready > 0 && `${ready} ready to issue`,
             inProgress > 0 && `${inProgress} in progress`,
         ]
             .filter(Boolean)
             .join(', '),
     waitingForYourApproval: 'Waiting for your approval',
+    askedByOrganization: 'Asked by your organization',
+    askedHint: 'Your organization asks you to request this certificate.',
+    requestEllipsis: 'Request…',
+    requestNamed: (name: string) => `Request ${name}`,
     approve: 'Approve',
     approveNamed: (name: string) => `Approve ${name}`,
     reject: 'Reject',

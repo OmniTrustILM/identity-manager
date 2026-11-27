@@ -533,3 +533,15 @@ test('while Renew is sent the button says Renewing and is disabled', async () =>
     expect(renewButton()?.textContent).toBe(strings.renewing);
     expect((renewButton() as HTMLButtonElement).disabled).toBe(true);
 });
+
+test('a profile the organization asks for is listed with its caption and an accent inbox icon, opens the requests, and alone needs no attention', async () => {
+    await shows(stand([{ kind: 'asked', uuid: 'ra-1', name: 'Servers' }]));
+
+    expect(container.textContent).not.toContain(strings.needsAttention);
+    expect(items()[0]?.textContent).toBe(`Servers${strings.askedByOrganization}`);
+    expect(items()[0]?.querySelector('svg')?.getAttribute('class')).toContain('text-accent');
+    expect(items()[0]?.querySelector('svg')?.getAttribute('class')).toContain('lucide-inbox');
+    expect(items()[0]?.querySelector('span span:last-child')?.getAttribute('class')).toContain('text-secondary');
+    await act(async () => items()[0]?.click());
+    expect(opened).toEqual(['requests']);
+});

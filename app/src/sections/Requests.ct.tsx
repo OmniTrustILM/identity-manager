@@ -204,3 +204,39 @@ test('a refused approval is announced under the group', async ({ mount, page }) 
 
     await expect(page.getByRole('alert')).toHaveText('Already decided.');
 });
+
+test('the profiles the organization asks for come before the prepared certificates, with the hint, and Request… opens the wizard at its attributes', async ({
+    mount,
+    page,
+}) => {
+    await open(page, mount, 'windows', 'light', {
+        ...full(),
+        asked: [
+            { uuid: 'ra-s', name: 'Servers' },
+            { uuid: 'ra-m', name: 'Mail' },
+        ],
+    });
+
+    await expect(
+        page.getByText('2 waiting for your approval, 2 asked by your organization, 1 ready to issue, 2 in progress'),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2 }).nth(1)).toHaveText('Asked by your organization');
+    const group = page.getByRole('region', { name: 'Asked by your organization' });
+    await expect(group.getByText('Your organization asks you to request this certificate.')).toHaveCount(2);
+    await expect(group.getByRole('button')).toHaveText(['Request…', 'Request…']);
+    await group.getByRole('button', { name: 'Request Servers' }).click();
+
+    const sheet = page.getByRole('dialog', { name: 'Request a certificate' });
+    await expect(sheet.locator('[aria-current="step"]')).toHaveText('2Attributes');
+});
+
+test('the keyboard reaches Request… of an asked profile and a lone asked profile is not the empty page', async ({ mount, page }) => {
+    await open(page, mount, 'macos', 'dark', inventory({ asked: [{ uuid: 'ra-s', name: 'Servers' }] }));
+    await keyboardReady(page);
+
+    await expect(page.getByRole('heading', { name: 'Nothing to issue or follow' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Request Servers' }).focus();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('dialog', { name: 'Request a certificate' })).toBeVisible();
+});

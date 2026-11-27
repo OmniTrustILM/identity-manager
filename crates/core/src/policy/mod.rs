@@ -296,7 +296,7 @@ pub fn read_file(path: &Path, parse: fn(&[u8], &str) -> RawMap) -> Layer {
     match std::fs::read(path) {
         Ok(bytes) => {
             let raw = parse(&bytes, &source);
-            log::info!("policy found at {source} with {} value(s)", raw.len());
+            log::debug!("policy found at {source} with {} value(s)", raw.len());
             to_layer(&raw, &source)
         }
         Err(error) => {

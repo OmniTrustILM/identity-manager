@@ -13,3 +13,6 @@ Windows Registry Editor Version 5.00
 "SignInMethod"="oauth"
 "KeyStorages"="software,tpm"
 "DefaultKeyStorage"="software"
+"CompletePrepared"=dword:00000001
+"RequestProfiles"="Workstation, Email"
+"SignInCertificateProfile"="Workstation"

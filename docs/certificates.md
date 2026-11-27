@@ -145,7 +145,7 @@ The key is created on the computer and never leaves it. Only a request signed wi
 ## Requests
 
 The Requests section appears on macOS and Windows when there is something in it: requests waiting for the person's
-approval, certificates prepared for the person in advance, or the person's own requests that ILM has not finished.
+approval, certificates prepared for the person in advance, certificates your organization asks the person to request, or the person's own requests that ILM has not finished.
 
 ### Waiting for your approval
 
@@ -185,6 +185,43 @@ After "Issue certificate", the certificate is installed as after a request (see 
 The person's requests that are waiting for approval or being issued are listed with their state and when they were
 requested. A request that ends is no longer listed; its outcome was shown or notified. A request waiting for approval
 cannot be cancelled from Identity Manager, as ILM cannot cancel it.
+
+## Enrolment by policy
+
+Your organization can have certificates made without the person asking, with the `CompletePrepared`,
+`RequestProfiles` and `SignInCertificateProfile` policy keys, see [policy.md](policy.md). It starts at the first check
+of ILM after the person signs in, while Identity Manager is not locked. Nothing is enrolled on Linux.
+
+- **Prepared certificates.** With `CompletePrepared`, every open certificate that an administrator prepared for the
+  person (see "Ready for you to issue") is completed by itself and installed, as after "Issue certificate". The
+  subject the administrator registered is used.
+- **Requested profiles.** Each RA Profile named in `RequestProfiles` is requested once for each person and computer,
+  with the key in the storage the policy chooses (`DefaultKeyStorage`, `KeyStorages`). Afterwards renewal keeps the
+  certificate current. If the certificate is revoked or deleted later, it is not requested again. A name that ILM does
+  not list for the person is skipped.
+- **A failed attempt** is tried again at the next check, at most once a day.
+
+The challenge always stays with the person. A prepared certificate whose registration asks for a challenge is not
+completed by itself and stays under "Ready for you to issue".
+
+A form that needs the person, for example a value to choose or a required value that has no default, is not sent. It
+shows in Requests under "Asked by your organization" with the name of the RA Profile and "Request…", which opens the
+request at its attributes. One notification, "Your organization asks you to request a certificate: <profile>", tells
+the person. When the request is sent, the row goes away.
+
+ILM decides what is allowed. A requested profile needs the permission `certificates:create` for the person; without
+it nothing is requested. Completing a prepared certificate is tried without that check and ILM decides, as it does for
+"Issue…". When a request fails, the notification says "Request failed: <name>", and adds "ILM does not allow this."
+when ILM refuses the person's right to request.
+
+A notification is shown once, when:
+
+- an enrolled certificate is installed ("Your certificate is ready: <name>"),
+- the organization asks for a request that needs the person (see above), or
+- an enrolment failed ("Request failed: …").
+
+An enrolment that works is otherwise quiet. A prepared certificate that is completed by itself causes no "A
+certificate is ready for you to issue" notification.
 
 ## Automatic renewal
 

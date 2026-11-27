@@ -21,4 +21,4 @@ renewable: boolean, } | { "kind": "expired", fingerprint: string, name: string,
 /**
  * Milliseconds since 1970 (UTC).
  */
-on: number, } | { "kind": "revoked", fingerprint: string, name: string, } | { "kind": "notInIlm", count: number, } | { "kind": "waiting", label: string, state: WaitingStateView, } | { "kind": "approval", uuid: string, name: string, action: ApprovalAction, };
+on: number, } | { "kind": "revoked", fingerprint: string, name: string, } | { "kind": "notInIlm", count: number, } | { "kind": "waiting", label: string, state: WaitingStateView, } | { "kind": "approval", uuid: string, name: string, action: ApprovalAction, } | { "kind": "asked", uuid: string, name: string, };

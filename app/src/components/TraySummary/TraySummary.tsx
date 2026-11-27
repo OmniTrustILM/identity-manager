@@ -121,6 +121,7 @@ const itemKey = (item: AttentionItemView) => {
         case 'waiting':
             return `${item.kind}:${item.label}`;
         case 'approval':
+        case 'asked':
             return `${item.kind}:${item.uuid}`;
         default:
             return `${item.kind}:${item.fingerprint}`;
@@ -129,7 +130,7 @@ const itemKey = (item: AttentionItemView) => {
 
 /** What the main window is asked to show for an item: the certificate, the requests, or Overview. */
 function target(item: AttentionItemView): string {
-    if (item.kind === 'approval') {
+    if (item.kind === 'approval' || item.kind === 'asked') {
         return 'requests';
     }
     return 'fingerprint' in item ? item.fingerprint : 'overview';
@@ -146,7 +147,8 @@ function Item({ item, onResize }: Readonly<{ item: AttentionItemView; onResize: 
             onResize();
         }
     }, [progress, onResize]);
-    const certificate = item.kind === 'notInIlm' || item.kind === 'waiting' || item.kind === 'approval' ? null : item;
+    const certificate =
+        item.kind === 'notInIlm' || item.kind === 'waiting' || item.kind === 'approval' || item.kind === 'asked' ? null : item;
     const renewable = item.kind === 'expiring' && item.renewable && progress?.kind !== 'working' && progress?.kind !== 'done';
     return (
         <li className="flex flex-col gap-s1">
@@ -164,6 +166,7 @@ function Item({ item, onResize }: Readonly<{ item: AttentionItemView; onResize: 
                         {certificate && <span className={`text-caption ${textTone}`}>{attentionDetail(certificate)}</span>}
                         {item.kind === 'waiting' && <span className={`text-caption ${textTone}`}>{waitingDetail(item)}</span>}
                         {item.kind === 'approval' && <span className={`text-caption ${textTone}`}>{approvalDetail(item)}</span>}
+                        {item.kind === 'asked' && <span className={`text-caption ${textTone}`}>{strings.askedByOrganization}</span>}
                     </span>
                     <ChevronIcon aria-hidden className="size-icon shrink-0 text-secondary" />
                 </button>
@@ -238,7 +241,9 @@ export function TraySummary() {
     const summary = useSummary(open);
     const line = lineFor(
         view,
-        summary?.attention.some((item) => item.kind !== 'notInIlm' && item.kind !== 'waiting' && item.kind !== 'approval') ?? false,
+        summary?.attention.some(
+            (item) => item.kind !== 'notInIlm' && item.kind !== 'waiting' && item.kind !== 'approval' && item.kind !== 'asked',
+        ) ?? false,
     );
     const action = actionFor(view);
 

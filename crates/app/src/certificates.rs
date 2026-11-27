@@ -21,7 +21,8 @@ use im_core::keys::Offer;
 use im_core::renewal::store::Renewals;
 use im_core::requests::Waiting;
 use im_core::session::{
-    ChangeError, Followed, FormInput, Outcome, Session, SessionView, SignedInAs,
+    ChangeError, Enrolled, Followed, FormInput, Outcome, Session, SessionView, SignInByPolicy,
+    SignedInAs,
 };
 use im_core::{AppInfo, Platform};
 use serde::Serialize;
@@ -29,7 +30,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::keep_alive::{Checks, renew};
 use crate::lock::Guard;
-use crate::notice::Notices;
+use crate::notice::{Notices, staying_with_the_person};
 use crate::settings::Settings;
 use crate::tray;
 
@@ -201,6 +202,7 @@ impl<R: Runtime> Ilm<R> {
             who.as_ref().is_some_and(SignedInAs::lists_certificates),
             can_request(who.as_ref(), stores_keys),
         )
+        .with_asked(self.inventory.asked())
         .with_requests(&waiting, &self.inventory.followed())
         .with_renewals(renewals)
     }
@@ -314,10 +316,13 @@ impl<R: Runtime> Ilm<R> {
             self.tell_renewals(&waiting, current);
             // Linux has no key storage to issue a prepared certificate with, and no Requests section to decide in.
             if !cfg!(target_os = "linux") {
+                let (policy, _) = self.settings.layers();
                 self.notices.prepared(
-                    &self
-                        .inventory
-                        .ready_to_issue(&self.session.waiting_requests()),
+                    &staying_with_the_person(
+                        self.inventory
+                            .ready_to_issue(&self.session.waiting_requests()),
+                        &policy,
+                    ),
                     current,
                     || current() && !self.guard.is_locked(),
                 );
@@ -395,11 +400,23 @@ impl<R: Runtime> Ilm<R> {
                     .await;
                 let first = self.read_installed().await;
                 self.renew_due().await;
-                if let Some(fresh) = self.read_installed().await.or(first) {
+                let enrolled = self.enrol_due().await;
+                self.tell_enrolment(&enrolled);
+                let sent = enrolled
+                    .iter()
+                    .any(|outcome| matches!(outcome, Enrolled::Sent { .. }));
+                let fresh = self.read_installed().await.or(first);
+                if sent || fresh.is_some() {
                     self.inventory
-                        .check_local(&self.session, Trigger::Action, &fresh)
+                        .check_local(
+                            &self.session,
+                            Trigger::Action,
+                            fresh.as_deref().unwrap_or(&local),
+                        )
                         .await;
                 }
+                let signed_in = self.sign_in_due().await;
+                self.tell_sign_in(&signed_in);
             })
             .await;
         } else {
@@ -441,6 +458,56 @@ impl<R: Runtime> Ilm<R> {
         self.inventory
             .renew_due(&self.session, &plan, &|| !self.guard.is_locked())
             .await;
+    }
+
+    /// Enrols what policy asks for, as the same conditions that allow renewal say: nothing while the application is
+    /// locked, and nothing on Linux.
+    async fn enrol_due(&self) -> Vec<Enrolled> {
+        let (policy, _) = self.settings.layers();
+        self.inventory
+            .enrol_due(&self.session, &policy, self.platform, &|| {
+                !self.guard.is_locked()
+            })
+            .await
+    }
+
+    /// Makes the sign-in certificate policy names of the certificates enrolment installed.
+    async fn sign_in_due(&self) -> Vec<SignInByPolicy> {
+        let (policy, _) = self.settings.layers();
+        self.session
+            .sign_in_by_policy(&self.inventory, &policy, &|| !self.guard.is_locked())
+            .await
+    }
+
+    /// Tells the person what enrolment could not do without them.
+    fn tell_enrolment(&self, outcomes: &[Enrolled]) {
+        let waiting = self.session.waiting_requests();
+        self.notices.enrolled(
+            outcomes,
+            &self.inventory.ready_to_issue(&waiting),
+            || self.session.signed_in_as().is_some(),
+            || !self.guard.is_locked(),
+        );
+    }
+
+    /// Tells the person which certificates could not become the sign-in certificate.
+    fn tell_sign_in(&self, outcomes: &[SignInByPolicy]) {
+        let matches = self
+            .inventory
+            .snapshot()
+            .map(|snapshot| snapshot.matches)
+            .unwrap_or_default();
+        self.notices.sign_in_certificate(
+            outcomes,
+            |uuid| {
+                matches
+                    .values()
+                    .find(|found| found.uuid == uuid)
+                    .map(|found| found.name.clone())
+            },
+            || self.session.signed_in_as().is_some(),
+            || !self.guard.is_locked(),
+        );
     }
 
     /// Takes the saved answer of the person who signed in, then checks ILM.
