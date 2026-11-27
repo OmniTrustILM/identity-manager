@@ -354,6 +354,9 @@ impl Session {
         policy: &Layer,
         proceed: &(dyn Fn() -> bool + Sync),
     ) -> Vec<SignInByPolicy> {
+        let Some(id) = self.current_sign_in().map(|signed_in| signed_in.id) else {
+            return Vec::new();
+        };
         let (Some(profile), Some(who), Some(enrolments)) = (
             sign_in_certificate_profile(policy),
             self.signed_in_as(),
@@ -370,8 +373,12 @@ impl Session {
         ) else {
             return Vec::new();
         };
+        let still_signed_in = || proceed() && self.is_sign_in(&id);
         let mut done = Vec::new();
         for uuid in &standing.installed {
+            if !still_signed_in() {
+                break;
+            }
             let Some((fingerprint, certificate)) = snapshot
                 .matches
                 .iter()
@@ -395,7 +402,7 @@ impl Session {
                 continue;
             }
             let outcome = self
-                .make_sign_in_certificate(inventory, &fingerprint.to_string(), proceed)
+                .make_sign_in_certificate(inventory, &fingerprint.to_string(), still_signed_in)
                 .await;
             match outcome {
                 Ok(()) | Err(ChangeError::AlreadySignIn) => {

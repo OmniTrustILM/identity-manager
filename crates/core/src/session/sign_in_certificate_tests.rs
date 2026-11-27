@@ -934,3 +934,79 @@ async fn a_lost_answer_to_the_change_of_a_certificate_sign_in_is_reconciled_at_o
         Some(change.jane.fingerprint())
     );
 }
+
+#[tokio::test]
+async fn a_lost_answer_to_the_change_of_a_provider_sign_in_is_learned_from_the_profile() {
+    use std::sync::atomic::AtomicBool;
+
+    use super::renew_tests::{MovesWithTheUpdate, TakesTheUpdate};
+    use super::{State, lock};
+
+    let change = Change::enrolled().await;
+    let moved = Arc::new(AtomicBool::new(false));
+    let mut new = profile();
+    new["certificate"] =
+        json!({ "uuid": ENROLLED, "fingerprint": search_text(&change.jane.fingerprint()) });
+    Mock::given(method("PUT"))
+        .and(path(PROFILE))
+        .respond_with(TakesTheUpdate {
+            moved: moved.clone(),
+            status: 500,
+        })
+        .mount(&change.world.ilm)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(PROFILE))
+        .respond_with(MovesWithTheUpdate {
+            moved,
+            old: profile(),
+            new,
+        })
+        .with_priority(1)
+        .mount(&change.world.ilm)
+        .await;
+
+    let done = change.by_policy(&naming("Staff")).await;
+
+    assert_eq!(
+        done,
+        vec![SignInByPolicy::Set {
+            uuid: ENROLLED.into()
+        }]
+    );
+    match &*lock(&change.world.session.state) {
+        State::SignedIn(active) => assert_eq!(
+            active
+                .person
+                .sign_in
+                .as_ref()
+                .map(|held| held.uuid.as_str()),
+            Some(ENROLLED)
+        ),
+        _ => panic!("signed out"),
+    }
+}
+
+#[tokio::test]
+async fn a_policy_batch_stops_once_another_sign_in_takes_over() {
+    use super::{State, lock};
+
+    let change = Change::enrolled().await;
+    change
+        .answer_update(ResponseTemplate::new(200).set_body_json(profile()))
+        .await;
+    let session = &change.world.session;
+    let replaced = || {
+        if let State::SignedIn(active) = &mut *lock(&session.state) {
+            active.id = Arc::new(());
+        }
+        true
+    };
+
+    let done = session
+        .sign_in_by_policy(&change.inventory, &naming("Staff"), &replaced)
+        .await;
+
+    assert!(done.is_empty(), "{done:?}");
+    assert_eq!(change.updates().await, 0);
+}

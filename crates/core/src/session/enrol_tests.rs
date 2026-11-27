@@ -657,8 +657,11 @@ async fn the_log_of_a_managed_first_run_names_no_value() {
     ] {
         assert!(log.contains(line), "{line} is not logged: {log}");
     }
-    for secret in ["demo220", "Example", "Jane Doe", "ticket"] {
-        assert!(!log.contains(secret), "{secret} is logged");
+    for (index, secret) in ["demo220", "Example", "Jane Doe", "ticket"]
+        .iter()
+        .enumerate()
+    {
+        assert!(!log.contains(secret), "forbidden value {index} is logged");
     }
 }
 
