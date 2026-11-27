@@ -697,9 +697,12 @@ impl SummaryView {
     }
 }
 
-/// Whether one of the requests `waiting` is for the RA Profile `uuid`.
+/// Whether one of the requests `waiting`, leaving out revocations, is for the RA Profile `uuid`.
 pub(super) fn is_requested(uuid: &str, waiting: &[Waiting]) -> bool {
-    waiting.iter().any(|entry| entry.ra_profile == uuid)
+    waiting.iter().any(|entry| {
+        entry.ra_profile == uuid
+            && !matches!(entry.purpose, crate::requests::Purpose::Revoke { .. })
+    })
 }
 
 #[cfg(test)]
@@ -1112,5 +1115,25 @@ mod tests {
 
         assert_eq!(view.requests.len(), 1);
         assert_eq!(view.requests[0].uuid.as_deref(), Some("c-2"));
+    }
+
+    #[test]
+    fn a_waiting_revocation_does_not_take_a_profile_out_of_the_asked_ones() {
+        let mut revoking = waiting(Some("c-1"), "k-1", 10);
+        revoking.purpose = crate::requests::Purpose::Revoke {
+            certificate: "c-1".to_owned(),
+            fingerprint: crate::identity::Fingerprint::of(&[1]),
+            remove: false,
+        };
+        let asked = AskedProfile {
+            uuid: "ra-1".to_owned(),
+            name: "Servers".to_owned(),
+        };
+
+        let view = InventoryView::new(Status::Never, None, false, true, true)
+            .with_asked(vec![asked.clone()])
+            .with_requests(&[revoking], &[]);
+
+        assert_eq!(view.asked, [asked]);
     }
 }

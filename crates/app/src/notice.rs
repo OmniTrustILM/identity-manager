@@ -2311,6 +2311,18 @@ mod tests {
     }
 
     #[test]
+    fn enrolment_and_sign_in_outcomes_of_a_superseded_check_are_neither_told_nor_remembered() {
+        let folder = tempfile::tempdir().unwrap();
+        let (notices, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+
+        notices.enrolled(&[asking("ra-1", "Servers")], &[], || false, || true);
+        notices.sign_in_certificate(&sign_in_failed(3), named, || false, || true);
+
+        assert!(told(&log).is_empty());
+        assert!(!folder.path().join("notified.json").exists());
+    }
+
+    #[test]
     fn a_sign_in_certificate_the_inventory_does_not_know_is_told_as_a_certificate() {
         let (notices, log) = notices(Platform::Macos);
 

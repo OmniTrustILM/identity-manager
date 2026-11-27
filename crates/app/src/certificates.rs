@@ -386,13 +386,13 @@ impl<R: Runtime> Ilm<R> {
     async fn check_inventory(&self, trigger: Trigger) -> Result<(), String> {
         self.configure();
         self.inventory.adopt(&self.session);
-        let signed_in = self.session.signed_in_as().is_some();
-        if !signed_in && self.session.unreachable_at().is_none() {
+        let who = self.session.signed_in_as();
+        if who.is_none() && self.session.unreachable_at().is_none() {
             return Ok(());
         }
         let local = self.local_certificates().await?;
         self.inventory.set_local(&local);
-        if signed_in {
+        if let Some(who) = &who {
             self.forget_removed_switches(&local);
             self.working(async {
                 self.inventory
@@ -401,7 +401,7 @@ impl<R: Runtime> Ilm<R> {
                 let first = self.read_installed().await;
                 self.renew_due().await;
                 let enrolled = self.enrol_due().await;
-                self.tell_enrolment(&enrolled);
+                self.tell_enrolment(&enrolled, who);
                 let sent = enrolled
                     .iter()
                     .any(|outcome| matches!(outcome, Enrolled::Sent { .. }));
@@ -416,7 +416,7 @@ impl<R: Runtime> Ilm<R> {
                         .await;
                 }
                 let signed_in = self.sign_in_due().await;
-                self.tell_sign_in(&signed_in);
+                self.tell_sign_in(&signed_in, who);
             })
             .await;
         } else {
@@ -480,18 +480,18 @@ impl<R: Runtime> Ilm<R> {
     }
 
     /// Tells the person what enrolment could not do without them.
-    fn tell_enrolment(&self, outcomes: &[Enrolled]) {
+    fn tell_enrolment(&self, outcomes: &[Enrolled], who: &SignedInAs) {
         let waiting = self.session.waiting_requests();
         self.notices.enrolled(
             outcomes,
             &self.inventory.ready_to_issue(&waiting),
-            || self.session.signed_in_as().is_some(),
+            || self.still_signed_in(who),
             || !self.guard.is_locked(),
         );
     }
 
     /// Tells the person which certificates could not become the sign-in certificate.
-    fn tell_sign_in(&self, outcomes: &[SignInByPolicy]) {
+    fn tell_sign_in(&self, outcomes: &[SignInByPolicy], who: &SignedInAs) {
         let matches = self
             .inventory
             .snapshot()
@@ -505,9 +505,16 @@ impl<R: Runtime> Ilm<R> {
                     .find(|found| found.uuid == uuid)
                     .map(|found| found.name.clone())
             },
-            || self.session.signed_in_as().is_some(),
+            || self.still_signed_in(who),
             || !self.guard.is_locked(),
         );
+    }
+
+    /// Whether `who` is still the person signed in, so that what a check found is still theirs to be told.
+    fn still_signed_in(&self, who: &SignedInAs) -> bool {
+        self.session
+            .signed_in_as()
+            .is_some_and(|now| now.ilm == who.ilm && now.username == who.username)
     }
 
     /// Takes the saved answer of the person who signed in, then checks ILM.

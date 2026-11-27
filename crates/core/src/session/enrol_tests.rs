@@ -1149,6 +1149,68 @@ async fn a_profile_that_needs_the_person_is_asked_until_it_is_requested() {
 }
 
 #[tokio::test]
+async fn the_asked_profiles_stay_when_the_ra_profiles_cannot_be_listed() {
+    let enrolling = Enrolling::with(default_request_set()).await;
+    enrolling.listing_profiles().await;
+    let inventory = enrolling.checked().await;
+    enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+    assert_eq!(inventory.asked().len(), 1);
+    Mock::given(method("GET"))
+        .and(path("/api/v1/raProfiles"))
+        .respond_with(ResponseTemplate::new(500))
+        .with_priority(1)
+        .mount(&enrolling.world.ilm)
+        .await;
+
+    enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+
+    assert_eq!(inventory.asked().len(), 1);
+}
+
+#[tokio::test]
+async fn a_profile_requested_while_the_check_ran_is_not_asked_again() {
+    let enrolling = Enrolling::with(default_request_set()).await;
+    enrolling.listing_profiles().await;
+    let inventory = enrolling.checked().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/raProfiles"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!([{
+                    "uuid": "ra-1",
+                    "name": "Servers",
+                    "enabled": true,
+                    "authorityInstanceName": "Corporate CA",
+                    "authorityInstanceUuid": "auth-1",
+                }]))
+                .set_delay(std::time::Duration::from_millis(400)),
+        )
+        .with_priority(1)
+        .mount(&enrolling.world.ilm)
+        .await;
+    let requested = async {
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        enrolling
+            .enrolments
+            .mark_done(&enrolling.world.address(), "jdoe", "ra-1")
+            .unwrap();
+    };
+
+    let policy = asking_for_servers();
+
+    tokio::join!(
+        enrolling.enrol_due(&inventory, &policy, Platform::Macos, &|| true),
+        requested
+    );
+
+    assert!(inventory.asked().is_empty());
+}
+
+#[tokio::test]
 async fn a_request_from_certificates_takes_the_profile_out_of_the_summary_at_the_next_follow() {
     let enrolling = Enrolling::with(default_request_set()).await;
     enrolling.listing_profiles().await;

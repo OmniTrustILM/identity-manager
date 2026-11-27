@@ -45,14 +45,16 @@ impl Inventory {
         let Some(standing) = session.standing() else {
             return Vec::new();
         };
-        let profiles = if request_profiles(policy).is_empty() {
-            Vec::new()
+        let listed = if request_profiles(policy).is_empty() {
+            Some(Vec::new())
         } else {
-            session.request_profiles().await.unwrap_or_else(|error| {
-                log::warn!("the RA Profiles to enrol cannot be listed: {error}");
-                Vec::new()
-            })
+            session
+                .request_profiles()
+                .await
+                .map_err(|error| log::warn!("the RA Profiles to enrol cannot be listed: {error}"))
+                .ok()
         };
+        let profiles = listed.clone().unwrap_or_default();
         let planned = plan(
             now(),
             policy,
@@ -76,7 +78,9 @@ impl Inventory {
                 _ => None,
             })
             .collect();
-        self.keep_asked(epoch, asked);
+        if listed.is_some() {
+            self.keep_asked(epoch, session, asked);
+        }
         if done
             .iter()
             .any(|outcome| matches!(outcome, Enrolled::Sent { .. }))
@@ -86,8 +90,11 @@ impl Inventory {
         done
     }
 
-    /// Keeps `asked` unless the sign-in ended meanwhile.
-    fn keep_asked(&self, epoch: u64, asked: Vec<AskedProfile>) {
+    /// Keeps `asked`, less the profiles the person requested meanwhile, unless the sign-in ended meanwhile.
+    fn keep_asked(&self, epoch: u64, session: &Session, mut asked: Vec<AskedProfile>) {
+        if let Some(standing) = session.standing() {
+            asked.retain(|profile| !standing.is_done(&profile.uuid));
+        }
         let mut held = held(&self.held);
         if held.epoch != epoch || held.asked == asked {
             return;
