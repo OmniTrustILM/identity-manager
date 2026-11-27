@@ -13,6 +13,13 @@ fn the_installed_policy_is_read_and_locks_the_settings() {
     assert!(view.start_at_login.locked);
     assert_eq!(view.log_level.value, LogLevel::Debug);
     assert!(view.log_level.locked);
+
+    assert!(settings::complete_prepared(&policy));
+    assert_eq!(settings::request_profiles(&policy), ["Web", "Mail"]);
+    assert_eq!(
+        settings::sign_in_certificate_profile(&policy),
+        Some("Sign-in")
+    );
 }
 
 /// The script installs a root-owned file that group members may write, at the path in

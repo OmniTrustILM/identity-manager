@@ -5,4 +5,8 @@ import type { StorageId } from "./StorageId";
 /**
  * A key storage the person may choose, with the key types it creates.
  */
-export type StorageOffer = { storage: StorageId, keyTypes: Array<KeyTypeId>, };
+export type StorageOffer = { storage: StorageId, keyTypes: Array<KeyTypeId>, 
+/**
+ * The key type to start with: EC P-256 when the storage offers it, else the first.
+ */
+defaultKeyType: KeyTypeId | null, };

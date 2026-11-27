@@ -169,6 +169,26 @@ mod tests {
     }
 
     #[test]
+    fn the_enrolment_values_reach_the_layer() {
+        let json = br#"{"CompletePrepared": true, "RequestProfiles": "Web, Mail,",
+            "SignInCertificateProfile": " Sign-in "}"#;
+        let layer = to_layer(&parse_json(json, "test"), "test");
+        assert_eq!(layer.complete_prepared, Some(true));
+        assert_eq!(
+            layer.request_profiles,
+            Some(vec!["Web".to_string(), "Mail".to_string()])
+        );
+        assert_eq!(
+            layer.sign_in_certificate_profile.as_deref(),
+            Some("Sign-in")
+        );
+        let json = br#"{"CompletePrepared": "yes", "RequestProfiles": ["Web"]}"#;
+        let layer = to_layer(&parse_json(json, "test"), "test");
+        assert_eq!(layer.complete_prepared, None);
+        assert_eq!(layer.request_profiles, None);
+    }
+
+    #[test]
     fn the_automatic_renewal_string_reaches_the_layer() {
         let layer = to_layer(
             &parse_json(br#"{"AutomaticRenewal": "newKey"}"#, "test"),

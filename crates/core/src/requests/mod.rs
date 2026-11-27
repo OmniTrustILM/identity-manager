@@ -79,6 +79,9 @@ pub struct Waiting {
     pub prepared: bool,
     #[serde(default)]
     pub purpose: Purpose,
+    /// Whether enrolment by policy made the request rather than the person.
+    #[serde(default)]
+    pub enrolled: bool,
 }
 
 impl Waiting {

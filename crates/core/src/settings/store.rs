@@ -179,6 +179,9 @@ mod tests {
             sign_in_method: None,
             key_storages: None,
             default_key_storage: None,
+            complete_prepared: None,
+            request_profiles: None,
+            sign_in_certificate_profile: None,
             sign_in_certificate: Some(remembered()),
         }
     }

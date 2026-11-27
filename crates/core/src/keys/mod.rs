@@ -48,6 +48,16 @@ pub struct Offer {
     pub types: Vec<KeyType>,
 }
 
+/// The key type to start with in a storage: EC P-256 when it is offered, else the first type; none when the
+/// storage offers no type.
+pub fn preferred(offer: &Offer) -> Option<KeyType> {
+    if offer.types.contains(&KeyType::EcP256) {
+        Some(KeyType::EcP256)
+    } else {
+        offer.types.first().copied()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum KeyError {
     /// The storage does not offer this key type.

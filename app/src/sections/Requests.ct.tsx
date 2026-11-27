@@ -48,7 +48,7 @@ const requesting: Requesting = {
         issue: attributeForm([attributeField('tag', { label: 'Device tag' })], { id: 'form-issue' }),
         custom: null,
     },
-    offers: { storages: [{ storage: 'keychain', keyTypes: ['ecP256'] }], defaultStorage: 'keychain' },
+    offers: { storages: [{ storage: 'keychain', keyTypes: ['ecP256'], defaultKeyType: 'ecP256' }], defaultStorage: 'keychain' },
     follow: [{ state: 'installed', storage: 'keychain', validUntil: new Date(2027, 10, 10).getTime() }],
 };
 const surfaces: Record<'macos' | 'windows', Record<Scheme, string>> = {

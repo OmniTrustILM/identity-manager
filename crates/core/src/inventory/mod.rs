@@ -10,6 +10,7 @@ mod tests;
 mod view;
 
 pub use approvals::Approval;
+pub(crate) use prepared::is_begun;
 pub use prepared::{Prepared, SubjectKind, SubjectPart, subject_parts};
 pub use renew::{Needs, Reason, Refused, Renewing, SignIn};
 pub use summary::{Counts, Item, Kind, Summary, WaitingState, summarize};

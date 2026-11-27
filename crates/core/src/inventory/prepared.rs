@@ -135,7 +135,7 @@ pub fn subject_parts(subject: &RequestSubject) -> Vec<SubjectPart> {
 }
 
 /// Whether one of the requests `waiting` completes the certificate `uuid` registered in advance.
-pub(super) fn is_begun(uuid: &str, waiting: &[Waiting]) -> bool {
+pub(crate) fn is_begun(uuid: &str, waiting: &[Waiting]) -> bool {
     waiting
         .iter()
         .any(|entry| entry.uuid.as_deref() == Some(uuid))

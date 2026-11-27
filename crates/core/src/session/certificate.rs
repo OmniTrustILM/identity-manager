@@ -271,15 +271,23 @@ impl Session {
         {
             return Err(ChangeError::CannotSignIn);
         }
-        self.change_sign_in(
-            &who.ilm,
-            departing,
-            &matched.uuid,
-            fingerprint,
-            None,
-            &proceed,
-        )
-        .await?;
+        let changed = self
+            .change_sign_in(
+                &who.ilm,
+                departing.clone(),
+                &matched.uuid,
+                fingerprint,
+                None,
+                &proceed,
+            )
+            .await;
+        match changed {
+            Err(ChangeError::Offline | ChangeError::Unexpected(_) | ChangeError::Malformed)
+                if self
+                    .adopt_known(&who.ilm, &departing, &matched.uuid, fingerprint)
+                    .await => {}
+            other => other?,
+        }
         drop(changing);
         inventory.check_local(self, Trigger::Action, &local).await;
         Ok(())

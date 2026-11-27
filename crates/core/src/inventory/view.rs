@@ -908,6 +908,7 @@ mod tests {
             since,
             prepared: false,
             purpose: crate::requests::Purpose::Issue,
+            enrolled: false,
         }
     }
 

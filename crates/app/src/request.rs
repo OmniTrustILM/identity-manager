@@ -8,7 +8,7 @@ use im_core::ilm::certificates::State;
 use im_core::ilm::issue::Challenge;
 use im_core::ilm::upload::RaProfileChoice;
 use im_core::inventory::{Prepared, RevokingStage, SubjectPart};
-use im_core::keys::{KeyType, Offer, Storage};
+use im_core::keys::{KeyType, Offer, Storage, preferred};
 use im_core::session::{
     CallError, Completion, EndReason, Followed, Installed, Outcome, RequestError, RequestInput,
     SignedInAs,
@@ -108,6 +108,8 @@ impl<'de> Deserialize<'de> for KeyTypeId {
 pub struct StorageOffer {
     pub storage: StorageId,
     pub key_types: Vec<KeyTypeId>,
+    /// The key type to start with: EC P-256 when the storage offers it, else the first.
+    pub default_key_type: Option<KeyTypeId>,
 }
 
 /// What this computer and the organization let the person keep a new key in. Without a storage, nothing is
@@ -127,6 +129,7 @@ fn offers_view(allowed: Vec<Offer>, preselected: Option<Storage>) -> RequestOffe
             .into_iter()
             .map(|offer| StorageOffer {
                 storage: offer.storage.into(),
+                default_key_type: preferred(&offer).map(KeyTypeId),
                 key_types: offer.types.into_iter().map(KeyTypeId).collect(),
             })
             .collect(),
@@ -687,6 +690,7 @@ mod tests {
             since: 1,
             prepared: true,
             purpose: im_core::requests::Purpose::Issue,
+            enrolled: false,
         };
 
         assert_eq!(
@@ -789,11 +793,28 @@ mod tests {
             serde_json::to_value(&view).unwrap(),
             json!({
                 "storages": [
-                    { "storage": "software", "keyTypes": ["ecP256", "rsa3072"] },
-                    { "storage": "tpm", "keyTypes": ["ecP256"] }
+                    { "storage": "software", "keyTypes": ["ecP256", "rsa3072"], "defaultKeyType": "ecP256" },
+                    { "storage": "tpm", "keyTypes": ["ecP256"], "defaultKeyType": "ecP256" }
                 ],
                 "defaultStorage": "tpm"
             })
+        );
+        let other = offers_view(
+            vec![
+                offer(
+                    Storage::Keychain,
+                    &[KeyType::Rsa { bits: 3072 }, KeyType::EcP384],
+                ),
+                offer(Storage::Tpm, &[]),
+            ],
+            None,
+        );
+        assert_eq!(
+            serde_json::to_value(&other).unwrap()["storages"],
+            json!([
+                { "storage": "keychain", "keyTypes": ["rsa3072", "ecP384"], "defaultKeyType": "rsa3072" },
+                { "storage": "tpm", "keyTypes": [], "defaultKeyType": null }
+            ])
         );
         let none = offers_view(Vec::new(), None);
         assert_eq!(
@@ -982,6 +1003,7 @@ mod tests {
                 fingerprint: im_core::identity::Fingerprint::of(b"revoked"),
                 remove: false,
             },
+            enrolled: false,
         };
 
         assert_eq!(

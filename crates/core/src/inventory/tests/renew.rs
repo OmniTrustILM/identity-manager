@@ -818,6 +818,7 @@ impl Auto {
                 fingerprint: self.old.fingerprint,
                 remove: false,
             },
+            enrolled: false,
         }
     }
 

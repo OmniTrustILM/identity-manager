@@ -14,7 +14,9 @@ use x509_parser::prelude::{FromDer, X509Certificate};
 use super::add_to_ilm::sendable;
 use super::attributes::Form;
 use super::{CallError, ChangeError, FormError, FormInput, Session, State as SignIn, lock};
-use crate::attributes::{Definitions, FieldProblem, FormContext, FormView, Values, request};
+use crate::attributes::{
+    Definitions, FieldProblem, FormContext, FormView, Needs, Values, request, unattended,
+};
 use crate::identity::Fingerprint;
 use crate::ilm::IlmUrl;
 use crate::ilm::certificates::State;
@@ -48,6 +50,12 @@ pub struct RequestForms {
     pub request: Option<FormView>,
     pub issue: Option<FormView>,
     pub custom: Option<FormView>,
+}
+
+/// Whether the values give a subject with at least one name.
+fn names_one(definitions: &Definitions, values: &Values) -> bool {
+    subject(&definitions.fields, values)
+        .is_ok_and(|subject| !subject.names.is_empty() || !subject.alternative_names.is_empty())
 }
 
 /// The certificate registered in advance that is completed, and the RA Profile it is completed under.
@@ -104,6 +112,8 @@ pub enum RequestError {
     NotRevocable,
     /// A revocation of the certificate is under way already.
     AlreadyRevoking,
+    /// A request to the RA Profile is waiting already.
+    AlreadyRequested,
 }
 
 impl fmt::Display for RequestError {
@@ -143,6 +153,7 @@ impl fmt::Display for RequestError {
             Self::AlreadyRenewing => f.write_str("This certificate is being renewed already."),
             Self::NotRevocable => f.write_str("This certificate cannot be revoked."),
             Self::AlreadyRevoking => f.write_str("This certificate is being revoked already."),
+            Self::AlreadyRequested => f.write_str("This RA Profile is being requested already."),
         }
     }
 }
@@ -350,6 +361,15 @@ struct Order<'a> {
     registered: Option<(&'a str, Option<&'a Challenge>)>,
     /// The label when the subject has no common name.
     label: &'a str,
+    origin: Origin<'a>,
+}
+
+/// Where a request comes from: the person, or enrolment by policy, which marks the request it writes down and
+/// stops sending once `proceed` says no.
+#[derive(Clone, Copy, Default)]
+pub(super) struct Origin<'a> {
+    pub(super) enrolled: bool,
+    pub(super) proceed: Option<&'a (dyn Fn() -> bool + Sync)>,
 }
 
 /// The attributes of the forms that were sent.
@@ -442,6 +462,32 @@ impl Session {
         Ok(())
     }
 
+    /// The input for the opened `forms` when ILM's definitions give every value and the request form names a
+    /// subject, so no one has to fill anything in; else why the person is needed. No form is closed.
+    pub fn unattended_forms(&self, forms: &RequestForms) -> Result<RequestInput, Needs> {
+        let input = |form: &Option<FormView>, names_subject: bool| {
+            form.as_ref()
+                .map(|form| {
+                    let definitions = self.form_definitions(&form.id).map_err(|_| Needs::Gone)?;
+                    let values = unattended(&definitions)?;
+                    if names_subject && !names_one(&definitions, &values) {
+                        return Err(Needs::Subject);
+                    }
+                    let values = serde_json::to_value(&values).map_err(|_| Needs::Invalid)?;
+                    Ok(FormInput {
+                        id: form.id.clone(),
+                        values,
+                    })
+                })
+                .transpose()
+        };
+        Ok(RequestInput {
+            request: input(&forms.request, true)?,
+            issue: input(&forms.issue, false)?,
+            custom: input(&forms.custom, false)?,
+        })
+    }
+
     /// Asks `ra_profile` for a new certificate with a key made in `storage`. The forms are checked before
     /// anything is made; then the key is made, the request signed and written down, and ILM asked. When anything
     /// after the key fails, the key and the written request are removed.
@@ -451,6 +497,18 @@ impl Session {
         forms: RequestInput,
         storage: Storage,
         key_type: KeyType,
+    ) -> Result<Waiting, RequestError> {
+        self.request_from(ra_profile, forms, storage, key_type, Origin::default())
+            .await
+    }
+
+    pub(super) async fn request_from(
+        &self,
+        ra_profile: &RaProfileChoice,
+        forms: RequestInput,
+        storage: Storage,
+        key_type: KeyType,
+        origin: Origin<'_>,
     ) -> Result<Waiting, RequestError> {
         let authority = ra_profile
             .authority_uuid
@@ -478,6 +536,7 @@ impl Session {
             subject,
             registered: None,
             label: &ra_profile.name,
+            origin,
         };
         let sent = self.submit(&id, &requests, &order, &attributes).await;
         self.reopen_on_error(sent, &mut taken, generation)
@@ -492,6 +551,26 @@ impl Session {
         storage: Storage,
         key_type: KeyType,
         challenge: Option<Challenge>,
+    ) -> Result<Waiting, RequestError> {
+        self.complete_from(
+            completion,
+            forms,
+            storage,
+            key_type,
+            challenge,
+            Origin::default(),
+        )
+        .await
+    }
+
+    pub(super) async fn complete_from(
+        &self,
+        completion: Completion<'_>,
+        forms: RequestInput,
+        storage: Storage,
+        key_type: KeyType,
+        challenge: Option<Challenge>,
+        origin: Origin<'_>,
     ) -> Result<Waiting, RequestError> {
         let Completion {
             uuid,
@@ -526,6 +605,7 @@ impl Session {
             subject,
             registered: Some((uuid, challenge.as_ref())),
             label: name,
+            origin,
         };
         let sent = self.submit(&id, &requests, &order, &attributes).await;
         self.reopen_on_error(sent, &mut taken, generation)
@@ -651,6 +731,15 @@ impl Session {
         {
             return Err(RequestError::NotRegistered);
         }
+        if order.origin.enrolled
+            && order.registered.is_none()
+            && requests
+                .of(&who.ilm, &who.username)
+                .iter()
+                .any(|entry| entry.ra_profile == order.ra_profile.uuid)
+        {
+            return Err(RequestError::AlreadyRequested);
+        }
         let (storage, key_type) = (order.storage, order.key_type);
         let key = self
             .in_keys(move |keys| keys.create(storage, key_type))
@@ -696,6 +785,7 @@ impl Session {
             since: now_ms(),
             prepared: order.registered.is_some(),
             purpose: Purpose::Issue,
+            enrolled: order.origin.enrolled,
         };
         requests.add(entry.clone()).map_err(|error| {
             log::warn!("the request cannot be written down: {error}");
@@ -714,13 +804,13 @@ impl Session {
         let ra_profile = &order.ra_profile.uuid;
         let response = match order.registered {
             None => {
-                self.call_ilm_as(Some(id), None, |client, ilm| {
+                self.call_ilm_as(Some(id), order.origin.proceed, |client, ilm| {
                     issue_request(client, ilm, order.authority, ra_profile, &body)
                 })
                 .await?
             }
             Some((uuid, challenge)) => {
-                self.call_ilm_as(Some(id), None, |client, ilm| {
+                self.call_ilm_as(Some(id), order.origin.proceed, |client, ilm| {
                     complete_request(
                         client,
                         ilm,
@@ -934,6 +1024,7 @@ impl Session {
         }
         log::info!("request {uuid} ended: {}", reason.text());
         self.note_failed_attempt(entry);
+        self.note_failed_enrolment(entry);
         if let Some(uuid) = &entry.uuid {
             lock(&self.seen).remove(uuid);
         }
@@ -1004,6 +1095,7 @@ impl Session {
         lock(&self.seen).remove(uuid);
         let new = Fingerprint::of(&leaf);
         self.renewed(entry, &new);
+        self.note_enrolled_install(entry, uuid);
         if self.move_over(id, requests, entry, new, 0).await.is_ok()
             && let Err(error) = self.remove_entry(requests, entry)
         {
@@ -1014,6 +1106,15 @@ impl Session {
             storage,
             not_after,
         }))
+    }
+
+    /// Notes that enrolment installed the certificate `uuid`, so that policy can make it the sign-in certificate.
+    fn note_enrolled_install(&self, entry: &Waiting, uuid: &str) {
+        if let (true, Some(enrolments)) = (entry.enrolled, &self.enrolments)
+            && let Err(error) = enrolments.mark_installed(&entry.ilm, &entry.username, uuid)
+        {
+            log::warn!("the enrolment cannot be written down: {error}");
+        }
     }
 
     pub(super) fn remove_entry(&self, requests: &Requests, entry: &Waiting) -> std::io::Result<()> {

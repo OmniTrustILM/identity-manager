@@ -21,8 +21,11 @@ use super::tests::{LOG, World, capture_logs};
 use super::{
     EndReason, Followed, Installed, Outcome, RequestError, RequestForms, RequestInput, SessionView,
 };
-use crate::attributes::FormView;
-use crate::attributes::fixtures::{default_request_set, definition, demo_request_set, mapped};
+use crate::attributes::fixtures::{
+    default_request_set, definition, demo_request_set, mapped, upn_request_set, with,
+};
+use crate::attributes::{FormView, Needs};
+use crate::enrolment::Enrolments;
 use crate::ilm::IlmUrl;
 use crate::ilm::certificates::State;
 use crate::ilm::issue::Challenge;
@@ -127,6 +130,7 @@ struct Requesting {
     keys: Arc<InMemoryStorage>,
     installer: Arc<RecordingInstaller>,
     requests: Arc<Requests>,
+    enrolments: Arc<Enrolments>,
     folder: TempDir,
 }
 
@@ -153,12 +157,14 @@ impl Requesting {
     ) -> Self {
         let keys = Arc::new(keys);
         let installer = Arc::new(RecordingInstaller::new());
+        let enrolments = Arc::new(Enrolments::new(folder.path()));
         let mut world = World::new().await;
         world.session = world
             .session
             .with_key_storage(keys.clone())
             .with_installer(installer.clone())
-            .with_requests(requests.clone());
+            .with_requests(requests.clone())
+            .with_enrolments(enrolments.clone());
         world.code_grant("access", Some("refresh"), 3600).await;
         world.profile_for("access").await;
         for (route, body) in [
@@ -199,6 +205,7 @@ impl Requesting {
             keys,
             installer,
             requests,
+            enrolments,
             folder,
         }
     }
@@ -320,6 +327,7 @@ impl Requesting {
             since,
             prepared,
             purpose: Purpose::Issue,
+            enrolled: false,
         };
         self.requests.add(entry.clone()).unwrap();
         entry
@@ -1209,6 +1217,7 @@ async fn a_request_of_someone_else_for_the_same_certificate_does_not_stop_a_comp
         since: 1,
         prepared: true,
         purpose: Purpose::Issue,
+        enrolled: false,
     };
     requesting.requests.add(earlier).unwrap();
 
@@ -1388,6 +1397,26 @@ async fn an_issued_certificate_is_installed_with_its_chain_and_the_request_ends_
     assert!(requesting.requests.all().is_empty());
     assert_eq!(requesting.keys.count(), 1);
     assert!(requesting.follow().await.is_empty());
+}
+
+#[tokio::test]
+async fn an_installed_certificate_of_an_enrolment_is_noted_and_one_of_the_person_is_not() {
+    for (enrolled, noted) in [(true, vec!["c-1".to_owned()]), (false, Vec::new())] {
+        let requesting = Requesting::new().await;
+        let mut entry = requesting.seed(Some("c-1"), false, now());
+        entry.enrolled = enrolled;
+        requesting.requests.add(entry.clone()).unwrap();
+        requesting.serve_issued("c-1", &entry).await;
+
+        requesting.follow().await;
+
+        let who = requesting.world.session.signed_in_as().unwrap();
+        let standing = requesting
+            .enrolments
+            .standing(&who.ilm, &who.username)
+            .unwrap();
+        assert_eq!(standing.installed, noted);
+    }
 }
 
 #[tokio::test]
@@ -1938,6 +1967,7 @@ async fn a_request_that_has_no_installer_keeps_waiting_to_be_installed() {
             since: now(),
             prepared: false,
             purpose: Purpose::Issue,
+            enrolled: false,
         })
         .unwrap();
     for (route, body) in [
@@ -2295,4 +2325,108 @@ async fn the_session_offers_the_key_types_of_its_key_storage() {
 
     let world = World::new().await;
     assert!(world.session.key_offers().await.is_empty());
+}
+
+// Forms sent without the person.
+
+#[tokio::test]
+async fn forms_whose_definitions_give_every_value_are_sent_as_they_are() {
+    let requesting = Requesting::with(
+        InMemoryStorage::new(&[Storage::Software]),
+        demo_request_set(),
+    )
+    .await;
+    requesting.issue_accepted().await;
+    let forms = requesting.open(false).await;
+
+    let input = requesting.world.session.unattended_forms(&forms).unwrap();
+    requesting.request_with(input).await.unwrap();
+
+    let bodies = requesting.bodies(ISSUE).await;
+    assert_eq!(subject_of(&der_of(&bodies[0])), "CN=demo220");
+}
+
+#[tokio::test]
+async fn a_form_the_person_would_have_to_fill_is_not_sent_unattended() {
+    let requesting = Requesting::new().await;
+    let forms = requesting.open(false).await;
+
+    let needs = requesting
+        .world
+        .session
+        .unattended_forms(&forms)
+        .unwrap_err();
+
+    assert_eq!(needs, Needs::Required);
+}
+
+#[tokio::test]
+async fn a_request_form_that_names_nothing_is_not_sent_unattended() {
+    let requesting = Requesting::with(
+        InMemoryStorage::new(&[Storage::Software]),
+        upn_request_set(),
+    )
+    .await;
+    let forms = requesting.open(false).await;
+
+    let needs = requesting
+        .world
+        .session
+        .unattended_forms(&forms)
+        .unwrap_err();
+
+    assert_eq!(needs, Needs::Subject);
+}
+
+#[tokio::test]
+async fn a_value_with_nowhere_to_go_in_the_request_is_not_sent_unattended() {
+    let unmapped = mapped(
+        with(
+            definition(3, "data", "field", "string", json!({})),
+            "content",
+            json!([{ "data": "x", "contentType": "string" }]),
+        ),
+        json!([{ "fieldType": "extension", "extensionOid": "1.2.3" }]),
+    );
+    let requesting =
+        Requesting::with(InMemoryStorage::new(&[Storage::Software]), vec![unmapped]).await;
+    let forms = requesting.open(false).await;
+
+    let needs = requesting
+        .world
+        .session
+        .unattended_forms(&forms)
+        .unwrap_err();
+
+    assert_eq!(needs, Needs::Subject);
+}
+
+#[tokio::test]
+async fn a_certificate_registered_in_advance_has_no_request_form_to_name_a_subject() {
+    let requesting = Requesting::new().await;
+    let forms = requesting.open(true).await;
+
+    let input = requesting.world.session.unattended_forms(&forms).unwrap();
+
+    assert!(input.request.is_none());
+    assert!(input.issue.is_some() && input.custom.is_some());
+}
+
+#[tokio::test]
+async fn a_form_that_is_no_longer_open_is_not_sent_unattended() {
+    let requesting = Requesting::with(
+        InMemoryStorage::new(&[Storage::Software]),
+        demo_request_set(),
+    )
+    .await;
+    let forms = requesting.open(false).await;
+    requesting.world.session.close_forms();
+
+    let needs = requesting
+        .world
+        .session
+        .unattended_forms(&forms)
+        .unwrap_err();
+
+    assert_eq!(needs, Needs::Gone);
 }

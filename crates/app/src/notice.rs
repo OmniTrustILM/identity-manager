@@ -1820,6 +1820,7 @@ mod tests {
                 fingerprint: print(number),
                 remove: false,
             },
+            enrolled: false,
         }
     }
 

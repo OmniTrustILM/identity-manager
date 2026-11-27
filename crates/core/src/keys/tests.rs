@@ -443,3 +443,41 @@ fn stand_in_that_refuses_gives_refused() {
     let opened = storage.open(key.id()).unwrap().unwrap();
     assert!(matches!(opened.sign(b"message"), Err(KeyError::Refused)));
 }
+
+fn offering(types: &[KeyType]) -> Offer {
+    Offer {
+        storage: Storage::Software,
+        types: types.to_vec(),
+    }
+}
+
+#[test]
+fn the_preferred_key_type_is_ec_p256_when_the_storage_offers_it() {
+    let offer = offering(&[
+        KeyType::Rsa { bits: 2048 },
+        KeyType::EcP384,
+        KeyType::EcP256,
+    ]);
+
+    assert_eq!(preferred(&offer), Some(KeyType::EcP256));
+}
+
+#[test]
+fn without_ec_p256_the_preferred_key_type_is_the_first_offered() {
+    let offer = offering(&[KeyType::Rsa { bits: 3072 }, KeyType::EcP384]);
+
+    assert_eq!(preferred(&offer), Some(KeyType::Rsa { bits: 3072 }));
+}
+
+#[test]
+fn a_single_offered_key_type_is_the_preferred_one() {
+    assert_eq!(
+        preferred(&offering(&[KeyType::MlDsa65])),
+        Some(KeyType::MlDsa65)
+    );
+}
+
+#[test]
+fn a_storage_that_offers_nothing_has_no_preferred_key_type() {
+    assert_eq!(preferred(&offering(&[])), None);
+}

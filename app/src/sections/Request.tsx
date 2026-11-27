@@ -70,14 +70,10 @@ const groupNames: Record<FormKind, string> = {
 };
 const followEvery = 2000;
 const followTries = 30;
-const preferredType = 'ecP256';
 const noProblems: AttributeFieldProblem[] = [];
 
 const primary = 'h-button shrink-0 whitespace-nowrap rounded-control bg-accent px-s3 text-body text-on-accent disabled:opacity-disabled';
 const secondary = 'h-button shrink-0 whitespace-nowrap rounded-control border border-button-edge bg-button px-s3 text-body text-primary';
-
-/** The key type to start with in a storage: EC P-256 when it is offered, else the first. */
-const startingType = (types: KeyTypeId[]) => (types.includes(preferredType) ? preferredType : (types[0] ?? ''));
 
 /** What a value says in words: the label of a chosen option, else the text typed; nothing for what has no plain text. */
 function spoken(form: AttributeFormView, name: string, value: AttributeValue | undefined): string {
@@ -407,7 +403,7 @@ export function Request({
                 const first = loaded.storages.find((offer) => offer.storage === loaded.defaultStorage) ?? loaded.storages[0];
                 setOffers(loaded);
                 setStorage(first?.storage ?? null);
-                setKeyType(startingType(first?.keyTypes ?? []));
+                setKeyType(first?.defaultKeyType ?? '');
             },
             () => current && setOffersFailed(true),
         );
@@ -487,7 +483,7 @@ export function Request({
     const chooseStorage = (next: string) => {
         const found = offers?.storages.find((candidate) => candidate.storage === next);
         setStorage(found?.storage ?? null);
-        setKeyType(startingType(found?.keyTypes ?? []));
+        setKeyType(found?.defaultKeyType ?? '');
     };
 
     const request = () => {

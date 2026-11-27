@@ -41,6 +41,9 @@ pub(crate) const SIGN_IN_METHOD: &str = "SignInMethod";
 pub(crate) const KEY_STORAGES: &str = "KeyStorages";
 pub(crate) const DEFAULT_KEY_STORAGE: &str = "DefaultKeyStorage";
 pub(crate) const AUTOMATIC_RENEWAL: &str = "AutomaticRenewal";
+pub(crate) const COMPLETE_PREPARED: &str = "CompletePrepared";
+pub(crate) const REQUEST_PROFILES: &str = "RequestProfiles";
+pub(crate) const SIGN_IN_CERTIFICATE_PROFILE: &str = "SignInCertificateProfile";
 
 /// Maps the known names with the expected types to a layer; anything else is ignored with a warning.
 pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
@@ -96,10 +99,36 @@ pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
                 Some(renewal) => layer.automatic_renewal = Some(renewal),
                 None => log::warn!("policy {name} in {source} has an invalid value; ignored"),
             },
+            (COMPLETE_PREPARED, PolicyValue::Bool(on)) => layer.complete_prepared = Some(*on),
+            (REQUEST_PROFILES, PolicyValue::Text(text)) => {
+                layer.request_profiles = Some(
+                    text.split(',')
+                        .map(str::trim)
+                        .filter(|part| !part.is_empty())
+                        .map(str::to_string)
+                        .collect(),
+                );
+            }
+            (SIGN_IN_CERTIFICATE_PROFILE, PolicyValue::Text(text)) => {
+                layer.sign_in_certificate_profile =
+                    Some(text.trim().to_string()).filter(|name| !name.is_empty());
+            }
             (
-                START_AT_LOGIN | LOG_LEVEL | ILM_URL | REQUIRE_UNLOCK | LOCK_AFTER_IDLE
-                | CHECK_INTERVAL | EXPIRY_WARNING_DAYS | SIGN_IN_PROVIDER | SIGN_IN_METHOD
-                | KEY_STORAGES | DEFAULT_KEY_STORAGE | AUTOMATIC_RENEWAL,
+                START_AT_LOGIN
+                | LOG_LEVEL
+                | ILM_URL
+                | REQUIRE_UNLOCK
+                | LOCK_AFTER_IDLE
+                | CHECK_INTERVAL
+                | EXPIRY_WARNING_DAYS
+                | SIGN_IN_PROVIDER
+                | SIGN_IN_METHOD
+                | KEY_STORAGES
+                | DEFAULT_KEY_STORAGE
+                | AUTOMATIC_RENEWAL
+                | COMPLETE_PREPARED
+                | REQUEST_PROFILES
+                | SIGN_IN_CERTIFICATE_PROFILE,
                 _,
             ) => {
                 log::warn!("policy {name} in {source} has the wrong type; ignored");
@@ -152,6 +181,11 @@ pub fn merge(machine: Layer, user: Layer) -> Layer {
         sign_in_method: machine.sign_in_method.or(user.sign_in_method),
         key_storages: machine.key_storages.or(user.key_storages),
         default_key_storage: machine.default_key_storage.or(user.default_key_storage),
+        complete_prepared: machine.complete_prepared.or(user.complete_prepared),
+        request_profiles: machine.request_profiles.or(user.request_profiles),
+        sign_in_certificate_profile: machine
+            .sign_in_certificate_profile
+            .or(user.sign_in_certificate_profile),
         sign_in_certificate: None,
     }
 }
@@ -389,6 +423,51 @@ mod tests {
     }
 
     #[test]
+    fn the_enrolment_keys_set_the_layer_and_a_wrong_type_is_ignored() {
+        let layer = to_layer(
+            &raw(&[("CompletePrepared", PolicyValue::Bool(true))]),
+            "test",
+        );
+        assert_eq!(layer.complete_prepared, Some(true));
+        for (value, expected) in [
+            ("Web, Mail ,,Web2", vec!["Web", "Mail", "Web2"]),
+            (" , ", vec![]),
+            ("", vec![]),
+        ] {
+            let layer = to_layer(&raw(&[("RequestProfiles", text(value))]), "test");
+            assert_eq!(
+                layer.request_profiles,
+                Some(expected.iter().map(|s| s.to_string()).collect()),
+                "{value:?}"
+            );
+        }
+        for (value, expected) in [(" Sign-in ", Some("Sign-in")), ("  ", None)] {
+            let layer = to_layer(&raw(&[("SignInCertificateProfile", text(value))]), "test");
+            assert_eq!(
+                layer.sign_in_certificate_profile.as_deref(),
+                expected,
+                "{value:?}"
+            );
+        }
+        for name in [
+            "CompletePrepared",
+            "RequestProfiles",
+            "SignInCertificateProfile",
+        ] {
+            let wrong = if name == "CompletePrepared" {
+                text("yes")
+            } else {
+                PolicyValue::Int(1)
+            };
+            assert_eq!(
+                to_layer(&raw(&[(name, wrong)]), "test"),
+                Layer::default(),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
     fn the_automatic_renewal_sets_the_layer_and_a_bad_one_is_ignored() {
         for (name, renewal) in [
             ("off", AutomaticRenewal::Off),
@@ -545,9 +624,18 @@ mod tests {
             key_storages: Some(vec![Storage::Tpm]),
             default_key_storage: Some(Storage::Tpm),
             automatic_renewal: Some(AutomaticRenewal::SameKey),
+            complete_prepared: Some(true),
+            request_profiles: Some(vec!["Web".into()]),
+            sign_in_certificate_profile: Some("Sign-in".into()),
             ..Layer::default()
         };
         let merged = merge(machine, user);
+        assert_eq!(merged.complete_prepared, Some(true));
+        assert_eq!(merged.request_profiles, Some(vec!["Web".to_string()]));
+        assert_eq!(
+            merged.sign_in_certificate_profile.as_deref(),
+            Some("Sign-in")
+        );
         assert_eq!(merged.automatic_renewal, Some(AutomaticRenewal::SameKey));
         assert_eq!(merged.key_storages, Some(vec![Storage::Tpm]));
         assert_eq!(merged.default_key_storage, Some(Storage::Tpm));

@@ -71,6 +71,7 @@ impl Session {
                 fingerprint: *target.fingerprint,
                 remove,
             },
+            enrolled: false,
         };
         requests.add(entry.clone()).map_err(|error| {
             log::warn!("the revocation cannot be written down: {error}");

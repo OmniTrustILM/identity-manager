@@ -12,8 +12,10 @@ use tokio::task::JoinHandle;
 use super::tests::{LOG, TestSettings, World, capture_logs};
 use super::{
     CallError, Connection, ConnectionSettings, Credential, Item, MemoryStore, PersonView,
-    ProviderChoice, RefreshStore, Session, SessionView, SignInAgain, SignInKind, State, lock,
+    ProviderChoice, RefreshStore, Session, SessionView, SignInAgain, SignInByPolicy, SignInKind,
+    State, lock,
 };
+use crate::enrolment::Enrolments;
 use crate::http::client_with_identity_trusting;
 use crate::identity::Candidate as FoundCertificate;
 use crate::identity::testing::{
@@ -24,10 +26,10 @@ use crate::identity::{
     ClientIdentity, Fingerprint, IdentityStore, LocalCertificate, StoreUnreadable,
 };
 use crate::ilm::IlmUrl;
-use crate::ilm::certificates::{IlmCertificate, State as IlmState, ValidationStatus};
+use crate::ilm::certificates::{IlmCertificate, RaProfile, State as IlmState, ValidationStatus};
 use crate::inventory::{Inventory, Snapshot};
 use crate::oauth::token::RefreshToken;
-use crate::settings::SignInMethod;
+use crate::settings::{Layer, SignInMethod};
 
 const ENTRY: &str = "Certificate on this computer";
 const NOT_ASKED: &str = "This ILM's gateway is not set up for certificate sign-in.";
@@ -1503,6 +1505,58 @@ async fn a_new_sign_in_certificate_is_remembered_and_presented_from_then_on() {
         world.server.requests().last().unwrap().fingerprint,
         Some(john.fingerprint())
     );
+}
+
+#[tokio::test]
+async fn policy_moves_a_certificate_sign_in_to_the_enrolled_certificate() {
+    let ca = TestCa::new();
+    let (jane, john) = two_certificates(&ca);
+    let mut world = CertWorld::start(
+        &ca,
+        ClientCerts::Required,
+        &jane,
+        StandInStore::new(vec![jane.clone(), john.clone()]),
+    )
+    .await;
+    let folder = tempfile::tempdir().unwrap();
+    let enrolments = Arc::new(Enrolments::new(folder.path()));
+    world.session = world.session.with_enrolments(enrolments.clone());
+    world.sign_in(&jane).await;
+    world.server.allow_after_update(john.fingerprint());
+    let who = world.session.signed_in_as().unwrap();
+    enrolments
+        .mark_installed(&who.ilm, &who.username, "u-john")
+        .unwrap();
+    let inventory = Inventory::new(folder.path());
+    let mut snapshot = matched(&john);
+    snapshot
+        .matches
+        .get_mut(&john.fingerprint())
+        .unwrap()
+        .ra_profile = Some(RaProfile {
+        uuid: "ra-staff".into(),
+        name: "Staff".into(),
+        authority_uuid: None,
+    });
+    inventory.seed(snapshot);
+    let policy = Layer {
+        sign_in_certificate_profile: Some("Staff".into()),
+        ..Layer::default()
+    };
+
+    let done = world
+        .session
+        .sign_in_by_policy(&inventory, &policy, &|| true)
+        .await;
+
+    assert_eq!(
+        done,
+        vec![SignInByPolicy::Set {
+            uuid: "u-john".into()
+        }]
+    );
+    assert_eq!(world.remembered(), Some(john.fingerprint()));
+    assert_eq!(world.session.view(), world.signed_in(&john));
 }
 
 #[tokio::test]
