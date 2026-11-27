@@ -4,7 +4,7 @@ use super::fixtures::{
     default_request_set, definition, demo_request_set, issue_attributes, read, upn_request_set,
     with,
 };
-use super::*;
+use super::{Definitions, Needs, Value, Values, defaults, unattended};
 
 fn needs(raw: Vec<Json>) -> Needs {
     unattended(&read(&raw)).unwrap_err()
