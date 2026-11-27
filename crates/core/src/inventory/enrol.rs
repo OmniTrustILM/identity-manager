@@ -4,6 +4,7 @@
 use super::{AskedProfile, Inventory, Status, held, now};
 use crate::app_info::Platform;
 use crate::enrolment::{Conditions, plan};
+use crate::ilm::upload::RaProfileChoice;
 use crate::session::{Enrolled, Session};
 use crate::settings::{Layer, request_profiles};
 
@@ -68,7 +69,7 @@ impl Inventory {
         );
         let same_sign_in = || proceed() && held(&self.held).epoch == epoch;
         let done = session.enrol(&planned, policy, &same_sign_in).await;
-        let asked = done
+        let asked: Vec<AskedProfile> = done
             .iter()
             .filter_map(|outcome| match outcome {
                 Enrolled::Asked { profile, .. } => Some(AskedProfile {
@@ -79,7 +80,7 @@ impl Inventory {
             })
             .collect();
         if listed.is_some() {
-            self.keep_asked(epoch, session, asked);
+            self.keep_asked(epoch, session, asked, policy, &profiles);
         }
         if done
             .iter()
@@ -90,8 +91,25 @@ impl Inventory {
         done
     }
 
-    /// Keeps `asked`, less the profiles the person requested meanwhile, unless the sign-in ended meanwhile.
-    fn keep_asked(&self, epoch: u64, session: &Session, mut asked: Vec<AskedProfile>) {
+    /// Keeps `asked`, and the profiles asked before that this run did not look at but policy still names and ILM
+    /// still lists, less the profiles the person requested meanwhile, unless the sign-in ended meanwhile.
+    fn keep_asked(
+        &self,
+        epoch: u64,
+        session: &Session,
+        mut asked: Vec<AskedProfile>,
+        policy: &Layer,
+        listed: &[RaProfileChoice],
+    ) {
+        let named = request_profiles(policy);
+        let earlier = held(&self.held).asked.clone();
+        for profile in earlier {
+            let still_asked = named.contains(&profile.name)
+                && listed.iter().any(|choice| choice.uuid == profile.uuid);
+            if still_asked && !asked.iter().any(|kept| kept.uuid == profile.uuid) {
+                asked.push(profile);
+            }
+        }
         if let Some(standing) = session.standing() {
             asked.retain(|profile| !standing.is_done(&profile.uuid));
         }

@@ -1172,6 +1172,54 @@ async fn the_asked_profiles_stay_when_the_ra_profiles_cannot_be_listed() {
 }
 
 #[tokio::test]
+async fn an_asked_profile_stays_asked_when_its_forms_cannot_be_loaded() {
+    let enrolling = Enrolling::with(default_request_set()).await;
+    enrolling.listing_profiles().await;
+    let inventory = enrolling.checked().await;
+    enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+    assert_eq!(inventory.asked().len(), 1);
+    Mock::given(method("GET"))
+        .and(path(ISSUE_ATTRIBUTES))
+        .respond_with(ResponseTemplate::new(500))
+        .with_priority(1)
+        .mount(&enrolling.world.ilm)
+        .await;
+
+    let outcome = enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+
+    assert!(
+        matches!(&outcome[..], [Enrolled::Failed { .. }]),
+        "{outcome:?}"
+    );
+    assert_eq!(inventory.asked().len(), 1);
+}
+
+#[tokio::test]
+async fn an_asked_profile_that_policy_no_longer_names_is_not_kept() {
+    let enrolling = Enrolling::with(default_request_set()).await;
+    enrolling.listing_profiles().await;
+    let inventory = enrolling.checked().await;
+    enrolling
+        .enrol_due(&inventory, &asking_for_servers(), Platform::Macos, &|| true)
+        .await;
+    assert_eq!(inventory.asked().len(), 1);
+    let other = Layer {
+        request_profiles: Some(vec!["Staff".into()]),
+        ..Layer::default()
+    };
+
+    enrolling
+        .enrol_due(&inventory, &other, Platform::Macos, &|| true)
+        .await;
+
+    assert!(inventory.asked().is_empty());
+}
+
+#[tokio::test]
 async fn a_profile_requested_while_the_check_ran_is_not_asked_again() {
     let enrolling = Enrolling::with(default_request_set()).await;
     enrolling.listing_profiles().await;
