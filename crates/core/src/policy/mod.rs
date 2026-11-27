@@ -46,6 +46,46 @@ pub(crate) const COMPLETE_PREPARED: &str = "CompletePrepared";
 pub(crate) const REQUEST_PROFILES: &str = "RequestProfiles";
 pub(crate) const SIGN_IN_CERTIFICATE_PROFILE: &str = "SignInCertificateProfile";
 
+/// What a policy value holds, as far as a policy template has to declare it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    Bool,
+    /// A whole number from `min` to `max`.
+    Int {
+        min: i64,
+        max: i64,
+    },
+    Text,
+    /// One of these strings.
+    Choice(&'static [&'static str]),
+}
+
+/// Every policy the reader knows, with its kind.
+pub const POLICIES: [(&str, Kind); 16] = [
+    (START_AT_LOGIN, Kind::Bool),
+    (AUTOMATIC_UPDATES, Kind::Bool),
+    (LOG_LEVEL, Kind::Choice(&["error", "warn", "info", "debug"])),
+    (ILM_URL, Kind::Text),
+    (REQUIRE_UNLOCK, Kind::Bool),
+    (LOCK_AFTER_IDLE, Kind::Int { min: 1, max: 1440 }),
+    (CHECK_INTERVAL, Kind::Int { min: 5, max: 1440 }),
+    (EXPIRY_WARNING_DAYS, Kind::Int { min: 1, max: 365 }),
+    (SIGN_IN_PROVIDER, Kind::Text),
+    (SIGN_IN_METHOD, Kind::Choice(&["oauth", "certificate"])),
+    (KEY_STORAGES, Kind::Text),
+    (
+        DEFAULT_KEY_STORAGE,
+        Kind::Choice(&["keychain", "software", "tpm"]),
+    ),
+    (
+        AUTOMATIC_RENEWAL,
+        Kind::Choice(&["off", "newKey", "sameKey"]),
+    ),
+    (COMPLETE_PREPARED, Kind::Bool),
+    (REQUEST_PROFILES, Kind::Text),
+    (SIGN_IN_CERTIFICATE_PROFILE, Kind::Text),
+];
+
 /// Maps the known names with the expected types to a layer; anything else is ignored with a warning.
 pub fn to_layer(raw: &RawMap, source: &str) -> Layer {
     let mut layer = Layer::default();

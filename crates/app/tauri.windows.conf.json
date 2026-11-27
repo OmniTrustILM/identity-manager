@@ -28,5 +28,17 @@
                 "height": 160
             }
         ]
+    },
+    "bundle": {
+        "windows": {
+            "wix": {
+                "fragmentPaths": [
+                    "../../packaging/windows/policy.wxs"
+                ],
+                "componentGroupRefs": [
+                    "PolicyProperties"
+                ]
+            }
+        }
     }
 }

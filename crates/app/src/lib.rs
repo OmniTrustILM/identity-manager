@@ -196,6 +196,7 @@ fn builder<R: Runtime>(mode: Mode) -> tauri::Builder<R> {
             update::start(app.handle(), mode);
             log::info!("starting {} {} in {mode:?} mode", info.name, info.version);
             if mode == Mode::SelfCheck {
+                println!("{}", self_check::policy_line(&im_core::policy::read()));
                 self_check::start_timer(app.handle().clone());
                 // A hidden web view may never load its page, so the summary is shown to let it report.
                 summary::show_in_corner(app.handle());

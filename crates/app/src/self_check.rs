@@ -2,6 +2,7 @@ use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use im_core::AppInfo;
+use im_core::settings::Layer;
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::bridge::ReadyReport;
@@ -60,6 +61,40 @@ fn missing(reports: &[ReadyReport]) -> Vec<&'static str> {
         .into_iter()
         .filter(|label| !reports.iter().any(|report| report.window == *label))
         .collect()
+}
+
+/// The one line that names the policies the organization sets, in alphabetical order; never their values.
+pub fn policy_line(policy: &Layer) -> String {
+    let set = [
+        ("AutomaticRenewal", policy.automatic_renewal.is_some()),
+        ("AutomaticUpdates", policy.automatic_updates.is_some()),
+        ("CheckInterval", policy.check_every.is_some()),
+        ("CompletePrepared", policy.complete_prepared.is_some()),
+        ("DefaultKeyStorage", policy.default_key_storage.is_some()),
+        ("ExpiryWarningDays", policy.warn_days.is_some()),
+        ("IlmUrl", policy.ilm_url.is_some()),
+        ("KeyStorages", policy.key_storages.is_some()),
+        ("LockAfterIdle", policy.lock_after_idle.is_some()),
+        ("LogLevel", policy.log_level.is_some()),
+        ("RequestProfiles", policy.request_profiles.is_some()),
+        ("RequireUnlock", policy.require_unlock.is_some()),
+        (
+            "SignInCertificateProfile",
+            policy.sign_in_certificate_profile.is_some(),
+        ),
+        ("SignInMethod", policy.sign_in_method.is_some()),
+        ("SignInProvider", policy.sign_in_provider.is_some()),
+        ("StartAtLogin", policy.start_at_login.is_some()),
+    ];
+    let names: Vec<&str> = set
+        .into_iter()
+        .filter_map(|(name, managed)| managed.then_some(name))
+        .collect();
+    if names.is_empty() {
+        "self-check policy managed: none".into()
+    } else {
+        format!("self-check policy managed: {}", names.join(", "))
+    }
 }
 
 pub fn exit_code(result: &Result<(), String>) -> i32 {
@@ -240,6 +275,27 @@ mod tests {
         assert!(
             message.contains("name") && message.contains("version") && message.contains("popup")
         );
+    }
+
+    #[test]
+    fn the_policy_line_names_what_is_managed_and_nothing_else() {
+        assert_eq!(
+            policy_line(&Layer::default()),
+            "self-check policy managed: none"
+        );
+        let layer = Layer {
+            start_at_login: Some(false),
+            ilm_url: im_core::ilm::IlmUrl::parse("https://ilm.example.com").ok(),
+            sign_in_method: im_core::settings::SignInMethod::parse("oauth"),
+            automatic_updates: Some(false),
+            ..Layer::default()
+        };
+        let line = policy_line(&layer);
+        assert_eq!(
+            line,
+            "self-check policy managed: AutomaticUpdates, IlmUrl, SignInMethod, StartAtLogin"
+        );
+        assert!(!line.contains("example.com"));
     }
 
     #[test]

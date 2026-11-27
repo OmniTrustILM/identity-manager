@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitionResources revision="1.0" schemaVersion="1.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+  <displayName>Identity Manager</displayName>
+  <description>Policies of OmniTrust ILM Identity Manager</description>
+  <resources>
+    <stringTable>
+      <string id="OmniTrustILM">OmniTrust ILM</string>
+      <string id="IdentityManager">Identity Manager</string>
+      <string id="General">General</string>
+      <string id="Connection">Connection</string>
+      <string id="Security">Security</string>
+      <string id="Certificates">Certificates</string>
+      <string id="StartAtLogin">Start at sign-in</string>
+      <string id="StartAtLogin_Explain">Starts Identity Manager when the person signs in to Windows. When this policy is not configured, the person chooses.</string>
+      <string id="AutomaticUpdates">Automatic updates</string>
+      <string id="AutomaticUpdates_Explain">Checks for signed updates of Identity Manager and offers to install them. When disabled, the application never contacts the release host.</string>
+      <string id="LogLevel">Log level</string>
+      <string id="LogLevel_Explain">How much the application writes to its log.</string>
+      <string id="LogLevel_error">Error</string>
+      <string id="LogLevel_warn">Warning</string>
+      <string id="LogLevel_info">Information</string>
+      <string id="LogLevel_debug">Debug</string>
+      <string id="CheckInterval">Check interval</string>
+      <string id="CheckInterval_Explain">How often, in minutes, Identity Manager checks ILM for changes to the certificates on the computer.</string>
+      <string id="IlmUrl">ILM address</string>
+      <string id="IlmUrl_Explain">The address of your ILM, for example https://ilm.example.com. HTTPS only; a path is allowed, a trailing slash, query, fragment or user name is not.</string>
+      <string id="SignInProvider">Sign-in identity provider</string>
+      <string id="SignInProvider_Explain">The name of the identity provider to sign in with, as your ILM publishes it. When your ILM does not publish that name, the person chooses.</string>
+      <string id="SignInMethod">Sign-in method</string>
+      <string id="SignInMethod_Explain">The way of signing in that your organization allows. OAuth offers only the identity providers; Certificate offers only a certificate on the computer. When this policy is not configured, both are offered.</string>
+      <string id="SignInMethod_oauth">OAuth identity provider</string>
+      <string id="SignInMethod_certificate">Certificate on this computer</string>
+      <string id="RequireUnlock">Require unlock</string>
+      <string id="RequireUnlock_Explain">Asks Windows to confirm the person after a start with a saved sign-in and after the computer locks.</string>
+      <string id="LockAfterIdle">Lock after idle</string>
+      <string id="LockAfterIdle_Explain">Also locks after this many minutes without input. Without this policy there is no idle lock. It has an effect only while Require unlock is on.</string>
+      <string id="KeyStorages">Key storages</string>
+      <string id="KeyStorages_Explain">The places on the computer where a new certificate request may create its private key, as a comma-separated list of keychain, software and tpm. Unknown names are ignored; a value that names no known place allows none.</string>
+      <string id="DefaultKeyStorage">Default key storage</string>
+      <string id="DefaultKeyStorage_Explain">The place preselected for a new key, and the place for every key that enrolment creates. When it is missing or not allowed, the first allowed place is used.</string>
+      <string id="DefaultKeyStorage_keychain">Keychain</string>
+      <string id="DefaultKeyStorage_software">Software</string>
+      <string id="DefaultKeyStorage_tpm">TPM</string>
+      <string id="ExpiryWarningDays">Expiry warning</string>
+      <string id="ExpiryWarningDays_Explain">How many days before a certificate expires Identity Manager marks it as expiring soon and asks for attention.</string>
+      <string id="AutomaticRenewal">Automatic renewal</string>
+      <string id="AutomaticRenewal_Explain">Whether Identity Manager renews the certificates that ILM manages before they expire: not at all, with a new private key each time, or with the key the certificate already has. Off also turns off the switch of every certificate.</string>
+      <string id="AutomaticRenewal_off">Off</string>
+      <string id="AutomaticRenewal_newKey">New key</string>
+      <string id="AutomaticRenewal_sameKey">Same key</string>
+      <string id="CompletePrepared">Complete prepared certificates</string>
+      <string id="CompletePrepared_Explain">Completes by itself every certificate an administrator prepared for the person in ILM, except one whose registration asks for a challenge.</string>
+      <string id="RequestProfiles">Request from RA Profiles</string>
+      <string id="RequestProfiles_Explain">The RA Profiles to request a certificate from, once for each person and computer, as names separated by commas. A name must match exactly the name ILM lists for the person.</string>
+      <string id="SignInCertificateProfile">Sign-in certificate profile</string>
+      <string id="SignInCertificateProfile_Explain">The certificate that enrolment installs from this RA Profile becomes the person's sign-in certificate.</string>
+    </stringTable>
+    <presentationTable>
+      <presentation id="LogLevel">
+        <dropdownList refId="LogLevel" noSort="true" defaultItem="2">Log level:</dropdownList>
+      </presentation>
+      <presentation id="CheckInterval">
+        <decimalTextBox refId="CheckInterval" defaultValue="15">Minutes:</decimalTextBox>
+      </presentation>
+      <presentation id="IlmUrl">
+        <textBox refId="IlmUrl">
+          <label>Address:</label>
+        </textBox>
+      </presentation>
+      <presentation id="SignInProvider">
+        <textBox refId="SignInProvider">
+          <label>Provider name:</label>
+        </textBox>
+      </presentation>
+      <presentation id="SignInMethod">
+        <dropdownList refId="SignInMethod" noSort="true" defaultItem="0">Method:</dropdownList>
+      </presentation>
+      <presentation id="LockAfterIdle">
+        <decimalTextBox refId="LockAfterIdle" defaultValue="15">Minutes:</decimalTextBox>
+      </presentation>
+      <presentation id="KeyStorages">
+        <textBox refId="KeyStorages">
+          <label>Storages:</label>
+        </textBox>
+      </presentation>
+      <presentation id="DefaultKeyStorage">
+        <dropdownList refId="DefaultKeyStorage" noSort="true" defaultItem="1">Storage:</dropdownList>
+      </presentation>
+      <presentation id="ExpiryWarningDays">
+        <decimalTextBox refId="ExpiryWarningDays" defaultValue="30">Days:</decimalTextBox>
+      </presentation>
+      <presentation id="AutomaticRenewal">
+        <dropdownList refId="AutomaticRenewal" noSort="true" defaultItem="1">Renewal:</dropdownList>
+      </presentation>
+      <presentation id="RequestProfiles">
+        <textBox refId="RequestProfiles">
+          <label>RA Profiles:</label>
+        </textBox>
+      </presentation>
+      <presentation id="SignInCertificateProfile">
+        <textBox refId="SignInCertificateProfile">
+          <label>RA Profile:</label>
+        </textBox>
+      </presentation>
+    </presentationTable>
+  </resources>
+</policyDefinitionResources>
