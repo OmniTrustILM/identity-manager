@@ -328,3 +328,43 @@ test('a refused Renew says why in the tray', async ({ mount, page }) => {
 
     await expect(page.getByRole('alert')).toHaveText('ILM does not allow this.');
 });
+
+test('a profile the organization asks for says so under its name, has the inbox icon in the accent colour and opens the requests', async ({
+    mount,
+    page,
+}) => {
+    const seen: { command: string; args: unknown }[] = [];
+    await open(page, mount, 'macos', 'light', {
+        session: signedIn,
+        summary: summary([{ kind: 'asked', uuid: 'ra-1', name: 'Servers' }]),
+        seen: (command, args) => seen.push({ command, args }),
+    });
+    const item = page.getByRole('button', { name: /^Servers Asked by your organization$/ });
+
+    await expect(item).toBeVisible();
+    const colours = await item.evaluate((element) => {
+        const icon = element.querySelector('svg') as SVGElement;
+        const colour = (className: string) => {
+            const probe = document.createElement('span');
+            probe.className = className;
+            document.body.append(probe);
+            const value = getComputedStyle(probe).color;
+            probe.remove();
+            return value;
+        };
+        const caption = element.querySelector('.text-caption') as HTMLElement;
+        return {
+            icon: getComputedStyle(icon).color,
+            accent: colour('text-accent'),
+            caption: getComputedStyle(caption).color,
+            secondary: colour('text-secondary'),
+            inbox: icon.classList.contains('lucide-inbox'),
+        };
+    });
+    expect(colours.inbox).toBe(true);
+    expect(colours.icon).toBe(colours.accent);
+    expect(colours.caption).toBe(colours.secondary);
+    await expect(page.getByText('Needs attention')).toHaveCount(0);
+    await item.click();
+    await expect.poll(() => seen).toContainEqual({ command: 'open_main_window', args: { target: 'requests' } });
+});

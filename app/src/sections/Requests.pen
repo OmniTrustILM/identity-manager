@@ -1,5 +1,5 @@
 {
-  "version": "2.22",
+  "version": "2.25",
   "children": [
     {
       "type": "frame",
@@ -33732,6 +33732,4074 @@
                           "fontFamily": "$font.family-preview",
                           "fontSize": "$font.body",
                           "fontWeight": "500"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "dtNZL",
+      "x": 0,
+      "y": 5620,
+      "name": "Requests/asked only/macos-light",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 1100,
+      "height": 420,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "g7uZok",
+          "name": "Window body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "KDSjf",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "$color.sidebar-tint",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "IN9sB",
+                  "name": "Traffic lights",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    16,
+                    8,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "Ap0qA",
+                      "name": "Close",
+                      "fill": "#FF5F57",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "R6k2b9",
+                      "name": "Minimise",
+                      "fill": "#FEBC2E",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "sQp48",
+                      "name": "Zoom",
+                      "fill": "#28C840",
+                      "width": 12,
+                      "height": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "H2iS7t",
+                  "name": "Navigation",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "kRwms",
+                      "name": "Entry Overview",
+                      "width": "fill_container",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "n9QoL",
+                          "name": "Icon layout-grid",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "layout-grid",
+                          "library": "lucide",
+                          "fill": "$color.text-primary"
+                        },
+                        {
+                          "type": "text",
+                          "id": "sMtQ6",
+                          "name": "Overview",
+                          "fill": "$color.text-primary",
+                          "content": "Overview",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "NawTl",
+                      "name": "Entry Certificates",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "path",
+                          "id": "xyA8K",
+                          "name": "Icon certificate",
+                          "geometry": "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z m2 4.5h6m-6 3h4m3.5-0.5a2 2 0 1 0 4 0 2 2 0 1 0-4 0m0.7 2v6l1.3-1 1.3 1v-6",
+                          "viewBox": [
+                            0,
+                            0,
+                            24,
+                            24
+                          ],
+                          "width": 16,
+                          "height": 16,
+                          "stroke": "$color.text-primary",
+                          "strokeWidth": 1.5,
+                          "strokeLinejoin": "round",
+                          "strokeLinecap": "round"
+                        },
+                        {
+                          "type": "text",
+                          "id": "QVyTJ",
+                          "name": "Certificates",
+                          "fill": "$color.text-primary",
+                          "content": "Certificates",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OPTfd",
+                      "name": "Entry Requests current",
+                      "width": "fill_container",
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "t32caG",
+                          "name": "Icon inbox",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "inbox",
+                          "library": "lucide",
+                          "fill": "$color.accent"
+                        },
+                        {
+                          "type": "text",
+                          "id": "nferW",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Z0ID4E",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$color.surface",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "bVbk1",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    24,
+                    16,
+                    24
+                  ],
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "tS3ap",
+                      "name": "Titles",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "tZin1",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.large-title",
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Ccaz6",
+                          "name": "Subtitle",
+                          "fill": "$color.text-secondary",
+                          "content": "1 asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "vXs5a",
+                  "name": "List",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": [
+                    0,
+                    24,
+                    24,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "XWHph",
+                      "name": "Section Asked by your organization",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "S3dTX",
+                          "name": "Asked by your organization",
+                          "fill": "$color.text-secondary",
+                          "content": "Asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "UeCZY",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "G0sgzd",
+                              "name": "Item Corporate Wi-Fi",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "Z84KFs",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "NEA9j",
+                                      "name": "Corporate Wi-Fi",
+                                      "fill": "$color.text-primary",
+                                      "content": "Corporate Wi-Fi",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "itU1Z",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "HhCA0",
+                                      "name": "Hint",
+                                      "fill": "$color.text-secondary",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Your organization asks you to request this certificate.",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "XvgEd",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "S1wNj",
+                                      "name": "Button Request",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "B3JQPo",
+                                          "name": "Request…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Request…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "C0f8a",
+      "x": 0,
+      "y": 6140,
+      "name": "Requests/asked and prepared/macos-light",
+      "theme": {
+        "os": "macos",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 1100,
+      "height": 420,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "GsJVp",
+          "name": "Window body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "R9eZ7",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "$color.sidebar-tint",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "xfjji",
+                  "name": "Traffic lights",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    16,
+                    8,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "EfOmq",
+                      "name": "Close",
+                      "fill": "#FF5F57",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "URLW8",
+                      "name": "Minimise",
+                      "fill": "#FEBC2E",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "n6mvVp",
+                      "name": "Zoom",
+                      "fill": "#28C840",
+                      "width": 12,
+                      "height": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CWEVb",
+                  "name": "Navigation",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ou02G",
+                      "name": "Entry Overview",
+                      "width": "fill_container",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "zSd7N",
+                          "name": "Icon layout-grid",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "layout-grid",
+                          "library": "lucide",
+                          "fill": "$color.text-primary"
+                        },
+                        {
+                          "type": "text",
+                          "id": "WoPjN",
+                          "name": "Overview",
+                          "fill": "$color.text-primary",
+                          "content": "Overview",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "P8KTtT",
+                      "name": "Entry Certificates",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "path",
+                          "id": "Nkmon",
+                          "name": "Icon certificate",
+                          "geometry": "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z m2 4.5h6m-6 3h4m3.5-0.5a2 2 0 1 0 4 0 2 2 0 1 0-4 0m0.7 2v6l1.3-1 1.3 1v-6",
+                          "viewBox": [
+                            0,
+                            0,
+                            24,
+                            24
+                          ],
+                          "width": 16,
+                          "height": 16,
+                          "stroke": "$color.text-primary",
+                          "strokeWidth": 1.5,
+                          "strokeLinejoin": "round",
+                          "strokeLinecap": "round"
+                        },
+                        {
+                          "type": "text",
+                          "id": "pz9dn",
+                          "name": "Certificates",
+                          "fill": "$color.text-primary",
+                          "content": "Certificates",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "TKnzH",
+                      "name": "Entry Requests current",
+                      "width": "fill_container",
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "PXiNz",
+                          "name": "Icon inbox",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "inbox",
+                          "library": "lucide",
+                          "fill": "$color.accent"
+                        },
+                        {
+                          "type": "text",
+                          "id": "kcnXc",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wSmpR",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$color.surface",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BNxbE",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    24,
+                    16,
+                    24
+                  ],
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "jrVp9",
+                      "name": "Titles",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "F61qux",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.large-title",
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "mBz4O",
+                          "name": "Subtitle",
+                          "fill": "$color.text-secondary",
+                          "content": "1 asked by your organization, 1 ready to issue",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "xHIxF",
+                  "name": "List",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": [
+                    0,
+                    24,
+                    24,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "zMAFg",
+                      "name": "Section Asked by your organization",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "uPu1T",
+                          "name": "Asked by your organization",
+                          "fill": "$color.text-secondary",
+                          "content": "Asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "qsDFq",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "l18Ux",
+                              "name": "Item Corporate Wi-Fi",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "A0tKM",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "HkzR2",
+                                      "name": "Corporate Wi-Fi",
+                                      "fill": "$color.text-primary",
+                                      "content": "Corporate Wi-Fi",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "qcti8",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "yj5PP",
+                                      "name": "Hint",
+                                      "fill": "$color.text-secondary",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Your organization asks you to request this certificate.",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Ui5eR",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "fHB3N",
+                                      "name": "Button Request",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "UbkS5",
+                                          "name": "Request…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Request…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "I5s2ho",
+                      "name": "Section Ready for you to issue",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "jcNgN",
+                          "name": "Ready for you to issue",
+                          "fill": "$color.text-secondary",
+                          "content": "Ready for you to issue",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "zHaYd",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Fd8O1",
+                              "name": "Item VPN gateway access",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "o7xUE",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "BbNBj",
+                                      "name": "VPN gateway access",
+                                      "fill": "$color.text-primary",
+                                      "content": "VPN gateway access",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "loy23",
+                                      "name": "Corporate VPN",
+                                      "fill": "$color.text-secondary",
+                                      "content": "Corporate VPN",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "TmTht",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Sf7oW",
+                                      "name": "Issue within 6 days",
+                                      "fill": "$color.text-secondary",
+                                      "content": "Issue within 6 days",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "w6BkTu",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "MryRX",
+                                      "name": "Button Issue",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "mbSxX",
+                                          "name": "Issue…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Issue…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "gRIpm",
+      "x": 1200,
+      "y": 5620,
+      "name": "Requests/asked only/macos-dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 1100,
+      "height": 420,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "fE8ID",
+          "name": "Window body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "V2C2eI",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "$color.sidebar-tint",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "UkFKl",
+                  "name": "Traffic lights",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    16,
+                    8,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "OF0LL",
+                      "name": "Close",
+                      "fill": "#FF5F57",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "Mvwzs",
+                      "name": "Minimise",
+                      "fill": "#FEBC2E",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "fYXGy",
+                      "name": "Zoom",
+                      "fill": "#28C840",
+                      "width": 12,
+                      "height": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "a34EB2",
+                  "name": "Navigation",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "T76uNs",
+                      "name": "Entry Overview",
+                      "width": "fill_container",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "D7hSq",
+                          "name": "Icon layout-grid",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "layout-grid",
+                          "library": "lucide",
+                          "fill": "$color.text-primary"
+                        },
+                        {
+                          "type": "text",
+                          "id": "VFcHC",
+                          "name": "Overview",
+                          "fill": "$color.text-primary",
+                          "content": "Overview",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "h5p18",
+                      "name": "Entry Certificates",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "path",
+                          "id": "qKXpR",
+                          "name": "Icon certificate",
+                          "geometry": "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z m2 4.5h6m-6 3h4m3.5-0.5a2 2 0 1 0 4 0 2 2 0 1 0-4 0m0.7 2v6l1.3-1 1.3 1v-6",
+                          "viewBox": [
+                            0,
+                            0,
+                            24,
+                            24
+                          ],
+                          "width": 16,
+                          "height": 16,
+                          "stroke": "$color.text-primary",
+                          "strokeWidth": 1.5,
+                          "strokeLinejoin": "round",
+                          "strokeLinecap": "round"
+                        },
+                        {
+                          "type": "text",
+                          "id": "qDhIW",
+                          "name": "Certificates",
+                          "fill": "$color.text-primary",
+                          "content": "Certificates",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "m8MCZK",
+                      "name": "Entry Requests current",
+                      "width": "fill_container",
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "aqPMv",
+                          "name": "Icon inbox",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "inbox",
+                          "library": "lucide",
+                          "fill": "$color.accent"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ksava",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ZBXBp",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$color.surface",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "yQxIr",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    24,
+                    16,
+                    24
+                  ],
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hfGcQ",
+                      "name": "Titles",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "TZyTo",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.large-title",
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "kdM8W",
+                          "name": "Subtitle",
+                          "fill": "$color.text-secondary",
+                          "content": "1 asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Xwjpv",
+                  "name": "List",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": [
+                    0,
+                    24,
+                    24,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "M5EDk",
+                      "name": "Section Asked by your organization",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Lpsfj",
+                          "name": "Asked by your organization",
+                          "fill": "$color.text-secondary",
+                          "content": "Asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "SnUfQ",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "a4SJqk",
+                              "name": "Item Corporate Wi-Fi",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "C2urOk",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "gdF0g",
+                                      "name": "Corporate Wi-Fi",
+                                      "fill": "$color.text-primary",
+                                      "content": "Corporate Wi-Fi",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "S0nd1M",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "MhQ03",
+                                      "name": "Hint",
+                                      "fill": "$color.text-secondary",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Your organization asks you to request this certificate.",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "IfqOX",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "nMdln",
+                                      "name": "Button Request",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "Mowzi",
+                                          "name": "Request…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Request…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "U5DbY6",
+      "x": 1200,
+      "y": 6140,
+      "name": "Requests/asked and prepared/macos-dark",
+      "theme": {
+        "os": "macos",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 1100,
+      "height": 420,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "H3wsFn",
+          "name": "Window body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "x5sx8",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "$color.sidebar-tint",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "sXYLs",
+                  "name": "Traffic lights",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    16,
+                    8,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "sBKVq",
+                      "name": "Close",
+                      "fill": "#FF5F57",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "fgLIB",
+                      "name": "Minimise",
+                      "fill": "#FEBC2E",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "NdX8s",
+                      "name": "Zoom",
+                      "fill": "#28C840",
+                      "width": 12,
+                      "height": 12
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "hw46C",
+                  "name": "Navigation",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "g7CYKY",
+                      "name": "Entry Overview",
+                      "width": "fill_container",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "UcgXh",
+                          "name": "Icon layout-grid",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "layout-grid",
+                          "library": "lucide",
+                          "fill": "$color.text-primary"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Q0qGMv",
+                          "name": "Overview",
+                          "fill": "$color.text-primary",
+                          "content": "Overview",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "T2WSuq",
+                      "name": "Entry Certificates",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "path",
+                          "id": "KySxt",
+                          "name": "Icon certificate",
+                          "geometry": "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z m2 4.5h6m-6 3h4m3.5-0.5a2 2 0 1 0 4 0 2 2 0 1 0-4 0m0.7 2v6l1.3-1 1.3 1v-6",
+                          "viewBox": [
+                            0,
+                            0,
+                            24,
+                            24
+                          ],
+                          "width": 16,
+                          "height": 16,
+                          "stroke": "$color.text-primary",
+                          "strokeWidth": 1.5,
+                          "strokeLinejoin": "round",
+                          "strokeLinecap": "round"
+                        },
+                        {
+                          "type": "text",
+                          "id": "R194V",
+                          "name": "Certificates",
+                          "fill": "$color.text-primary",
+                          "content": "Certificates",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "AhOom",
+                      "name": "Entry Requests current",
+                      "width": "fill_container",
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "CvISD",
+                          "name": "Icon inbox",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "inbox",
+                          "library": "lucide",
+                          "fill": "$color.accent"
+                        },
+                        {
+                          "type": "text",
+                          "id": "FsGX4",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "aOvmE",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$color.surface",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "M9AsD",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    24,
+                    16,
+                    24
+                  ],
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "brkee",
+                      "name": "Titles",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "W7KJgl",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.large-title",
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "d6pMY",
+                          "name": "Subtitle",
+                          "fill": "$color.text-secondary",
+                          "content": "1 asked by your organization, 1 ready to issue",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "PdI0h",
+                  "name": "List",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": [
+                    0,
+                    24,
+                    24,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "uf7ot",
+                      "name": "Section Asked by your organization",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "W9cgl",
+                          "name": "Asked by your organization",
+                          "fill": "$color.text-secondary",
+                          "content": "Asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "mLAm5",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "oDFNQ",
+                              "name": "Item Corporate Wi-Fi",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "s2w5WW",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Fz1Hm",
+                                      "name": "Corporate Wi-Fi",
+                                      "fill": "$color.text-primary",
+                                      "content": "Corporate Wi-Fi",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "NQQgD",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "ZYB8y",
+                                      "name": "Hint",
+                                      "fill": "$color.text-secondary",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Your organization asks you to request this certificate.",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "vfDop",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "vcfkv",
+                                      "name": "Button Request",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "yOygH",
+                                          "name": "Request…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Request…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZTyXM",
+                      "name": "Section Ready for you to issue",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "d4PHBD",
+                          "name": "Ready for you to issue",
+                          "fill": "$color.text-secondary",
+                          "content": "Ready for you to issue",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "xT1eF",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "AMVMm",
+                              "name": "Item VPN gateway access",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "mtXfr",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "WZddo",
+                                      "name": "VPN gateway access",
+                                      "fill": "$color.text-primary",
+                                      "content": "VPN gateway access",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "iBUwS",
+                                      "name": "Corporate VPN",
+                                      "fill": "$color.text-secondary",
+                                      "content": "Corporate VPN",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "upEOY",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Dn3XP",
+                                      "name": "Issue within 6 days",
+                                      "fill": "$color.text-secondary",
+                                      "content": "Issue within 6 days",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "GJFzg",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "Xr2rG",
+                                      "name": "Button Issue",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "ivNW6",
+                                          "name": "Issue…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Issue…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "r9vJCa",
+      "x": 2400,
+      "y": 5620,
+      "name": "Requests/asked only/windows-light",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 1100,
+      "height": 420,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "io4Za",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "p6gmm6",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "DBr02",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "MJZga",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "b73EAG",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Z3EFHN",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "ZtqNo",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "DknlM",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "PHKYu",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "dvVhZ",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "bInct",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jeCkE",
+          "name": "Window body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "L5JIb",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "$color.sidebar-tint",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Ni9Sm",
+                  "name": "Navigation",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "G9c5s",
+                      "name": "Entry Overview",
+                      "width": "fill_container",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "iuouv",
+                          "name": "Icon layout-grid",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "layout-grid",
+                          "library": "lucide",
+                          "fill": "$color.text-primary"
+                        },
+                        {
+                          "type": "text",
+                          "id": "v3PwO",
+                          "name": "Overview",
+                          "fill": "$color.text-primary",
+                          "content": "Overview",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "usuZb",
+                      "name": "Entry Certificates",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "path",
+                          "id": "XYurB",
+                          "name": "Icon certificate",
+                          "geometry": "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z m2 4.5h6m-6 3h4m3.5-0.5a2 2 0 1 0 4 0 2 2 0 1 0-4 0m0.7 2v6l1.3-1 1.3 1v-6",
+                          "viewBox": [
+                            0,
+                            0,
+                            24,
+                            24
+                          ],
+                          "width": 16,
+                          "height": 16,
+                          "stroke": "$color.text-primary",
+                          "strokeWidth": 1.5,
+                          "strokeLinejoin": "round",
+                          "strokeLinecap": "round"
+                        },
+                        {
+                          "type": "text",
+                          "id": "IbOLn",
+                          "name": "Certificates",
+                          "fill": "$color.text-primary",
+                          "content": "Certificates",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "xR4hu",
+                      "name": "Entry Requests current",
+                      "width": "fill_container",
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "VaBsj",
+                          "name": "Icon inbox",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "inbox",
+                          "library": "lucide",
+                          "fill": "$color.accent"
+                        },
+                        {
+                          "type": "text",
+                          "id": "xdmam",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "q6HHCN",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$color.surface",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "iKkKS",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    24,
+                    16,
+                    24
+                  ],
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "zEcYG",
+                      "name": "Titles",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ymz6R",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.large-title",
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "g0rl3",
+                          "name": "Subtitle",
+                          "fill": "$color.text-secondary",
+                          "content": "1 asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Ib3WA",
+                  "name": "List",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": [
+                    0,
+                    24,
+                    24,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "u8QaZ",
+                      "name": "Section Asked by your organization",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "VRHmd",
+                          "name": "Asked by your organization",
+                          "fill": "$color.text-secondary",
+                          "content": "Asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "EtdR6",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "nSlc4",
+                              "name": "Item Corporate Wi-Fi",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "yO1FK",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "duKSA",
+                                      "name": "Corporate Wi-Fi",
+                                      "fill": "$color.text-primary",
+                                      "content": "Corporate Wi-Fi",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "luin9",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "u1wUJV",
+                                      "name": "Hint",
+                                      "fill": "$color.text-secondary",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Your organization asks you to request this certificate.",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "HVRxI",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "S7bzZG",
+                                      "name": "Button Request",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "oZthM",
+                                          "name": "Request…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Request…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "b9J6Kr",
+      "x": 2400,
+      "y": 6140,
+      "name": "Requests/asked and prepared/windows-light",
+      "theme": {
+        "os": "windows",
+        "mode": "light"
+      },
+      "clip": true,
+      "width": 1100,
+      "height": 420,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "VjP95",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "RaWlx",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "xOi3L",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "H8crG",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "nagxt",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "XSGlK",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "a98usA",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "G2TTL4",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "RCFQy",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "XZL4Q",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "ViAWQ",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "V7wZ8A",
+          "name": "Window body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "KTOaM",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "$color.sidebar-tint",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "eJVrW",
+                  "name": "Navigation",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "f03svd",
+                      "name": "Entry Overview",
+                      "width": "fill_container",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "z34JTf",
+                          "name": "Icon layout-grid",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "layout-grid",
+                          "library": "lucide",
+                          "fill": "$color.text-primary"
+                        },
+                        {
+                          "type": "text",
+                          "id": "iARqq",
+                          "name": "Overview",
+                          "fill": "$color.text-primary",
+                          "content": "Overview",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "kJHyu",
+                      "name": "Entry Certificates",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "path",
+                          "id": "LgQg4",
+                          "name": "Icon certificate",
+                          "geometry": "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z m2 4.5h6m-6 3h4m3.5-0.5a2 2 0 1 0 4 0 2 2 0 1 0-4 0m0.7 2v6l1.3-1 1.3 1v-6",
+                          "viewBox": [
+                            0,
+                            0,
+                            24,
+                            24
+                          ],
+                          "width": 16,
+                          "height": 16,
+                          "stroke": "$color.text-primary",
+                          "strokeWidth": 1.5,
+                          "strokeLinejoin": "round",
+                          "strokeLinecap": "round"
+                        },
+                        {
+                          "type": "text",
+                          "id": "l0QMwh",
+                          "name": "Certificates",
+                          "fill": "$color.text-primary",
+                          "content": "Certificates",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "u4j02N",
+                      "name": "Entry Requests current",
+                      "width": "fill_container",
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "osyI8",
+                          "name": "Icon inbox",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "inbox",
+                          "library": "lucide",
+                          "fill": "$color.accent"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Z7oWT",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "l6bMVo",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$color.surface",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "p98HGJ",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    24,
+                    16,
+                    24
+                  ],
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "MX25R",
+                      "name": "Titles",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "T4CM3Y",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.large-title",
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "x5ADdb",
+                          "name": "Subtitle",
+                          "fill": "$color.text-secondary",
+                          "content": "1 asked by your organization, 1 ready to issue",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Yu4NW",
+                  "name": "List",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": [
+                    0,
+                    24,
+                    24,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "z1ObX",
+                      "name": "Section Asked by your organization",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s8tt7d",
+                          "name": "Asked by your organization",
+                          "fill": "$color.text-secondary",
+                          "content": "Asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "kuoyp",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "oa99n",
+                              "name": "Item Corporate Wi-Fi",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "UC78p",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "O0Kpu",
+                                      "name": "Corporate Wi-Fi",
+                                      "fill": "$color.text-primary",
+                                      "content": "Corporate Wi-Fi",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "cMyE6",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "ZMPhr",
+                                      "name": "Hint",
+                                      "fill": "$color.text-secondary",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Your organization asks you to request this certificate.",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "jfAQw",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "Ky0uT",
+                                      "name": "Button Request",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "O0c6v",
+                                          "name": "Request…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Request…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "jkd9p",
+                      "name": "Section Ready for you to issue",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "wlGUY",
+                          "name": "Ready for you to issue",
+                          "fill": "$color.text-secondary",
+                          "content": "Ready for you to issue",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "yesr4",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "cpksD",
+                              "name": "Item VPN gateway access",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "Oc48l",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "OaYSp",
+                                      "name": "VPN gateway access",
+                                      "fill": "$color.text-primary",
+                                      "content": "VPN gateway access",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "WSXsM",
+                                      "name": "Corporate VPN",
+                                      "fill": "$color.text-secondary",
+                                      "content": "Corporate VPN",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Y2uOn",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "CmW5L",
+                                      "name": "Issue within 6 days",
+                                      "fill": "$color.text-secondary",
+                                      "content": "Issue within 6 days",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "wV5GC",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "D2oIs",
+                                      "name": "Button Issue",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "lgTn4",
+                                          "name": "Issue…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Issue…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "VCfCP",
+      "x": 3600,
+      "y": 5620,
+      "name": "Requests/asked only/windows-dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 1100,
+      "height": 420,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "r9Pdwm",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "yGZBB",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "tyit6",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "O9bBAe",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KKtIv",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "RtIGy",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "W0scM",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "hgrFx",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "XEXjs",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "j0fJ2o",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "m65fnP",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "W2hVue",
+          "name": "Window body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "MDYip",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "$color.sidebar-tint",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "TT0OR",
+                  "name": "Navigation",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Up7a4",
+                      "name": "Entry Overview",
+                      "width": "fill_container",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "KX4C6",
+                          "name": "Icon layout-grid",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "layout-grid",
+                          "library": "lucide",
+                          "fill": "$color.text-primary"
+                        },
+                        {
+                          "type": "text",
+                          "id": "GAHOU",
+                          "name": "Overview",
+                          "fill": "$color.text-primary",
+                          "content": "Overview",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "IzkKp",
+                      "name": "Entry Certificates",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "path",
+                          "id": "nCNk4",
+                          "name": "Icon certificate",
+                          "geometry": "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z m2 4.5h6m-6 3h4m3.5-0.5a2 2 0 1 0 4 0 2 2 0 1 0-4 0m0.7 2v6l1.3-1 1.3 1v-6",
+                          "viewBox": [
+                            0,
+                            0,
+                            24,
+                            24
+                          ],
+                          "width": 16,
+                          "height": 16,
+                          "stroke": "$color.text-primary",
+                          "strokeWidth": 1.5,
+                          "strokeLinejoin": "round",
+                          "strokeLinecap": "round"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dVxwJ",
+                          "name": "Certificates",
+                          "fill": "$color.text-primary",
+                          "content": "Certificates",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Ri4xq",
+                      "name": "Entry Requests current",
+                      "width": "fill_container",
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "iUJJe",
+                          "name": "Icon inbox",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "inbox",
+                          "library": "lucide",
+                          "fill": "$color.accent"
+                        },
+                        {
+                          "type": "text",
+                          "id": "FSHfz",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VU3CC",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$color.surface",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "JQkct",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    24,
+                    16,
+                    24
+                  ],
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "XsRm2",
+                      "name": "Titles",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "TqXXh",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.large-title",
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "zbfmj",
+                          "name": "Subtitle",
+                          "fill": "$color.text-secondary",
+                          "content": "1 asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "g6hVml",
+                  "name": "List",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": [
+                    0,
+                    24,
+                    24,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Ml7wL",
+                      "name": "Section Asked by your organization",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "PsY5H",
+                          "name": "Asked by your organization",
+                          "fill": "$color.text-secondary",
+                          "content": "Asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "IDxj7",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Kpixc",
+                              "name": "Item Corporate Wi-Fi",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "qRbOj",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "RE8UA",
+                                      "name": "Corporate Wi-Fi",
+                                      "fill": "$color.text-primary",
+                                      "content": "Corporate Wi-Fi",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Ts2Um",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "LWGZK",
+                                      "name": "Hint",
+                                      "fill": "$color.text-secondary",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Your organization asks you to request this certificate.",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "d5HIEY",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "iFnE6",
+                                      "name": "Button Request",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "H6Es4",
+                                          "name": "Request…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Request…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "mCwMf",
+      "x": 3600,
+      "y": 6140,
+      "name": "Requests/asked and prepared/windows-dark",
+      "theme": {
+        "os": "windows",
+        "mode": "dark"
+      },
+      "clip": true,
+      "width": 1100,
+      "height": 420,
+      "fill": "$color.surface",
+      "cornerRadius": "$radius.window",
+      "stroke": "$color.separator",
+      "strokeWidth": 1,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "kXpu2",
+          "name": "Title bar",
+          "width": "fill_container",
+          "height": 32,
+          "fill": "$color.titlebar",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "uOUP3",
+              "name": "Title",
+              "gap": 8,
+              "padding": [
+                0,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "XQ3OI",
+                  "name": "App icon",
+                  "fill": "$color.accent",
+                  "width": 16,
+                  "height": 16
+                },
+                {
+                  "type": "text",
+                  "id": "ef9Hz",
+                  "name": "Identity Manager",
+                  "fill": "$color.text-primary",
+                  "content": "Identity Manager",
+                  "fontFamily": "$font.family-preview",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "WRayH",
+              "name": "Window controls",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "pNblG",
+                  "name": "Control minus",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "E5eNCj",
+                      "name": "Icon minus",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "minus",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "cFR7R",
+                  "name": "Control square",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "BqD8A",
+                      "name": "Icon square",
+                      "width": 10,
+                      "height": 10,
+                      "icon": "square",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "S03BP",
+                  "name": "Control x",
+                  "width": 46,
+                  "height": "fill_container",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "B9SJyG",
+                      "name": "Icon x",
+                      "width": 12,
+                      "height": 12,
+                      "icon": "x",
+                      "library": "lucide",
+                      "fill": "$color.text-primary"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "FkFVb",
+          "name": "Window body",
+          "width": "fill_container",
+          "height": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "id": "S11y8k",
+              "name": "Sidebar",
+              "width": 220,
+              "height": "fill_container",
+              "fill": "$color.sidebar-tint",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "u8rpye",
+                  "name": "Navigation",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "F8sDwe",
+                      "name": "Entry Overview",
+                      "width": "fill_container",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "H3CSIK",
+                          "name": "Icon layout-grid",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "layout-grid",
+                          "library": "lucide",
+                          "fill": "$color.text-primary"
+                        },
+                        {
+                          "type": "text",
+                          "id": "fy9YH",
+                          "name": "Overview",
+                          "fill": "$color.text-primary",
+                          "content": "Overview",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "UMf2a",
+                      "name": "Entry Certificates",
+                      "width": "fill_container",
+                      "fill": "#00000000",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "path",
+                          "id": "Eq1EW",
+                          "name": "Icon certificate",
+                          "geometry": "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z m2 4.5h6m-6 3h4m3.5-0.5a2 2 0 1 0 4 0 2 2 0 1 0-4 0m0.7 2v6l1.3-1 1.3 1v-6",
+                          "viewBox": [
+                            0,
+                            0,
+                            24,
+                            24
+                          ],
+                          "width": 16,
+                          "height": 16,
+                          "stroke": "$color.text-primary",
+                          "strokeWidth": 1.5,
+                          "strokeLinejoin": "round",
+                          "strokeLinecap": "round"
+                        },
+                        {
+                          "type": "text",
+                          "id": "I4BsQz",
+                          "name": "Certificates",
+                          "fill": "$color.text-primary",
+                          "content": "Certificates",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DsKWs",
+                      "name": "Entry Requests current",
+                      "width": "fill_container",
+                      "fill": "$color.row-current",
+                      "cornerRadius": "$radius.control",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "Q9TvvV",
+                          "name": "Icon inbox",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "inbox",
+                          "library": "lucide",
+                          "fill": "$color.accent"
+                        },
+                        {
+                          "type": "text",
+                          "id": "k1Lho",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "m2a6ei",
+              "name": "Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$color.surface",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "r0pEpF",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    24,
+                    16,
+                    24
+                  ],
+                  "justifyContent": "space_between",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "h0FNFC",
+                      "name": "Titles",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "mei47",
+                          "name": "Requests",
+                          "fill": "$color.text-primary",
+                          "content": "Requests",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.large-title",
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "V58puA",
+                          "name": "Subtitle",
+                          "fill": "$color.text-secondary",
+                          "content": "1 asked by your organization, 1 ready to issue",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.body",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "G9gYbK",
+                  "name": "List",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": [
+                    0,
+                    24,
+                    24,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "SKtxa",
+                      "name": "Section Asked by your organization",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "lwfpD",
+                          "name": "Asked by your organization",
+                          "fill": "$color.text-secondary",
+                          "content": "Asked by your organization",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Pe3K2",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "A17b4",
+                              "name": "Item Corporate Wi-Fi",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "Sy4DK",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "wTSfA",
+                                      "name": "Corporate Wi-Fi",
+                                      "fill": "$color.text-primary",
+                                      "content": "Corporate Wi-Fi",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "LHOfw",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "rLol4",
+                                      "name": "Hint",
+                                      "fill": "$color.text-secondary",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Your organization asks you to request this certificate.",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "P7Ql0",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "B0GBiB",
+                                      "name": "Button Request",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "ycir3",
+                                          "name": "Request…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Request…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "D2AhZ",
+                      "name": "Section Ready for you to issue",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "UuH8l",
+                          "name": "Ready for you to issue",
+                          "fill": "$color.text-secondary",
+                          "content": "Ready for you to issue",
+                          "fontFamily": "$font.family-preview",
+                          "fontSize": "$font.caption",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "JGw3I",
+                          "name": "Group",
+                          "clip": true,
+                          "width": "fill_container",
+                          "cornerRadius": "$radius.control",
+                          "stroke": "$color.separator",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "uGZka",
+                              "name": "Item VPN gateway access",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                10,
+                                12
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "LJn6f",
+                                  "name": "Name and detail",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "nS8yo",
+                                      "name": "VPN gateway access",
+                                      "fill": "$color.text-primary",
+                                      "content": "VPN gateway access",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "c4ZmA",
+                                      "name": "Corporate VPN",
+                                      "fill": "$color.text-secondary",
+                                      "content": "Corporate VPN",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "VvuFK",
+                                  "name": "Status",
+                                  "width": 230,
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Y2Kil",
+                                      "name": "Issue within 6 days",
+                                      "fill": "$color.text-secondary",
+                                      "content": "Issue within 6 days",
+                                      "fontFamily": "$font.family-preview",
+                                      "fontSize": "$font.body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "gYA0d",
+                                  "name": "Action",
+                                  "width": 170,
+                                  "justifyContent": "end",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "h8hfM",
+                                      "name": "Button Issue",
+                                      "height": 24,
+                                      "fill": "$color.accent",
+                                      "cornerRadius": "$radius.control",
+                                      "padding": [
+                                        0,
+                                        12
+                                      ],
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "BjBe7",
+                                          "name": "Issue…",
+                                          "fill": "$color.accent-text",
+                                          "content": "Issue…",
+                                          "fontFamily": "$font.family-preview",
+                                          "fontSize": "$font.body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
                         }
                       ]
                     }

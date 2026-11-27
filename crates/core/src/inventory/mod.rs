@@ -2,6 +2,7 @@
 
 mod approvals;
 mod cache;
+mod enrol;
 mod prepared;
 mod renew;
 mod summary;
@@ -14,12 +15,12 @@ pub(crate) use prepared::is_begun;
 pub use prepared::{Prepared, SubjectKind, SubjectPart, subject_parts};
 pub use renew::{Needs, Reason, Refused, Renewing, SignIn};
 pub use summary::{Counts, Item, Kind, Summary, WaitingState, summarize};
-use view::listed_by;
 pub use view::{
-    AddChoicesView, AddResultView, ApprovalView, AttentionItemView, CountsView, IlmCertificateView,
-    IlmPageView, IlmRaProfileView, InventoryView, MyRequestView, PreparedView, RegistrationView,
-    RenewalView, RevokingStage, SummaryView, WaitingStateView,
+    AddChoicesView, AddResultView, ApprovalView, AskedProfile, AttentionItemView, CountsView,
+    IlmCertificateView, IlmPageView, IlmRaProfileView, InventoryView, MyRequestView, PreparedView,
+    RegistrationView, RenewalView, RevokingStage, SummaryView, WaitingStateView,
 };
+use view::{is_requested, listed_by};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -199,6 +200,8 @@ struct Held {
     details: HashMap<Fingerprint, IssuedState>,
     /// The automatic renewals that were not taken.
     refused: Vec<Refused>,
+    /// The RA Profiles the latest enrolment found to need the person. Not kept in the cache.
+    asked: Vec<AskedProfile>,
 }
 
 impl Held {
@@ -243,6 +246,11 @@ impl Held {
                         found.action,
                     )
                 }))
+                .with_asked(
+                    self.asked
+                        .iter()
+                        .map(|profile| (profile.uuid.clone(), profile.name.clone())),
+                )
         });
         if let Some(summary) = &self.summary {
             let counts = &summary.counts;
@@ -272,6 +280,9 @@ pub struct Inventory {
     running: tokio::sync::Mutex<()>,
     /// Held while a follow runs and its result is kept, so an older result never replaces a newer one.
     following: tokio::sync::Mutex<()>,
+    /// Held for a whole enrolment and for a whole change of the sign-in certificate by policy, so two runs never
+    /// plan and request the same RA Profile, or retry a failed change, at once.
+    enrolling: tokio::sync::Mutex<()>,
     completed: AtomicU64,
     /// What the latest check asked: whose sign-in and which local certificates.
     asked: Mutex<Option<Asked>>,
@@ -329,6 +340,7 @@ impl Inventory {
             held: Mutex::default(),
             running: tokio::sync::Mutex::new(()),
             following: tokio::sync::Mutex::new(()),
+            enrolling: tokio::sync::Mutex::new(()),
             completed: AtomicU64::new(0),
             asked: Mutex::new(None),
         }
@@ -395,6 +407,11 @@ impl Inventory {
             FollowOutcome::SwitchPending { .. } => true,
             _ => false,
         })
+    }
+
+    /// Waits for the enrolment that is running, and keeps any other from starting while the guard lives.
+    pub(crate) async fn alone(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.enrolling.lock().await
     }
 
     pub fn snapshot(&self) -> Option<Snapshot> {
@@ -473,6 +490,21 @@ impl Inventory {
             log::warn!("the ILM cache could not be written: {error}");
         }
         held.rebuild(self.zone);
+    }
+
+    /// The RA Profiles the latest enrolment found to need the person.
+    pub fn asked(&self) -> Vec<AskedProfile> {
+        held(&self.held).asked.clone()
+    }
+
+    /// Takes the RA Profile `uuid` out of the asked ones, as the person has requested from it.
+    pub fn unask(&self, uuid: &str) {
+        let mut held = held(&self.held);
+        let before = held.asked.len();
+        held.asked.retain(|profile| profile.uuid != uuid);
+        if held.asked.len() != before {
+            held.rebuild(self.zone);
+        }
     }
 
     /// How the certificates on this computer stand, as of the latest check, or of the start before the first one;
@@ -654,7 +686,14 @@ impl Inventory {
             .snapshot
             .as_mut()
             .is_some_and(|snapshot| prepared::drop_completed(&mut snapshot.prepared, &found));
-        let changed = kept != held.followed || dropped || held.refused.len() != refused;
+        let asked = held.asked.len();
+        let waiting = session.waiting_requests();
+        held.asked
+            .retain(|profile| !is_requested(&profile.uuid, &waiting));
+        let changed = kept != held.followed
+            || dropped
+            || held.refused.len() != refused
+            || held.asked.len() != asked;
         held.followed = kept;
         if changed {
             held.rebuild(self.zone);

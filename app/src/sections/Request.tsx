@@ -317,10 +317,13 @@ const settled = (view: FollowView) => view.state === 'installed' || view.state =
 export function Request({
     profiles = [],
     prepared,
+    asked = false,
     platform,
     onClose,
 }: Readonly<{
     profiles?: RaProfileChoice[];
+    /** The organization's policy asked for this request: ILM is told so. */
+    asked?: boolean;
     /** A certificate registered in advance to complete: the sheet has no profile step and shows what was registered. */
     prepared?: PreparedView;
     platform: Platform;
@@ -503,7 +506,7 @@ export function Request({
         setSubmitted(true);
         setChallengeProblems([]);
         setPhase({ kind: 'requesting' });
-        const sending = send(prepared, profile, filled, storage, keyType, needsChallenge ? challenge : null);
+        const sending = send(prepared, profile, filled, storage, keyType, needsChallenge ? challenge : null, asked);
         setChallenge('');
         sending.then(
             (done) => {
@@ -843,10 +846,11 @@ function send(
     storage: StorageId,
     keyType: KeyTypeId,
     challenge: string | null,
+    asked: boolean,
 ): Promise<RequestedView> {
     return prepared
         ? completeCertificate(prepared.uuid, forms, storage, keyType, challenge, prepared.subject)
-        : requestCertificate(profile, forms, storage, keyType);
+        : requestCertificate(profile, forms, storage, keyType, asked || undefined);
 }
 
 /** The challenge of a prepared certificate, with ILM's texts about it under the field. */

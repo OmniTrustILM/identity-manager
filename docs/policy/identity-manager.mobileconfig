@@ -39,6 +39,12 @@
 			<string>keychain</string>
 			<key>DefaultKeyStorage</key>
 			<string>keychain</string>
+			<key>CompletePrepared</key>
+			<true/>
+			<key>RequestProfiles</key>
+			<string>Workstation, Email</string>
+			<key>SignInCertificateProfile</key>
+			<string>Workstation</string>
 		</dict>
 	</array>
 	<key>PayloadType</key>

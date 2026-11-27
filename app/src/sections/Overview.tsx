@@ -53,10 +53,12 @@ function Tiles({ summary }: Readonly<{ summary: SummaryView }>) {
 
 type Waiting = Extract<AttentionItemView, { kind: 'waiting' }>;
 type Approval = Extract<AttentionItemView, { kind: 'approval' }>;
-type Problem = Exclude<AttentionItemView, Waiting | Approval>;
+type Asked = Extract<AttentionItemView, { kind: 'asked' }>;
+type Problem = Exclude<AttentionItemView, Waiting | Approval | Asked>;
 
 const isWaiting = (item: AttentionItemView): item is Waiting => item.kind === 'waiting';
-const isProblem = (item: AttentionItemView): item is Problem => item.kind !== 'waiting' && item.kind !== 'approval';
+const isProblem = (item: AttentionItemView): item is Problem =>
+    item.kind !== 'waiting' && item.kind !== 'approval' && item.kind !== 'asked';
 
 interface Unmatched {
     certificates: LocalCertificateView[];

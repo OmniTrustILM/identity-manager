@@ -262,6 +262,7 @@ fn failed_renewal(uuid: &str, replaces: Fingerprint) -> Followed {
         label: "web".to_owned(),
         outcome: crate::session::Outcome::Ended(crate::session::EndReason::Failed),
         replaces: Some(replaces),
+        enrolled: false,
     }
 }
 
@@ -279,6 +280,7 @@ fn installed_as(uuid: &str, replaces: Fingerprint, installed: Fingerprint) -> Fo
             not_after: 0,
         }),
         replaces: Some(replaces),
+        enrolled: false,
     }
 }
 

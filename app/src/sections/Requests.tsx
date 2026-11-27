@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppInfo } from '../app-info';
-import type { InventoryView, MyRequestView, PreparedView } from '../bridge';
+import type { AskedProfile, InventoryView, MyRequestView, PreparedView, RaProfileChoice } from '../bridge';
 import { strings } from '../strings';
 import { useInventory } from '../useInventory';
 import { Approvals } from './Approvals';
@@ -10,9 +10,10 @@ import { Request } from './Request';
 const day = 24 * 60 * 60 * 1000;
 const issueButton = 'h-control shrink-0 rounded-control bg-accent px-s3 text-body text-on-accent';
 
-/** Whether the section has something to show: a request waiting for the person's approval, a certificate prepared in advance or a request of the person. */
+/** Whether the section has something to show: a request waiting for the person's approval, a certificate prepared in advance, a profile the organization asks for or a request of the person. */
 export const hasRequests = (inventory: InventoryView | null) =>
-    inventory !== null && (inventory.approvals.length > 0 || inventory.prepared.length > 0 || inventory.requests.length > 0);
+    inventory !== null &&
+    (inventory.approvals.length > 0 || inventory.prepared.length > 0 || inventory.asked.length > 0 || inventory.requests.length > 0);
 
 type Standing = { kind: 'ready'; days: number | null } | { kind: 'ended' } | { kind: 'locked' };
 
@@ -63,6 +64,18 @@ function PreparedRow({ prepared, now, onIssue }: Readonly<{ prepared: PreparedVi
     );
 }
 
+function AskedRow({ profile, onRequest }: Readonly<{ profile: AskedProfile; onRequest: () => void }>) {
+    return (
+        <li className={row}>
+            <span className="min-w-0 flex-1 text-body text-primary">{profile.name}</span>
+            <span className="min-w-0 flex-1 text-body text-secondary">{strings.askedHint}</span>
+            <button type="button" aria-label={strings.requestNamed(profile.name)} onClick={onRequest} className={issueButton}>
+                {strings.requestEllipsis}
+            </button>
+        </li>
+    );
+}
+
 function RequestRow({ request }: Readonly<{ request: MyRequestView }>) {
     return (
         <li className={row}>
@@ -78,17 +91,28 @@ function RequestRow({ request }: Readonly<{ request: MyRequestView }>) {
     );
 }
 
+/** The choice the wizard needs for an asked profile: it names it, and the wizard shows no more than the name for one profile. */
+const choiceOf = ({ uuid, name }: AskedProfile): RaProfileChoice => ({
+    uuid,
+    name,
+    description: null,
+    authority: null,
+    authority_uuid: null,
+});
+
 /** The certificates prepared for the person to issue, and the requests of the person that ILM has not finished. */
 export function Requests() {
     const { platform } = useAppInfo();
     const { inventory } = useInventory();
     const [issuing, setIssuing] = useState<PreparedView | null>(null);
+    const [requesting, setRequesting] = useState<AskedProfile | null>(null);
     const approvals = inventory?.approvals ?? [];
     const prepared = inventory?.prepared ?? [];
+    const asked = inventory?.asked ?? [];
     const requests = inventory?.requests ?? [];
     const now = Date.now();
     const ready = prepared.filter((candidate) => standing(candidate, now).kind === 'ready').length;
-    const summary = strings.requestsSummary(approvals.length, ready, requests.length);
+    const summary = strings.requestsSummary(asked.length, approvals.length, ready, requests.length);
 
     return (
         <div className="flex flex-col gap-s4">
@@ -97,6 +121,13 @@ export function Requests() {
                 {summary !== '' && <p className="text-body text-secondary">{summary}</p>}
             </header>
             <Approvals approvals={approvals} macos={platform === 'macos'} />
+            {asked.length > 0 && (
+                <Group title={strings.askedByOrganization}>
+                    {asked.map((profile) => (
+                        <AskedRow key={profile.uuid} profile={profile} onRequest={() => setRequesting(profile)} />
+                    ))}
+                </Group>
+            )}
             {prepared.length > 0 && (
                 <Group title={strings.readyToIssue}>
                     {prepared.map((candidate) => (
@@ -117,6 +148,7 @@ export function Requests() {
                     <p className="text-body text-secondary">{strings.nothingToIssueHint}</p>
                 </div>
             )}
+            {requesting && <Request profiles={[choiceOf(requesting)]} asked platform={platform} onClose={() => setRequesting(null)} />}
             {issuing && <Request prepared={issuing} platform={platform} onClose={() => setIssuing(null)} />}
         </div>
     );

@@ -811,6 +811,42 @@ async fn a_failed_change_is_recorded_and_not_retried_within_a_day() {
 }
 
 #[tokio::test]
+async fn two_runs_together_make_one_attempt_when_the_change_fails() {
+    let change = Change::enrolled().await;
+    change
+        .answer_update(ResponseTemplate::new(500).set_delay(Duration::from_millis(200)))
+        .await;
+    let policy = naming("Staff");
+
+    let (first, second) = tokio::join!(change.by_policy(&policy), change.by_policy(&policy));
+
+    assert_eq!(first.len() + second.len(), 1);
+    assert_eq!(change.updates().await, 1);
+}
+
+#[tokio::test]
+async fn a_failed_change_is_logged_with_its_reason_but_not_what_ilm_said() {
+    capture_logs();
+    let change = Change::enrolled().await;
+    change
+        .answer_update(
+            ResponseTemplate::new(422).set_body_json(json!({ "message": "Secret-Policy-Reason." })),
+        )
+        .await;
+
+    change.by_policy(&naming("Staff")).await;
+
+    let log = LOG.lock().unwrap().join("\n");
+    assert!(
+        log.contains(&format!(
+            "WARN: the sign-in certificate {ENROLLED} could not be set by policy (1 failed): ILM did not accept the change (1 message(s))"
+        )),
+        "{log}"
+    );
+    assert!(!log.contains("Secret-Policy-Reason"), "{log}");
+}
+
+#[tokio::test]
 async fn a_failed_change_is_retried_after_a_day() {
     let change = Change::enrolled().await;
     change.answer_update(ResponseTemplate::new(500)).await;
@@ -843,6 +879,26 @@ async fn the_third_failure_is_the_one_to_tell_the_person_about() {
         vec![SignInByPolicy::Failed {
             uuid: ENROLLED.into(),
             failures: 3
+        }]
+    );
+    assert!(done[0].needs_notice());
+}
+
+#[tokio::test]
+async fn a_failure_after_the_third_still_needs_its_notice_for_the_notice_to_come_once_unlocked() {
+    let change = Change::enrolled().await;
+    change.answer_update(ResponseTemplate::new(500)).await;
+    for _ in 0..3 {
+        change.failed_at(now_ms() - 2 * DAY_MS);
+    }
+
+    let done = change.by_policy(&naming("Staff")).await;
+
+    assert_eq!(
+        done,
+        vec![SignInByPolicy::Failed {
+            uuid: ENROLLED.into(),
+            failures: 4
         }]
     );
     assert!(done[0].needs_notice());

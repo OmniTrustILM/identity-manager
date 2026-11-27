@@ -68,6 +68,7 @@ export type { AttributeFormView } from './generated/AttributeFormView';
 export type { AttributeOptionView } from './generated/AttributeOptionView';
 export type { GroupChoice } from './generated/GroupChoice';
 export type { RaProfileChoice } from './generated/RaProfileChoice';
+export type { AskedProfile } from './generated/AskedProfile';
 export type { AttentionItemView } from './generated/AttentionItemView';
 export type { SummaryCounts } from './generated/SummaryCounts';
 export type { IlmCertificateView } from './generated/IlmCertificateView';
@@ -250,9 +251,15 @@ export function requestOffers(): Promise<RequestOffers> {
 /** The forms of a request as filled in, by kind; a kind without a form is left out. */
 export type RequestForms = Partial<Record<'request' | 'issue' | 'custom', AddForm>>;
 
-/** Creates a key, sends the signed request to ILM and returns the certificate to follow; rejects with a `RequestFailure`. */
-export function requestCertificate(raProfile: string, forms: RequestForms, storage: StorageId, keyType: KeyTypeId): Promise<RequestedView> {
-    return invoke<RequestedView>('request_certificate', { raProfile, forms, storage, keyType });
+/** Creates a key, sends the signed request to ILM and returns the certificate to follow; rejects with a `RequestFailure`. `asked` says the organization's policy asked for it. */
+export function requestCertificate(
+    raProfile: string,
+    forms: RequestForms,
+    storage: StorageId,
+    keyType: KeyTypeId,
+    asked?: boolean,
+): Promise<RequestedView> {
+    return invoke<RequestedView>('request_certificate', { raProfile, forms, storage, keyType, asked });
 }
 
 /**

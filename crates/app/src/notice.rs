@@ -1,6 +1,6 @@
 //! The notifications of the application: the sign-in has ended and has to be repeated, a certificate starts
 //! expiring, has expired or was revoked in ILM, a request for a certificate ends, a certificate is ready to
-//! issue, and a request waits for the person's approval.
+//! issue, a request waits for the person's approval, and what enrolment by policy asks of the person or could not do.
 
 use std::collections::HashSet;
 use std::io::ErrorKind;
@@ -9,12 +9,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, PoisonError};
 
 use im_core::Platform;
+use im_core::enrolment::completes_by_itself;
 use im_core::identity::Fingerprint;
 use im_core::inventory::{
     Approval, Item, Kind as Attention, Needs, Prepared, Reason, Refused, SignIn, Summary,
 };
 use im_core::requests::{Purpose, Waiting};
-use im_core::session::{EndReason, Followed, Outcome, SessionView};
+use im_core::session::{
+    EndReason, Enrolled, Followed, Outcome, RequestError, SessionView, SignInByPolicy,
+};
+use im_core::settings::Layer;
 use im_core::settings::store::write_atomically;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Runtime};
@@ -141,6 +145,12 @@ fn prepared_key(certificate: &str) -> String {
     format!("prepared:ready:{certificate}")
 }
 
+/// What is remembered of an RA Profile policy asks the person to request from, or of an enrolment that failed, once
+/// for each item.
+fn enrolment_key(outcome: &str, item: &str) -> String {
+    format!("enrolment:{outcome}:{item}")
+}
+
 /// What is remembered of an approval waiting for the person, once for each approval.
 fn approval_key(approval: &str) -> String {
     format!("approval:waiting:{approval}")
@@ -217,7 +227,10 @@ fn certificate_notice(item: &Item) -> Option<Notice> {
             "Certificate revoked".to_owned(),
             format!("{name} was revoked in ILM."),
         ),
-        Attention::NotInIlm { .. } | Attention::Waiting { .. } | Attention::Approval { .. } => {
+        Attention::NotInIlm { .. }
+        | Attention::Waiting { .. }
+        | Attention::Approval { .. }
+        | Attention::Asked { .. } => {
             return None;
         }
     };
@@ -286,7 +299,11 @@ fn request_notice(followed: &Followed) -> Option<Notice> {
         Outcome::Installed(_) => (
             "installed",
             "Certificate installed",
-            format!("Your certificate is installed: {label}"),
+            if followed.enrolled {
+                format!("Your certificate is ready: {label}")
+            } else {
+                format!("Your certificate is installed: {label}")
+            },
         ),
         Outcome::Ended(EndReason::Rejected) => (
             "rejected",
@@ -307,6 +324,69 @@ fn request_notice(followed: &Followed) -> Option<Notice> {
         body,
         kind,
     })
+}
+
+/// The notification that `found` is ready to be issued by the person.
+fn prepared_notice(found: &Prepared) -> Notice {
+    Notice {
+        key: prepared_key(&found.uuid),
+        fingerprint: None,
+        title: "Certificate ready".to_owned(),
+        body: format!("A certificate is ready for you to issue: {}", found.name),
+        kind: "ready",
+    }
+}
+
+/// What a failed enrolment says: the refusal of ILM to the person's right is told, ILM's own words are not.
+fn enrolment_failure(name: &str, error: &RequestError) -> String {
+    match error {
+        RequestError::NotAllowed | RequestError::Unexpected(403) => {
+            format!("Request failed: {name}. ILM does not allow this.")
+        }
+        _ => format!("Request failed: {name}"),
+    }
+}
+
+/// The notification of what enrolment by policy could not do alone: an RA Profile or a prepared certificate that
+/// needs the person, or a request that failed before ILM made a certificate. `prepared` names the certificates.
+fn enrolment_notice(outcome: &Enrolled, prepared: &[Prepared]) -> Option<Notice> {
+    let (key, title, body, kind) = match outcome {
+        Enrolled::Asked { profile, .. } => (
+            enrolment_key("asked", &profile.uuid),
+            "Request a certificate",
+            format!(
+                "Your organization asks you to request a certificate: {}",
+                profile.name
+            ),
+            "asked",
+        ),
+        Enrolled::PreparedAsked { uuid, .. } => {
+            return prepared
+                .iter()
+                .find(|found| found.uuid == *uuid)
+                .map(prepared_notice);
+        }
+        Enrolled::Failed { key, name, error } => (
+            enrolment_key("failed", key),
+            "Certificate request failed",
+            enrolment_failure(name, error),
+            "enrolment failed",
+        ),
+        Enrolled::Sent { .. } | Enrolled::Stopped => return None,
+    };
+    Some(Notice {
+        key,
+        fingerprint: None,
+        title: title.to_owned(),
+        body,
+        kind,
+    })
+}
+
+/// The certificates of `ready` that stay with the person: those `policy` does not complete by itself.
+pub fn staying_with_the_person(mut ready: Vec<Prepared>, policy: &Layer) -> Vec<Prepared> {
+    ready.retain(|found| !completes_by_itself(policy, found));
+    ready
 }
 
 fn more(count: usize) -> String {
@@ -558,12 +638,47 @@ impl Notices {
         current: impl Fn() -> bool,
         may_tell: impl Fn() -> bool,
     ) {
-        let notices = ready.iter().map(|found| Notice {
-            key: prepared_key(&found.uuid),
-            fingerprint: None,
-            title: "Certificate ready".to_owned(),
-            body: format!("A certificate is ready for you to issue: {}", found.name),
-            kind: "ready",
+        self.tell_once(ready.iter().map(prepared_notice), current, may_tell);
+    }
+
+    /// Tells the person about each of `outcomes` of enrolment that needs them or failed, once for each RA Profile or
+    /// certificate, also after a restart. `prepared` names the certificates. `current` and `may_tell` are asked as
+    /// for `summary`.
+    pub fn enrolled(
+        &self,
+        outcomes: &[Enrolled],
+        prepared: &[Prepared],
+        current: impl Fn() -> bool,
+        may_tell: impl Fn() -> bool,
+    ) {
+        let notices = outcomes
+            .iter()
+            .filter_map(|outcome| enrolment_notice(outcome, prepared));
+        self.tell_once(notices, current, may_tell);
+    }
+
+    /// Tells the person about each certificate that could not become the sign-in certificate after enough
+    /// attempts, once for each certificate, also after a restart. `name` gives the name of a certificate by its
+    /// UUID. `current` and `may_tell` are asked as for `summary`.
+    pub fn sign_in_certificate(
+        &self,
+        outcomes: &[SignInByPolicy],
+        name: impl Fn(&str) -> Option<String>,
+        current: impl Fn() -> bool,
+        may_tell: impl Fn() -> bool,
+    ) {
+        let notices = outcomes.iter().filter_map(|outcome| match outcome {
+            SignInByPolicy::Failed { uuid, .. } if outcome.needs_notice() => Some(Notice {
+                key: enrolment_key("sign-in", uuid),
+                fingerprint: None,
+                title: "Sign-in certificate".to_owned(),
+                body: format!(
+                    "{} could not become your sign-in certificate.",
+                    name(uuid).unwrap_or_else(|| "A certificate".to_owned())
+                ),
+                kind: "sign-in certificate",
+            }),
+            _ => None,
         });
         self.tell_once(notices, current, may_tell);
     }
@@ -1241,6 +1356,7 @@ mod tests {
             label: label.to_owned(),
             outcome,
             replaces: None,
+            enrolled: false,
         }
     }
 
@@ -1349,6 +1465,7 @@ mod tests {
             label: "x".to_owned(),
             outcome: Outcome::Ended(EndReason::NotSent),
             replaces: None,
+            enrolled: false,
         };
 
         notices.followed(
@@ -1906,6 +2023,346 @@ mod tests {
                 .unwrap()
                 .iter()
                 .all(|line| !line.contains("Zebra"))
+        );
+    }
+
+    use im_core::attributes::Needs as Asked;
+    use im_core::ilm::certificates::RegistrationState;
+    use im_core::ilm::issue::Registration;
+    use im_core::ilm::upload::RaProfileChoice;
+    use im_core::session::{Enrolled, RequestError, SignInByPolicy};
+    use im_core::settings::Layer;
+
+    fn enrolled_install(uuid: &str, label: &str) -> Followed {
+        Followed {
+            enrolled: true,
+            ..followed(uuid, label, installed())
+        }
+    }
+
+    fn failed(key: &str, name: &str, error: RequestError) -> Enrolled {
+        Enrolled::Failed {
+            key: key.to_owned(),
+            name: name.to_owned(),
+            error,
+        }
+    }
+
+    fn enrolled(notices: &Notices, outcomes: &[Enrolled], ready: &[Prepared]) {
+        notices.enrolled(outcomes, ready, || true, || true);
+    }
+
+    fn asking(uuid: &str, name: &str) -> Enrolled {
+        Enrolled::Asked {
+            profile: RaProfileChoice {
+                uuid: uuid.to_owned(),
+                name: name.to_owned(),
+                description: None,
+                authority: None,
+                authority_uuid: None,
+            },
+            reason: Asked::Required,
+        }
+    }
+
+    fn completing_policy(on: bool) -> Layer {
+        Layer {
+            complete_prepared: Some(on),
+            ..Layer::default()
+        }
+    }
+
+    fn challenged(uuid: &str) -> Prepared {
+        Prepared {
+            registration: Some(Registration {
+                state: RegistrationState::Active,
+                expires_at: None,
+            }),
+            ..prepared(uuid, "challenged")
+        }
+    }
+
+    #[test]
+    fn an_enrolled_install_is_told_as_ready_and_a_plain_one_as_installed() {
+        let (notices, log) = notices(Platform::Macos);
+
+        notices.followed(
+            &[
+                enrolled_install("c-1", "demo220"),
+                followed("c-2", "other", installed()),
+            ],
+            || true,
+            || true,
+        );
+
+        assert_eq!(
+            told(&log),
+            [
+                pair(
+                    "Certificate installed",
+                    "Your certificate is ready: demo220"
+                ),
+                pair(
+                    "Certificate installed",
+                    "Your certificate is installed: other"
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_enrolled_install_is_told_once_and_not_while_the_wizard_shows_it() {
+        let (notices, log) = notices(Platform::Macos);
+        notices.wizard_shows("c-1");
+        let done = [
+            enrolled_install("c-1", "demo220"),
+            enrolled_install("c-2", "b"),
+        ];
+
+        notices.followed(&done, || true, || true);
+        notices.followed(&done, || true, || true);
+
+        assert_eq!(
+            told(&log),
+            [pair(
+                "Certificate installed",
+                "Your certificate is ready: b"
+            )]
+        );
+    }
+
+    #[test]
+    fn a_profile_that_asks_for_the_person_is_told_once_across_two_checks() {
+        let folder = tempfile::tempdir().unwrap();
+        let (notices, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        let outcomes = [asking("ra-1", "Servers"), asking("ra-2", "VPN")];
+
+        enrolled(&notices, &outcomes, &[]);
+        enrolled(&notices, &outcomes, &[]);
+
+        assert_eq!(
+            told(&log),
+            [
+                pair(
+                    "Request a certificate",
+                    "Your organization asks you to request a certificate: Servers"
+                ),
+                pair(
+                    "Request a certificate",
+                    "Your organization asks you to request a certificate: VPN"
+                ),
+            ]
+        );
+        let stored = std::fs::read_to_string(folder.path().join("notified.json")).unwrap();
+        assert!(stored.contains("enrolment:asked:ra-1") && stored.contains("enrolment:asked:ra-2"));
+    }
+
+    #[test]
+    fn a_prepared_certificate_that_needs_the_person_is_told_as_ready_to_issue_once() {
+        let (notices, log) = notices(Platform::Macos);
+        let outcome = [Enrolled::PreparedAsked {
+            uuid: "c-1".to_owned(),
+            reason: Asked::Required,
+        }];
+        let ready = [prepared("c-1", "demo220")];
+
+        enrolled(&notices, &outcome, &ready);
+        enrolled(&notices, &outcome, &ready);
+        notices.prepared(&ready, || true, || true);
+
+        assert_eq!(
+            told(&log),
+            [pair(
+                "Certificate ready",
+                "A certificate is ready for you to issue: demo220"
+            )]
+        );
+    }
+
+    #[test]
+    fn a_failed_enrolment_is_told_with_the_name_once_and_says_when_ilm_does_not_allow_it() {
+        let folder = tempfile::tempdir().unwrap();
+        let (notices, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        let outcomes = [
+            failed("profile:ra-1", "Servers", RequestError::Refused(Vec::new())),
+            failed("prepared:c-1", "demo220", RequestError::NotAllowed),
+        ];
+
+        enrolled(&notices, &outcomes, &[]);
+        enrolled(&notices, &outcomes, &[]);
+
+        assert_eq!(
+            told(&log),
+            [
+                pair("Certificate request failed", "Request failed: Servers"),
+                pair(
+                    "Certificate request failed",
+                    "Request failed: demo220. ILM does not allow this."
+                ),
+            ]
+        );
+        let stored = std::fs::read_to_string(folder.path().join("notified.json")).unwrap();
+        assert!(
+            stored.contains("enrolment:failed:profile:ra-1")
+                && stored.contains("enrolment:failed:prepared:c-1")
+        );
+    }
+
+    #[test]
+    fn a_refusal_of_the_forms_says_ilm_does_not_allow_it() {
+        let (notices, log) = notices(Platform::Macos);
+
+        enrolled(
+            &notices,
+            &[failed(
+                "profile:ra-1",
+                "Servers",
+                RequestError::Unexpected(403),
+            )],
+            &[],
+        );
+
+        assert_eq!(
+            told(&log),
+            [pair(
+                "Certificate request failed",
+                "Request failed: Servers. ILM does not allow this."
+            )]
+        );
+    }
+
+    #[test]
+    fn a_quiet_enrolment_tells_nothing() {
+        let (notices, log) = notices(Platform::Macos);
+
+        enrolled(
+            &notices,
+            &[
+                Enrolled::Sent {
+                    key: "profile:ra-1".to_owned(),
+                    uuid: "c-1".to_owned(),
+                },
+                Enrolled::Stopped,
+            ],
+            &[],
+        );
+
+        assert!(told(&log).is_empty());
+    }
+
+    fn sign_in_failed(failures: u32) -> [SignInByPolicy; 1] {
+        [SignInByPolicy::Failed {
+            uuid: "c-1".to_owned(),
+            failures,
+        }]
+    }
+
+    fn named(uuid: &str) -> Option<String> {
+        (uuid == "c-1").then(|| "demo220".to_owned())
+    }
+
+    #[test]
+    fn a_certificate_that_could_not_become_the_sign_in_certificate_is_told_at_the_third_failure_once()
+     {
+        let (notices, log) = notices(Platform::Macos);
+
+        for failures in [1, 2] {
+            notices.sign_in_certificate(&sign_in_failed(failures), named, || true, || true);
+        }
+        assert!(told(&log).is_empty());
+        for _ in 0..2 {
+            notices.sign_in_certificate(&sign_in_failed(3), named, || true, || true);
+        }
+        notices.sign_in_certificate(
+            &[SignInByPolicy::Set {
+                uuid: "c-2".to_owned(),
+            }],
+            named,
+            || true,
+            || true,
+        );
+
+        assert_eq!(
+            told(&log),
+            [pair(
+                "Sign-in certificate",
+                "demo220 could not become your sign-in certificate."
+            )]
+        );
+    }
+
+    #[test]
+    fn a_sign_in_failure_told_late_because_the_application_was_locked_is_still_told_once() {
+        let (notices, log) = notices(Platform::Macos);
+
+        notices.sign_in_certificate(&sign_in_failed(3), named, || true, || false);
+        assert!(told(&log).is_empty());
+        for failures in [4, 5] {
+            notices.sign_in_certificate(&sign_in_failed(failures), named, || true, || true);
+        }
+
+        assert_eq!(
+            told(&log),
+            [pair(
+                "Sign-in certificate",
+                "demo220 could not become your sign-in certificate."
+            )]
+        );
+    }
+
+    #[test]
+    fn enrolment_and_sign_in_outcomes_of_a_superseded_check_are_neither_told_nor_remembered() {
+        let folder = tempfile::tempdir().unwrap();
+        let (notices, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+
+        notices.enrolled(&[asking("ra-1", "Servers")], &[], || false, || true);
+        notices.sign_in_certificate(&sign_in_failed(3), named, || false, || true);
+
+        assert!(told(&log).is_empty());
+        assert!(!folder.path().join("notified.json").exists());
+    }
+
+    #[test]
+    fn a_sign_in_certificate_the_inventory_does_not_know_is_told_as_a_certificate() {
+        let (notices, log) = notices(Platform::Macos);
+
+        notices.sign_in_certificate(&sign_in_failed(3), |_| None, || true, || true);
+
+        assert_eq!(
+            told(&log),
+            [pair(
+                "Sign-in certificate",
+                "A certificate could not become your sign-in certificate."
+            )]
+        );
+    }
+
+    #[test]
+    fn a_prepared_certificate_that_completes_by_itself_is_not_ready_to_issue() {
+        let ready = vec![prepared("c-1", "plain"), challenged("c-2")];
+
+        let staying = staying_with_the_person(ready, &completing_policy(true));
+
+        assert_eq!(
+            staying
+                .iter()
+                .map(|found| found.uuid.as_str())
+                .collect::<Vec<_>>(),
+            ["c-2"]
+        );
+    }
+
+    #[test]
+    fn every_prepared_certificate_is_ready_to_issue_while_the_switch_is_off() {
+        let ready = vec![prepared("c-1", "plain"), challenged("c-2")];
+
+        assert_eq!(
+            staying_with_the_person(ready.clone(), &completing_policy(false)),
+            ready
+        );
+        assert_eq!(
+            staying_with_the_person(ready.clone(), &Layer::default()),
+            ready
         );
     }
 }

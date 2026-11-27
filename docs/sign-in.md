@@ -219,6 +219,21 @@ ILM records the certificate as your sign-in certificate, and the previous one no
 signed in with a certificate, Identity Manager switches to the new one at once. If you are signed in with OAuth,
 nothing else changes.
 
+### Set by policy
+
+Your organization can name the RA Profile of the sign-in certificate with the `SignInCertificateProfile` policy key,
+see [policy.md](policy.md). When enrolment installs a certificate from that RA Profile (see
+[certificates.md](certificates.md)), Identity Manager records it in ILM as the person's sign-in certificate, as above,
+and the previous one no longer works for sign-in. When the person is signed in with a certificate, Identity Manager
+switches to the new one at once.
+
+- It is not set when `SignInMethod` is `oauth`.
+- Only a certificate that enrolment installed with its key on this computer is made the sign-in certificate.
+- When ILM does not accept the change, the certificate stays installed and the old sign-in certificate keeps working.
+  Identity Manager tries again at the next check, at most once a day. After the third failure the person is told once
+  that the certificate could not become the sign-in certificate.
+- A renewal moves the sign-in to the renewed certificate, as for any sign-in certificate.
+
 ## What the application stores
 
 After sign-in Identity Manager keeps the refresh token in the protected storage of the system, in one item together
@@ -237,4 +252,5 @@ Changing the ILM address signs out first.
 ## Policy
 
 The policy keys `IlmUrl` (the address of the ILM), `SignInProvider` (the name of the provider to use when ILM
-publishes several) and `SignInMethod` (`oauth` or `certificate`, see above) concern sign-in. See [policy.md](policy.md) for their types, sources and rules.
+publishes several), `SignInMethod` (`oauth` or `certificate`, see above) and `SignInCertificateProfile` (the RA
+Profile of the sign-in certificate, see above) concern sign-in. See [policy.md](policy.md) for their types, sources and rules.

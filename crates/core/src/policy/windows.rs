@@ -53,7 +53,7 @@ fn read_key(hive: winreg::HKEY, scope: &str) -> Layer {
             (name, mapped)
         });
     let raw = parse_registry(values);
-    log::info!("policy found at {source} with {} value(s)", raw.len());
+    log::debug!("policy found at {source} with {} value(s)", raw.len());
     super::to_layer(&raw, &source)
 }
 

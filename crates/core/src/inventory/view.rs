@@ -319,6 +319,9 @@ pub struct InventoryView {
     pub prepared: Vec<PreparedView>,
     /// The requests of others that wait for the person's approval.
     pub approvals: Vec<ApprovalView>,
+    /// The RA Profiles the organization asks the person to request from and that they have not; given by
+    /// `with_asked`.
+    pub asked: Vec<AskedProfile>,
     /// The requests of the person that ILM has not finished; given by `with_requests`.
     pub requests: Vec<MyRequestView>,
     /// The renewal of the certificates on this computer, by fingerprint; given by `with_renewals`.
@@ -367,9 +370,17 @@ impl InventoryView {
             approvals: snapshot.map_or_else(Vec::new, |snapshot| {
                 snapshot.approvals.iter().map(Into::into).collect()
             }),
+            asked: Vec::new(),
             requests: Vec::new(),
             renewals: HashMap::new(),
         }
+    }
+
+    /// Lists the RA Profiles `asked` of the person.
+    #[must_use]
+    pub fn with_asked(mut self, asked: Vec<AskedProfile>) -> Self {
+        self.asked = asked;
+        self
     }
 
     /// Gives what the screens show of renewal.
@@ -386,6 +397,8 @@ impl InventoryView {
     pub fn with_requests(mut self, waiting: &[Waiting], followed: &[Followed]) -> Self {
         self.prepared
             .retain(|found| !is_begun(&found.uuid, waiting));
+        self.asked
+            .retain(|profile| !is_requested(&profile.uuid, waiting));
         self.requests = waiting
             .iter()
             .filter(|entry| !matches!(entry.purpose, crate::requests::Purpose::Revoke { .. }))
@@ -549,6 +562,24 @@ pub enum AttentionItemView {
         name: String,
         action: ApprovalAction,
     },
+    /// An RA Profile the organization asks the person to request from.
+    Asked {
+        uuid: String,
+        name: String,
+    },
+}
+
+/// An RA Profile the organization's policy asks the person to request from, because its form needs them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    any(test, feature = "ts"),
+    derive(ts_rs::TS),
+    ts(export, rename_all = "camelCase")
+)]
+pub struct AskedProfile {
+    pub uuid: String,
+    pub name: String,
 }
 
 /// What ILM is doing with a request that is not yet a certificate.
@@ -601,6 +632,10 @@ impl From<&Item> for AttentionItemView {
                 uuid: uuid.clone(),
                 name: name(),
                 action: *action,
+            },
+            Kind::Asked { uuid } => Self::Asked {
+                uuid: uuid.clone(),
+                name: name(),
             },
         }
     }
@@ -660,6 +695,11 @@ impl SummaryView {
         }
         self
     }
+}
+
+/// Whether one of the requests `waiting`, leaving out revocations, is for the RA Profile `uuid`.
+pub(super) fn is_requested(uuid: &str, waiting: &[Waiting]) -> bool {
+    waiting.iter().any(|entry| entry.requests_from(uuid))
 }
 
 #[cfg(test)]
@@ -811,6 +851,24 @@ mod tests {
     }
 
     #[test]
+    fn an_asked_profile_is_an_attention_item_with_its_uuid_and_name() {
+        let item = Item {
+            kind: Kind::Asked {
+                uuid: "ra-1".to_owned(),
+            },
+            fingerprint: None,
+            name: "Servers".to_owned(),
+        };
+
+        let json = serde_json::to_value(AttentionItemView::from(&item)).unwrap();
+
+        assert_eq!(
+            json,
+            json!({ "kind": "asked", "uuid": "ra-1", "name": "Servers" })
+        );
+    }
+
+    #[test]
     fn a_snapshot_shows_its_matches_codes_and_sign_in_but_no_actions() {
         let page = CertificatePage {
             certificates: vec![certificate(Fingerprint::of(b"b"))],
@@ -918,6 +976,7 @@ mod tests {
             label: "x".to_owned(),
             outcome,
             replaces: None,
+            enrolled: false,
         }
     }
 
@@ -1053,5 +1112,25 @@ mod tests {
 
         assert_eq!(view.requests.len(), 1);
         assert_eq!(view.requests[0].uuid.as_deref(), Some("c-2"));
+    }
+
+    #[test]
+    fn a_waiting_revocation_does_not_take_a_profile_out_of_the_asked_ones() {
+        let mut revoking = waiting(Some("c-1"), "k-1", 10);
+        revoking.purpose = crate::requests::Purpose::Revoke {
+            certificate: "c-1".to_owned(),
+            fingerprint: crate::identity::Fingerprint::of(&[1]),
+            remove: false,
+        };
+        let asked = AskedProfile {
+            uuid: "ra-1".to_owned(),
+            name: "Servers".to_owned(),
+        };
+
+        let view = InventoryView::new(Status::Never, None, false, true, true)
+            .with_asked(vec![asked.clone()])
+            .with_requests(&[revoking], &[]);
+
+        assert_eq!(view.asked, [asked]);
     }
 }
