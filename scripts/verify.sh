@@ -323,7 +323,11 @@ run_msiexec() {
 # Prints "<type> <data>" of value $1 of the 64-bit key $2, or nothing when it is not there.
 policy_value() {
     MSYS2_ARG_CONV_EXCL='*' reg query "$2" /v "$1" /reg:64 2> /dev/null | tr -d '\r' \
-        | awk -v name="$1" '$1 == name { print $2, $3 }' || true
+        | awk -v name="$1" '$1 == name {
+            type = $2
+            sub(/^[[:space:]]*[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+/, "")
+            print type, $0
+        }' || true
 }
 
 # $1 is a registry key and the other arguments are "<name> <type> <data>"; fails with a line for every value of the
