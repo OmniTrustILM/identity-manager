@@ -41,8 +41,8 @@ pub struct Offer {
 pub trait Updates: Send + Sync {
     /// The version on offer, or none when the running one is the latest.
     fn check(&self) -> Boxed<'_, Result<Option<Offer>, String>>;
-    /// Downloads and installs `version` if the last check offered it when this is called, then restarts the
-    /// application.
+    /// Downloads `version` if the last check offered it when this is called, and unless updates were turned off
+    /// meanwhile, installs it and restarts the application.
     fn install(&self, version: &str) -> Boxed<'_, Result<(), String>>;
 }
 
@@ -220,6 +220,11 @@ fn install_failed(error: &tauri_plugin_updater::Error) -> &'static str {
     }
 }
 
+/// Whether the person or the organization has automatic updates on.
+fn enabled<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.state::<Arc<Settings>>().view().automatic_updates.value
+}
+
 /// The updater of Tauri, which keeps what the last check offered for the installation.
 pub struct SystemUpdates<R: Runtime> {
     app: AppHandle<R>,
@@ -260,10 +265,15 @@ impl<R: Runtime> Updates for SystemUpdates<R> {
         Box::pin(async move {
             let mut update = found.ok_or("the update on offer changed".to_owned())?;
             update.timeout = Some(DOWNLOAD_TIMEOUT);
-            update
-                .download_and_install(|_, _| {}, || {})
+            let bytes = update
+                .download(|_, _| {}, || {})
                 .await
                 .map_err(|e| install_failed(&e))?;
+            if !enabled(&self.app) {
+                log::info!("updates were turned off during the download");
+                return Ok(());
+            }
+            update.install(bytes).map_err(|e| install_failed(&e))?;
             log::info!("restarting after the update");
             self.app.restart()
         })
@@ -287,11 +297,7 @@ impl<R: Runtime> SystemHost<R> {
 
 impl<R: Runtime> Host for SystemHost<R> {
     fn enabled(&self) -> bool {
-        self.app
-            .state::<Arc<Settings>>()
-            .view()
-            .automatic_updates
-            .value
+        enabled(&self.app)
     }
 
     fn offered(&self, version: Option<&str>) {

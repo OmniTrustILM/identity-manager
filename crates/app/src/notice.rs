@@ -156,9 +156,12 @@ fn approval_key(approval: &str) -> String {
     format!("approval:waiting:{approval}")
 }
 
+/// The start of what is remembered of a version of the application offered.
+const UPDATE_PREFIX: &str = "update:";
+
 /// What is remembered of a version of the application offered, once for each version.
 fn update_key(version: &str) -> String {
-    format!("update:{version}")
+    format!("{UPDATE_PREFIX}{version}")
 }
 
 /// What is remembered of a renewal that failed, once for each certificate it renews.
@@ -771,17 +774,27 @@ impl Notices {
             .contains(certificate)
     }
 
-    /// Forgets what was sent and what the wizard shows, as a sign-out does: the next person is told again.
+    /// Forgets what was sent and what the wizard shows, as a sign-out does: the next person is told again. The
+    /// versions of the application offered are kept, as they do not belong to the person.
     pub fn forget(&self) {
         self.wizard
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clear();
-        *self
+        let mut remembered = self
             .remembered
             .lock()
-            .unwrap_or_else(PoisonError::into_inner) = None;
-        if let Err(error) = std::fs::remove_file(&self.file)
+            .unwrap_or_else(PoisonError::into_inner);
+        let offered: Vec<String> = remembered
+            .take()
+            .unwrap_or_else(|| self.load())
+            .into_iter()
+            .filter(|key| key.starts_with(UPDATE_PREFIX))
+            .collect();
+        if !offered.is_empty() {
+            self.save(&offered);
+            *remembered = Some(offered);
+        } else if let Err(error) = std::fs::remove_file(&self.file)
             && error.kind() != ErrorKind::NotFound
         {
             log::warn!("the record of notifications could not be deleted: {error}");
@@ -1814,6 +1827,24 @@ mod tests {
         notices.update_available("0.2.0");
         notices.summary(&summary(Vec::new()), &[], || true, || true);
         notices.update_available("0.2.0");
+        assert_eq!(told(&log).len(), 1);
+    }
+
+    #[test]
+    fn a_sign_out_keeps_the_offered_versions_and_forgets_the_rest() {
+        let folder = tempfile::tempdir().unwrap();
+        let (notices, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        let soon = summary(vec![expiring("Ada", 1)]);
+        notices.update_available("0.2.0");
+        notices.summary(&soon, &on_computer(6), || true, || true);
+        assert_eq!(told(&log).len(), 2);
+
+        notices.forget();
+
+        let (again, log) = notices_in(folder.path().to_owned(), Platform::Macos);
+        again.update_available("0.2.0");
+        assert!(told(&log).is_empty());
+        again.summary(&soon, &on_computer(6), || true, || true);
         assert_eq!(told(&log).len(), 1);
     }
 

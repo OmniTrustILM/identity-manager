@@ -166,6 +166,7 @@ impl Session {
         let (Some(who), Some(enrolments)) = (self.current_sign_in(), &self.enrolments) else {
             return self.request(ra_profile, forms, storage, key_type).await;
         };
+        let _claiming = self.claiming.read().await;
         let claimed = enrolments
             .mark_done(&who.ilm, &who.username, &ra_profile.uuid)
             .map_err(|error| {
@@ -262,6 +263,7 @@ impl Session {
                 return self.failed(run, key, &profile.name, ChangeError::from(error).into());
             }
         };
+        let claiming = self.claiming.read().await;
         let outcome = match self.unattended_forms(&forms) {
             Err(reason) => {
                 log::info!(
@@ -300,6 +302,7 @@ impl Session {
                 }
             },
         };
+        drop(claiming);
         self.close_request_forms(&forms);
         outcome
     }

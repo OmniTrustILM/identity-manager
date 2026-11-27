@@ -409,6 +409,9 @@ pub struct Session {
     enrolments: Option<Arc<Enrolments>>,
     /// Held for a whole follow of the waiting requests, so two follows do not end the same request.
     following: tokio::sync::Mutex<()>,
+    /// Read from the claim of an RA Profile until its request is sent or the claim is released, so holding the
+    /// sends never leaves a claim without its request.
+    claiming: tokio::sync::RwLock<()>,
     /// The last state of each followed certificate, to log only its changes.
     seen: Mutex<std::collections::HashMap<String, String>>,
 }
@@ -461,6 +464,13 @@ fn parse_address(text: &str) -> Result<IlmUrl, AddressError> {
     IlmUrl::parse(text)
 }
 
+/// Keeps sends to ILM waiting until it is dropped.
+pub struct SendsHeld<'a> {
+    _claiming: tokio::sync::RwLockWriteGuard<'a, ()>,
+    _following: tokio::sync::MutexGuard<'a, ()>,
+    _changing: tokio::sync::MutexGuard<'a, ()>,
+}
+
 impl Session {
     /// `on_change` runs after every change of the view, so the application can tell its windows.
     pub fn new(
@@ -491,6 +501,7 @@ impl Session {
             renewals: None,
             enrolments: None,
             following: tokio::sync::Mutex::new(()),
+            claiming: tokio::sync::RwLock::new(()),
             seen: Mutex::default(),
         }
     }
@@ -523,15 +534,15 @@ impl Session {
     }
 
     /// Waits until no request, renewal, revocation, enrolment or change of the sign-in certificate is under way,
-    /// and keeps further ones waiting until the guards are dropped.
-    pub async fn hold_sends(
-        &self,
-    ) -> (
-        tokio::sync::MutexGuard<'_, ()>,
-        tokio::sync::MutexGuard<'_, ()>,
-    ) {
+    /// and keeps further ones waiting until the returned guard is dropped.
+    pub async fn hold_sends(&self) -> SendsHeld<'_> {
+        let claiming = self.claiming.write().await;
         let following = self.following.lock().await;
-        (following, self.changing.lock().await)
+        SendsHeld {
+            _claiming: claiming,
+            _following: following,
+            _changing: self.changing.lock().await,
+        }
     }
 
     /// The address of ILM while a saved sign-in cannot be renewed because ILM or the identity provider cannot be

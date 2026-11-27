@@ -347,6 +347,17 @@ async fn holding_the_sends_keeps_the_next_hold_waiting_until_it_is_dropped() {
 }
 
 #[tokio::test]
+async fn holding_the_sends_waits_for_a_claimed_profile_to_be_sent() {
+    let world = World::new().await;
+    let claiming = world.session.claiming.read().await;
+    let waiting = tokio::time::timeout(Duration::from_millis(50), world.session.hold_sends()).await;
+    assert!(waiting.is_err());
+    drop(claiming);
+    let free = tokio::time::timeout(Duration::from_secs(5), world.session.hold_sends()).await;
+    assert!(free.is_ok());
+}
+
+#[tokio::test]
 async fn holding_the_sends_waits_for_a_change_of_the_sign_in_certificate() {
     let world = World::new().await;
     let changing = world.session.changing.lock().await;
