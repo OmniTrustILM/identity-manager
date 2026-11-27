@@ -464,7 +464,7 @@ impl Notices {
                 || on_computer.iter().any(|suffix| key.ends_with(suffix))
         });
         let pruned = kept.len() != held.len();
-        let first = kept.is_empty();
+        let first = kept.iter().all(|key| key.starts_with(UPDATE_PREFIX));
         let fresh: Vec<_> = notices
             .iter()
             .filter(|notice| !kept.contains(&notice.key))
@@ -1846,6 +1846,21 @@ mod tests {
         assert!(told(&log).is_empty());
         again.summary(&soon, &on_computer(6), || true, || true);
         assert_eq!(told(&log).len(), 1);
+    }
+
+    #[test]
+    fn an_offered_version_does_not_end_the_first_run_limit() {
+        let (notices, log) = notices(Platform::Macos);
+        notices.update_available("0.2.0");
+        let many = summary(
+            (1..=6)
+                .map(|number| expiring(&format!("c{number}"), number))
+                .collect(),
+        );
+
+        notices.summary(&many, &on_computer(6), || true, || true);
+
+        assert_eq!(told(&log).len(), 1 + 4);
     }
 
     #[test]
