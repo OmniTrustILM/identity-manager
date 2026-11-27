@@ -322,8 +322,9 @@ run_msiexec() {
 
 # Prints "<type> <data>" of value $1 of the 64-bit key $2, or nothing when it is not there.
 policy_value() {
-    MSYS2_ARG_CONV_EXCL='*' reg query "$2" /v "$1" /reg:64 2> /dev/null | tr -d '\r' \
-        | awk -v name="$1" '$1 == name {
+    local name=$1 key=$2
+    MSYS2_ARG_CONV_EXCL='*' reg query "$key" /v "$name" /reg:64 2> /dev/null | tr -d '\r' \
+        | awk -v name="$name" '$1 == name {
             type = $2
             sub(/^[[:space:]]*[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+/, "")
             print type, $0
@@ -347,12 +348,12 @@ expect_policy_values() {
 
 # Starts the installed application in self-check mode and expects the policy line to name exactly $1.
 expect_installed_policy() {
-    local binary output
+    local names=$1 binary output
     binary=$(find "$(cygpath -u "$PROGRAMFILES")" -maxdepth 3 -name identity-manager.exe | head -n 1)
     [[ -n "$binary" ]] || { echo "the installed application was not found" >&2; exit 1; }
     output=$("$binary" --self-check)
     echo "$output"
-    grep -Fxq "self-check policy managed: $1" <<< "$output" || { echo "the policy line does not name: $1" >&2; exit 1; }
+    grep -Fxq "self-check policy managed: $names" <<< "$output" || { echo "the policy line does not name: $names" >&2; exit 1; }
 }
 
 # Expects the policy key to hold the MSI's values and the value it does not own, the installer's record to hold the
