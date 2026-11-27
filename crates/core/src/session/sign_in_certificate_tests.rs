@@ -9,7 +9,8 @@ use wiremock::matchers::{body_json, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
 use super::tests::{LOG, World, capture_logs};
-use super::{ChangeError, ConnectionSettings, SessionView};
+use super::{ChangeError, ConnectionSettings, SessionView, SignInByPolicy};
+use crate::enrolment::{DAY_MS, Enrolments, sign_in_key};
 use crate::http::client_for_tests;
 use crate::identity::testing::{Issue, StandInStore, TestCa, TestIdentity};
 use crate::identity::tls::CertificateAsked;
@@ -19,6 +20,8 @@ use crate::identity::{
 use crate::ilm::certificates::search_text;
 use crate::inventory::{Inventory, Status, Trigger};
 use crate::requests::{PendingSwitch, Purpose, Requests, Waiting};
+use crate::session::request::now_ms;
+use crate::settings::{Layer, SignInMethod};
 
 const PROFILE: &str = "/api/v1/auth/profile";
 const SEARCH: &str = "/api/v1/certificates";
@@ -46,6 +49,7 @@ fn profile() -> Value {
 struct Change {
     world: World,
     inventory: Arc<Inventory>,
+    enrolments: Arc<Enrolments>,
     jane: TestIdentity,
     _folder: TempDir,
 }
@@ -67,10 +71,15 @@ impl Change {
     }
 
     async fn on(overrides: Value, jane: TestIdentity, store: impl IdentityStore + 'static) -> Self {
+        let folder = tempfile::tempdir().unwrap();
+        let enrolments = Arc::new(Enrolments::new(folder.path()));
         let mut world = World::new().await.with_identities(store);
-        world.session = world.session.with_certificate_client(Box::new(|_| {
-            (client_for_tests(), CertificateAsked::offered_for_tests())
-        }));
+        world.session = world
+            .session
+            .with_certificate_client(Box::new(|_| {
+                (client_for_tests(), CertificateAsked::offered_for_tests())
+            }))
+            .with_enrolments(enrolments.clone());
         world.code_grant("access", Some("refresh"), 3600).await;
         Mock::given(method("GET"))
             .and(path(PROFILE))
@@ -111,12 +120,12 @@ impl Change {
             world.sign_in().await,
             SessionView::SignedIn { .. }
         ));
-        let folder = tempfile::tempdir().unwrap();
         let inventory = Arc::new(Inventory::new(folder.path()));
         inventory.attach(&world.session);
         let change = Self {
             world,
             inventory,
+            enrolments,
             jane,
             _folder: folder,
         };
@@ -630,6 +639,7 @@ async fn a_change_with_a_renewal_waiting_to_move_the_sign_in_completes() {
                     failures: 1,
                 }),
             },
+            enrolled: false,
         })
         .unwrap();
     change
@@ -639,4 +649,364 @@ async fn a_change_with_a_renewal_waiting_to_move_the_sign_in_completes() {
     let made = tokio::time::timeout(Duration::from_secs(10), change.make()).await;
 
     assert_eq!(made.expect("the change does not hang"), Ok(()));
+}
+
+// By policy: the certificate that enrolment installed becomes the sign-in certificate.
+
+const ENROLLED: &str = "u-staff";
+const STAFF: &str = r#"{ "uuid": "ra-staff", "name": "Staff" }"#;
+
+fn staff() -> Value {
+    serde_json::from_str(STAFF).unwrap()
+}
+
+fn naming(profile: &str) -> Layer {
+    Layer {
+        sign_in_certificate_profile: Some(profile.to_owned()),
+        ..Layer::default()
+    }
+}
+
+impl Change {
+    /// ILM's matched certificate is from the RA Profile "Staff"; enrolment installed it.
+    async fn enrolled() -> Self {
+        let change = Self::with(
+            json!({ "uuid": ENROLLED, "raProfile": staff() }),
+            SystemTime::now(),
+        )
+        .await;
+        change.installed();
+        change
+    }
+
+    fn installed(&self) {
+        self.enrolments
+            .mark_installed(&self.ilm(), "jdoe", ENROLLED)
+            .unwrap();
+    }
+
+    fn ilm(&self) -> crate::ilm::IlmUrl {
+        self.world.session.signed_in_as().unwrap().ilm
+    }
+
+    async fn by_policy(&self, policy: &Layer) -> Vec<SignInByPolicy> {
+        self.world
+            .session
+            .sign_in_by_policy(&self.inventory, policy, &|| true)
+            .await
+    }
+
+    fn standing(&self) -> crate::enrolment::Standing {
+        self.enrolments.standing(&self.ilm(), "jdoe").unwrap()
+    }
+
+    fn failed_at(&self, at: i64) {
+        self.enrolments
+            .record_failure(&self.ilm(), "jdoe", &sign_in_key(ENROLLED), at)
+            .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn an_installed_enrolled_certificate_of_the_named_profile_becomes_the_sign_in_certificate() {
+    let change = Change::enrolled().await;
+    change
+        .answer_update(ResponseTemplate::new(200).set_body_json(profile()))
+        .await;
+
+    let done = change.by_policy(&naming("Staff")).await;
+
+    assert_eq!(
+        done,
+        vec![SignInByPolicy::Set {
+            uuid: ENROLLED.into()
+        }]
+    );
+    assert_eq!(change.updates().await, 1);
+    assert!(change.standing().installed.is_empty());
+}
+
+#[tokio::test]
+async fn a_certificate_of_another_profile_is_left_as_it_is() {
+    let change = Change::enrolled().await;
+
+    let done = change.by_policy(&naming("Servers")).await;
+
+    assert!(done.is_empty());
+    assert_eq!(change.updates().await, 0);
+    assert!(change.standing().installed.is_empty());
+}
+
+#[tokio::test]
+async fn a_certificate_issued_outside_enrolment_is_left_as_it_is() {
+    let change = Change::with(
+        json!({ "uuid": ENROLLED, "raProfile": staff() }),
+        SystemTime::now(),
+    )
+    .await;
+
+    let done = change.by_policy(&naming("Staff")).await;
+
+    assert!(done.is_empty());
+    assert_eq!(change.updates().await, 0);
+}
+
+#[tokio::test]
+async fn no_profile_named_or_an_oauth_only_policy_changes_nothing() {
+    let change = Change::enrolled().await;
+    let oauth = Layer {
+        sign_in_method: Some(SignInMethod::Oauth),
+        ..naming("Staff")
+    };
+
+    assert!(change.by_policy(&Layer::default()).await.is_empty());
+    assert!(change.by_policy(&oauth).await.is_empty());
+    assert_eq!(change.updates().await, 0);
+}
+
+#[tokio::test]
+async fn a_certificate_that_already_is_the_sign_in_certificate_changes_nothing() {
+    let change = Change::enrolled().await;
+    let mut held = profile();
+    held["certificate"] =
+        json!({ "uuid": ENROLLED, "fingerprint": search_text(&change.jane.fingerprint()) });
+    Mock::given(method("GET"))
+        .and(path(PROFILE))
+        .respond_with(ResponseTemplate::new(200).set_body_json(held))
+        .with_priority(1)
+        .mount(&change.world.ilm)
+        .await;
+    change.check().await;
+
+    let done = change.by_policy(&naming("Staff")).await;
+
+    assert!(done.is_empty());
+    assert_eq!(change.updates().await, 0);
+    assert!(change.standing().installed.is_empty());
+}
+
+#[tokio::test]
+async fn a_failed_change_is_recorded_and_not_retried_within_a_day() {
+    let change = Change::enrolled().await;
+    change.answer_update(ResponseTemplate::new(500)).await;
+
+    let first = change.by_policy(&naming("Staff")).await;
+    let second = change.by_policy(&naming("Staff")).await;
+
+    assert_eq!(
+        first,
+        vec![SignInByPolicy::Failed {
+            uuid: ENROLLED.into(),
+            failures: 1
+        }]
+    );
+    assert!(second.is_empty());
+    assert_eq!(change.updates().await, 1);
+    assert_eq!(change.standing().installed, vec![ENROLLED.to_owned()]);
+    assert!(
+        change
+            .standing()
+            .failed_within_a_day(&sign_in_key(ENROLLED), now_ms())
+    );
+}
+
+#[tokio::test]
+async fn a_failed_change_is_retried_after_a_day() {
+    let change = Change::enrolled().await;
+    change.answer_update(ResponseTemplate::new(500)).await;
+    change.failed_at(now_ms() - 2 * DAY_MS);
+
+    let done = change.by_policy(&naming("Staff")).await;
+
+    assert_eq!(
+        done,
+        vec![SignInByPolicy::Failed {
+            uuid: ENROLLED.into(),
+            failures: 2
+        }]
+    );
+    assert!(!done[0].needs_notice());
+    assert_eq!(change.updates().await, 1);
+}
+
+#[tokio::test]
+async fn the_third_failure_is_the_one_to_tell_the_person_about() {
+    let change = Change::enrolled().await;
+    change.answer_update(ResponseTemplate::new(500)).await;
+    change.failed_at(now_ms() - 2 * DAY_MS);
+    change.failed_at(now_ms() - 2 * DAY_MS);
+
+    let done = change.by_policy(&naming("Staff")).await;
+
+    assert_eq!(
+        done,
+        vec![SignInByPolicy::Failed {
+            uuid: ENROLLED.into(),
+            failures: 3
+        }]
+    );
+    assert!(done[0].needs_notice());
+}
+
+#[tokio::test]
+async fn a_success_clears_the_failures() {
+    let change = Change::enrolled().await;
+    change.failed_at(now_ms() - 2 * DAY_MS);
+    change
+        .answer_update(ResponseTemplate::new(200).set_body_json(profile()))
+        .await;
+
+    change.by_policy(&naming("Staff")).await;
+
+    assert!(
+        !change
+            .standing()
+            .failed_within_a_day(&sign_in_key(ENROLLED), now_ms())
+    );
+    assert_eq!(change.standing().failures(&sign_in_key(ENROLLED)), 0);
+}
+
+#[tokio::test]
+async fn the_log_of_the_change_names_no_certificate_content() {
+    capture_logs();
+    let change = Change::enrolled().await;
+    change
+        .answer_update(ResponseTemplate::new(200).set_body_json(profile()))
+        .await;
+
+    change.by_policy(&naming("Staff")).await;
+
+    let log = LOG.lock().unwrap().join("\n");
+    assert!(log.contains(&format!("sign-in certificate set by policy: {ENROLLED}")));
+    assert!(!log.contains("Zelda"));
+    assert!(!log.contains("Unique-Surname"));
+}
+
+#[tokio::test]
+async fn a_lost_answer_to_the_change_of_a_certificate_sign_in_is_reconciled_at_once() {
+    use std::sync::atomic::AtomicBool;
+
+    use super::renew_tests::{MovesWithTheUpdate, TakesTheUpdate};
+    use super::{Credential, State, lock};
+
+    let change = Change::enrolled().await;
+    if let State::SignedIn(active) = &mut *lock(&change.world.session.state) {
+        active.credential = Credential::Certificate {
+            fingerprint: old_sign_in(),
+            client: client_for_tests(),
+            generation: Arc::new(()),
+            not_after: None,
+        };
+    }
+    let moved = Arc::new(AtomicBool::new(false));
+    let mut new = profile();
+    new["certificate"] =
+        json!({ "uuid": ENROLLED, "fingerprint": search_text(&change.jane.fingerprint()) });
+    Mock::given(method("PUT"))
+        .and(path(PROFILE))
+        .respond_with(TakesTheUpdate {
+            moved: moved.clone(),
+            status: 500,
+        })
+        .mount(&change.world.ilm)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(PROFILE))
+        .respond_with(MovesWithTheUpdate {
+            moved,
+            old: profile(),
+            new,
+        })
+        .with_priority(1)
+        .mount(&change.world.ilm)
+        .await;
+
+    let done = change.by_policy(&naming("Staff")).await;
+
+    assert_eq!(
+        done,
+        vec![SignInByPolicy::Set {
+            uuid: ENROLLED.into()
+        }]
+    );
+    assert_eq!(
+        change.world.settings.connection().certificate,
+        Some(change.jane.fingerprint())
+    );
+}
+
+#[tokio::test]
+async fn a_lost_answer_to_the_change_of_a_provider_sign_in_is_learned_from_the_profile() {
+    use std::sync::atomic::AtomicBool;
+
+    use super::renew_tests::{MovesWithTheUpdate, TakesTheUpdate};
+    use super::{State, lock};
+
+    let change = Change::enrolled().await;
+    let moved = Arc::new(AtomicBool::new(false));
+    let mut new = profile();
+    new["certificate"] =
+        json!({ "uuid": ENROLLED, "fingerprint": search_text(&change.jane.fingerprint()) });
+    Mock::given(method("PUT"))
+        .and(path(PROFILE))
+        .respond_with(TakesTheUpdate {
+            moved: moved.clone(),
+            status: 500,
+        })
+        .mount(&change.world.ilm)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(PROFILE))
+        .respond_with(MovesWithTheUpdate {
+            moved,
+            old: profile(),
+            new,
+        })
+        .with_priority(1)
+        .mount(&change.world.ilm)
+        .await;
+
+    let done = change.by_policy(&naming("Staff")).await;
+
+    assert_eq!(
+        done,
+        vec![SignInByPolicy::Set {
+            uuid: ENROLLED.into()
+        }]
+    );
+    match &*lock(&change.world.session.state) {
+        State::SignedIn(active) => assert_eq!(
+            active
+                .person
+                .sign_in
+                .as_ref()
+                .map(|held| held.uuid.as_str()),
+            Some(ENROLLED)
+        ),
+        _ => panic!("signed out"),
+    }
+}
+
+#[tokio::test]
+async fn a_policy_batch_stops_once_another_sign_in_takes_over() {
+    use super::{State, lock};
+
+    let change = Change::enrolled().await;
+    change
+        .answer_update(ResponseTemplate::new(200).set_body_json(profile()))
+        .await;
+    let session = &change.world.session;
+    let replaced = || {
+        if let State::SignedIn(active) = &mut *lock(&session.state) {
+            active.id = Arc::new(());
+        }
+        true
+    };
+
+    let done = session
+        .sign_in_by_policy(&change.inventory, &naming("Staff"), &replaced)
+        .await;
+
+    assert!(done.is_empty(), "{done:?}");
+    assert_eq!(change.updates().await, 0);
 }

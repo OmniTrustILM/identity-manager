@@ -39,13 +39,13 @@ const issueForm = attributeForm([attributeField('validity', { label: 'Validity' 
 const customForm = attributeForm([attributeField('owner', { label: 'Owner' })], { id: 'form-custom' });
 
 const mac: RequestOffers = {
-    storages: [{ storage: 'keychain', keyTypes: ['rsa2048', 'ecP256', 'ecP384'] }],
+    storages: [{ storage: 'keychain', keyTypes: ['rsa2048', 'ecP256', 'ecP384'], defaultKeyType: 'ecP256' }],
     defaultStorage: 'keychain',
 };
 const windows: RequestOffers = {
     storages: [
-        { storage: 'software', keyTypes: ['rsa2048', 'rsa4096'] },
-        { storage: 'tpm', keyTypes: ['ecP256', 'rsa2048'] },
+        { storage: 'software', keyTypes: ['rsa2048', 'rsa4096'], defaultKeyType: 'rsa2048' },
+        { storage: 'tpm', keyTypes: ['ecP256', 'rsa2048'], defaultKeyType: 'ecP256' },
     ],
     defaultStorage: 'tpm',
 };
@@ -264,7 +264,7 @@ test('on Windows the storages are named plainly, the default is recommended and 
 });
 
 test('a software storage elsewhere gets a neutral text, and a storage without EC P-256 starts with its first type', async () => {
-    offers = { storages: [{ storage: 'software', keyTypes: ['mlDsa65', 'rsa3072'] }], defaultStorage: null };
+    offers = { storages: [{ storage: 'software', keyTypes: ['mlDsa65', 'rsa3072'], defaultKeyType: 'mlDsa65' }], defaultStorage: null };
     await toKey([profile('Only')], 'linux');
 
     expect(text()).toContain('Software keyKept on this computer for your user account only.');
@@ -274,7 +274,7 @@ test('a software storage elsewhere gets a neutral text, and a storage without EC
 
 test('the other key types are named readably', async () => {
     offers = {
-        storages: [{ storage: 'keychain', keyTypes: ['ecP521', 'rsa3072', 'rsa4096', 'mlDsa44', 'mlDsa87'] }],
+        storages: [{ storage: 'keychain', keyTypes: ['ecP521', 'rsa3072', 'rsa4096', 'mlDsa44', 'mlDsa87'], defaultKeyType: 'ecP521' }],
         defaultStorage: 'keychain',
     };
     await toKey();
@@ -354,7 +354,7 @@ test('on Windows the review names the TPM and the personal certificate store, wi
 });
 
 test('the review names a Windows key store and software elsewhere', async () => {
-    offers = { storages: [{ storage: 'software', keyTypes: ['rsa2048'] }], defaultStorage: 'software' };
+    offers = { storages: [{ storage: 'software', keyTypes: ['rsa2048'], defaultKeyType: 'rsa2048' }], defaultStorage: 'software' };
     await toReview('windows');
     expect(text()).toContain('New, in the Windows key store');
 

@@ -226,6 +226,12 @@ pub struct Layer {
     pub key_storages: Option<Vec<Storage>>,
     /// The key storage preselected for new keys; only policy sets it.
     pub default_key_storage: Option<Storage>,
+    /// Whether a certificate that ILM prepared is completed without asking; only policy sets it.
+    pub complete_prepared: Option<bool>,
+    /// The RA Profiles people may request certificates from; only policy sets it.
+    pub request_profiles: Option<Vec<String>>,
+    /// The RA Profile the sign-in certificate is requested from; only policy sets it.
+    pub sign_in_certificate_profile: Option<String>,
     /// The certificate last used to sign in; only the person's layer holds it.
     pub sign_in_certificate: Option<RememberedCertificate>,
 }
@@ -417,6 +423,21 @@ fn automatic_renewal_of(policy: &Layer, person: &Layer) -> (AutomaticRenewal, So
 /// Whether and how certificates renew themselves, policy over the person's choice over the default.
 pub fn automatic_renewal(policy: &Layer, person: &Layer) -> AutomaticRenewal {
     automatic_renewal_of(policy, person).0
+}
+
+/// Whether policy completes a certificate that ILM prepared without asking.
+pub fn complete_prepared(policy: &Layer) -> bool {
+    policy.complete_prepared.unwrap_or(false)
+}
+
+/// The names of the RA Profiles policy lets people request from; none when policy names none.
+pub fn request_profiles(policy: &Layer) -> &[String] {
+    policy.request_profiles.as_deref().unwrap_or_default()
+}
+
+/// The name of the RA Profile policy sets for the sign-in certificate, if any.
+pub fn sign_in_certificate_profile(policy: &Layer) -> Option<&str> {
+    policy.sign_in_certificate_profile.as_deref()
 }
 
 /// The offers policy allows, in their order, and the storage to preselect: the policy default when
@@ -1232,6 +1253,23 @@ mod tests {
             serde_json::from_value::<Change>(json!({ "key": "logLevel", "value": "loud" }))
                 .is_err()
         );
+    }
+
+    #[test]
+    fn the_enrolment_policy_reads_as_off_and_empty_without_policy() {
+        let none = Layer::default();
+        assert!(!complete_prepared(&none));
+        assert!(request_profiles(&none).is_empty());
+        assert_eq!(sign_in_certificate_profile(&none), None);
+        let policy = Layer {
+            complete_prepared: Some(true),
+            request_profiles: Some(vec!["Web".into(), "Mail".into()]),
+            sign_in_certificate_profile: Some("Sign-in".into()),
+            ..Layer::default()
+        };
+        assert!(complete_prepared(&policy));
+        assert_eq!(request_profiles(&policy), ["Web", "Mail"]);
+        assert_eq!(sign_in_certificate_profile(&policy), Some("Sign-in"));
     }
 
     #[test]

@@ -1,9 +1,10 @@
 //! The Windows source: the values of a registry key.
 
 use super::{
-    AUTOMATIC_RENEWAL, CHECK_INTERVAL, DEFAULT_KEY_STORAGE, EXPIRY_WARNING_DAYS, ILM_URL,
-    KEY_STORAGES, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUIRE_UNLOCK, RawMap, SIGN_IN_METHOD,
-    SIGN_IN_PROVIDER, START_AT_LOGIN,
+    AUTOMATIC_RENEWAL, CHECK_INTERVAL, COMPLETE_PREPARED, DEFAULT_KEY_STORAGE, EXPIRY_WARNING_DAYS,
+    ILM_URL, KEY_STORAGES, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue, REQUEST_PROFILES,
+    REQUIRE_UNLOCK, RawMap, SIGN_IN_CERTIFICATE_PROFILE, SIGN_IN_METHOD, SIGN_IN_PROVIDER,
+    START_AT_LOGIN,
 };
 #[cfg(windows)]
 use crate::settings::Layer;
@@ -103,6 +104,9 @@ fn known_name(name: String) -> String {
         KEY_STORAGES,
         DEFAULT_KEY_STORAGE,
         AUTOMATIC_RENEWAL,
+        COMPLETE_PREPARED,
+        REQUEST_PROFILES,
+        SIGN_IN_CERTIFICATE_PROFILE,
     ]
     .into_iter()
     .find(|known| known.eq_ignore_ascii_case(&name))
@@ -181,6 +185,36 @@ mod tests {
         assert_eq!(layer.default_key_storage, Some(Storage::Software));
         let layer = to_layer(&parse(vec![("KeyStorages", RegValue::Dword(1))]), "test");
         assert_eq!(layer.key_storages, None);
+    }
+
+    #[test]
+    fn the_enrolment_values_reach_the_layer_in_any_case() {
+        let layer = to_layer(
+            &parse(vec![
+                ("completeprepared", RegValue::Dword(1)),
+                ("REQUESTPROFILES", RegValue::Sz("Web, Mail,".into())),
+                ("signincertificateprofile", RegValue::Sz(" Sign-in ".into())),
+            ]),
+            "test",
+        );
+        assert_eq!(layer.complete_prepared, Some(true));
+        assert_eq!(
+            layer.request_profiles,
+            Some(vec!["Web".to_string(), "Mail".to_string()])
+        );
+        assert_eq!(
+            layer.sign_in_certificate_profile.as_deref(),
+            Some("Sign-in")
+        );
+        let layer = to_layer(
+            &parse(vec![
+                ("CompletePrepared", RegValue::Sz("yes".into())),
+                ("RequestProfiles", RegValue::Dword(1)),
+            ]),
+            "test",
+        );
+        assert_eq!(layer.complete_prepared, None);
+        assert_eq!(layer.request_profiles, None);
     }
 
     #[test]

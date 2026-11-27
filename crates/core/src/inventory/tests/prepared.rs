@@ -378,6 +378,7 @@ async fn the_certificates_ready_to_issue_are_the_open_ones_the_person_has_not_be
         since: 1,
         prepared: true,
         purpose: crate::requests::Purpose::Issue,
+        enrolled: false,
     };
 
     let ready = setup.inventory.ready_to_issue(&[begun]);

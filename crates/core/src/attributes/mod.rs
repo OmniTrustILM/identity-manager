@@ -10,6 +10,9 @@ pub(crate) mod fixtures;
 mod request;
 #[cfg(test)]
 mod tests;
+mod unattended;
+#[cfg(test)]
+mod unattended_tests;
 mod validate;
 mod value;
 mod view;
@@ -20,6 +23,7 @@ pub use definition::{
     Mapping, Rule, Target, Unsupported, Version, option_key,
 };
 pub use request::request;
+pub use unattended::{Needs, unattended};
 pub use validate::{MAX_FILE_BYTES, check};
 pub use value::{FileValue, Value, ValueError, Values, default_of, defaults, fits, parse_values};
 pub use view::{

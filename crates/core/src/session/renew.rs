@@ -215,6 +215,7 @@ impl Session {
                 same_key: key_id.is_none(),
                 automatic,
             },
+            enrolled: false,
         };
         let sent = self
             .deliver(id, requests, old, target.uuid, entry, new_key, proceed)

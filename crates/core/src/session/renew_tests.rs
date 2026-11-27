@@ -182,10 +182,10 @@ impl IdentityStore for Holds {
 }
 
 /// ILM's profile of the person: it names `old` until the first change of the profile reaches ILM, then `new`.
-struct MovesWithTheUpdate {
-    moved: Arc<AtomicBool>,
-    old: Value,
-    new: Value,
+pub(super) struct MovesWithTheUpdate {
+    pub(super) moved: Arc<AtomicBool>,
+    pub(super) old: Value,
+    pub(super) new: Value,
 }
 
 impl Respond for MovesWithTheUpdate {
@@ -196,9 +196,9 @@ impl Respond for MovesWithTheUpdate {
 }
 
 /// Takes the change of the profile and answers `status`.
-struct TakesTheUpdate {
-    moved: Arc<AtomicBool>,
-    status: u16,
+pub(super) struct TakesTheUpdate {
+    pub(super) moved: Arc<AtomicBool>,
+    pub(super) status: u16,
 }
 
 impl Respond for TakesTheUpdate {
@@ -1620,6 +1620,7 @@ impl Renewing {
                 since: 1,
                 prepared: false,
                 purpose,
+                enrolled: false,
             })
             .unwrap();
     }

@@ -2,6 +2,7 @@
 
 mod app_info;
 pub mod attributes;
+pub mod enrolment;
 pub mod http;
 pub mod identity;
 pub mod ilm;

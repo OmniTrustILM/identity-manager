@@ -23,6 +23,7 @@ fn waiting(name: &str) -> Waiting {
         since: 1_700_000_000_000,
         prepared: false,
         purpose: Purpose::Issue,
+        enrolled: false,
     }
 }
 
@@ -251,6 +252,17 @@ fn a_file_of_requests_without_a_purpose_reads_as_issue_requests() {
     assert_eq!(all.len(), 1);
     assert_eq!(all[0].purpose, Purpose::Issue);
     assert_eq!(all[0].key, Some(key("k-1")));
+    assert!(!all[0].enrolled);
+}
+
+#[test]
+fn an_enrolled_request_keeps_its_mark_across_instances() {
+    let dir = tempdir().unwrap();
+    let mut entry = waiting("a");
+    entry.enrolled = true;
+    Requests::new(dir.path()).add(entry).unwrap();
+
+    assert!(Requests::new(dir.path()).all()[0].enrolled);
 }
 
 #[test]

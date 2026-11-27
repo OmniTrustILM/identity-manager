@@ -9,6 +9,9 @@ mod attributes_tests;
 mod certificate;
 #[cfg(test)]
 mod certificate_tests;
+mod enrol;
+#[cfg(test)]
+mod enrol_tests;
 mod renew;
 #[cfg(test)]
 mod renew_tests;
@@ -30,6 +33,7 @@ use serde::Serialize;
 use tokio::sync::Notify;
 use url::Url;
 
+use crate::enrolment::Enrolments;
 use crate::identity::tls::CertificateAsked;
 use crate::identity::{ClientIdentity, EmptyStore, Fingerprint, IdentityStore};
 use crate::ilm::profile::{
@@ -51,6 +55,7 @@ pub use add_to_ilm::{AddChoices, AddOutcome, AddResult, FormInput};
 pub use attributes::FormError;
 pub use certificate::ChangeError;
 use certificate::certificate_choice;
+pub use enrol::{Enrolled, SignInByPolicy};
 pub use renew::RenewalTarget;
 pub use request::{
     Completion, EndReason, Followed, Installed, Outcome, RequestError, RequestForms, RequestInput,
@@ -400,6 +405,8 @@ pub struct Session {
     requests: Option<Arc<Requests>>,
     /// The switches of automatic renewal and the failed attempts; none until the application gives the folder.
     renewals: Option<Arc<Renewals>>,
+    /// What enrolment by policy has done for each person; none until the application gives the folder.
+    enrolments: Option<Arc<Enrolments>>,
     /// Held for a whole follow of the waiting requests, so two follows do not end the same request.
     following: tokio::sync::Mutex<()>,
     /// The last state of each followed certificate, to log only its changes.
@@ -482,6 +489,7 @@ impl Session {
             installer: Arc::new(NoInstaller),
             requests: None,
             renewals: None,
+            enrolments: None,
             following: tokio::sync::Mutex::new(()),
             seen: Mutex::default(),
         }
@@ -555,6 +563,13 @@ impl Session {
     #[must_use]
     pub fn with_renewals(mut self, renewals: Arc<Renewals>) -> Self {
         self.renewals = Some(renewals);
+        self
+    }
+
+    /// What enrolment by policy has done; by default none is kept, and nothing is enrolled.
+    #[must_use]
+    pub fn with_enrolments(mut self, enrolments: Arc<Enrolments>) -> Self {
+        self.enrolments = Some(enrolments);
         self
     }
 

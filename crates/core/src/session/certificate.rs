@@ -271,15 +271,23 @@ impl Session {
         {
             return Err(ChangeError::CannotSignIn);
         }
-        self.change_sign_in(
-            &who.ilm,
-            departing,
-            &matched.uuid,
-            fingerprint,
-            None,
-            &proceed,
-        )
-        .await?;
+        let changed = self
+            .change_sign_in(
+                &who.ilm,
+                departing.clone(),
+                &matched.uuid,
+                fingerprint,
+                None,
+                &proceed,
+            )
+            .await;
+        match changed {
+            Err(ChangeError::Offline | ChangeError::Unexpected(_) | ChangeError::Malformed)
+                if self
+                    .reconcile(&who.ilm, &departing, &matched.uuid, fingerprint)
+                    .await => {}
+            other => other?,
+        }
         drop(changing);
         inventory.check_local(self, Trigger::Action, &local).await;
         Ok(())
@@ -423,6 +431,39 @@ impl Session {
         {
             active.person.sign_in = sign_in;
         }
+    }
+
+    /// Whether a change to the certificate `uuid` whose answer was lost took effect: a certificate sign-in switches
+    /// to it, a provider sign-in learns it from the profile.
+    async fn reconcile(
+        &self,
+        ilm: &IlmUrl,
+        departing: &Departing,
+        uuid: &str,
+        fingerprint: Fingerprint,
+    ) -> bool {
+        if departing.generation.is_some() {
+            return self.adopt_known(ilm, departing, uuid, fingerprint).await;
+        }
+        let Ok(response) = self
+            .call_ilm_as(Some(&departing.id), None, profile_request)
+            .await
+        else {
+            return false;
+        };
+        let Ok(person) = read_profile(ilm, response).await else {
+            return false;
+        };
+        if !person
+            .sign_in
+            .as_ref()
+            .is_some_and(|held| held.uuid == uuid)
+        {
+            return false;
+        }
+        log::info!("ILM already knows the person by {uuid}");
+        self.learn_sign_in(&departing.id, person.sign_in);
+        true
     }
 
     /// With a certificate sign-in, switches to `fingerprint` when ILM already knows the signed-in person by the

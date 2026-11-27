@@ -209,6 +209,30 @@ mod tests {
     }
 
     #[test]
+    fn the_enrolment_values_reach_the_layer() {
+        let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
+<key>CompletePrepared</key><true/>
+<key>RequestProfiles</key><string>Web, Mail,</string>
+<key>SignInCertificateProfile</key><string> Sign-in </string></dict></plist>"#;
+        let layer = crate::policy::to_layer(&parse_plist(xml, "test"), "test");
+        assert_eq!(layer.complete_prepared, Some(true));
+        assert_eq!(
+            layer.request_profiles,
+            Some(vec!["Web".to_string(), "Mail".to_string()])
+        );
+        assert_eq!(
+            layer.sign_in_certificate_profile.as_deref(),
+            Some("Sign-in")
+        );
+        let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
+<key>CompletePrepared</key><string>yes</string>
+<key>RequestProfiles</key><integer>1</integer></dict></plist>"#;
+        let layer = crate::policy::to_layer(&parse_plist(xml, "test"), "test");
+        assert_eq!(layer.complete_prepared, None);
+        assert_eq!(layer.request_profiles, None);
+    }
+
+    #[test]
     fn the_automatic_renewal_string_reaches_the_layer() {
         let xml = br#"<?xml version="1.0"?><plist version="1.0"><dict>
 <key>AutomaticRenewal</key><string>sameKey</string></dict></plist>"#;

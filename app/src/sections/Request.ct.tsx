@@ -30,7 +30,7 @@ const requesting: Requesting = {
     profiles,
     forms,
     offers: {
-        storages: [{ storage: 'keychain', keyTypes: ['rsa2048', 'ecP256', 'ecP384'] }],
+        storages: [{ storage: 'keychain', keyTypes: ['rsa2048', 'ecP256', 'ecP384'], defaultKeyType: 'ecP256' }],
         defaultStorage: 'keychain',
     },
     follow: [{ state: 'installed', storage: 'keychain', validUntil: new Date(2027, 10, 10).getTime() }],
@@ -123,8 +123,8 @@ test('the keyboard alone chooses the profile and the storage and requests', asyn
         forms: { request: null, issue: null, custom: null },
         offers: {
             storages: [
-                { storage: 'software', keyTypes: ['rsa2048'] },
-                { storage: 'tpm', keyTypes: ['ecP256', 'rsa2048'] },
+                { storage: 'software', keyTypes: ['rsa2048'], defaultKeyType: 'rsa2048' },
+                { storage: 'tpm', keyTypes: ['ecP256', 'rsa2048'], defaultKeyType: 'ecP256' },
             ],
             defaultStorage: 'tpm',
         },
