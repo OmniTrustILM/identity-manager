@@ -699,10 +699,7 @@ impl SummaryView {
 
 /// Whether one of the requests `waiting`, leaving out revocations, is for the RA Profile `uuid`.
 pub(super) fn is_requested(uuid: &str, waiting: &[Waiting]) -> bool {
-    waiting.iter().any(|entry| {
-        entry.ra_profile == uuid
-            && !matches!(entry.purpose, crate::requests::Purpose::Revoke { .. })
-    })
+    waiting.iter().any(|entry| entry.requests_from(uuid))
 }
 
 #[cfg(test)]

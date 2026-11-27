@@ -738,7 +738,7 @@ impl Session {
             && requests
                 .of(&who.ilm, &who.username)
                 .iter()
-                .any(|entry| entry.ra_profile == order.ra_profile.uuid)
+                .any(|entry| entry.requests_from(&order.ra_profile.uuid))
         {
             return Err(RequestError::AlreadyRequested);
         }

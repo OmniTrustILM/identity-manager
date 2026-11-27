@@ -122,7 +122,9 @@ fn requested(
             continue;
         };
         let held_back = standing.is_done(&profile.uuid)
-            || waiting.iter().any(|entry| entry.ra_profile == profile.uuid)
+            || waiting
+                .iter()
+                .any(|entry| entry.requests_from(&profile.uuid))
             || standing.failed_within_a_day(&profile_key(&profile.uuid), now);
         if !held_back {
             chosen.push(profile.clone());

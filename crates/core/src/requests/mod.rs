@@ -97,6 +97,12 @@ impl Waiting {
         }
     }
 
+    /// Whether this is a request from the RA Profile `ra_profile`; a revocation only names the profile of the
+    /// certificate it revokes and asks for nothing.
+    pub fn requests_from(&self, ra_profile: &str) -> bool {
+        self.ra_profile == ra_profile && self.revokes().is_none()
+    }
+
     /// The ILM uuid of the certificate a renewal replaces.
     pub fn renews(&self) -> Option<&str> {
         match &self.purpose {

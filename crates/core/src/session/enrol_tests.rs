@@ -1448,6 +1448,44 @@ async fn a_certificate_ilm_issues_at_once_is_installed_when_the_enrolment_return
 }
 
 #[tokio::test]
+async fn a_profile_is_requested_from_the_asked_item_while_a_revocation_for_it_waits() {
+    let enrolling = Enrolling::new().await;
+    enrolling.accepting(ISSUE, "c-1").await;
+    enrolling
+        .requests
+        .add(Waiting {
+            ilm: enrolling.world.address(),
+            username: "jdoe".into(),
+            uuid: Some("c-0".into()),
+            ra_profile: "ra-1".into(),
+            authority: "auth-1".into(),
+            key: None,
+            label: "old".into(),
+            since: now(),
+            prepared: false,
+            purpose: Purpose::Revoke {
+                certificate: "c-0".into(),
+                fingerprint: crate::identity::Fingerprint::of(b"old"),
+                remove: false,
+            },
+            enrolled: false,
+        })
+        .unwrap();
+    let session = &enrolling.world.session;
+    let forms = session
+        .open_request_forms("auth-1", "ra-1", false)
+        .await
+        .unwrap();
+    let request = session.unattended_forms(&forms).unwrap();
+
+    let sent = session
+        .request_asked(&choice(), request, Storage::Software, KeyType::EcP256)
+        .await;
+
+    assert!(sent.is_ok(), "{sent:?}");
+}
+
+#[tokio::test]
 async fn a_profile_already_done_is_not_requested_again_from_the_asked_item() {
     let enrolling = Enrolling::new().await;
     enrolling.accepting(ISSUE, "c-1").await;

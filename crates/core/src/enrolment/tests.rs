@@ -385,6 +385,20 @@ fn a_profile_requested_once_is_not_requested_again() {
 }
 
 #[test]
+fn a_profile_with_only_a_waiting_revocation_is_still_requested() {
+    let mut case = Case::new();
+    let mut revocation = waiting_for(Some("c-9"), "ra-1");
+    revocation.purpose = Purpose::Revoke {
+        certificate: "c-9".to_owned(),
+        fingerprint: crate::identity::Fingerprint::of(b"old"),
+        remove: false,
+    };
+    case.waiting = vec![revocation];
+
+    assert_eq!(case.requests(), ["ra-1", "ra-2"]);
+}
+
+#[test]
 fn a_profile_with_a_waiting_request_is_not_requested_again() {
     let mut case = Case::new();
     case.waiting = vec![waiting_for(None, "ra-2")];
