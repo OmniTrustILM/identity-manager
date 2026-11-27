@@ -189,7 +189,9 @@ impl Updater {
         }));
         if let Err(kind) = installed.await {
             log::warn!("the update could not be installed: {kind}");
-            self.host.failed();
+            if self.host.enabled() {
+                self.host.failed();
+            }
         }
         self.installing.store(false, Ordering::SeqCst);
     }
@@ -410,6 +412,7 @@ mod tests {
         fn install(&self, version: &str) -> Boxed<'_, Result<(), String>> {
             let version = version.to_owned();
             Box::pin(async move {
+                let _answering = self.answering.lock().await;
                 lock(&self.installed).push(version);
                 lock(&self.install_result).clone()
             })
@@ -688,6 +691,28 @@ mod tests {
         installing.await.unwrap();
 
         assert_eq!(updates.installs(), 0);
+        assert_eq!(around.failures.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_failure_after_updates_were_turned_off_is_not_told() {
+        let updates = Scripted::new(Ok(Some("0.2.0")));
+        *lock(&updates.install_result) = Err("the update could not be downloaded".to_owned());
+        let around = Around::new(true);
+        let updater = updater(&updates, &around);
+        updater.turn().await;
+        let answering = updates.answering.lock().await;
+
+        let installing = tokio::spawn({
+            let updater = updater.clone();
+            async move { updater.install().await }
+        });
+        settle().await;
+        around.enabled.store(false, Ordering::SeqCst);
+        drop(answering);
+        installing.await.unwrap();
+
+        assert_eq!(updates.installs(), 1);
         assert_eq!(around.failures.load(Ordering::SeqCst), 0);
     }
 

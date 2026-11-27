@@ -469,6 +469,7 @@ pub struct SendsHeld<'a> {
     _claiming: tokio::sync::RwLockWriteGuard<'a, ()>,
     _following: tokio::sync::MutexGuard<'a, ()>,
     _changing: tokio::sync::MutexGuard<'a, ()>,
+    _renewing: tokio::sync::MutexGuard<'a, ()>,
 }
 
 impl Session {
@@ -533,15 +534,17 @@ impl Session {
         }
     }
 
-    /// Waits until no request, renewal, revocation, enrolment or change of the sign-in certificate is under way,
-    /// and keeps further ones waiting until the returned guard is dropped.
+    /// Waits until no request, renewal, revocation, enrolment, change of the sign-in certificate or renewal of the
+    /// saved sign-in is under way, and keeps further ones waiting until the returned guard is dropped.
     pub async fn hold_sends(&self) -> SendsHeld<'_> {
         let claiming = self.claiming.write().await;
         let following = self.following.lock().await;
+        let changing = self.changing.lock().await;
         SendsHeld {
             _claiming: claiming,
             _following: following,
-            _changing: self.changing.lock().await,
+            _changing: changing,
+            _renewing: self.renewing.lock().await,
         }
     }
 
