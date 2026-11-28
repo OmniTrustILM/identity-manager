@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 usage() {
-    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check|policy-system|keyring-system|identity-system|msi-system>" >&2
+    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|release-check <tag>|self-check|policy-system|keyring-system|identity-system|msi-system>" >&2
     exit 2
 }
 
@@ -80,6 +80,20 @@ bundle() {
     esac
     build_interface
     (cd crates/app && ../../app/node_modules/.bin/tauri build --bundles "$bundles" "$@")
+}
+
+# Fails unless the tag matches the version of the workspace and of the interface, and the updater key is set.
+release_check() {
+    local tag=${1:-} version cargo_version package_version pubkey
+    version=${tag#v}
+    cargo_version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+    package_version=$(sed -n 's/^ *"version": *"\(.*\)",*$/\1/p' app/package.json | head -n 1)
+    if [[ "$tag" != v* || "$version" != "$cargo_version" || "$version" != "$package_version" ]]; then
+        echo "tag '$tag' does not match version $cargo_version in Cargo.toml and $package_version in app/package.json" >&2
+        exit 1
+    fi
+    pubkey=$(sed -n 's/^ *"pubkey": *"\(.*\)",*$/\1/p' crates/app/tauri.conf.json)
+    [[ -n "$pubkey" ]] || { echo "the updater pubkey in crates/app/tauri.conf.json is empty; set it before releasing" >&2; exit 1; }
 }
 
 self_check() {
@@ -433,6 +447,7 @@ case "${1:-}" in
         if browsers_available; then component_tests; fi
         ;;
     bundle) shift; bundle "$@" ;;
+    release-check) release_check "${2:-}" ;;
     self-check) self_check ;;
     policy-system) policy_system ;;
     keyring-system) keyring_system ;;

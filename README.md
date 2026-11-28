@@ -178,6 +178,11 @@ protected storage: the Keychain on macOS, the Credential Manager on Windows and 
 The overview counts the certificates on the computer, warns before they expire and can add them to the ILM; see
 [docs/certificates.md](docs/certificates.md).
 
+## Install and deploy
+
+A person installs Identity Manager from a release, see [docs/install.md](docs/install.md). An administrator deploys it
+with the MSI properties, Group Policy, Intune or a configuration profile, see [docs/deployment.md](docs/deployment.md).
+
 ## Settings and policy
 
 An organization can fix settings from the system, and the person's own choices are stored in `settings.json`; see
