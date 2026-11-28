@@ -26,6 +26,7 @@ Each person needs an account in ILM that can sign in through the identity provid
 
 | Permission            | Needed for                                                  |
 |-----------------------|-------------------------------------------------------------|
+| `certificates:list`   | Finding the person's certificates in ILM to renew or revoke |
 | `certificates:create` | Requesting a certificate, also by policy, and renewing      |
 | `certificates:renew`  | Renewing a certificate, also automatically                  |
 | `certificates:revoke` | Revoking a certificate                                      |
