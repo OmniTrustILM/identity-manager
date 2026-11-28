@@ -1,7 +1,7 @@
 name: Release
 on:
   push:
-    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
   workflow_dispatch:
 
 permissions:
@@ -179,7 +179,7 @@ jobs:
             exit 0
           fi
           jq -n --arg version "$VERSION" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg base "https://github.com/OmniTrustILM/identity-manager/releases/download/v$VERSION" \
+            --arg base "https://github.com/OmniTrustILM/identity-manager/releases/download/$VERSION" \
             --arg mac "$mac" --arg win "$win" --rawfile mac_sig "$mac.sig" --rawfile win_sig "$win.sig" \
             '{
               version: $version,
@@ -230,7 +230,7 @@ jobs:
           if [[ "$MSI_SIGNED" != true ]]; then
             notes=(--notes "The Windows installer is not code-signed yet.")
           fi
-          gh release create "v$VERSION" --verify-tag --generate-notes "${notes[@]}" release-assets/*
+          gh release create "$VERSION" --verify-tag --generate-notes "${notes[@]}" release-assets/*
 
       - name: Upload the release files of the dry run
         if: env.PUBLISH != 'true'

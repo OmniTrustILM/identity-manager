@@ -84,11 +84,10 @@ bundle() {
 
 # Fails unless the tag matches the version of the workspace and of the interface, and the updater key is set.
 release_check() {
-    local tag=${1:-} version cargo_version package_version pubkey
-    version=${tag#v}
+    local tag=${1:-} cargo_version package_version pubkey
     cargo_version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
     package_version=$(sed -n 's/^ *"version": *"\(.*\)",*$/\1/p' app/package.json | head -n 1)
-    if [[ "$tag" != v* || "$version" != "$cargo_version" || "$version" != "$package_version" ]]; then
+    if [[ "$tag" != "$cargo_version" || "$cargo_version" != "$package_version" ]]; then
         echo "tag '$tag' does not match version $cargo_version in Cargo.toml and $package_version in app/package.json" >&2
         exit 1
     fi
