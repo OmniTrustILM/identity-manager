@@ -54,3 +54,4 @@ aws-lc-rs = "1.19.0"
 rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "aws_lc_rs", "pem", "x509-parser"] }
 tokio-rustls = "0.26.6"
 ts-rs = "=12.0.1"
+roxmltree = "=0.21.2"

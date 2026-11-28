@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Public properties that write the organization's policy to HKLM\SOFTWARE\Policies\OmniTrustILM\IdentityManager.
+  A property that is not given writes nothing. Each value written is also recorded under the subkey Installer, the
+  MSI's own record of what it wrote. A property the command line does not give is read back from that record
+  (REMEMBERED_*), so an upgrade or repair keeps what the MSI wrote and never adopts or restores a value that Group
+  Policy or someone else set in the policy key. The application reads only the values of the policy key, not its
+  subkeys. The subkey is removed on uninstall. The product is removed by the upgrade after AppSearch has run, so the
+  values are read before they go.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <Property Id="ILMURL" Secure="yes" />
+    <Property Id="SIGNINPROVIDER" Secure="yes" />
+    <Property Id="SIGNINMETHOD" Secure="yes" />
+    <Property Id="STARTATLOGIN" Secure="yes" />
+    <Property Id="AUTOMATICUPDATES" Secure="yes" />
+
+    <Property Id="REMEMBERED_ILMURL">
+      <RegistrySearch Id="RememberedIlmUrl" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="IlmUrl" Type="raw" Win64="yes" />
+    </Property>
+    <Property Id="REMEMBERED_SIGNINPROVIDER">
+      <RegistrySearch Id="RememberedSignInProvider" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="SignInProvider" Type="raw" Win64="yes" />
+    </Property>
+    <Property Id="REMEMBERED_SIGNINMETHOD">
+      <RegistrySearch Id="RememberedSignInMethod" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="SignInMethod" Type="raw" Win64="yes" />
+    </Property>
+    <Property Id="REMEMBERED_STARTATLOGIN">
+      <RegistrySearch Id="RememberedStartAtLogin" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="StartAtLogin" Type="raw" Win64="yes" />
+    </Property>
+    <Property Id="REMEMBERED_AUTOMATICUPDATES">
+      <RegistrySearch Id="RememberedAutomaticUpdates" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="AutomaticUpdates" Type="raw" Win64="yes" />
+    </Property>
+
+    <!-- A string read back as raw keeps its text (a leading # is doubled, which the Registry table reads back). -->
+    <SetProperty Id="ILMURL" Value="[REMEMBERED_ILMURL]" After="AppSearch" Sequence="both"><![CDATA[ILMURL = "" AND REMEMBERED_ILMURL <> ""]]></SetProperty>
+    <SetProperty Id="SIGNINPROVIDER" Value="[REMEMBERED_SIGNINPROVIDER]" After="AppSearch" Sequence="both"><![CDATA[SIGNINPROVIDER = "" AND REMEMBERED_SIGNINPROVIDER <> ""]]></SetProperty>
+    <SetProperty Id="SIGNINMETHOD" Value="[REMEMBERED_SIGNINMETHOD]" After="AppSearch" Sequence="both"><![CDATA[SIGNINMETHOD = "" AND REMEMBERED_SIGNINMETHOD <> ""]]></SetProperty>
+
+    <!-- A DWORD is read back as raw as #0 or #1, while the command line gives 0 or 1 and the value is written as #[PROPERTY]. -->
+    <SetProperty Id="STARTATLOGIN" Action="RememberStartAtLoginOff" Value="0" After="AppSearch" Sequence="both"><![CDATA[STARTATLOGIN = "" AND REMEMBERED_STARTATLOGIN = "#0"]]></SetProperty>
+    <SetProperty Id="STARTATLOGIN" Action="RememberStartAtLoginOn" Value="1" After="AppSearch" Sequence="both"><![CDATA[STARTATLOGIN = "" AND REMEMBERED_STARTATLOGIN = "#1"]]></SetProperty>
+    <SetProperty Id="AUTOMATICUPDATES" Action="RememberAutomaticUpdatesOff" Value="0" After="AppSearch" Sequence="both"><![CDATA[AUTOMATICUPDATES = "" AND REMEMBERED_AUTOMATICUPDATES = "#0"]]></SetProperty>
+    <SetProperty Id="AUTOMATICUPDATES" Action="RememberAutomaticUpdatesOn" Value="1" After="AppSearch" Sequence="both"><![CDATA[AUTOMATICUPDATES = "" AND REMEMBERED_AUTOMATICUPDATES = "#1"]]></SetProperty>
+
+    <ComponentGroup Id="PolicyProperties" Directory="TARGETDIR">
+      <Component Id="PolicyIlmUrl" Guid="FEDF9EE2-EFA2-4CC5-9ADB-294654373800" Win64="yes">
+        <Condition><![CDATA[ILMURL <> ""]]></Condition>
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager" Name="IlmUrl" Type="string" Value="[ILMURL]" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="IlmUrl" Type="string" Value="[ILMURL]" />
+        <RemoveRegistryKey Id="RemovePolicyIlmUrlRecord" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Action="removeOnUninstall" />
+      </Component>
+      <Component Id="PolicySignInProvider" Guid="7AC6E5B8-C936-4299-B23A-387038EBD3EC" Win64="yes">
+        <Condition><![CDATA[SIGNINPROVIDER <> ""]]></Condition>
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager" Name="SignInProvider" Type="string" Value="[SIGNINPROVIDER]" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="SignInProvider" Type="string" Value="[SIGNINPROVIDER]" />
+        <RemoveRegistryKey Id="RemovePolicySignInProviderRecord" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Action="removeOnUninstall" />
+      </Component>
+      <Component Id="PolicySignInMethod" Guid="6B21EF4E-978B-43BC-B662-B8D670B8D5E4" Win64="yes">
+        <Condition><![CDATA[SIGNINMETHOD <> ""]]></Condition>
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager" Name="SignInMethod" Type="string" Value="[SIGNINMETHOD]" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="SignInMethod" Type="string" Value="[SIGNINMETHOD]" />
+        <RemoveRegistryKey Id="RemovePolicySignInMethodRecord" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Action="removeOnUninstall" />
+      </Component>
+      <Component Id="PolicyStartAtLogin" Guid="1ABA0640-909B-4C69-92AA-FC3FBB934F45" Win64="yes">
+        <Condition><![CDATA[STARTATLOGIN = "0" OR STARTATLOGIN = "1"]]></Condition>
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager" Name="StartAtLogin" Type="integer" Value="[STARTATLOGIN]" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="StartAtLogin" Type="integer" Value="[STARTATLOGIN]" />
+        <RemoveRegistryKey Id="RemovePolicyStartAtLoginRecord" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Action="removeOnUninstall" />
+      </Component>
+      <Component Id="PolicyAutomaticUpdates" Guid="BFC883ED-A1C7-40D5-B54F-946443589470" Win64="yes">
+        <Condition><![CDATA[AUTOMATICUPDATES = "0" OR AUTOMATICUPDATES = "1"]]></Condition>
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager" Name="AutomaticUpdates" Type="integer" Value="[AUTOMATICUPDATES]" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Name="AutomaticUpdates" Type="integer" Value="[AUTOMATICUPDATES]" />
+        <RemoveRegistryKey Id="RemovePolicyAutomaticUpdatesRecord" Root="HKLM" Key="SOFTWARE\Policies\OmniTrustILM\IdentityManager\Installer" Action="removeOnUninstall" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

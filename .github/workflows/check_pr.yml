@@ -125,6 +125,11 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
+      - name: MSI properties
+        if: runner.os == 'Windows'
+        shell: bash
+        run: bash scripts/verify.sh msi-system
+
   build:
     name: Build
     needs: [verify, bundle]

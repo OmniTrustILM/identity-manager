@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitions revision="1.0" schemaVersion="1.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+  <policyNamespaces>
+    <target prefix="identitymanager" namespace="OmniTrustILM.Policies.IdentityManager" />
+    <using prefix="windows" namespace="Microsoft.Policies.Windows" />
+  </policyNamespaces>
+  <resources minRequiredRevision="1.0" />
+  <categories>
+    <category name="OmniTrustILM" displayName="$(string.OmniTrustILM)" />
+    <category name="IdentityManager" displayName="$(string.IdentityManager)">
+      <parentCategory ref="OmniTrustILM" />
+    </category>
+    <category name="General" displayName="$(string.General)">
+      <parentCategory ref="IdentityManager" />
+    </category>
+    <category name="Connection" displayName="$(string.Connection)">
+      <parentCategory ref="IdentityManager" />
+    </category>
+    <category name="Security" displayName="$(string.Security)">
+      <parentCategory ref="IdentityManager" />
+    </category>
+    <category name="Certificates" displayName="$(string.Certificates)">
+      <parentCategory ref="IdentityManager" />
+    </category>
+  </categories>
+  <policies>
+    <policy name="StartAtLogin" class="Both" displayName="$(string.StartAtLogin)" explainText="$(string.StartAtLogin_Explain)" key="Software\Policies\OmniTrustILM\IdentityManager" valueName="StartAtLogin">
+      <parentCategory ref="General" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    <policy name="AutomaticUpdates" class="Both" displayName="$(string.AutomaticUpdates)" explainText="$(string.AutomaticUpdates_Explain)" key="Software\Policies\OmniTrustILM\IdentityManager" valueName="AutomaticUpdates">
+      <parentCategory ref="General" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    <policy name="LogLevel" class="Both" displayName="$(string.LogLevel)" explainText="$(string.LogLevel_Explain)" presentation="$(presentation.LogLevel)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="General" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <enum id="LogLevel" valueName="LogLevel" required="true">
+          <item displayName="$(string.LogLevel_error)">
+            <value>
+              <string>error</string>
+            </value>
+          </item>
+          <item displayName="$(string.LogLevel_warn)">
+            <value>
+              <string>warn</string>
+            </value>
+          </item>
+          <item displayName="$(string.LogLevel_info)">
+            <value>
+              <string>info</string>
+            </value>
+          </item>
+          <item displayName="$(string.LogLevel_debug)">
+            <value>
+              <string>debug</string>
+            </value>
+          </item>
+        </enum>
+      </elements>
+    </policy>
+    <policy name="CheckInterval" class="Both" displayName="$(string.CheckInterval)" explainText="$(string.CheckInterval_Explain)" presentation="$(presentation.CheckInterval)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="General" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <decimal id="CheckInterval" valueName="CheckInterval" minValue="5" maxValue="1440" required="true" />
+      </elements>
+    </policy>
+    <policy name="IlmUrl" class="Both" displayName="$(string.IlmUrl)" explainText="$(string.IlmUrl_Explain)" presentation="$(presentation.IlmUrl)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Connection" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <text id="IlmUrl" valueName="IlmUrl" required="true" />
+      </elements>
+    </policy>
+    <policy name="SignInProvider" class="Both" displayName="$(string.SignInProvider)" explainText="$(string.SignInProvider_Explain)" presentation="$(presentation.SignInProvider)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Connection" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <text id="SignInProvider" valueName="SignInProvider" required="true" />
+      </elements>
+    </policy>
+    <policy name="SignInMethod" class="Both" displayName="$(string.SignInMethod)" explainText="$(string.SignInMethod_Explain)" presentation="$(presentation.SignInMethod)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Connection" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <enum id="SignInMethod" valueName="SignInMethod" required="true">
+          <item displayName="$(string.SignInMethod_oauth)">
+            <value>
+              <string>oauth</string>
+            </value>
+          </item>
+          <item displayName="$(string.SignInMethod_certificate)">
+            <value>
+              <string>certificate</string>
+            </value>
+          </item>
+        </enum>
+      </elements>
+    </policy>
+    <policy name="RequireUnlock" class="Both" displayName="$(string.RequireUnlock)" explainText="$(string.RequireUnlock_Explain)" key="Software\Policies\OmniTrustILM\IdentityManager" valueName="RequireUnlock">
+      <parentCategory ref="Security" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    <policy name="LockAfterIdle" class="Both" displayName="$(string.LockAfterIdle)" explainText="$(string.LockAfterIdle_Explain)" presentation="$(presentation.LockAfterIdle)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Security" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <decimal id="LockAfterIdle" valueName="LockAfterIdle" minValue="1" maxValue="1440" required="true" />
+      </elements>
+    </policy>
+    <policy name="KeyStorages" class="Both" displayName="$(string.KeyStorages)" explainText="$(string.KeyStorages_Explain)" presentation="$(presentation.KeyStorages)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Security" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <text id="KeyStorages" valueName="KeyStorages" required="true" />
+      </elements>
+    </policy>
+    <policy name="DefaultKeyStorage" class="Both" displayName="$(string.DefaultKeyStorage)" explainText="$(string.DefaultKeyStorage_Explain)" presentation="$(presentation.DefaultKeyStorage)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Security" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <enum id="DefaultKeyStorage" valueName="DefaultKeyStorage" required="true">
+          <item displayName="$(string.DefaultKeyStorage_keychain)">
+            <value>
+              <string>keychain</string>
+            </value>
+          </item>
+          <item displayName="$(string.DefaultKeyStorage_software)">
+            <value>
+              <string>software</string>
+            </value>
+          </item>
+          <item displayName="$(string.DefaultKeyStorage_tpm)">
+            <value>
+              <string>tpm</string>
+            </value>
+          </item>
+        </enum>
+      </elements>
+    </policy>
+    <policy name="ExpiryWarningDays" class="Both" displayName="$(string.ExpiryWarningDays)" explainText="$(string.ExpiryWarningDays_Explain)" presentation="$(presentation.ExpiryWarningDays)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Certificates" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <decimal id="ExpiryWarningDays" valueName="ExpiryWarningDays" minValue="1" maxValue="365" required="true" />
+      </elements>
+    </policy>
+    <policy name="AutomaticRenewal" class="Both" displayName="$(string.AutomaticRenewal)" explainText="$(string.AutomaticRenewal_Explain)" presentation="$(presentation.AutomaticRenewal)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Certificates" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <enum id="AutomaticRenewal" valueName="AutomaticRenewal" required="true">
+          <item displayName="$(string.AutomaticRenewal_off)">
+            <value>
+              <string>off</string>
+            </value>
+          </item>
+          <item displayName="$(string.AutomaticRenewal_newKey)">
+            <value>
+              <string>newKey</string>
+            </value>
+          </item>
+          <item displayName="$(string.AutomaticRenewal_sameKey)">
+            <value>
+              <string>sameKey</string>
+            </value>
+          </item>
+        </enum>
+      </elements>
+    </policy>
+    <policy name="CompletePrepared" class="Both" displayName="$(string.CompletePrepared)" explainText="$(string.CompletePrepared_Explain)" key="Software\Policies\OmniTrustILM\IdentityManager" valueName="CompletePrepared">
+      <parentCategory ref="Certificates" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <enabledValue>
+        <decimal value="1" />
+      </enabledValue>
+      <disabledValue>
+        <decimal value="0" />
+      </disabledValue>
+    </policy>
+    <policy name="RequestProfiles" class="Both" displayName="$(string.RequestProfiles)" explainText="$(string.RequestProfiles_Explain)" presentation="$(presentation.RequestProfiles)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Certificates" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <text id="RequestProfiles" valueName="RequestProfiles" required="true" />
+      </elements>
+    </policy>
+    <policy name="SignInCertificateProfile" class="Both" displayName="$(string.SignInCertificateProfile)" explainText="$(string.SignInCertificateProfile_Explain)" presentation="$(presentation.SignInCertificateProfile)" key="Software\Policies\OmniTrustILM\IdentityManager">
+      <parentCategory ref="Certificates" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0" />
+      <elements>
+        <text id="SignInCertificateProfile" valueName="SignInCertificateProfile" required="true" />
+      </elements>
+    </policy>
+  </policies>
+</policyDefinitions>

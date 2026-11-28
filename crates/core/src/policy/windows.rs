@@ -1,11 +1,6 @@
 //! The Windows source: the values of a registry key.
 
-use super::{
-    AUTOMATIC_RENEWAL, AUTOMATIC_UPDATES, CHECK_INTERVAL, COMPLETE_PREPARED, DEFAULT_KEY_STORAGE,
-    EXPIRY_WARNING_DAYS, ILM_URL, KEY_STORAGES, LOCK_AFTER_IDLE, LOG_LEVEL, PolicyValue,
-    REQUEST_PROFILES, REQUIRE_UNLOCK, RawMap, SIGN_IN_CERTIFICATE_PROFILE, SIGN_IN_METHOD,
-    SIGN_IN_PROVIDER, START_AT_LOGIN,
-};
+use super::{CHECK_INTERVAL, EXPIRY_WARNING_DAYS, LOCK_AFTER_IDLE, POLICIES, PolicyValue, RawMap};
 #[cfg(windows)]
 use crate::settings::Layer;
 
@@ -91,27 +86,11 @@ pub fn parse_registry(values: impl IntoIterator<Item = (String, RegValue)>) -> R
 }
 
 fn known_name(name: String) -> String {
-    [
-        START_AT_LOGIN,
-        AUTOMATIC_UPDATES,
-        LOG_LEVEL,
-        ILM_URL,
-        REQUIRE_UNLOCK,
-        LOCK_AFTER_IDLE,
-        CHECK_INTERVAL,
-        EXPIRY_WARNING_DAYS,
-        SIGN_IN_PROVIDER,
-        SIGN_IN_METHOD,
-        KEY_STORAGES,
-        DEFAULT_KEY_STORAGE,
-        AUTOMATIC_RENEWAL,
-        COMPLETE_PREPARED,
-        REQUEST_PROFILES,
-        SIGN_IN_CERTIFICATE_PROFILE,
-    ]
-    .into_iter()
-    .find(|known| known.eq_ignore_ascii_case(&name))
-    .map_or(name, str::to_string)
+    POLICIES
+        .iter()
+        .map(|(known, _)| *known)
+        .find(|known| known.eq_ignore_ascii_case(&name))
+        .map_or(name, str::to_string)
 }
 
 #[cfg(test)]

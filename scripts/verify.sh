@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 usage() {
-    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check|policy-system|keyring-system|identity-system>" >&2
+    echo "usage: scripts/verify.sh <lint|test|coverage|ct|all|bundle|self-check|policy-system|keyring-system|identity-system|msi-system>" >&2
     exit 2
 }
 
@@ -69,6 +69,7 @@ browsers_available() {
     [[ "$(uname -s)" == Linux || ( "$(uname -s)" == Darwin && -z "${CI:-}" ) ]]
 }
 
+# Extra arguments go to `tauri build`.
 bundle() {
     local bundles
     case "$(uname -s)" in
@@ -78,7 +79,7 @@ bundle() {
         *) echo "no bundle targets for $(uname -s)" >&2; exit 1 ;;
     esac
     build_interface
-    (cd crates/app && ../../app/node_modules/.bin/tauri build --bundles "$bundles")
+    (cd crates/app && ../../app/node_modules/.bin/tauri build --bundles "$bundles" "$@")
 }
 
 self_check() {
@@ -308,6 +309,119 @@ identity_system() {
     cargo test -p identity-manager --locked install::tests::installer_ -- --ignored --nocapture
 }
 
+# Runs msiexec with the arguments, logging to $1; prints the end of the log and fails when msiexec does.
+run_msiexec() {
+    local log=$1
+    shift
+    if ! MSYS2_ARG_CONV_EXCL='*' msiexec "$@" /qn /l*v "$(cygpath -w "$log")"; then
+        echo "msiexec $1 failed; the end of its log:" >&2
+        tr -d '\0' < "$log" | tail -n 60 >&2
+        exit 1
+    fi
+}
+
+# Prints "<type> <data>" of value $1 of the 64-bit key $2, or nothing when it is not there.
+policy_value() {
+    local name=$1 key=$2
+    MSYS2_ARG_CONV_EXCL='*' reg query "$key" /v "$name" /reg:64 2> /dev/null | tr -d '\r' \
+        | awk -v name="$name" '$1 == name {
+            type = $2
+            sub(/^[[:space:]]*[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+/, "")
+            print type, $0
+        }' || true
+}
+
+# $1 is a registry key and the other arguments are "<name> <type> <data>"; fails with a line for every value of the
+# key that differs.
+expect_policy_values() {
+    local key=$1 entry actual failed=0
+    shift
+    for entry in "$@"; do
+        actual=$(policy_value "${entry%% *}" "$key")
+        if [[ "${entry%% *} $actual" != "$entry" ]]; then
+            echo "$key value ${entry%% *}: expected '${entry#* }', found '${actual:-nothing}'" >&2
+            failed=1
+        fi
+    done
+    [[ "$failed" == 0 ]] || exit 1
+}
+
+# Starts the installed application in self-check mode and expects the policy line to name exactly $1.
+expect_installed_policy() {
+    local names=$1 binary output
+    binary=$(find "$(cygpath -u "$PROGRAMFILES")" -maxdepth 3 -name identity-manager.exe | head -n 1)
+    [[ -n "$binary" ]] || { echo "the installed application was not found" >&2; exit 1; }
+    output=$("$binary" --self-check)
+    echo "$output"
+    grep -Fxq "self-check policy managed: $names" <<< "$output" || { echo "the policy line does not name: $names" >&2; exit 1; }
+}
+
+# Expects the policy key to hold the MSI's values and the value it does not own, the installer's record to hold the
+# MSI's values only, and the application to report them all as managed.
+expect_installed_state() {
+    expect_policy_values "$policy_key" "${expected[@]}" "$foreign"
+    expect_policy_values "$record_key" "${expected[@]}"
+    [[ -z "$(policy_value "${foreign%% *}" "$record_key")" ]] || { echo "the installer recorded ${foreign%% *}" >&2; exit 1; }
+    expect_installed_policy "AutomaticUpdates, IlmUrl, SignInMethod, SignInProvider, StartAtLogin"
+}
+
+remove_installed_product() {
+    MSYS2_ARG_CONV_EXCL='*' reg delete "$policy_key" /f /reg:64 > /dev/null 2>&1 || true
+    for msi in "$first_msi" "$second_msi"; do
+        [[ ! -f "$msi" ]] || MSYS2_ARG_CONV_EXCL='*' msiexec /x "$(cygpath -w "$msi")" /qn > /dev/null 2>&1 || true
+    done
+    rm -rf "$scratch"
+}
+
+# Installs the bundled MSI with policy properties, upgrades it without properties and uninstalls it, checking the
+# policy values in the registry and the application's own view of them at each step. It installs software and
+# writes HKLM, so it runs on CI runners only. It expects `bundle` to have built the MSI.
+msi_system() {
+    [[ -n "${CI:-}" ]] || { echo "msi-system installs software and runs on CI runners only (CI is not set)" >&2; exit 1; }
+    case "$(uname -s)" in
+        MINGW* | MSYS* | CYGWIN*) ;;
+        *) echo "msi-system tests the Windows installer and runs on Windows only" >&2; exit 1 ;;
+    esac
+    local version next
+    # The key holds a value the installer does not own, which it must leave alone; the subkey is the installer's record.
+    policy_key='HKLM\SOFTWARE\Policies\OmniTrustILM\IdentityManager'
+    record_key="$policy_key\\Installer"
+    foreign="SignInProvider REG_SZ Corporate"
+    if MSYS2_ARG_CONV_EXCL='*' reg query "$policy_key" /reg:64 > /dev/null 2>&1; then refuse_existing "$policy_key"; fi
+    scratch=$(mktemp -d)
+    first_msi=$scratch/first.msi
+    second_msi=$scratch/second.msi
+    cp "$(ls target/release/bundle/msi/*.msi)" "$first_msi"
+    trap remove_installed_product EXIT
+    MSYS2_ARG_CONV_EXCL='*' reg add "$policy_key" /v SignInProvider /t REG_SZ /d Corporate /f /reg:64 > /dev/null
+
+    run_msiexec "$scratch/install.log" /i "$(cygpath -w "$first_msi")" \
+        ILMURL=https://ilm.example.com SIGNINMETHOD=oauth STARTATLOGIN=0 AUTOMATICUPDATES=0
+    expected=(
+        "IlmUrl REG_SZ https://ilm.example.com" "SignInMethod REG_SZ oauth"
+        "StartAtLogin REG_DWORD 0x0" "AutomaticUpdates REG_DWORD 0x0"
+    )
+    expect_installed_state
+
+    version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+    next="${version%.*}.$(( ${version##*.} + 1 ))"
+    bundle --config "{\"version\":\"$next\"}"
+    cp "$(ls target/release/bundle/msi/*_"${next}"_*.msi)" "$second_msi"
+    run_msiexec "$scratch/upgrade.log" /i "$(cygpath -w "$second_msi")"
+    expect_installed_state
+
+    run_msiexec "$scratch/uninstall.log" /x "$(cygpath -w "$second_msi")"
+    expect_policy_values "$policy_key" "$foreign"
+    local name
+    for name in IlmUrl SignInMethod StartAtLogin AutomaticUpdates; do
+        [[ -z "$(policy_value "$name" "$policy_key")" ]] || { echo "the uninstall left $name in $policy_key" >&2; exit 1; }
+    done
+    if MSYS2_ARG_CONV_EXCL='*' reg query "$record_key" /reg:64 > /dev/null 2>&1; then
+        echo "the uninstall left $record_key" >&2
+        exit 1
+    fi
+}
+
 case "${1:-}" in
     lint) lint ;;
     test) run_tests ;;
@@ -318,10 +432,11 @@ case "${1:-}" in
         coverage
         if browsers_available; then component_tests; fi
         ;;
-    bundle) bundle ;;
+    bundle) shift; bundle "$@" ;;
     self-check) self_check ;;
     policy-system) policy_system ;;
     keyring-system) keyring_system ;;
     identity-system) identity_system ;;
+    msi-system) msi_system ;;
     *) usage ;;
 esac

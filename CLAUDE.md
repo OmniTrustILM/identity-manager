@@ -24,3 +24,4 @@
   registry) and runs only in CI; do not run it locally.
 - `scripts/verify.sh keyring-system` writes to the real system protected storage (Keychain, Credential Manager,
   Secret Service) and runs only in CI; do not run it locally.
+- `scripts/verify.sh msi-system` installs the MSI and writes `HKLM`; it runs only in CI; do not run it locally.
