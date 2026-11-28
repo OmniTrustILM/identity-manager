@@ -124,6 +124,13 @@ The person's own choices are stored in `settings.json` in the application's conf
 
 Its keys are `startAtLogin` (boolean), `automaticUpdates` (boolean), `logLevel` (string), `ilmUrl` (string), `requireUnlock` (boolean), `lockAfterIdle` (number of minutes), `checkEvery` (number of minutes) and `warnDays` (number of days) and `automaticRenewal` (string). `SignInProvider`, `SignInMethod`, `KeyStorages`, `DefaultKeyStorage`, `CompletePrepared`, `RequestProfiles` and `SignInCertificateProfile` have no key here: only policy sets them. The file also keeps `signInCertificate`, the ILM address and the fingerprint of the certificate last used to sign in there; it is used only while that address is the ILM address.
 
+## Windows templates and installer properties
+
+`packaging/windows/` holds the Group Policy template for the Windows keys (`IdentityManager.admx` and
+`en-US/IdentityManager.adml`). The MSI sets `IlmUrl`, `SignInProvider`, `SignInMethod`, `StartAtLogin` and
+`AutomaticUpdates` from properties. Set a key with a property or with Group Policy, not both. See
+[deployment.md](deployment.md).
+
 ## Examples
 
 - macOS: [policy/identity-manager.mobileconfig](policy/identity-manager.mobileconfig), a device-scope configuration
