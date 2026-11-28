@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
-      publish: ${{ github.ref_type == 'tag' }}
+      publish: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -38,7 +38,6 @@ jobs:
     env:
       VERSION: ${{ needs.gate.outputs.version }}
       PUBLISH: ${{ needs.gate.outputs.publish }}
-      HAS_UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
       HAS_MSI_SIGNING: ${{ secrets.TRUSTED_SIGNING_TENANT_ID != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,19 +49,7 @@ jobs:
 
       - name: Bundle
         shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          if [[ "$HAS_UPDATER_KEY" == true ]]; then
-            bash scripts/verify.sh bundle --config '{"bundle":{"createUpdaterArtifacts":true}}'
-          elif [[ "$PUBLISH" == true ]]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set; a release needs the updater signature"
-            exit 1
-          else
-            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set; bundling without updater artifacts"
-            bash scripts/verify.sh bundle
-          fi
+        run: bash scripts/verify.sh bundle
 
       - name: Self-check the bundled build
         shell: bash
@@ -89,31 +76,17 @@ jobs:
         shell: bash
         run: echo "::warning::The Trusted Signing secrets are not set; the MSI is not code-signed"
 
-      - name: Sign the updater file again
-        if: runner.os == 'Windows' && env.HAS_MSI_SIGNING == 'true' && env.HAS_UPDATER_KEY == 'true'
-        shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: app/node_modules/.bin/tauri signer sign --app-version "$VERSION" target/release/bundle/msi/*.msi
-
       - name: Name the release files
         shell: bash
         run: |
           mkdir release-assets
           if [[ "$RUNNER_OS" == Windows ]]; then
-            bundle=target/release/bundle/msi
-            cp "$bundle"/*.msi "release-assets/Identity-Manager_${VERSION}_x64_en-US.msi"
-            if [[ "$HAS_UPDATER_KEY" == true ]]; then
-              cp "$bundle"/*.msi.sig "release-assets/Identity-Manager_${VERSION}_x64_en-US.msi.sig"
-            fi
+            cp target/release/bundle/msi/*.msi "release-assets/Identity-Manager_${VERSION}_x64_en-US.msi"
           else
             bundle=target/release/bundle
             cp "$bundle"/dmg/*.dmg "release-assets/Identity-Manager_${VERSION}_aarch64.dmg"
-            if [[ "$HAS_UPDATER_KEY" == true ]]; then
-              cp "$bundle/macos/Identity Manager.app.tar.gz" "release-assets/Identity-Manager_${VERSION}_aarch64.app.tar.gz"
-              cp "$bundle/macos/Identity Manager.app.tar.gz.sig" "release-assets/Identity-Manager_${VERSION}_aarch64.app.tar.gz.sig"
-            fi
+            COPYFILE_DISABLE=1 tar -czf "release-assets/Identity-Manager_${VERSION}_aarch64.app.tar.gz" \
+              -C "$bundle/macos" "Identity Manager.app"
           fi
 
       - name: Upload release files
@@ -160,6 +133,41 @@ jobs:
           pattern: release-*
           path: release-assets
           merge-multiple: true
+
+      - name: Install the updater signer
+        run: |
+          cli=$(jq -r '.packages["node_modules/@tauri-apps/cli"].version' app/package-lock.json)
+          npm install --prefix "$RUNNER_TEMP/signer" --ignore-scripts --no-audit --no-fund "@tauri-apps/cli@$cli"
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends minisign
+
+      - name: Sign the updater files
+        working-directory: release-assets
+        env:
+          HAS_UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [[ "$HAS_UPDATER_KEY" == true ]]; then
+            for file in "Identity-Manager_${VERSION}_aarch64.app.tar.gz" "Identity-Manager_${VERSION}_x64_en-US.msi"; do
+              "$RUNNER_TEMP/signer/node_modules/.bin/tauri" signer sign --app-version "$VERSION" "$file"
+            done
+          elif [[ "$PUBLISH" == true ]]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set; a release needs the updater signature"
+            exit 1
+          else
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set; the updater files are not signed"
+          fi
+
+      - name: Check the updater signatures against the public key
+        working-directory: release-assets
+        run: |
+          sed -n 's/^ *"pubkey": *"\(.*\)",*$/\1/p' ../crates/app/tauri.conf.json | base64 -d > "$RUNNER_TEMP/updater.pub"
+          for sig in *.sig; do
+            [[ -f "$sig" ]] || continue
+            base64 -d "$sig" > "$RUNNER_TEMP/updater.minisig"
+            minisign -V -p "$RUNNER_TEMP/updater.pub" -m "${sig%.sig}" -x "$RUNNER_TEMP/updater.minisig"
+          done
 
       - name: Write the update manifest
         working-directory: release-assets
